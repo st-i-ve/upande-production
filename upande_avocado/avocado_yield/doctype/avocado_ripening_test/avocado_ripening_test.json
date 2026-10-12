@@ -1,0 +1,164 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-08-10 09:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "size_class",
+  "harvest_date",
+  "column_break_head",
+  "last_observed",
+  "section_fruit",
+  "fruit_harvested",
+  "fruit_ripe",
+  "column_break_fruit",
+  "avg_days_to_ripen",
+  "pct_ripe",
+  "section_notes",
+  "source",
+  "notes"
+ ],
+ "fields": [
+  {
+   "default": "ART-.YYYY.-.####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "options": "ART-.YYYY.-.####"
+  },
+  {
+   "description": "The sheet keeps big and small fruit apart, because a small fruit off the same tree ripens on its own timetable.",
+   "fieldname": "size_class",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Size Class",
+   "options": "Big Size\nSmall Size",
+   "reqd": 1
+  },
+  {
+   "description": "The day the fruit came off the tree. The trial is dated from here, not from the day it softened.",
+   "fieldname": "harvest_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Harvest Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Last day of the shelf, whether or not anything ripened by it.",
+   "fieldname": "last_observed",
+   "fieldtype": "Date",
+   "label": "Last Observed"
+  },
+  {
+   "fieldname": "section_fruit",
+   "fieldtype": "Section Break",
+   "label": "The Shelf"
+  },
+  {
+   "fieldname": "fruit_harvested",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Fruit Harvested",
+   "reqd": 1
+  },
+  {
+   "description": "How many of them had gone soft by the last day observed.",
+   "fieldname": "fruit_ripe",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Fruit Ripe"
+  },
+  {
+   "fieldname": "column_break_fruit",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Blank while a trial is still running. A trial that ripened nothing has no average, and a zero here would read as fruit that softened the day it was cut.",
+   "fieldname": "avg_days_to_ripen",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Average Days to Ripen",
+   "precision": "1"
+  },
+  {
+   "description": "Share of the cut fruit that has ripened so far. A trial that is 2 of 20 is not evidence yet.",
+   "fieldname": "pct_ripe",
+   "fieldtype": "Percent",
+   "label": "% Ripe",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_notes",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "source",
+   "fieldtype": "Data",
+   "label": "Source",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-08-10 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Avocado Yield",
+ "name": "Avocado Ripening Test",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Agriculture Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Agriculture User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "harvest_date",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

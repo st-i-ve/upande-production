@@ -1,0 +1,251 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-08-05 07:10:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "orchard_block",
+  "count_date",
+  "column_break_head",
+  "counted_by",
+  "trees_counted",
+  "section_count",
+  "fruit_per_tree",
+  "column_break_count",
+  "avg_fruit_weight_g",
+  "column_break_count_2",
+  "drop_pct",
+  "section_result",
+  "est_kg_per_tree",
+  "weight_basis",
+  "column_break_result",
+  "est_block_kg",
+  "bearing_trees",
+  "section_location",
+  "gps_lat",
+  "column_break_gps",
+  "gps_lon",
+  "column_break_gps_2",
+  "photo",
+  "section_notes",
+  "notes",
+  "client_ref"
+ ],
+ "fields": [
+  {
+   "default": "AFC-.YYYY.-.####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "options": "AFC-.YYYY.-.####"
+  },
+  {
+   "description": "Block code from the orchard block master, e.g. LB-BONDENI 2. Typed rather than picked because this doctype also installs on sites with no avocado app.",
+   "fieldname": "orchard_block",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Block",
+   "reqd": 1
+  },
+  {
+   "default": "Today",
+   "fieldname": "count_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Count Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "counted_by",
+   "fieldtype": "Link",
+   "label": "Counted By",
+   "options": "Employee"
+  },
+  {
+   "default": "10",
+   "description": "Spread them across the block, not along one row. Ten trees is the working minimum.",
+   "fieldname": "trees_counted",
+   "fieldtype": "Int",
+   "label": "Trees Counted"
+  },
+  {
+   "fieldname": "section_count",
+   "fieldtype": "Section Break",
+   "label": "Count"
+  },
+  {
+   "description": "Average fruit on a tree, counted whole-tree. This is the measurement the whole forecast rests on.",
+   "fieldname": "fruit_per_tree",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Fruit per Tree",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_count",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Leave blank to use this block's latest Avocado Fruit Sample.",
+   "fieldname": "avg_fruit_weight_g",
+   "fieldtype": "Float",
+   "label": "Avg Fruit Weight (g)"
+  },
+  {
+   "fieldname": "column_break_count_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "10",
+   "description": "Fruit that drops, is stolen or is rejected between this count and the bin.",
+   "fieldname": "drop_pct",
+   "fieldtype": "Percent",
+   "label": "Expected Drop %"
+  },
+  {
+   "fieldname": "section_result",
+   "fieldtype": "Section Break",
+   "label": "Result"
+  },
+  {
+   "fieldname": "est_kg_per_tree",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Estimated kg / tree",
+   "read_only": 1
+  },
+  {
+   "fieldname": "weight_basis",
+   "fieldtype": "Data",
+   "label": "Fruit Weight Basis",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_result",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "est_block_kg",
+   "fieldtype": "Float",
+   "label": "Estimated Block Fruit (kg)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "bearing_trees",
+   "fieldtype": "Float",
+   "label": "Bearing Trees Used",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_location",
+   "fieldtype": "Section Break",
+   "label": "Location & Photo"
+  },
+  {
+   "description": "Captured automatically by the phone app when the count was saved. Blank for counts entered on the desk.",
+   "fieldname": "gps_lat",
+   "fieldtype": "Float",
+   "label": "GPS Latitude",
+   "precision": "6",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_gps",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Captured automatically by the phone app when the count was saved. Blank for counts entered on the desk.",
+   "fieldname": "gps_lon",
+   "fieldtype": "Float",
+   "label": "GPS Longitude",
+   "precision": "6",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_gps_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Optional evidence photo of the block or tree, from the phone app.",
+   "fieldname": "photo",
+   "fieldtype": "Attach Image",
+   "label": "Photo"
+  },
+  {
+   "fieldname": "section_notes",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  },
+  {
+   "description": "Set by the phone app so a retry after a timeout cannot enter the same count twice.",
+   "fieldname": "client_ref",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Client Ref",
+   "read_only": 1,
+   "unique": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-08-05 07:10:00.000000",
+ "modified_by": "Administrator",
+ "module": "Avocado Yield",
+ "name": "Avocado Fruit Count",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Agriculture Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Agriculture User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "count_date",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

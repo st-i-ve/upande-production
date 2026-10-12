@@ -1,0 +1,209 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Upande · Avocado · Picking Plan</title>
+</head>
+<body>
+{% include "templates/includes/avocado_shell.html" %}
+<div class="wrap">
+  <div class="pagehead">
+    <div>
+      <div class="eyebrow">Upande · Avocado</div>
+      <h1>Picking Plan</h1>
+      <p class="sub" id="sub">Working out the crew…</p>
+    </div>
+    <div class="ctl">
+      <div><label for="crew">Crew available</label><input id="crew" type="number" value="60" min="0"></div>
+      <div><label for="days">Picking days / week</label><input id="days" type="number" value="5" min="1" max="7"></div>
+      <div><label for="pay">Pay / picker-day</label><input id="pay" type="number" value="500" min="0"></div>
+    </div>
+  </div>
+
+  <div id="err"></div>
+  <div class="kpis" id="kpis"></div>
+
+  <div class="card">
+    <div class="card__head">
+      <h3 title="Each block's kilograms divided by that block's own picking rate. Bars over the crew line are the weeks worth a meeting.">Week by week</h3>
+    </div>
+    <div id="crewchart"></div>
+    <div class="scroll"><table id="weeks"></table></div>
+  </div>
+
+  <div class="card">
+    <div class="card__head">
+      <h3 title="Kilograms taken off divided by the pickers who took them. A property of the block, not of the picker — nobody is ranked on it.">Picking rate</h3>
+    </div>
+    <div class="scroll"><table id="rates"></table></div>
+  </div>
+
+  <div class="card">
+    <div class="card__head">
+      <h3 title="Fruit with no pick date, because the block has no dry matter sample. Sample these and they join the plan.">Cannot staff yet</h3>
+    </div>
+    <div id="unscheduled"></div>
+  </div>
+
+  <div class="card">
+    <div class="card__head">
+      <h3 title="Harvest records whose picker count cannot be one day's work. Left out of the rates rather than averaged in — one bad row would set the crew for a whole season.">Refused records</h3>
+    </div>
+    <div id="rejected"></div>
+  </div>
+</div>
+
+<style>
+.crewchart{display:block;width:100%;height:auto;max-width:100%}
+.crewchart .cc-b{fill:var(--acc-500)}
+.crewchart .cc-b.wk-over{fill:var(--neg)}
+.crewchart .cc-line{stroke:var(--ink-4);stroke-width:1.2;stroke-dasharray:5 4}
+.crewchart .cc-base{stroke:var(--hairline);stroke-width:1}
+.crewchart .cc-w{font:500 10px var(--mono);fill:var(--ink-mute);text-anchor:middle}
+.crewchart .cc-n{font:600 11px var(--mono);fill:var(--ink);text-anchor:middle}
+.crewchart .cc-c{font:500 10px var(--sans);fill:var(--ink-4)}
+</style>
+
+<script>
+var val = function (id) { return Number(document.getElementById(id).value) || 0; };
+
+// Pickers needed a week, against the crew you have. Bars above the dashed line are the
+// short weeks. Inline SVG: no library, and it survives a print to the supervisor.
+function crewChart(rows, crew) {
+  var W = 720, H = 168, top = 20, base = H - 24, L = 6, R = 62;
+  var peak = Math.max.apply(null, rows.map(function (r) { return r.pickers_needed; }).concat([1]));
+  // A crew far bigger than any week would flatten every bar, so the scale stops at
+  // twice the peak and the crew line pins to the top when it is above that.
+  var max = Math.min(Math.max(peak, crew), peak * 2);
+  var slot = (W - L - R) / rows.length, bw = Math.min(slot * 0.62, 54);
+  var y = function (v) { return base - (Math.min(v, max) / max) * (base - top); };
+  var bars = rows.map(function (r, i) {
+    var cx = L + slot * (i + 0.5), over = r.shortfall != null && r.shortfall > 0;
+    var ty = y(r.pickers_needed);
+    return '<rect class="cc-b' + (over ? " wk-over" : "") + '" x="' + (cx - bw / 2).toFixed(1) +
+      '" y="' + ty.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' +
+      Math.max(base - ty, 1).toFixed(1) + '" rx="3"><title>' + esc(r.week) + " · " +
+      fmt(r.pickers_needed) + " pickers</title></rect>" +
+      '<text class="cc-n" x="' + cx.toFixed(1) + '" y="' + (ty - 5).toFixed(1) + '">' +
+      fmt(r.pickers_needed) + "</text>" +
+      '<text class="cc-w" x="' + cx.toFixed(1) + '" y="' + (base + 15) + '">' +
+      esc(String(r.week).slice(5)) + "</text>";
+  }).join("");
+  return '<svg class="crewchart" viewBox="0 0 ' + W + " " + H + '" role="img">' +
+    '<line class="cc-base" x1="' + L + '" y1="' + base + '" x2="' + (W - R + 4) +
+    '" y2="' + base + '"/>' +
+    (crew > 0
+      ? '<line class="cc-line" x1="' + L + '" y1="' + y(crew).toFixed(1) + '" x2="' + (W - R + 4) +
+        '" y2="' + y(crew).toFixed(1) + '"/><text class="cc-c" x="' + (W - R + 8) + '" y="' +
+        (y(crew) + 3.5).toFixed(1) + '">crew ' + fmt(crew) + "</text>"
+      : "") + bars + "</svg>";
+}
+
+function render(d) {
+  var s = d.summary || {};
+  var rows = d.rows || [];
+  var crew = val("crew");
+  var pay = val("pay");
+
+  document.getElementById("sub").textContent = rows.length
+    ? s.weeks + " picking weeks · " + fmtT(s.total_kg) + " · " + fmt(s.total_crates) + " crates · " +
+      fmt(s.total_picker_days) + " picker-days"
+    : "Nothing to plan yet";
+
+  var kpis = [
+    { l: "Peak week", v: s.peak_pickers ? fmt(s.peak_pickers) + " pickers" : "—",
+      h: s.peak_week ? "week of " + s.peak_week : "no weeks scheduled" },
+    { l: "Weeks short", v: s.short_weeks == null ? "—" : String(s.short_weeks),
+      alert: s.short_weeks > 0,
+      h: s.short_weeks ? "first on " + s.first_short_week + ", worst is " +
+                         fmt(s.worst_shortfall) + " pickers short"
+                       : (crew ? "your " + fmt(crew) + " cover every week" : "set a crew size to check") },
+    { l: "Picker-days", v: s.total_picker_days ? fmt(s.total_picker_days) : "—",
+      h: "whole season, at " + d.days_per_week + " days a week" },
+    { l: "Wage bill", v: s.wage_cost ? "KES " + fmt(s.wage_cost) : "—",
+      h: pay ? "at " + fmt(pay) + " a picker-day" : "set a pay rate" },
+    { l: "Cannot staff", v: d.unscheduled_kg ? fmtT(d.unscheduled_kg) : "—",
+      h: d.unscheduled_kg ? (d.unscheduled || []).length + " block(s) with no pick date"
+                          : "every block has a pick date" }
+  ];
+  document.getElementById("kpis").innerHTML = kpis.map(function (k) {
+    return '<div class="kpi' + (k.alert ? " kpi--alert" : "") + '"><div class="kpi__label">' +
+      k.l + '</div><div class="kpi__value">' + k.v + '</div><div class="kpi__hint">' +
+      esc(k.h) + "</div></div>";
+  }).join("");
+
+  document.getElementById("crewchart").innerHTML = rows.length ? crewChart(rows, crew) : "";
+
+  document.getElementById("weeks").innerHTML = rows.length
+    ? "<thead><tr><th>Week</th><th class='num'>Kg</th><th class='num'>Crates</th>" +
+      "<th class='num'>Picker-days</th><th class='num'>Pickers</th><th>Vs crew</th>" +
+      "<th class='num'>Wages</th><th class='num'>Per kg</th><th>Blocks</th>" +
+      "</tr></thead><tbody>" +
+      rows.map(function (r) {
+        var over = r.shortfall != null && r.shortfall > 0;
+        return "<tr" + (over ? " class='short'" : "") + "><td class='b'>" + esc(r.week) +
+          "</td><td class='num'>" + fmt(r.kg) + "</td><td class='num'>" + fmt(r.crates) +
+          "</td><td class='num'>" + fmt(r.picker_days) + "</td><td class='num b'>" +
+          fmt(r.pickers_needed) + "</td><td>" +
+          (r.shortfall == null ? "<span class='muted'>set a crew size</span>"
+            : over ? "<span class='pill pill--short'>" + fmt(r.shortfall) + " short</span>"
+                   : "<span class='pill pill--idle'>" + fmt(-r.shortfall) + " spare</span>") +
+          "</td><td class='num'>" + (r.wage_cost ? fmt(r.wage_cost) : "—") +
+          "</td><td class='num'>" + (r.cost_per_kg ? r.cost_per_kg.toFixed(2) : "—") +
+          "</td><td class='muted'>" + esc((r.blocks || []).slice(0, 3).join(", ")) +
+          ((r.blocks || []).length > 3 ? " +" + (r.blocks.length - 3) : "") + "</td></tr>";
+      }).join("") + "</tbody>"
+    : "<tbody><tr><td class='empty'>No picking weeks yet — a week needs a forecast and a " +
+      "dry matter sample that dates its pick.</td></tr></tbody>";
+
+  var rt = d.rates || {};
+  var keys = Object.keys(rt).filter(function (k) { return k !== ""; }).sort();
+  var estate = rt[""] || {};
+  document.getElementById("rates").innerHTML =
+    "<thead><tr><th>Block</th><th class='num'>Kg / picker-day</th><th>Basis</th></tr></thead><tbody>" +
+    keys.map(function (k) {
+      return "<tr><td class='b'>" + esc(k) + "</td><td class='num b'>" +
+        fmt(rt[k].kg_per_picker_day) + "</td><td><span class='pill pill--measured'>" +
+        esc(rt[k].basis) + "</span></td></tr>";
+    }).join("") +
+    (estate.kg_per_picker_day
+      ? "<tr><td class='b'>Every other block</td><td class='num b'>" +
+        fmt(estate.kg_per_picker_day) + "</td><td><span class='pill pill--estate'>" +
+        esc(estate.basis) + "</span></td></tr>"
+      : "") + "</tbody>";
+
+  var un = d.unscheduled || [];
+  document.getElementById("unscheduled").innerHTML = un.length
+    ? "<div class='scroll'><table><thead><tr><th>Block</th><th class='num'>Forecast kg</th>" +
+      "<th>Why</th></tr></thead><tbody>" +
+      un.map(function (u) {
+        return "<tr><td class='b'>" + esc(u.block) + "</td><td class='num'>" +
+          fmt(u.expected_kg) + "</td><td class='muted'>" + esc(u.reason) + "</td></tr>";
+      }).join("") + "</tbody></table></div>"
+    : "<div class='empty'>Every forecast block has a pick date. Nothing waiting.</div>";
+
+  var rej = d.rejected_records || [];
+  document.getElementById("rejected").innerHTML = rej.length
+    ? "<div class='scroll'><table><thead><tr><th>Block</th><th>Date</th>" +
+      "<th class='num'>Implied kg / picker-day</th><th>Why</th></tr></thead><tbody>" +
+      rej.map(function (r) {
+        return "<tr><td class='b'>" + esc(r.block) + "</td><td>" + esc(r.date) +
+          "</td><td class='num'>" + fmt(r.implied_rate) + "</td><td class='muted'>" +
+          esc(r.why) + "</td></tr>";
+      }).join("") + "</tbody></table></div>"
+    : "<div class='empty'>Every harvest record reads like a real day's picking.</div>";
+}
+
+function load() {
+  api("upande_avocado.api.avocadolabour.get_labour_plan", { crew_available: val("crew"), days_per_week: val("days"),
+                           pay_per_day: val("pay") })
+    .then(render)
+    .catch(function (e) {
+      document.getElementById("err").innerHTML = "<div class='err'>" + esc(e.message) + "</div>";
+      document.getElementById("sub").textContent = "Could not load";
+    });
+}
+
+["crew", "days", "pay"].forEach(function (id) {
+  document.getElementById(id).addEventListener("change", load);
+});
+load();
+</script>
+</body></html>

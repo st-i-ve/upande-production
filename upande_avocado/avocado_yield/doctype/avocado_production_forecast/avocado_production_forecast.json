@@ -1,0 +1,177 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "naming_series:",
+ "creation": "2026-09-17 04:50:00.000000",
+ "description": "A person's own estimate for one block's coming crop, kept beside the system's calculated forecast rather than instead of it. Never overwritten by the calculation — that is the whole point of a manual figure.",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "orchard_block",
+  "season",
+  "column_break_head",
+  "crop",
+  "entry_date",
+  "section_estimate",
+  "expected_kg",
+  "column_break_estimate",
+  "price_per_kg",
+  "section_who",
+  "entered_by",
+  "column_break_who",
+  "notes",
+  "client_ref"
+ ],
+ "fields": [
+  {
+   "default": "APF-.YYYY.-.####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "options": "APF-.YYYY.-.####"
+  },
+  {
+   "description": "Block code from the orchard block master, e.g. LB-BONDENI 2.",
+   "fieldname": "orchard_block",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Block",
+   "reqd": 1
+  },
+  {
+   "default": "",
+   "description": "The season this estimate is for, e.g. 2026.",
+   "fieldname": "season",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Season"
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Whole Season",
+   "fieldname": "crop",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Crop",
+   "options": "Whole Season\nEarly\nLate"
+  },
+  {
+   "default": "Today",
+   "fieldname": "entry_date",
+   "fieldtype": "Date",
+   "label": "Entry Date"
+  },
+  {
+   "fieldname": "section_estimate",
+   "fieldtype": "Section Break",
+   "label": "Estimate"
+  },
+  {
+   "description": "What this block is expected to give, in the field person's own judgement — not read off the yield curve.",
+   "fieldname": "expected_kg",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Forecast (kg)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_estimate",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Optional. Leave blank to use the price typed on the production page.",
+   "fieldname": "price_per_kg",
+   "fieldtype": "Float",
+   "label": "Price / kg (KES)"
+  },
+  {
+   "fieldname": "section_who",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "entered_by",
+   "fieldtype": "Link",
+   "label": "Entered By",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "column_break_who",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  },
+  {
+   "description": "Set by the phone app so a retry after a timeout cannot enter the same forecast twice.",
+   "fieldname": "client_ref",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Client Ref",
+   "read_only": 1,
+   "unique": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-17 04:50:00.000000",
+ "modified_by": "Administrator",
+ "module": "Avocado Yield",
+ "name": "Avocado Production Forecast",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1,
+   "import": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Agriculture Manager",
+   "share": 1,
+   "write": 1,
+   "import": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Agriculture User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "orchard_block",
+ "track_changes": 1
+}

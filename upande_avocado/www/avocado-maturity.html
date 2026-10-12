@@ -1,0 +1,221 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Upande · Avocado · Dry Matter Test</title>
+</head>
+<body>
+{% include "templates/includes/avocado_shell.html" %}
+<div class="wrap">
+  <div class="pagehead">
+    <div>
+      <div class="eyebrow">Upande · Avocado</div>
+      <h1>Dry Matter Test</h1>
+      <p class="sub" id="sub">Loading…</p>
+    </div>
+  </div>
+
+  <div id="err"></div>
+
+  <div class="card">
+    <div class="card__head">
+      <h3 title="Name the block the fruit came off. A block reading dates that block's pick; a planting-area reading is inherited by every block planted that year, so only use it when the test really was run for a whole area.">Where and when</h3>
+    </div>
+    <div class="ctl" id="where"></div>
+  </div>
+
+  <div class="card">
+    <div class="card__head">
+      <h3 title="Enter the moisture the lab reported, as 0.77 or as 77 — either reads the same. Dry matter is worked out for you. A size you did not dry is left blank, not zero.">Moisture by fruit size</h3>
+    </div>
+    <div class="scroll"><table id="sizes"></table></div>
+    <div id="verdict"></div>
+    <div style="margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button id="save" class="btn">Save this test</button>
+      <span id="saving" class="muted"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card__head">
+      <h3 title="One row a visit. Two visits a fortnight apart let the forecast measure how fast this block is gaining, instead of assuming the estate's usual rate.">Earlier tests</h3>
+    </div>
+    <div id="recent"></div>
+  </div>
+</div>
+
+<style>
+.btn{font:600 12px var(--sans);letter-spacing:.3px;padding:10px 18px;border-radius:9px;
+  border:none;background:var(--acc-600);color:#fff;cursor:pointer}
+.btn:disabled{background:var(--ink-faint);cursor:default}
+.dmcell{font-family:var(--mono);font-size:13px;font-weight:600}
+.win-in{color:var(--pos)} .win-under{color:var(--warn)} .win-over{color:var(--neg)}
+.verdict{margin-top:14px;padding:12px 16px;border-radius:10px;font:500 13px var(--meta)}
+.verdict--in{background:var(--acc-100);color:var(--acc-700)}
+.verdict--under{background:#fbf0dc;color:#8a5b12}
+.verdict--over{background:#fbe6e5;color:#8e2320}
+.mo-input{width:92px;padding:6px 9px;border:1px solid var(--hairline);border-radius:7px;
+  background:var(--surface-2);font:500 13px var(--mono);color:var(--ink);text-align:right}
+</style>
+
+<script>
+var CSRF = "{{ csrf_token }}";
+var FORM = null, VALUES = {};
+
+function mapi(fn, args) {
+  return api("upande_avocado.api.avocadomaturity." + fn, args);
+}
+
+// Same rule the server uses: a fraction, a percentage of moisture, or a figure that
+// is already dry matter. Kept in step with avocadomaturity._dry_matter.
+function dryMatter(v) {
+  var n = Number(v);
+  if (!n || n <= 0) return null;
+  if (n <= 1) return Math.round((1 - n) * 1000) / 10;
+  if (n >= 50) return Math.round((100 - n) * 10) / 10;
+  return Math.round(n * 10) / 10;
+}
+
+function windowClass(dm) {
+  if (dm == null) return "";
+  if (dm >= FORM.max_pct) return "win-over";
+  return dm >= FORM.min_pct ? "win-in" : "win-under";
+}
+
+function drawWhere() {
+  var opts = FORM.blocks.map(function (b) {
+    return '<option value="' + esc(b.block) + '">' + esc(b.block) +
+      (b.farm ? " · " + esc(b.farm) : "") + "</option>";
+  }).join("");
+  document.getElementById("where").innerHTML =
+    '<div><label for="block">Block</label><select id="block" class="mo-input" style="width:210px;text-align:left">' +
+      '<option value="">— none, an area test —</option>' + opts + "</select></div>" +
+    '<div><label for="area">Planting area</label><input id="area" class="mo-input" ' +
+      'style="width:130px;text-align:left" placeholder="23 Ha" list="areas"></div>' +
+    '<datalist id="areas">' + FORM.areas.map(function (a) {
+      return '<option value="' + esc(a) + '">'; }).join("") + "</datalist>" +
+    '<div><label for="week">Week number</label><input id="week" class="mo-input" type="number" ' +
+      'min="1" max="53" value="' + FORM.week_number + '"></div>' +
+    '<div><label for="date">Test date</label><input id="date" class="mo-input" type="date" ' +
+      'style="width:150px" value="' + FORM.today + '"></div>';
+  document.getElementById("block").addEventListener("change", loadRecent);
+}
+
+function drawSizes() {
+  document.getElementById("sizes").innerHTML =
+    "<thead><tr><th>Count</th><th>Fruit size</th><th class='num'>Moisture</th>" +
+    "<th class='num'>Dry matter</th><th title='The export window runs from " + FORM.min_pct +
+    "% to " + FORM.max_pct + "% dry matter'>Window</th></tr></thead><tbody>" +
+    FORM.sizes.map(function (s) {
+      return "<tr><td class='b'>" + s.count + "s</td><td class='muted'>" + s.min_g + "–" +
+        s.max_g + " g</td><td class='num'><input class='mo-input' data-size='" + s.count +
+        "' inputmode='decimal' placeholder='0.77'></td><td class='num dmcell' id='dm" +
+        s.count + "'>—</td><td id='win" + s.count + "' class='muted'>—</td></tr>";
+    }).join("") + "</tbody>";
+
+  Array.prototype.forEach.call(document.querySelectorAll("[data-size]"), function (input) {
+    input.addEventListener("input", function () {
+      VALUES[input.getAttribute("data-size")] = input.value;
+      recalc();
+    });
+  });
+}
+
+function recalc() {
+  var dms = [];
+  FORM.sizes.forEach(function (s) {
+    var dm = dryMatter(VALUES[s.count]);
+    var cell = document.getElementById("dm" + s.count);
+    var win = document.getElementById("win" + s.count);
+    if (dm == null) { cell.textContent = "—"; cell.className = "num dmcell";
+                      win.textContent = "—"; win.className = "muted"; return; }
+    dms.push(dm);
+    cell.textContent = dm.toFixed(1) + "%";
+    cell.className = "num dmcell " + windowClass(dm);
+    win.className = windowClass(dm);
+    win.textContent = dm >= FORM.max_pct ? "over window · pick now"
+      : dm >= FORM.min_pct ? "in window"
+      : "short by " + (FORM.min_pct - dm).toFixed(1) + " points";
+  });
+
+  var v = document.getElementById("verdict");
+  if (!dms.length) {
+    v.innerHTML = "<div class='verdict verdict--under'>Nothing entered · export floor " +
+      FORM.min_pct + "%</div>";
+    return;
+  }
+  var avg = dms.reduce(function (t, n) { return t + n; }, 0) / dms.length;
+  var ready = dms.filter(function (d) { return d >= FORM.min_pct; }).length;
+  var cls = avg >= FORM.max_pct ? "over" : avg >= FORM.min_pct ? "in" : "under";
+  v.innerHTML = "<div class='verdict verdict--" + cls + "'>Average " + avg.toFixed(1) + "% · " +
+    ready + " of " + dms.length + " sizes ≥ " + FORM.min_pct + "% · " +
+    (cls === "in" ? "ready to pick" : cls === "over" ? "past the top of the window, pick now"
+      : "not pickable for export yet") + "</div>";
+}
+
+function save() {
+  var btn = document.getElementById("save");
+  var readings = FORM.sizes.map(function (s) {
+    return { count_size: s.count, moisture: VALUES[s.count] };
+  }).filter(function (r) { return r.moisture !== undefined && r.moisture !== ""; });
+
+  if (!readings.length) {
+    document.getElementById("saving").textContent = "Enter at least one moisture reading first.";
+    return;
+  }
+  btn.disabled = true;
+  document.getElementById("saving").textContent = "Saving…";
+  mapi("save_readings", {
+    readings: JSON.stringify(readings),
+    orchard_block: document.getElementById("block").value,
+    planting_area: document.getElementById("area").value,
+    week_number: document.getElementById("week").value,
+    test_date: document.getElementById("date").value
+  }).then(function (r) {
+    document.getElementById("saving").textContent =
+      r.saved.length + " reading(s) saved · " + r.verdict;
+    VALUES = {};
+    Array.prototype.forEach.call(document.querySelectorAll("[data-size]"), function (i) { i.value = ""; });
+    recalc();
+    btn.disabled = false;
+    loadRecent();
+  }).catch(function (e) {
+    document.getElementById("saving").textContent = "";
+    document.getElementById("err").innerHTML = "<div class='err'>" + esc(e.message) + "</div>";
+    btn.disabled = false;
+  });
+}
+
+function loadRecent() {
+  var block = document.getElementById("block") ? document.getElementById("block").value : "";
+  mapi("recent", { orchard_block: block }).then(function (d) {
+    var v = d.visits || [];
+    document.getElementById("recent").innerHTML = v.length
+      ? "<div class='scroll'><table><thead><tr><th>Date</th><th>Week</th><th>Where</th>" +
+        "<th class='num'>Sizes</th><th class='num'>Avg DM</th>" +
+        "<th>Verdict</th></tr></thead><tbody>" +
+        v.map(function (x) {
+          return "<tr><td class='b'>" + esc(x.test_date) + "</td><td class='num'>" +
+            (x.week_number || "—") + "</td><td>" + esc(x.where) +
+            (x.measured_on === "area" ? " <span class='pill pill--typed'>area, not a block</span>" : "") +
+            "</td><td class='num'>" + x.sizes.length + "</td><td class='num b'>" +
+            x.average_dry_matter.toFixed(1) + "%</td><td>" +
+            (x.ready ? "<span class='pill pill--measured'>ready</span>"
+                     : "<span class='pill pill--warn'>not yet</span>") + "</td></tr>";
+        }).join("") + "</tbody></table></div>"
+      : "<div class='empty'>" + (block ? "No test recorded for " + esc(block) + " yet."
+          : "No tests recorded yet — save one above.") + "</div>";
+  }).catch(function () {});
+}
+
+mapi("get_form", {}).then(function (f) {
+  FORM = f;
+  document.getElementById("sub").textContent =
+    "Week " + f.week_number + " · export window " + f.min_pct + "–" + f.max_pct + "% dry matter";
+  drawWhere();
+  drawSizes();
+  recalc();
+  loadRecent();
+  document.getElementById("save").addEventListener("click", save);
+}).catch(function (e) {
+  document.getElementById("err").innerHTML = "<div class='err'>" + esc(e.message) + "</div>";
+});
+</script>
+</body></html>

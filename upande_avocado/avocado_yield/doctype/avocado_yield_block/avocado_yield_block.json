@@ -1,0 +1,255 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:block_code",
+ "creation": "2026-08-05 16:10:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "block_code",
+  "farm",
+  "column_break_head",
+  "variety",
+  "status",
+  "section_area",
+  "area_ha",
+  "spacing",
+  "trees_per_ha",
+  "column_break_trees",
+  "total_trees",
+  "live_trees",
+  "column_break_trees_2",
+  "sick_trees",
+  "to_infill",
+  "bearing_trees",
+  "section_planting",
+  "planting_year",
+  "column_break_planting",
+  "planting_date",
+  "section_map",
+  "centroid_lat",
+  "column_break_map",
+  "centroid_lon",
+  "column_break_map_2",
+  "mapped_area_m2",
+  "geojson",
+  "section_notes",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "block_code",
+   "fieldtype": "Data",
+   "label": "Block Code",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "Must match the block code used in the harvest sheets, e.g. LK09, LB-BONDENI 2, SB4."
+  },
+  {
+   "fieldname": "farm",
+   "fieldtype": "Data",
+   "label": "Farm",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break",
+   "label": null
+  },
+  {
+   "fieldname": "variety",
+   "fieldtype": "Data",
+   "label": "Variety",
+   "default": "Hass"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Active\nFallow\nReplanting\nDecommissioned",
+   "default": "Active"
+  },
+  {
+   "fieldname": "section_area",
+   "fieldtype": "Section Break",
+   "label": "Area & Trees"
+  },
+  {
+   "fieldname": "area_ha",
+   "fieldtype": "Float",
+   "label": "Area (ha)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "spacing",
+   "fieldtype": "Data",
+   "label": "Spacing",
+   "description": "e.g. 8m x 5m"
+  },
+  {
+   "fieldname": "trees_per_ha",
+   "fieldtype": "Int",
+   "label": "Trees per ha",
+   "default": "250"
+  },
+  {
+   "fieldname": "column_break_trees",
+   "fieldtype": "Column Break",
+   "label": null
+  },
+  {
+   "fieldname": "total_trees",
+   "fieldtype": "Int",
+   "label": "Trees Planted",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "live_trees",
+   "fieldtype": "Int",
+   "label": "Live Trees"
+  },
+  {
+   "fieldname": "column_break_trees_2",
+   "fieldtype": "Column Break",
+   "label": null
+  },
+  {
+   "fieldname": "sick_trees",
+   "fieldtype": "Int",
+   "label": "Sick Trees"
+  },
+  {
+   "fieldname": "to_infill",
+   "fieldtype": "Int",
+   "label": "Gaps to Infill"
+  },
+  {
+   "fieldname": "bearing_trees",
+   "fieldtype": "Float",
+   "label": "Bearing Trees",
+   "in_list_view": 1,
+   "description": "Trees actually in crop. The forecast is sized on these, never on trees planted."
+  },
+  {
+   "fieldname": "section_planting",
+   "fieldtype": "Section Break",
+   "label": "Planting"
+  },
+  {
+   "fieldname": "planting_year",
+   "fieldtype": "Int",
+   "label": "Planting Year"
+  },
+  {
+   "fieldname": "column_break_planting",
+   "fieldtype": "Column Break",
+   "label": null
+  },
+  {
+   "fieldname": "planting_date",
+   "fieldtype": "Date",
+   "label": "Planting Date"
+  },
+  {
+   "fieldname": "section_map",
+   "fieldtype": "Section Break",
+   "label": "Boundary"
+  },
+  {
+   "fieldname": "centroid_lat",
+   "fieldtype": "Float",
+   "label": "Centre Latitude",
+   "read_only": 1,
+   "precision": "8"
+  },
+  {
+   "fieldname": "column_break_map",
+   "fieldtype": "Column Break",
+   "label": null
+  },
+  {
+   "fieldname": "centroid_lon",
+   "fieldtype": "Float",
+   "label": "Centre Longitude",
+   "read_only": 1,
+   "precision": "8"
+  },
+  {
+   "fieldname": "column_break_map_2",
+   "fieldtype": "Column Break",
+   "label": null
+  },
+  {
+   "fieldname": "mapped_area_m2",
+   "fieldtype": "Float",
+   "label": "Mapped Area (m\u00b2)",
+   "read_only": 1,
+   "description": "From the surveyed boundary, not from the area typed on this block."
+  },
+  {
+   "fieldname": "geojson",
+   "fieldtype": "Long Text",
+   "label": "Boundary GeoJSON",
+   "description": "One Polygon per block, as surveyed. Drives the orchard map."
+  },
+  {
+   "fieldname": "section_notes",
+   "fieldtype": "Section Break",
+   "label": null
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-08-05 16:10:00.000000",
+ "modified_by": "Administrator",
+ "module": "Avocado Yield",
+ "name": "Avocado Yield Block",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1,
+   "import": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Agriculture Manager",
+   "share": 1,
+   "write": 1,
+   "import": 1
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "role": "Agriculture User"
+  }
+ ],
+ "sort_field": "block_code",
+ "sort_order": "ASC",
+ "states": [],
+ "title_field": "block_code",
+ "track_changes": 1
+}

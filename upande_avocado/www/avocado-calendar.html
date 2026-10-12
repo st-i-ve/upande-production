@@ -1,0 +1,523 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Upande · Avocado · Harvest Calendar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0a0a0a; --ink-2:#2a2a26; --ink-3:#3a3a34; --ink-4:#5a5a52;
+  --ink-mute:#8a8780; --bg:#f4f3ef; --surface-2:#ffffff;
+  --hairline:rgba(10,10,10,0.06);
+  --shadow-card:0 1px 0 rgba(10,10,10,0.04), 0 8px 32px -16px rgba(10,10,10,0.10);
+  --acc-100:#eaf0dc; --acc-300:#b6c98a; --acc-500:#6f8f3f; --acc-700:#33471a;
+  --warn:#d9962e; --neg:#c4302b; --pos:#3f8f4f;
+  --meta:'DM Sans',-apple-system,'Segoe UI',sans-serif;
+  --sans:'Poppins',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --display:'Fraunces',Georgia,serif;
+  --mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--sans);font-size:14px;color:var(--ink-3);background:var(--bg);
+  line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1240px;margin:0 auto;padding:34px 26px 80px}
+.pagehead{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;
+  padding-bottom:20px;border-bottom:1px solid var(--hairline);margin-bottom:24px}
+.eyebrow{font:500 9.5px var(--sans);text-transform:uppercase;letter-spacing:2px;color:var(--ink-mute)}
+h1{margin:4px 0 0;font:600 28px/1.05 var(--display);color:var(--ink);letter-spacing:-.6px}
+.sub{margin:6px 0 0;font:400 12.5px var(--meta);color:var(--ink-mute)}
+.ctl{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap}
+.ctl div{display:flex;flex-direction:column;gap:4px}
+.ctl label{font:500 9.5px var(--sans);text-transform:uppercase;letter-spacing:1.2px;color:var(--ink-mute)}
+.ctl select{min-width:132px;padding:7px 10px;border:1px solid var(--hairline);border-radius:8px;
+  background:var(--surface-2);font:500 13px var(--meta);color:var(--ink)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:24px}
+.kpi{background:var(--surface-2);border-radius:14px;padding:18px 20px;box-shadow:var(--shadow-card)}
+.kpi__label{font:500 10px var(--sans);text-transform:uppercase;letter-spacing:1.6px;color:var(--ink-mute)}
+.kpi__value{font:600 30px/1 var(--sans);color:var(--ink);letter-spacing:-1px;margin-top:10px;
+  font-feature-settings:"tnum"}
+.kpi__hint{font:400 11.5px var(--meta);color:var(--ink-mute);margin-top:7px}
+.kpi--alert .kpi__value{color:var(--neg)}
+.card{background:var(--surface-2);border-radius:14px;box-shadow:var(--shadow-card);
+  padding:20px 22px;margin-bottom:20px}
+.card__head{display:flex;align-items:baseline;justify-content:space-between;gap:14px;margin-bottom:14px}
+.card__head h3{margin:0;font:600 14.5px var(--sans);color:var(--ink);letter-spacing:-.2px}
+.card__head p{margin:0;font:400 11.5px var(--meta);color:var(--ink-mute);max-width:64ch}
+table{width:100%;border-collapse:collapse;font-feature-settings:"tnum"}
+th{text-align:left;font:500 8.5px var(--sans);letter-spacing:1px;text-transform:uppercase;
+  color:var(--ink-mute);padding:0 10px 9px;white-space:nowrap}
+td{padding:9px 10px;border-top:1px solid var(--hairline);font:400 13px var(--meta);color:var(--ink-2)}
+td.num,th.num{text-align:right;font-family:var(--mono);font-size:12.5px}
+td.b{font-weight:600;color:var(--ink)}
+.scroll{overflow-x:auto}
+.pill{display:inline-block;font:600 8.5px var(--sans);letter-spacing:.5px;text-transform:uppercase;
+  padding:3px 8px;border-radius:99px;white-space:nowrap}
+.pill--measured{background:var(--acc-100);color:var(--acc-700)}
+.pill--estate{background:#f0efe9;color:var(--ink-4)}
+.pill--short{background:#fbe6e5;color:#8e2320}
+.pill--idle{background:#eef2f7;color:#3c5a78}
+.pill--wait{background:#fdf1de;color:#8a5b12}
+.muted{color:var(--ink-mute)}
+.empty{padding:22px;font:400 13px var(--meta);color:var(--ink-mute);text-align:center}
+.err{background:#fbe6e5;color:#8e2320;padding:14px 18px;border-radius:12px;font:400 13px var(--meta);
+  margin-bottom:18px}
+
+/* ---- the grid ---- */
+.gridwrap{overflow-x:auto;max-width:100%}
+table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
+table.grid th.wk{padding:0 6px 8px;text-align:center;min-width:56px}
+table.grid th.wk span{display:block;font:400 8.5px var(--meta);letter-spacing:0;
+  text-transform:none;color:var(--ink-mute)}
+table.grid th.wk.peak{color:var(--acc-700)}
+table.grid th.blk,table.grid td.blk{position:sticky;left:0;background:var(--surface-2);z-index:2;
+  min-width:214px;max-width:260px;text-align:left;border-right:1px solid var(--hairline)}
+table.grid th.blk{z-index:3}
+table.grid td{border-top:1px solid var(--hairline);padding:0}
+table.grid td.c{text-align:center;font:500 11px var(--mono);color:var(--ink-2);height:26px;
+  min-width:52px;border-right:1px solid var(--hairline)}
+table.grid td.tot{text-align:right;font:600 12px var(--mono);color:var(--ink);padding:0 10px;
+  background:#fbfaf7;white-space:nowrap}
+.blkname{display:block;font:600 12px var(--sans);color:var(--ink);padding:5px 10px 0;line-height:1.25}
+.blkmeta{display:block;font:400 10px var(--meta);color:var(--ink-mute);padding:0 10px}
+.blktags{display:block;padding:2px 10px 5px}
+.blktags .pill{margin-right:4px}
+.s1{background:#f4f7ea}.s2{background:#e6eecd}.s3{background:#cbdca4}
+.s4{background:#a5c274;color:#22300f}.s5{background:#6f8f3f;color:#fff}
+td.lock{background:repeating-linear-gradient(45deg,#f6f5f0,#f6f5f0 4px,#e9e7de 4px,#e9e7de 8px);
+  color:var(--ink-mute);font-size:10px}
+td.nos{background:radial-gradient(#e4e2da 1px,transparent 1.2px);background-size:7px 7px;
+  color:var(--ink-mute);font-size:10px}
+tr.rowlock td.blk{background:#fffdf8}
+tr.rownos td.blk{background:#f8f8f6}
+tfoot td{border-top:2px solid var(--hairline);font:600 11.5px var(--mono);color:var(--ink);
+  text-align:center;padding:8px 4px;background:#fbfaf7}
+tfoot td.blk{text-align:left;font:600 11px var(--sans);text-transform:uppercase;letter-spacing:1px;
+  color:var(--ink-mute);padding:8px 10px}
+tfoot td.peak{background:var(--acc-100);color:var(--acc-700)}
+.legend{display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin-top:14px;
+  font:400 11px var(--meta);color:var(--ink-mute)}
+.legend span.sw{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:-3px;
+  margin-right:5px}
+.legend span.hatch{background:repeating-linear-gradient(45deg,#f6f5f0,#f6f5f0 4px,#e9e7de 4px,#e9e7de 8px)}
+.legend span.dots{background:radial-gradient(#e4e2da 1px,transparent 1.2px);background-size:7px 7px}
+.ramp{display:inline-flex;gap:2px;vertical-align:-3px;margin-right:5px}
+.ramp i{width:12px;height:14px;border-radius:2px;display:inline-block}
+
+@media print{
+  .ctl{display:none}
+  body{background:#fff}
+  .wrap{max-width:none;padding:0}
+  .card{box-shadow:none;border:1px solid var(--hairline);page-break-inside:avoid;margin-bottom:10px}
+  .gridwrap{overflow:visible}
+  table.grid td.c,table.grid th.wk{min-width:0}
+  table.grid td.c{height:20px;font-size:8pt}
+  .blkname{font-size:8.5pt}.blkmeta,.blktags .pill{font-size:6.5pt}
+  table.grid th.blk,table.grid td.blk{min-width:150px}
+  .kpi{box-shadow:none;border:1px solid var(--hairline);padding:10px 12px}
+  .kpi__value{font-size:18px;margin-top:4px}
+  #nodatecard,#youngcard{page-break-before:always}
+  @page{size:A4 landscape;margin:10mm}
+}
+</style></head>
+<body>
+<!-- SHELL GOES HERE: {% include "templates/includes/avocado_shell.html" %} — sibling agent's sidebar include, drop it in on this line and wrap .wrap in whatever the shell expects. -->
+<div class="wrap">
+  <div class="pagehead">
+    <div>
+      <div class="eyebrow">Upande · Avocado</div>
+      <h1>Harvest Calendar</h1>
+      <p class="sub" id="sub">Laying out the weeks…</p>
+    </div>
+    <div class="ctl">
+      <div><label for="farm">Farm</label><select id="farm"></select></div>
+      <div><label for="year">Planting year</label><select id="year"></select></div>
+      <div><label for="metric">Cells show</label><select id="metric">
+        <option value="kg">Tonnes</option><option value="crates">Crates (18 kg)</option>
+      </select></div>
+    </div>
+  </div>
+
+  <div id="err"></div>
+  <div class="kpis" id="kpis"></div>
+
+  <div class="card">
+    <div class="card__head">
+      <h3 title="One row a block, one column a week starting Monday. Hatched weeks are locked: that block is under 24% dry matter and picking it would cost the export. Dotted rows have never been sampled — a missing measurement, not a verdict.">Which block, which week</h3>
+    </div>
+    <div class="gridwrap"><table class="grid" id="grid"></table></div>
+    <div class="legend" id="legend"></div>
+  </div>
+
+  <div class="card" id="nodatecard">
+    <div class="card__head">
+      <h3 title="Forecast fruit that cannot be placed in a week, because the block has no dry matter reading to date it. Sample these and they join the calendar.">No pick date</h3>
+    </div>
+    <div id="nodate"></div>
+  </div>
+
+  <div class="card" id="youngcard">
+    <div class="card__head">
+      <h3 title="No kilograms this season — too young to bear, or no planting year so no yield curve applies.">No forecast</h3>
+    </div>
+    <div id="young"></div>
+  </div>
+</div>
+
+<script>
+var CSRF = "{{ csrf_token }}";
+
+function api(fn, args) {
+  return fetch("/api/method/upande_avocado.api.avocadoapi." + fn, {
+    method: "POST", credentials: "same-origin",
+    headers: { "Content-Type": "application/json", "Accept": "application/json",
+               "X-Frappe-CSRF-Token": CSRF },
+    body: JSON.stringify(args || {})
+  }).then(function (r) {
+    return r.json().then(function (b) {
+      if (!r.ok) throw new Error((b && (b.exception || b._error_message)) || ("HTTP " + r.status));
+      return b.message;
+    });
+  });
+}
+
+var fmt = function (n) { return (n || 0).toLocaleString("en-KE", { maximumFractionDigits: 0 }); };
+var fmtT = function (kg) {
+  return kg >= 1000 ? (kg / 1000).toFixed(kg >= 10000 ? 0 : 1) + " t" : fmt(kg) + " kg";
+};
+var esc = function (s) {
+  return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+  });
+};
+var val = function (id) { var e = document.getElementById(id); return e ? (e.value || "") : ""; };
+
+var KG_PER_CRATE = 18;
+var MIN_DM = 24;
+var DATA = null;
+
+/* --- dates: everything is a Monday, held as YYYY-MM-DD --- */
+var DAY = 86400000;
+function parseDate(s) { var p = String(s).split("-"); return new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])); }
+function addDays(d, n) { return new Date(d.getTime() + n * DAY); }
+function iso(d) { return d.toISOString().slice(0, 10); }
+function mondayOf(d) { return addDays(d, -((d.getUTCDay() + 6) % 7)); }
+function isoWeek(d) {
+  var t = addDays(d, 3 - ((d.getUTCDay() + 6) % 7));           // Thursday of this week
+  var jan4 = new Date(Date.UTC(t.getUTCFullYear(), 0, 4));
+  var firstThu = addDays(jan4, 3 - ((jan4.getUTCDay() + 6) % 7));
+  return 1 + Math.round((t - firstThu) / (7 * DAY));
+}
+function dayMonth(d) {
+  return d.getUTCDate() + " " +
+    ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getUTCMonth()];
+}
+
+/* Triangular pick: light first week, heaviest in the middle, tailing off. Same shape
+   the API uses, so the column totals here are the ones the packhouse was told. */
+function weights(pickWeeks) {
+  var mid = (pickWeeks - 1) / 2, w = [], i;
+  for (i = 0; i < pickWeeks; i++) w.push(Math.max(1 - Math.abs(i - mid) / (mid + 1), 0.15));
+  return w;
+}
+
+/* A reading shared by several blocks is a cohort reading — the planting year was tested,
+   not this block. Said out loud, because an inherited pick date is weaker evidence. */
+function cohortNotes(rows, proj) {
+  var byReading = {}, notes = {};
+  Object.keys(proj).forEach(function (b) {
+    var p = proj[b];
+    var k = p.sample_date + "|" + Number(p.dry_matter_pct).toFixed(2);
+    (byReading[k] = byReading[k] || []).push(b);
+  });
+  var yearOf = {};
+  rows.forEach(function (r) { yearOf[r.block] = r.planting_year; });
+  Object.keys(byReading).forEach(function (k) {
+    var blocks = byReading[k];
+    if (blocks.length < 2) return;
+    var years = {};
+    blocks.forEach(function (b) { if (yearOf[b]) years[yearOf[b]] = 1; });
+    var ys = Object.keys(years);
+    var note = ys.length === 1 ? ys[0] + " planting, not this block"
+                               : "shared by " + blocks.length + " blocks, not this block";
+    blocks.forEach(function (b) { notes[b] = note; });
+  });
+  return notes;
+}
+
+function build(d) {
+  var rows = d.rows || [];
+  var sched = d.schedule || {};
+  var proj = {};
+  (d.projection || []).forEach(function (p) { proj[p.block] = p; });
+  var notes = cohortNotes(rows, proj);
+  var pickWeeks = sched.pick_weeks || 6;
+  var w = weights(pickWeeks), wsum = w.reduce(function (a, b) { return a + b; }, 0);
+  var monday = mondayOf(new Date());
+
+  var blocks = [], young = [], weekSet = {};
+  rows.forEach(function (r) {
+    var kg = Number(r.expected_kg) || 0;
+    if (!kg) { young.push(r); return; }
+    var p = proj[r.block];
+    var b = {
+      block: r.block, farm: r.farm || "", year: r.planting_year || null, kg: kg,
+      cells: {}, note: notes[r.block] || "",
+      dm: p ? Number(p.dry_matter_pct) : null,
+      basis: p ? p.gain_basis : "", samples: p ? p.samples : 0,
+      ready_date: p ? p.ready_date : null,
+      weeks_to_go: p && p.weeks_to_minimum != null ? Number(p.weeks_to_minimum) : null
+    };
+    if (!p) { b.state = "unsampled"; }
+    else if (p.weeks_to_minimum == null) { b.state = "nodate"; }
+    else {
+      b.state = p.ready ? "ready" : "waiting";
+      var start = mondayOf(addDays(monday, Math.round(Number(p.weeks_to_minimum) * 7)));
+      b.start = iso(start);
+      for (var i = 0; i < pickWeeks; i++) {
+        var wk = iso(addDays(start, i * 7));
+        b.cells[wk] = kg * w[i] / wsum;
+        weekSet[wk] = 1;
+      }
+    }
+    blocks.push(b);
+  });
+
+  var weeks = Object.keys(weekSet).sort();
+  // A block that starts late is locked, not absent: show the gate in the earlier weeks.
+  blocks.forEach(function (b) {
+    b.total = weeks.reduce(function (a, wk) { return a + (b.cells[wk] || 0); }, 0);
+  });
+  blocks.sort(function (a, b) {
+    var ra = { ready: 0, waiting: 0, nodate: 1, unsampled: 2 }[a.state];
+    var rb = { ready: 0, waiting: 0, nodate: 1, unsampled: 2 }[b.state];
+    if (ra !== rb) return ra - rb;
+    if (a.start !== b.start) return (a.start || "9") < (b.start || "9") ? -1 : 1;
+    return b.kg - a.kg;
+  });
+  return { blocks: blocks, weeks: weeks, young: young, pickWeeks: pickWeeks,
+           minimum: (d.maturity && d.maturity.minimum_pct) || MIN_DM };
+}
+
+function options(list, chosen, allLabel) {
+  return ['<option value="">' + allLabel + "</option>"].concat(list.map(function (v) {
+    return '<option value="' + esc(v) + '"' + (String(v) === String(chosen) ? " selected" : "") +
+      ">" + esc(v) + "</option>";
+  })).join("");
+}
+
+function fillFilters(model) {
+  var farms = {}, years = {};
+  model.blocks.concat(model.young).forEach(function (b) {
+    if (b.farm) farms[b.farm] = 1;
+    if (b.year || b.planting_year) years[b.year || b.planting_year] = 1;
+  });
+  var f = document.getElementById("farm"), y = document.getElementById("year");
+  if (f && !f.innerHTML) f.innerHTML = options(Object.keys(farms).sort(), "", "All farms");
+  if (y && !y.innerHTML) y.innerHTML = options(Object.keys(years).sort(), "", "All years");
+}
+
+function cellText(kg, metric) {
+  if (!kg) return "";
+  if (metric === "crates") return fmt(Math.round(kg / KG_PER_CRATE));
+  return kg >= 1000 ? (kg / 1000).toFixed(1) : (kg / 1000).toFixed(2);
+}
+function unitWord(metric) { return metric === "crates" ? "crates" : "tonnes"; }
+
+function shade(kg, max) {
+  if (!kg || !max) return "";
+  var f = kg / max;
+  return f > 0.8 ? "s5" : f > 0.6 ? "s4" : f > 0.4 ? "s3" : f > 0.2 ? "s2" : "s1";
+}
+
+function stateTag(b, minimum) {
+  if (b.state === "ready") {
+    return '<span class="pill pill--measured">Ready now</span>';
+  }
+  if (b.state === "waiting") {
+    var n = b.weeks_to_go;
+    return '<span class="pill pill--wait" title="reaches ' + minimum + '% dry matter about ' +
+      esc(b.ready_date) + '">Ready in ' + (n < 1 ? "under a week" : n.toFixed(1) + " weeks") +
+      "</span>";
+  }
+  if (b.state === "nodate") {
+    return '<span class="pill pill--short" title="dry matter is not rising between samples">' +
+      "No pick date</span>";
+  }
+  return '<span class="pill pill--idle" title="no dry matter reading exists for this block ' +
+    'or its planting year">Never sampled</span>';
+}
+
+function dmTag(b) {
+  if (b.dm == null) return '<span class="pill pill--estate">Dry matter unknown</span>';
+  var basis = b.note || b.basis || (b.samples === 1 ? "one sample, estate rate" : "this block");
+  return '<span class="pill ' + (b.note ? "pill--estate" : "pill--measured") + '" title="' +
+    esc(b.samples + " sample(s), " + (b.basis || "estate rate")) + '">' +
+    b.dm.toFixed(1) + "% DM · " + esc(basis) + "</span>";
+}
+
+function draw() {
+  var d = DATA || {};
+  var model = build(d);
+  fillFilters(model);
+  var farm = val("farm"), year = val("year"), metric = val("metric") || "kg";
+
+  var keep = function (b) {
+    return (!farm || b.farm === farm) &&
+           (!year || String(b.year || b.planting_year || "") === String(year));
+  };
+  var blocks = model.blocks.filter(keep);
+  var young = model.young.filter(keep);
+  var weeks = model.weeks;
+  var minimum = model.minimum;
+
+  // Column and row totals off the same cells, so the edges of the grid always agree.
+  var colKg = weeks.map(function (wk) {
+    return blocks.reduce(function (a, b) { return a + (b.cells[wk] || 0); }, 0);
+  });
+  var totalKg = colKg.reduce(function (a, b) { return a + b; }, 0);
+  var maxCell = 0;
+  blocks.forEach(function (b) {
+    weeks.forEach(function (wk) { if ((b.cells[wk] || 0) > maxCell) maxCell = b.cells[wk]; });
+  });
+  var peakIdx = -1;
+  colKg.forEach(function (kg, i) { if (peakIdx < 0 || kg > colKg[peakIdx]) peakIdx = i; });
+
+  var readyNow = blocks.filter(function (b) { return b.state === "ready"; });
+  var noDate = blocks.filter(function (b) { return b.state === "unsampled" || b.state === "nodate"; });
+  var noDateKg = noDate.reduce(function (a, b) { return a + b.kg; }, 0);
+
+  document.getElementById("sub").textContent = blocks.length
+    ? blocks.length + " blocks · " + weeks.length + " weeks · " + fmtT(totalKg) + " · " +
+      fmt(Math.round(totalKg / KG_PER_CRATE)) + " crates · picking over " + model.pickWeeks +
+      " weeks a block"
+    : "Nothing to lay out yet";
+
+  var kpis = [
+    { l: "Peak week", v: peakIdx >= 0 && colKg[peakIdx] ? fmtT(colKg[peakIdx]) : "—",
+      h: peakIdx >= 0 && colKg[peakIdx]
+        ? "week " + isoWeek(parseDate(weeks[peakIdx])) + ", Monday " + weeks[peakIdx] +
+          " · " + fmt(Math.round(colKg[peakIdx] / KG_PER_CRATE)) + " crates"
+        : "no week has fruit in it yet" },
+    { l: "In this window", v: totalKg ? fmtT(totalKg) : "—",
+      h: weeks.length ? "weeks " + isoWeek(parseDate(weeks[0])) + "–" +
+                        isoWeek(parseDate(weeks[weeks.length - 1])) + ", " +
+                        fmt(Math.round(totalKg / KG_PER_CRATE)) + " crates in total"
+                      : "a week appears once a block has a forecast and a dry matter reading" },
+    { l: "Pickable now", v: blocks.length ? readyNow.length + " of " + blocks.length : "—",
+      h: readyNow.length ? "at or above " + minimum + "% dry matter today"
+                         : "no block is at " + minimum + "% dry matter yet" },
+    { l: "No pick date", v: noDate.length ? fmtT(noDateKg) : "—", alert: noDateKg > 0,
+      h: noDate.length ? noDate.length + " block(s) waiting on a dry matter sample"
+                       : "every forecast block has a pick date" }
+  ];
+  document.getElementById("kpis").innerHTML = kpis.map(function (k) {
+    return '<div class="kpi' + (k.alert ? " kpi--alert" : "") + '"><div class="kpi__label">' +
+      k.l + '</div><div class="kpi__value">' + esc(k.v) + '</div><div class="kpi__hint">' +
+      esc(k.h) + "</div></div>";
+  }).join("");
+
+  var head = '<thead><tr><th class="blk">Block · dry matter · when</th>' +
+    weeks.map(function (wk, i) {
+      var dt = parseDate(wk);
+      return '<th class="wk' + (i === peakIdx ? " peak" : "") + '">W' + isoWeek(dt) +
+        "<span>" + dayMonth(dt) + "</span></th>";
+    }).join("") + '<th class="num">Row total</th></tr></thead>';
+
+  var body = blocks.map(function (b) {
+    var cls = b.state === "unsampled" || b.state === "nodate" ? " rownos"
+            : b.state === "waiting" ? " rowlock" : "";
+    var label = '<td class="blk"><span class="blkname">' + esc(b.block) + '</span>' +
+      '<span class="blkmeta">' + esc(b.farm || "no farm") + " · " +
+      esc(b.year || "no year") + " · " + fmtT(b.kg) + "</span>" +
+      '<span class="blktags">' + dmTag(b) + stateTag(b, minimum) + "</span></td>";
+    var cells = weeks.map(function (wk) {
+      var kg = b.cells[wk] || 0;
+      if (kg) {
+        return '<td class="c ' + shade(kg, maxCell) + '" title="' + esc(b.block) + " · Monday " +
+          wk + " · " + fmtT(kg) + " · " + fmt(Math.round(kg / KG_PER_CRATE)) + ' crates">' +
+          cellText(kg, metric) + "</td>";
+      }
+      if (b.state === "unsampled" || b.state === "nodate") {
+        return '<td class="c nos" title="' + esc(b.block) +
+          ' has no dry matter reading, so no week can be given">·</td>';
+      }
+      if (b.start && wk < b.start) {
+        return '<td class="c lock" title="' + esc(b.block) + " is under " + minimum +
+          "% dry matter until about " + esc(b.ready_date || "") + '">locked</td>';
+      }
+      return '<td class="c"></td>';
+    }).join("");
+    var tot = b.total
+      ? (metric === "crates" ? fmt(Math.round(b.total / KG_PER_CRATE)) + " cr" : fmtT(b.total))
+      : "no date";
+    return "<tr" + (cls ? ' class="' + cls.trim() + '"' : "") + ">" + label + cells +
+      '<td class="tot">' + tot + "</td></tr>";
+  }).join("");
+
+  var foot = '<tfoot><tr><td class="blk">All blocks · ' + esc(unitWord(metric)) + "</td>" +
+    colKg.map(function (kg, i) {
+      return '<td class="' + (i === peakIdx && kg ? "peak" : "") + '">' +
+        (cellText(kg, metric) || "—") + "</td>";
+    }).join("") + '<td class="tot">' +
+    (metric === "crates" ? fmt(Math.round(totalKg / KG_PER_CRATE)) + " cr" : fmtT(totalKg)) +
+    "</td></tr></tfoot>";
+
+  document.getElementById("grid").innerHTML = blocks.length && weeks.length
+    ? head + "<tbody>" + body + "</tbody>" + foot
+    : "<tbody><tr><td class='empty'>No weeks yet — a block needs a " +
+      "forecast in kilograms AND a dry matter reading that dates its pick.</td></tr></tbody>";
+
+  document.getElementById("legend").innerHTML =
+    '<div><span class="ramp"><i class="s1"></i><i class="s2"></i><i class="s3"></i>' +
+    '<i class="s4"></i><i class="s5"></i></span>less → more fruit, cells in ' +
+    esc(unitWord(metric)) + (maxCell ? " (max " + fmtT(maxCell) + ")" : "") +
+    '</div><div><span class="sw hatch"></span>locked · under ' + minimum + '% DM</div>' +
+    '<div><span class="sw dots"></span>never sampled</div>' +
+    "<div>Mondays · crate = " + KG_PER_CRATE + " kg</div>";
+
+  document.getElementById("nodate").innerHTML = noDate.length
+    ? "<div class='scroll'><table><thead><tr><th>Block</th><th>Farm</th>" +
+      "<th class='num'>Forecast</th><th>Missing</th></tr></thead><tbody>" +
+      noDate.map(function (b) {
+        return "<tr><td class='b'>" + esc(b.block) + "</td><td>" + esc(b.farm || "—") +
+          "</td><td class='num'>" + fmtT(b.kg) + "</td><td>" +
+          (b.state === "unsampled"
+            ? "<span class='pill pill--idle' title='no dry matter reading for this block or " +
+              "its planting year'>Never sampled</span>"
+            : "<span class='pill pill--short' title='sampled, but dry matter is not rising, " +
+              "so no date can be projected'>Not rising</span>") +
+          "</td></tr>";
+      }).join("") + "</tbody></table></div>"
+    : "<div class='empty'>Nothing waiting on the lab.</div>";
+
+  document.getElementById("young").innerHTML = young.length
+    ? "<div class='scroll'><table><thead><tr><th>Block</th><th>Farm</th>" +
+      "<th class='num'>Planted</th><th class='num'>Bearing trees</th>" +
+      "<th>Why</th></tr></thead><tbody>" +
+      young.map(function (r) {
+        return "<tr><td class='b'>" + esc(r.block) + "</td><td>" + esc(r.farm || "—") +
+          "</td><td class='num'>" + (r.planting_year || "—") + "</td><td class='num'>" +
+          fmt(r.bearing_trees) + "</td><td>" +
+          (r.planting_year
+            ? "<span class='pill pill--wait'>Not bearing</span>"
+            : "<span class='pill pill--estate' title='no planting year, so no yield curve " +
+              "applies'>No planting year</span>") +
+          "</td></tr>";
+      }).join("") + "</tbody></table></div>"
+    : "<div class='empty'>Every block carries a forecast.</div>";
+}
+
+function load() {
+  api("overview", { price_per_kg: 0 })
+    .then(function (d) { DATA = d; draw(); })
+    .catch(function (e) {
+      document.getElementById("err").innerHTML = "<div class='err'>" + esc(e.message) + "</div>";
+      document.getElementById("sub").textContent = "Could not load";
+    });
+}
+
+["farm", "year", "metric"].forEach(function (id) {
+  var e = document.getElementById(id);
+  if (e) e.addEventListener("change", draw);
+});
+load();
+</script>
+</body></html>

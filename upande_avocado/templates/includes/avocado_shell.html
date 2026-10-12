@@ -1,0 +1,260 @@
+<!-- Shared shell for the avocado pages: fonts, tokens, layout, the left rail and the
+     handful of JS helpers every page needs. A page file carries only its own markup
+     and its own render code. Include it as the first thing inside <body>. -->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Shades of black — from the Upande logo, same as the coffee page */
+  --ink:#0a0a0a; --ink-1:#1a1a18; --ink-2:#2a2a26; --ink-3:#3a3a34;
+  --ink-4:#5a5a52; --ink-mute:#8a8780; --ink-faint:#b8b6ae;
+  --bg:#f4f3ef; --surface:#fafaf6; --surface-2:#ffffff;
+  --hairline:rgba(10,10,10,0.06);
+  --shadow-card:0 1px 0 rgba(10,10,10,0.04), 0 8px 32px -16px rgba(10,10,10,0.10);
+
+  /* Avocado ramp — flesh through skin. */
+  --acc-100:#eaf0dc; --acc-300:#b6c98a; --acc-500:#6f8f3f;
+  --acc-600:#54702c; --acc-700:#33471a;
+  --warn:#d9962e; --neg:#c4302b; --pos:#3f8f4f;
+
+  --meta:'DM Sans',-apple-system,'Segoe UI',sans-serif;
+  --sans:'Poppins',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --display:'Fraunces',Georgia,serif;
+  --mono:'JetBrains Mono',ui-monospace,monospace;
+  --sbw:214px;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--sans);font-size:14px;color:var(--ink-3);background:var(--bg);
+  line-height:1.55;-webkit-font-smoothing:antialiased;padding-left:calc(var(--sbw) + 26px)}
+.wrap{max-width:1240px;margin:0 auto;padding:34px 26px 80px;min-width:0}
+
+/* ── The rail ─────────────────────────────────────────────────── */
+.sidebar{position:fixed;left:16px;top:16px;bottom:16px;width:var(--sbw);background:var(--surface-2);
+  border-radius:14px;box-shadow:var(--shadow-card);display:flex;flex-direction:column;
+  padding:16px 10px;z-index:50;transition:width .15s}
+.sb-logo{display:flex;align-items:center;gap:9px;padding:4px 8px;margin-bottom:14px;
+  text-decoration:none;white-space:nowrap;overflow:hidden}
+.sb-mark{width:24px;height:24px;border-radius:7px;flex:none;display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--acc-500),var(--acc-700));color:#fafaf6;
+  font:700 12px var(--sans)}
+.sb-logo span{font:600 11.5px var(--sans);color:var(--ink);letter-spacing:.2px}
+.sb-nav{flex:1;display:flex;flex-direction:column;gap:2px;overflow-y:auto;overflow-x:hidden}
+.sb-nav::-webkit-scrollbar{width:4px}
+.sb-nav::-webkit-scrollbar-thumb{background:rgba(10,10,10,.14);border:0;border-radius:99px}
+.sb-nav{scrollbar-width:thin;scrollbar-color:rgba(10,10,10,.14) transparent}
+.snav{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;
+  font:500 11.5px var(--sans);color:var(--ink-4);cursor:pointer;border:0;background:transparent;
+  text-align:left;white-space:nowrap;width:100%;text-decoration:none}
+.snav svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round;flex:none}
+.snav:hover{background:rgba(10,10,10,0.05);color:var(--ink)}
+.snav.on{background:linear-gradient(135deg,var(--acc-600),var(--acc-700));color:#fafaf6}
+.snav.on:hover{color:#fafaf6}
+.snav--soon{color:var(--ink-faint);cursor:default}
+.snav--soon:hover{background:transparent;color:var(--ink-faint)}
+.snav--soon svg{opacity:.7}
+.soon{margin-left:auto;font:600 7.5px var(--sans);letter-spacing:.9px;text-transform:uppercase;
+  color:var(--ink-mute);background:#f0efe9;border-radius:99px;padding:2px 6px}
+.sb-ctx{margin:12px 2px 0;padding:9px 11px;border-radius:8px;background:var(--surface)}
+.sb-ctx small{display:block;font:500 8px var(--sans);letter-spacing:1.2px;
+  text-transform:uppercase;color:var(--ink-mute)}
+.sb-ctx b{display:block;font:600 12.5px var(--sans);color:var(--ink);letter-spacing:-.2px;margin-top:2px}
+.sb-ctx span{display:block;font:400 10px var(--meta);color:var(--ink-mute)}
+.sb-foot{padding-top:10px;border-top:1px solid var(--hairline);display:flex;flex-direction:column;gap:2px}
+
+body.sb-collapsed{--sbw:64px}
+.sb-collapsed .snav span,.sb-collapsed .sb-logo span,.sb-collapsed .sb-ctx,
+.sb-collapsed .soon{display:none}
+.sb-collapsed .sidebar{padding:16px 8px}
+.sb-collapsed .snav{justify-content:center;padding:9px 0}
+
+/* ── Page furniture ───────────────────────────────────────────── */
+.pagehead{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;
+  padding-bottom:20px;border-bottom:1px solid var(--hairline);margin-bottom:24px}
+.eyebrow{font:500 9.5px var(--sans);text-transform:uppercase;letter-spacing:2px;color:var(--ink-mute)}
+h1{margin:4px 0 0;font:600 28px/1.05 var(--display);color:var(--ink);letter-spacing:-.6px}
+.sub{margin:6px 0 0;font:400 12.5px var(--meta);color:var(--ink-mute)}
+.ctl{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap}
+.ctl div{display:flex;flex-direction:column;gap:4px}
+.ctl label{font:500 9.5px var(--sans);text-transform:uppercase;letter-spacing:1.2px;color:var(--ink-mute)}
+.ctl input{width:104px;padding:7px 10px;border:1px solid var(--hairline);border-radius:8px;
+  background:var(--surface-2);font:500 13px var(--mono);color:var(--ink)}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:24px}
+.kpi{background:var(--surface-2);border-radius:14px;padding:18px 20px;box-shadow:var(--shadow-card)}
+.kpi__label{font:500 10px var(--sans);text-transform:uppercase;letter-spacing:1.6px;color:var(--ink-mute)}
+.kpi__value{font:600 30px/1 var(--sans);color:var(--ink);letter-spacing:-1px;margin-top:10px;
+  font-feature-settings:"tnum"}
+.kpi__hint{font:400 11.5px var(--meta);color:var(--ink-mute);margin-top:7px}
+.kpi--alert .kpi__value{color:var(--neg)}
+
+.card{background:var(--surface-2);border-radius:14px;box-shadow:var(--shadow-card);
+  padding:20px 22px;margin-bottom:20px}
+.card__head{display:flex;align-items:baseline;justify-content:space-between;gap:14px;margin-bottom:14px}
+.card__head h3{margin:0;font:600 14.5px var(--sans);color:var(--ink);letter-spacing:-.2px}
+.card__head p{margin:0;font:400 11.5px var(--meta);color:var(--ink-mute);max-width:64ch}
+
+table{width:100%;border-collapse:collapse;font-feature-settings:"tnum"}
+th{text-align:left;font:500 8.5px var(--sans);letter-spacing:1px;text-transform:uppercase;
+  color:var(--ink-mute);padding:0 10px 9px;white-space:nowrap}
+td{padding:9px 10px;border-top:1px solid var(--hairline);font:400 13px var(--meta);color:var(--ink-2)}
+td.num,th.num{text-align:right;font-family:var(--mono);font-size:12.5px}
+td.b{font-weight:600;color:var(--ink)}
+tr.short td{background:#fdf6ec}
+.scroll{overflow-x:auto}
+
+.pill{display:inline-block;font:600 8.5px var(--sans);letter-spacing:.5px;text-transform:uppercase;
+  padding:3px 8px;border-radius:99px;white-space:nowrap}
+.pill--measured{background:var(--acc-100);color:var(--acc-700)}
+.pill--typed{background:#f0efe9;color:var(--ink-4)}
+.pill--estate{background:#f0efe9;color:var(--ink-4)}
+.pill--counted{background:var(--acc-500);color:#fff}
+.pill--warn{background:#fbf0dc;color:#8a5b12}
+.pill--neg{background:#fbe6e5;color:#8e2320}
+.pill--short{background:#fbe6e5;color:#8e2320}
+.pill--idle{background:#eef2f7;color:#3c5a78}
+
+.bar{height:6px;border-radius:99px;background:#eeede7;overflow:hidden;min-width:80px}
+.bar i{display:block;height:100%;background:var(--acc-500)}
+.bar i.over{background:var(--neg)}
+
+.issues li{font:400 12.5px var(--meta);color:var(--ink-3);margin-bottom:7px;list-style:none}
+.issues ul{margin:0;padding:0}
+.issues b{color:var(--ink);font-weight:600}
+.muted{color:var(--ink-mute)}
+.empty{padding:26px;text-align:center;font:400 13px var(--meta);color:var(--ink-mute)}
+
+/* Figures inside a card — same voice as the KPIs, without a second card around them. */
+.figs{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:18px 24px;
+  margin:2px 0 4px}
+.fig__label{font:500 9.5px var(--sans);text-transform:uppercase;letter-spacing:1.5px;color:var(--ink-mute)}
+.fig__value{font:600 23px/1.15 var(--sans);color:var(--ink);letter-spacing:-.5px;margin-top:6px;
+  font-feature-settings:"tnum";word-break:break-word}
+.fig__hint{font:400 11px var(--meta);color:var(--ink-mute);margin-top:4px}
+.up{color:var(--pos)} .down{color:var(--neg)}
+
+/* An empty card explains itself here, in sentences, never as a row of zeros. */
+.blank{padding:6px 0 2px;font:400 12.5px var(--meta);color:var(--ink-mute);max-width:74ch}
+.blank b{color:var(--ink-3);font-weight:600}
+.blank p{margin:0 0 8px}
+.note{margin:14px 0 0;padding-top:13px;border-top:1px solid var(--hairline);
+  font:400 12px var(--meta);color:var(--ink-mute)}
+.note b{color:var(--ink);font-weight:600}
+.err{background:#fbe6e5;color:#8e2320;padding:14px 18px;border-radius:12px;font:400 13px var(--meta);
+  margin-bottom:18px}
+
+/* On a narrow screen the rail is icons only, whatever the saved preference says. */
+@media (max-width:1080px){
+  body{--sbw:64px}
+  .snav span,.sb-logo span,.sb-ctx,.soon{display:none}
+  .sidebar{padding:16px 8px}
+  .snav{justify-content:center;padding:9px 0}
+}
+@media (max-width:700px){
+  .wrap{padding:22px 16px 60px}
+  .card{padding:18px 16px}
+  /* A heading squeezed into three words per line is unreadable — stack it. */
+  .card__head{flex-direction:column;gap:6px}
+  .card__head p{max-width:none}
+}
+
+/* Plans go to supervisors on paper. */
+@media print{
+  body{background:#fff;padding-left:0}
+  .sidebar,.ctl{display:none}
+  .wrap{max-width:none;padding:0}
+  .card{box-shadow:none;border:1px solid var(--hairline);break-inside:avoid}
+  .kpi{box-shadow:none;border:1px solid var(--hairline)}
+}
+</style>
+
+<aside class="sidebar">
+  <a class="sb-logo" href="/app" title="Back to Desk">
+    <div class="sb-mark">U</div><span>Upande · Avocado</span>
+  </a>
+  <nav class="sb-nav" id="sb-nav">
+    <a class="snav" href="/avocado-outlook"><svg viewBox="0 0 24 24"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/></svg><span>Outlook</span></a>
+    <a class="snav" href="/avocado-calendar"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Harvest Calendar</span></a>
+    <a class="snav" href="/avocado-labour"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v1"/><path d="M17 8a3 3 0 0 1 0 6"/><path d="M19 20v-1a5 5 0 0 0-2-4"/></svg><span>Picking Plan</span></a>
+    <a class="snav" href="/avocado-maturity"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v1"/><path d="M17 8a3 3 0 0 1 0 6"/><path d="M19 20v-1a5 5 0 0 0-2-4"/></svg><span>Dry Matter Test</span></a>
+    <a class="snav" href="/avocado-production"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg><span>Forecast &amp; Blocks</span></a>
+    <span class="snav snav--soon" title="Not built yet"><svg viewBox="0 0 24 24"><path d="M12 21c-5-3-8-7-8-11a4 4 0 0 1 8-2 4 4 0 0 1 8 2c0 4-3 8-8 11z"/></svg><span>Orchard Health</span><em class="soon">soon</em></span>
+    <span class="snav snav--soon" title="Not built yet"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/></svg><span>Accuracy</span><em class="soon">soon</em></span>
+    <span class="snav snav--soon" title="Not built yet"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg><span>Money</span><em class="soon">soon</em></span>
+    <span class="snav snav--soon" title="Not built yet"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg><span>Data Health</span><em class="soon">soon</em></span>
+    <div class="sb-ctx">
+      <small>Estate</small>
+      <b id="sb-farm">All farms</b>
+      <span id="sb-season">Current season</span>
+    </div>
+  </nav>
+  <div class="sb-foot">
+    <a class="snav" href="/app"><svg viewBox="0 0 24 24"><path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/></svg><span>Back to Desk</span></a>
+    <button class="snav sb-collapse" id="sb-collapse"><svg viewBox="0 0 24 24"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg><span>Collapse</span></button>
+  </div>
+</aside>
+
+<script>
+var CSRF = "{{ csrf_token }}";
+
+// Takes the whole dotted method path, so every page calls its own module.
+function api(method, args) {
+  return fetch("/api/method/" + method, {
+    method: "POST", credentials: "same-origin",
+    headers: { "Content-Type": "application/json", "Accept": "application/json",
+               "X-Frappe-CSRF-Token": CSRF },
+    body: JSON.stringify(args || {})
+  }).then(function (r) {
+    return r.json().then(function (b) {
+      if (!r.ok) throw new Error((b && (b.exception || b._error_message)) || ("HTTP " + r.status));
+      return b.message;
+    });
+  });
+}
+
+var fmt = function (n) { return (n || 0).toLocaleString("en-KE", { maximumFractionDigits: 0 }); };
+var fmtT = function (kg) {
+  // Tonnes past a tonne, kilograms below it. Never "0.0 t" for a real crop.
+  kg = Number(kg) || 0;
+  if (Math.abs(kg) < 1000) return fmt(kg) + " kg";
+  // Thousands separated once we are into four-figure tonnages.
+  return (Math.abs(kg) >= 10000 ? fmt(kg / 1000) : (kg / 1000).toFixed(1)) + " t";
+};
+var esc = function (s) {
+  return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+  });
+};
+
+// How a number was arrived at, in one word: counted on the tree, measured off a
+// harvest, or a typed estimate nobody has checked.
+function basisPill(basis) {
+  var cls = "typed";
+  if (/^counted/.test(basis)) cls = "counted";
+  else if (basis === "harvested") cls = "measured";
+  else if (basis === "not bearing") cls = "warn";
+  return '<span class="pill pill--' + cls + '">' + esc(basis) + "</span>";
+}
+</script>
+
+<script>
+// Rail behaviour: mark the page we are on, remember whether it is collapsed.
+// Bails out without a real DOM, which is how the page test harnesses run this.
+(function () {
+  if (!document.querySelector) return;
+  var here = window.location.pathname.replace(/\/+$/, "") || "/";
+  var links = document.querySelectorAll("#sb-nav .snav[href]");
+  for (var i = 0; i < links.length; i++) {
+    if (links[i].getAttribute("href").replace(/\/+$/, "") === here) links[i].classList.add("on");
+  }
+
+  var KEY = "upande.avocado.sb";
+  try {
+    if (localStorage.getItem(KEY) === "1") document.body.classList.add("sb-collapsed");
+  } catch (e) {}
+  document.getElementById("sb-collapse").addEventListener("click", function () {
+    var off = document.body.classList.toggle("sb-collapsed");
+    try { localStorage.setItem(KEY, off ? "1" : "0"); } catch (e) {}
+  });
+})();
+</script>

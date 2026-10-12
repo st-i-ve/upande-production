@@ -1,0 +1,86 @@
+{
+ "app": "upande_avocado",
+ "creation": "2026-08-05 15:30:00.000000",
+ "docstatus": 0,
+ "doctype": "Workspace Sidebar",
+ "header_icon": "tree",
+ "idx": 0,
+ "items": [
+  {
+   "child": 0,
+   "collapsible": 1,
+   "icon": "chart-line",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Production Forecast",
+   "link_to": "/avocado-production",
+   "link_type": "URL",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "icon": "list",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Fruit Count",
+   "link_to": "Avocado Fruit Count",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "icon": "database",
+   "indent": 1,
+   "keep_closed": 0,
+   "label": "Orchard",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Section Break"
+  },
+  {
+   "child": 1,
+   "collapsible": 1,
+   "icon": "tree",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Orchard Block",
+   "link_to": "Avocado Orchard Block",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 1,
+   "collapsible": 1,
+   "icon": "leaf",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Fruit Sample (dry matter)",
+   "link_to": "Avocado Fruit Sample",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 1,
+   "collapsible": 1,
+   "icon": "truck",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Harvest Log",
+   "link_to": "Avocado Harvest Log",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
+  }
+ ],
+ "module": "Avocado Yield",
+ "name": "Avocado Yield",
+ "owner": "Administrator",
+ "standard": 1,
+ "title": "Avocado Yield"
+}

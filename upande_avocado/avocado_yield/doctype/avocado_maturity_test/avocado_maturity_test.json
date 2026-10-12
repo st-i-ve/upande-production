@@ -1,0 +1,205 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-08-05 09:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "orchard_block",
+  "planting_area",
+  "planting_year",
+  "column_break_head",
+  "week_number",
+  "test_date",
+  "section_fruit",
+  "fruit_count_size",
+  "fruit_min_g",
+  "column_break_fruit",
+  "fruit_max_g",
+  "section_result",
+  "moisture_pct",
+  "column_break_result",
+  "dry_matter_pct",
+  "export_ready",
+  "section_notes",
+  "source",
+  "notes"
+ ],
+ "fields": [
+  {
+   "default": "AMT-.YYYY.-.####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "options": "AMT-.YYYY.-.####"
+  },
+  {
+   "fieldname": "orchard_block",
+   "fieldtype": "Data",
+   "label": "Block",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "The block the fruit came off. Leave blank only when the test was recorded for a whole planting area \u2014 a block reading is stronger evidence and the forecast says which it used."
+  },
+  {
+   "description": "Required when no block is given, e.g. \"23 Ha\".",
+   "fieldname": "planting_area",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Planting Area"
+  },
+  {
+   "description": "The year that planting went in. This is what joins a test to blocks: every block of the same planting matures together.",
+   "fieldname": "planting_year",
+   "fieldtype": "Int",
+   "in_standard_filter": 1,
+   "label": "Planting Year"
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Calendar week the fruit was cut and dried, as written on the sheet.",
+   "fieldname": "week_number",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Week Number",
+   "reqd": 1
+  },
+  {
+   "description": "Monday of that week. The sheets record a week, never a day, so the day is derived and not a measurement.",
+   "fieldname": "test_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Test Date"
+  },
+  {
+   "fieldname": "section_fruit",
+   "fieldtype": "Section Break",
+   "label": "Fruit"
+  },
+  {
+   "description": "Export count size \u2014 fruit per 4 kg carton. A low count is a big fruit: count 14 is 275-317 g, count 32 is 94-132 g.",
+   "fieldname": "fruit_count_size",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Fruit Count Size",
+   "reqd": 1
+  },
+  {
+   "fieldname": "fruit_min_g",
+   "fieldtype": "Float",
+   "label": "Fruit Min (g)"
+  },
+  {
+   "fieldname": "column_break_fruit",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "fruit_max_g",
+   "fieldtype": "Float",
+   "label": "Fruit Max (g)"
+  },
+  {
+   "fieldname": "section_result",
+   "fieldtype": "Section Break",
+   "label": "Result"
+  },
+  {
+   "description": "What the lab actually measured: the water in the flesh. Enter it as the sheet does (0.81) or as a percentage (81) \u2014 either is read the same way.",
+   "fieldname": "moisture_pct",
+   "fieldtype": "Float",
+   "label": "Moisture %",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_result",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "The remainder of the moisture, which is the figure the exporter buys on.",
+   "fieldname": "dry_matter_pct",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Dry Matter %",
+   "read_only": 1
+  },
+  {
+   "description": "Dry matter has reached the Kenyan export minimum for Hass.",
+   "fieldname": "export_ready",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Export Ready",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_notes",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "source",
+   "fieldtype": "Data",
+   "label": "Source",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-08-05 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Avocado Yield",
+ "name": "Avocado Maturity Test",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Agriculture Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Agriculture User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "test_date",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

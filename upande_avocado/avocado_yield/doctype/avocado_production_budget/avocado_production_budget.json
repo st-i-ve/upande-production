@@ -1,0 +1,184 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "naming_series:",
+ "creation": "2026-09-17 04:50:00.000000",
+ "description": "The season's target, set once by whoever plans it — not a calculation. Estate-wide by crop, not per block: a budget is a target for the desk, not a per-block field measurement. Entered month by month across the season/year, because a budget is never one lump figure — it is spread the way the crop itself is expected to land.",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "season",
+  "column_break_head",
+  "crop",
+  "entry_date",
+  "section_target",
+  "budget_price_per_kg",
+  "months",
+  "section_total",
+  "budget_kg",
+  "column_break_total",
+  "budget_value",
+  "section_who",
+  "set_by",
+  "column_break_who",
+  "notes",
+  "client_ref"
+ ],
+ "fields": [
+  {
+   "default": "APB-.YYYY.-.####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "options": "APB-.YYYY.-.####"
+  },
+  {
+   "description": "The season this budget targets, e.g. 2026.",
+   "fieldname": "season",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Season",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Whole Season",
+   "fieldname": "crop",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Crop",
+   "options": "Whole Season\nEarly\nLate"
+  },
+  {
+   "default": "Today",
+   "fieldname": "entry_date",
+   "fieldtype": "Date",
+   "label": "Entry Date"
+  },
+  {
+   "fieldname": "section_target",
+   "fieldtype": "Section Break",
+   "label": "Target"
+  },
+  {
+   "description": "The price this whole budget was planned against — one price for every month, not one per month.",
+   "fieldname": "budget_price_per_kg",
+   "fieldtype": "Float",
+   "label": "Budget Price / kg (KES)"
+  },
+  {
+   "description": "One row per month, covering whichever months this crop actually runs (all 12 for a Whole Season budget, fewer for Early or Late).",
+   "fieldname": "months",
+   "fieldtype": "Table",
+   "label": "Months",
+   "options": "Avocado Production Budget Month"
+  },
+  {
+   "fieldname": "section_total",
+   "fieldtype": "Section Break",
+   "label": "Total"
+  },
+  {
+   "description": "Sum of the months above. Computed — edit the months, not this.",
+   "fieldname": "budget_kg",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Budget (kg)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_total",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "budget_kg × budget_price_per_kg. Left blank when no price was budgeted.",
+   "fieldname": "budget_value",
+   "fieldtype": "Float",
+   "label": "Budget Value (KES)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_who",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "set_by",
+   "fieldtype": "Link",
+   "label": "Set By",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "column_break_who",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  },
+  {
+   "description": "Set by the phone app so a retry after a timeout cannot enter the same budget twice.",
+   "fieldname": "client_ref",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Client Ref",
+   "read_only": 1,
+   "unique": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-17 04:50:00.000000",
+ "modified_by": "Administrator",
+ "module": "Avocado Yield",
+ "name": "Avocado Production Budget",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1,
+   "import": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Agriculture Manager",
+   "share": 1,
+   "write": 1,
+   "import": 1
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "role": "Agriculture User"
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "season",
+ "track_changes": 1
+}

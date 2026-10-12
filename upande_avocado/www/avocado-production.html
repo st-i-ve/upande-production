@@ -1,0 +1,581 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Upande · Avocado · Production Forecast</title>
+</head>
+<body>
+{% include "templates/includes/avocado_shell.html" %}
+<div class="wrap">
+  <div class="pagehead">
+    <div>
+      <div class="eyebrow">Upande · Avocado</div>
+      <h1>Production Forecast</h1>
+      <p class="sub" id="sub">Loading the orchard…</p>
+    </div>
+    <div class="ctl">
+      <div>
+        <label>Forecast &amp; budget</label>
+        <div class="seg" id="mode" role="tablist">
+          <button type="button" class="seg__opt" data-mode="manual" role="tab">Manual</button>
+          <button type="button" class="seg__opt" data-mode="auto" role="tab">Automatic</button>
+        </div>
+      </div>
+      <div>
+        <label for="price">KES / kg</label>
+        <input id="price" type="number" value="95" min="0" step="1">
+      </div>
+    </div>
+  </div>
+
+  <div id="err"></div>
+  <div id="modenote" class="modenote"></div>
+  <div class="kpis" id="kpis"></div>
+
+  <div class="card">
+    <div class="card__head">
+      <h3 title="What was budgeted for this season, set once by whoever planned it, next to whichever forecast is showing above.">Season budget</h3>
+    </div>
+    <div id="budget"></div>
+  </div>
+
+  <div class="card">
+    <div class="card__head">
+      <h3 title="What the estate said each block would give, next to what it delivered. Only blocks carrying both an estimate and a harvest are scored.">Estimate vs delivered</h3>
+    </div>
+    <div id="actual"></div>
+  </div>
+
+  <div class="card">
+    <div class="card__head">
+      <h3 title="The same comparison grouped by planting year. Young blocks and old blocks miss their estimate for different reasons.">By planting year</h3>
+    </div>
+    <div class="scroll"><table id="era"></table></div>
+    <div id="eranote"></div>
+  </div>
+
+  <div class="card">
+    <div class="card__head">
+      <h3 title="Kilograms picked divided by trees picked, straight off the harvest logs. Age bands the estate has never harvested stay a typed estimate.">Yield curve</h3>
+    </div>
+    <div class="scroll"><table id="curve"></table></div>
+  </div>
+
+  <div class="card">
+    <div class="card__head">
+      <h3 title="Sized on bearing trees, never planted trees. A block bearing nothing forecasts nothing.">Blocks</h3>
+    </div>
+    <div id="blocks"></div>
+  </div>
+
+  <div class="card">
+    <div class="card__head">
+      <h3 title="Each block's kilograms from the week its dry matter crosses 24%, spread over six picks. Unsampled blocks are listed below, not dropped into week one.">Pick schedule</h3>
+    </div>
+    <div class="scroll"><table id="schedule"></table></div>
+    <div id="unscheduled"></div>
+  </div>
+
+  <div class="card">
+    <div class="card__head">
+      <h3 title="Sick trees and gaps priced at the kilograms that block's own age band delivers.">Losses</h3>
+    </div>
+    <div class="scroll"><table id="losses"></table></div>
+  </div>
+
+  <div class="card">
+    <div class="card__head">
+      <h3 title="Dry matter against the 24% export minimum. Below it the fruit cannot ship, whatever it weighs.">Maturity</h3>
+    </div>
+    <div class="scroll"><table id="maturity"></table></div>
+  </div>
+
+  <div class="card issues">
+    <div class="card__head">
+      <h3 title="Reported, not patched. A forecast that invents the missing half is worse than one that says what it does not know.">Data gaps</h3>
+    </div>
+    <div id="issues"></div>
+  </div>
+</div>
+
+<style>
+.rank{display:block;width:100%;height:auto;max-width:100%}
+.rank .rk-l{font:500 11px var(--sans);fill:var(--ink-2)}
+.rank .rk-v{font:500 11px var(--mono);fill:var(--ink);text-anchor:end}
+.rank .rk-t{fill:#eeede7}
+.rank .rk-b{fill:var(--acc-500)}
+.rankfoot{font:400 11px var(--meta);color:var(--ink-mute);margin:2px 0 12px}
+
+/* Automatic / Manual toggle — same pill voice as the rail's active link. */
+.seg{display:flex;background:var(--surface);border-radius:9px;padding:3px;gap:2px}
+.seg__opt{border:0;background:transparent;padding:6px 13px;border-radius:7px;
+  font:500 11.5px var(--sans);color:var(--ink-4);cursor:pointer}
+.seg__opt.on{background:linear-gradient(135deg,var(--acc-600),var(--acc-700));color:#fafaf6}
+.modenote{font:400 12px var(--meta);color:var(--ink-mute);margin:-8px 0 18px}
+.modenote b{color:var(--ink-3);font-weight:600}
+
+/* Budget card figures, same voice as .figs but its own id so it can be targeted. */
+#budget .figs{margin:2px 0 0}
+.budget-empty{padding:6px 0 2px;font:400 12.5px var(--meta);color:var(--ink-mute);max-width:70ch}
+</style>
+
+<script>
+var sign = function (n) { return (n > 0 ? "+" : n < 0 ? "−" : "") ; };
+var fmtT1 = function (kg) { return sign(kg) + fmtT(Math.abs(kg)); };
+var pct1 = function (n) { return (Number(n) || 0).toFixed(1) + "%"; };
+// First argument that is a real number wins. Keys this page reads may not exist yet.
+var pick = function () {
+  for (var i = 0; i < arguments.length; i++) {
+    var v = arguments[i];
+    if (v != null && v !== "" && isFinite(Number(v))) return Number(v);
+  }
+  return 0;
+};
+function sum(a) { return (a || []).reduce(function (t, n) { return t + (n || 0); }, 0); }
+
+// A table with nothing in it says why it is empty and what would fill it.
+function emptyTable(text) {
+  return "<tbody><tr><td class='empty'>" + text + "</td></tr></tbody>";
+}
+
+// Ranked bars, biggest first, drawn against the biggest. Inline SVG so it prints and
+// needs no library; the viewBox is 720 wide and the CSS scales it to the card.
+function rankBars(items) {
+  var W = 720, H = 21, LAB = 168, VAL = 150, track = W - LAB - VAL;
+  var max = Math.max.apply(null, items.map(function (i) { return i.value; }).concat([1]));
+  return '<svg class="rank" viewBox="0 0 ' + W + " " + (items.length * H) + '" role="img">' +
+    items.map(function (it, i) {
+      var y = i * H, w = it.value > 0 ? Math.max(it.value / max * track, 2) : 0;
+      // SVG text does not wrap or ellipsis on its own; the table below carries the full name.
+      var lab = it.label.length > 24 ? it.label.slice(0, 23) + "…" : it.label;
+      return '<text class="rk-l" x="0" y="' + (y + 14) + '"><title>' + esc(it.label) + "</title>" +
+        esc(lab) + "</text>" +
+        '<rect class="rk-t" x="' + LAB + '" y="' + (y + 5) + '" width="' + track +
+          '" height="9" rx="4.5"/>' +
+        (w ? '<rect class="rk-b" x="' + LAB + '" y="' + (y + 5) + '" width="' + w.toFixed(1) +
+             '" height="9" rx="4.5"/>' : "") +
+        '<text class="rk-v" x="' + W + '" y="' + (y + 14) + '">' + esc(it.note) + "</text>";
+    }).join("") + "</svg>";
+}
+
+// Estimate against actual, per block. The API is being extended alongside this page,
+// so every key is optional: read whichever name is there, fall back to the forecast
+// rows, and let the caller decide what to say when there is nothing.
+function actualRows(d) {
+  var c = d.calibration || {};
+  var src = (c.rows && c.rows.length) ? c.rows : (d.rows || []);
+  return src.map(function (r) {
+    return {
+      block: r.block || r.name || "—",
+      farm: r.farm || "",
+      year: pick(r.planting_year, r.year) || null,
+      est: pick(r.estimated_kg, r.estimate_kg, r.expected_kg),
+      act: pick(r.actual_kg, r.harvested_kg, r.delivered_kg)
+    };
+  }).filter(function (r) { return r.est > 0 || r.act > 0; });
+}
+
+function fig(label, value, hint, cls) {
+  return '<div><div class="fig__label">' + label + '</div><div class="fig__value' +
+    (cls ? " " + cls : "") + '">' + value + '</div>' +
+    '<div class="fig__hint">' + hint + "</div></div>";
+}
+
+function renderActual(d) {
+  var rows = actualRows(d), c = d.calibration || {};
+  var est = pick(c.estimated_kg, c.total_estimated_kg) ||
+            sum(rows.map(function (r) { return r.est; }));
+  var act = pick(c.actual_kg, c.total_actual_kg, c.harvested_kg) ||
+            sum(rows.map(function (r) { return r.act; }));
+  // The totals can be a finished season while the rows are the live forecast. Only
+  // score blocks when a block itself carries a harvest, or every forecast block
+  // reads as "never harvested".
+  var perBlock = rows.some(function (r) { return r.act > 0; });
+  var waiting = perBlock ? rows.filter(function (r) { return r.est > 0 && r.act <= 0; }) : [];
+  var when = (c.seasons && c.seasons.length) ? " · " + c.seasons.join(", ") + " season" : "";
+
+  if (act <= 0) {
+    var n = pick(c.blocks_estimated) || rows.length;
+    // Zeros here would read as "the crop failed". Say what is actually true.
+    document.getElementById("actual").innerHTML =
+      "<div class='blank'>No harvest has been recorded against these estimates yet. " + (est > 0
+        ? "Estimate <b>" + fmtT(est) + "</b> across <b>" + n + " block" +
+          (n === 1 ? "" : "s") + "</b>."
+        : "No block carries a season estimate either.") + "</div>";
+    return;
+  }
+
+  var nEst = pick(c.blocks_estimated) || rows.filter(function (r) { return r.est > 0; }).length;
+  var nAct = pick(c.blocks_harvested) || rows.filter(function (r) { return r.act > 0; }).length;
+  var diff = act - est;
+  var perf = est > 0 ? act / est * 100 : null;
+
+  // A block that was never picked is not the worst performer, it is a missing harvest.
+  var scored = rows.filter(function (r) { return r.est > 0 && r.act > 0; })
+                   .map(function (r) { r.pct = r.act / r.est * 100; return r; })
+                   .sort(function (a, b) { return b.pct - a.pct; });
+  var best = scored[0], worst = scored.length > 1 ? scored[scored.length - 1] : null;
+
+  var figs = [
+    fig("Delivered", fmtT(act),
+        fmt(act) + " kg over " + nAct + " block" + (nAct === 1 ? "" : "s") + when),
+    fig("Against estimate", fmtT1(diff),
+        sign(diff) + fmt(Math.abs(diff)) + " kg, " + sign(diff) + pct1(est > 0 ? Math.abs(diff) / est * 100 : 0) +
+        (diff >= 0 ? " more than estimated" : " short of estimate"),
+        diff >= 0 ? "up" : "down"),
+    fig("Performance", perf == null ? "—" : pct1(perf),
+        perf == null ? "no estimate to measure against"
+                     : "estimate was " + fmtT(est) + " over " + nEst + " block" +
+                       (nEst === 1 ? "" : "s") + when)
+  ];
+  if (best) {
+    figs.push(fig("Best block", esc(best.block), pct1(best.pct) + " of its estimate" +
+                  (best.farm ? " · " + esc(best.farm) : ""), "up"));
+  }
+  if (worst) {
+    figs.push(fig("Weakest block", esc(worst.block), pct1(worst.pct) + " of its estimate" +
+                  (worst.farm ? " · " + esc(worst.farm) : ""), worst.pct < 100 ? "down" : ""));
+  }
+
+  document.getElementById("actual").innerHTML =
+    '<div class="figs">' + figs.join("") + "</div>" +
+    (waiting.length
+      ? "<div class='note' title='Either the fruit was never picked, or the harvest went in " +
+        "under another block'><b>Estimated but never harvested: " + waiting.length + " block" +
+        (waiting.length === 1 ? "" : "s") + ".</b> " +
+        waiting.slice(0, 8).map(function (r) {
+          return esc(r.block) + " (" + fmtT(r.est) + ")";
+        }).join(" · ") +
+        (waiting.length > 8 ? " and " + (waiting.length - 8) + " more" : "")
+      : perBlock
+        ? "<div class='note'>Every block with an estimate has a harvest against it."
+        : "<div class='note' title='Log harvests per block and best and weakest appear here'>" +
+          "<b>These are whole-estate totals.</b> No block can be scored.") + "</div>";
+}
+
+function renderEra(d) {
+  var rows = actualRows(d);
+  var withAct = rows.filter(function (r) { return r.act > 0; });
+  if (!withAct.length) {
+    document.getElementById("era").innerHTML = emptyTable(
+      "Nothing to group — no harvest has been recorded against a block estimate.");
+    document.getElementById("eranote").innerHTML = "";
+    return;
+  }
+
+  var byYear = {};
+  rows.forEach(function (r) {
+    var k = r.year ? String(r.year) : "Year not recorded";
+    var e = byYear[k] = byYear[k] || { year: k, blocks: 0, est: 0, act: 0, picked: 0 };
+    e.blocks++; e.est += r.est; e.act += r.act;
+    if (r.act > 0) e.picked++;
+  });
+  var eras = Object.keys(byYear).map(function (k) { return byYear[k]; }).sort(function (a, b) {
+    if (a.year === "Year not recorded") return 1;
+    if (b.year === "Year not recorded") return -1;
+    return Number(a.year) - Number(b.year);
+  });
+  var scale = Math.max.apply(null, eras.map(function (e) {
+    return e.est > 0 && e.act > 0 ? e.act / e.est * 100 : 0;
+  }).concat([100]));
+
+  document.getElementById("era").innerHTML =
+    "<thead><tr><th>Planted</th><th class='num'>Blocks picked</th><th class='num'>Estimate</th>" +
+    "<th class='num'>Delivered</th><th class='num'>Of estimate</th>" +
+    "<th title='Scaled to the strongest year. A year nobody harvested is left blank, " +
+    "not drawn as zero.'>Vs best year</th></tr></thead><tbody>" +
+    eras.map(function (e) {
+      var p = e.est > 0 && e.act > 0 ? e.act / e.est * 100 : null;
+      return "<tr><td class='b'>" + esc(e.year) + "</td><td class='num'>" +
+        e.picked + " / " + e.blocks + "</td><td class='num'>" + fmtT(e.est) +
+        "</td><td class='num b'>" + (e.act > 0 ? fmtT(e.act) : "—") + "</td><td class='num b'>" +
+        (p == null ? "—" : pct1(p)) + "</td><td>" +
+        (p == null
+          ? "<span class='muted'>not harvested yet</span>"
+          : "<div class='bar' style='min-width:150px'><i style='width:" +
+            (p / scale * 100).toFixed(1) + "%'></i></div>") +
+        "</td></tr>";
+    }).join("") + "</tbody>";
+
+  document.getElementById("eranote").innerHTML = "";
+}
+
+function render(d) {
+  var price = Number(document.getElementById("price").value) || 0;
+  var sched = d.schedule || { weeks: [], kg: [], unscheduled: [], unscheduled_kg: 0 };
+  var loss = d.losses || { rows: [], lost_kg: 0 };
+
+  document.getElementById("sub").textContent =
+    d.blocks + " blocks · " + fmt(d.live_trees) + " live trees · " +
+    fmt(d.bearing_trees) + " bearing (" + (d.pct_bearing || 0) + "%)" +
+    // Avocado alternates hard, so which year this is changes everything.
+    (d.season ? " · " + d.season + (d.biennial_factor >= 1 ? " is an ON year"
+      : " is an OFF year, curve discounted to " + Math.round(d.biennial_factor * 100) + "%") : "");
+
+  // The rail says which season and which farms every page is talking about.
+  if (d.season) {
+    document.getElementById("sb-season").textContent =
+      d.season + (d.biennial_factor >= 1 ? " · ON year" : " · OFF year");
+  }
+  var farms = (d.rows || []).map(function (r) { return r.farm; }).filter(Boolean);
+  farms = farms.filter(function (f, i) { return farms.indexOf(f) === i; });
+  if (farms.length === 1) document.getElementById("sb-farm").textContent = farms[0];
+  else if (farms.length > 1) {
+    document.getElementById("sb-farm").textContent = farms.length + " farms";
+  }
+
+  var counted = (d.rows || []).filter(function (r) { return /^counted/.test(r.basis); }).length;
+  var totalBlocks = d._total_blocks || d.blocks;
+  var kpis = [
+    { l: "Forecast", v: fmtT(d.total_kg), h: (MODE === "manual" ? "manually entered, " : "calculated, ") + "whole estate, this season" },
+    { l: "Grade 1", v: d.grade_1_share ? fmtT(d.total_kg * d.grade_1_share) : "—",
+      h: d.grade_1_share ? (d.grade_1_share * 100).toFixed(0) + "% of packed weight, from what was packed"
+                         : "no harvest packed yet" },
+    { l: "Value", v: price ? "KES " + fmt(d.total_kg * price) : "—", h: "at " + fmt(price) + " / kg" },
+    { l: "Bearing", v: (d.pct_bearing || 0) + "%", h: fmt(d.bearing_trees) + " of " + fmt(d.live_trees) + " trees" },
+    (MODE === "manual"
+      ? { l: "Manual entries", v: d.blocks + " / " + totalBlocks,
+          h: d.blocks ? "of " + totalBlocks + " orchard blocks have a typed forecast"
+                      : "no manual forecasts entered yet — see the note above" }
+      : { l: "Counted blocks", v: counted + " / " + d.blocks,
+          h: counted ? "forecast from fruit on the tree" : "no fruit counts yet — all on the curve" }),
+    { l: "Next 6 weeks", v: sched.weeks.length ? fmtT(sum(sched.kg.slice(0, 6))) : "—",
+      h: sched.unscheduled_kg ? fmtT(sched.unscheduled_kg) + " has no pick date yet"
+                              : "every forecast block is dated" },
+    { l: "Losing", v: loss.lost_kg ? fmtT(loss.lost_kg) : "—",
+      h: loss.lost_kg ? "sick trees and gaps, " + (price ? "KES " + fmt(loss.lost_kg * price) : "at current yields")
+                      : "no sick trees or gaps recorded" }
+  ];
+  document.getElementById("kpis").innerHTML = kpis.map(function (k) {
+    return '<div class="kpi"><div class="kpi__label">' + k.l + '</div>' +
+           '<div class="kpi__value">' + k.v + '</div>' +
+           '<div class="kpi__hint">' + esc(k.h) + "</div></div>";
+  }).join("");
+
+  renderActual(d);
+  renderEra(d);
+
+  document.getElementById("curve").innerHTML = !(d.curve || []).length
+    ? emptyTable("No yield curve yet — one harvest against a block with a planting year starts it.")
+    : "<thead><tr><th>Tree age</th><th class='num'>kg / tree</th><th>Basis</th>" +
+    "<th class='num'>Harvests</th><th class='num'>Trees</th></tr></thead><tbody>" +
+    d.curve.map(function (c) {
+      return "<tr><td class='b'>" + c.from + (c.to > c.from ? "–" + (c.to > 90 ? "+" : c.to) : "") +
+        " yr</td><td class='num b'>" + c.kg_per_tree.toFixed(1) + "</td><td>" +
+        basisPill(c.basis) + "</td><td class='num'>" + (c.harvests || "—") +
+        "</td><td class='num'>" + (c.trees ? fmt(c.trees) : "—") + "</td></tr>";
+    }).join("") + "</tbody>";
+
+  var rows = (d.rows || []).filter(function (r) { return r.expected_kg > 0 || r.live_trees > 0; });
+  // The headline read is which blocks carry the crop; the table under it is the detail.
+  var ranked = rows.filter(function (r) { return r.expected_kg > 0; })
+                   .sort(function (a, b) { return b.expected_kg - a.expected_kg; });
+  var chart = ranked.length
+    ? rankBars(ranked.slice(0, 12).map(function (r) {
+        return { label: r.block, value: r.expected_kg,
+                 note: fmtT(r.expected_kg) + " · " + r.kg_per_tree.toFixed(1) + " kg/tree" };
+      })) +
+      (ranked.length > 12
+        ? "<div class='rankfoot'>Top 12 of " + ranked.length + " forecasting blocks</div>" : "")
+    : "";
+  document.getElementById("blocks").innerHTML = !rows.length
+    ? "<div class='empty'>No block has a live tree count yet — fill in live and bearing trees.</div>"
+    : chart + "<div class='scroll'><table>" +
+    "<thead><tr><th>Block</th><th>Farm</th><th class='num'>Age</th><th class='num'>Live</th>" +
+    "<th class='num'>Bearing</th><th>Bearing %</th><th class='num'>kg / tree</th><th>Basis</th>" +
+    "<th class='num'>Forecast</th><th class='num'>Value</th></tr></thead><tbody>" +
+    rows.map(function (r) {
+      var pct = r.pct_bearing == null ? null : Math.min(r.pct_bearing, 100);
+      return "<tr><td class='b'>" + esc(r.block) + "</td><td>" + esc(r.farm || "—") +
+        "</td><td class='num'>" + (r.age == null ? "—" : r.age) +
+        "</td><td class='num'>" + fmt(r.live_trees) +
+        "</td><td class='num'>" + fmt(r.bearing_trees) + "</td><td>" +
+        (pct == null ? "<span class='muted'>—</span>"
+          : "<div class='bar'><i style='width:" + pct + "%'></i></div>") +
+        "</td><td class='num'>" + r.kg_per_tree.toFixed(1) + "</td><td>" + basisPill(r.basis) +
+        "</td><td class='num b'>" + fmt(r.expected_kg) + "</td><td class='num'>" +
+        (price ? fmt(r.expected_kg * price) : "—") + "</td></tr>";
+    }).join("") + "</tbody></table></div>";
+
+  var peak = Math.max.apply(null, sched.kg.concat([1]));
+  document.getElementById("schedule").innerHTML = sched.weeks.length
+    ? "<thead><tr><th>Week of</th><th class='num'>Kilograms</th><th>Share</th>" +
+      "<th class='num'>Value</th></tr></thead><tbody>" +
+      sched.weeks.map(function (w, i) {
+        return "<tr><td class='b'>" + esc(w) + "</td><td class='num b'>" + fmt(sched.kg[i]) +
+          "</td><td><div class='bar' style='min-width:160px'><i style='width:" +
+          (sched.kg[i] / peak * 100).toFixed(1) + "%'></i></div></td><td class='num'>" +
+          (price ? fmt(sched.kg[i] * price) : "—") + "</td></tr>";
+      }).join("") + "</tbody>"
+    : emptyTable("Nothing dated — a pick week needs one dry matter sample on the block" +
+        (sched.unscheduled_kg
+          ? ". " + fmtT(sched.unscheduled_kg) + " of forecast is waiting on one." : "."));
+
+  document.getElementById("unscheduled").innerHTML = sched.unscheduled.length
+    ? "<div class='sub' style='margin-top:12px' title='" +
+      esc(sched.unscheduled[0].reason) + "'>Not dated: " +
+      sched.unscheduled.map(function (u) {
+        return "<b>" + esc(u.block) + "</b> " + fmt(u.expected_kg) + " kg";
+      }).join(" · ") + "</div>"
+    : "";
+
+  document.getElementById("losses").innerHTML = loss.rows.length
+    ? "<thead><tr><th>Block</th><th>Farm</th><th class='num'>Age</th><th class='num'>Sick</th>" +
+      "<th class='num'>Gaps</th><th class='num'>% sick</th><th class='num'>kg / tree</th>" +
+      "<th class='num'>Lost kg</th><th class='num'>Lost value</th></tr></thead><tbody>" +
+      loss.rows.map(function (r) {
+        return "<tr><td class='b'>" + esc(r.block) + "</td><td>" + esc(r.farm || "—") +
+          "</td><td class='num'>" + (r.age == null ? "—" : r.age) + "</td><td class='num'>" +
+          fmt(r.sick_trees) + "</td><td class='num'>" + fmt(r.gaps) + "</td><td class='num'>" +
+          (r.pct_sick == null ? "—" : r.pct_sick + "%") + "</td><td class='num'>" +
+          r.kg_per_tree.toFixed(1) + "</td><td class='num b'>" + fmt(r.lost_kg) +
+          "</td><td class='num'>" + (r.lost_value ? fmt(r.lost_value) : "—") + "</td></tr>";
+      }).join("") +
+      "<tr><td class='b'>Total</td><td colspan='6'></td><td class='num b'>" + fmt(loss.lost_kg) +
+      "</td><td class='num b'>" + (price ? fmt(loss.lost_kg * price) : "—") + "</td></tr></tbody>"
+    : emptyTable("Nothing to price — fill in sick trees and trees to infill on the block.");
+
+  var m = d.maturity || { blocks: [] };
+  document.getElementById("maturity").innerHTML = m.blocks.length
+    ? "<thead><tr><th>Block</th><th>Sampled</th><th class='num'>Dry matter</th>" +
+      "<th class='num'>Short by</th><th>Verdict</th></tr></thead><tbody>" +
+      m.blocks.map(function (b) {
+        return "<tr><td class='b'>" + esc(b.block) + "</td><td>" + esc(b.sample_date) +
+          "</td><td class='num b'>" + b.dry_matter_pct.toFixed(1) + "%</td><td class='num'>" +
+          (b.shortfall_pct ? b.shortfall_pct.toFixed(1) + "%" : "—") + "</td><td>" +
+          (b.ready ? "<span class='pill pill--measured'>Pickable</span>"
+                   : "<span class='pill pill--warn'>Not yet</span>") + "</td></tr>";
+      }).join("") + "</tbody>"
+    : emptyTable("No dry matter samples yet — under 24% the fruit cannot ship.");
+
+  var byIssue = {};
+  (d.issues || []).forEach(function (i) { (byIssue[i.issue] = byIssue[i.issue] || []).push(i); });
+  var keys = Object.keys(byIssue);
+  document.getElementById("issues").innerHTML = keys.length
+    ? "<ul>" + keys.map(function (k) {
+        var list = byIssue[k];
+        return "<li><b>" + esc(k) + "</b> — " + list.length + " block" +
+          (list.length === 1 ? "" : "s") + ": <span class='muted'>" +
+          esc(list.slice(0, 6).map(function (i) { return i.block; }).join(", ")) +
+          (list.length > 6 ? " and " + (list.length - 6) + " more" : "") + "</span><br>" +
+          "<span class='muted'>" + esc(list[0].detail) + "</span></li>";
+      }).join("") + "</ul>"
+    : "<div class='empty'>Nothing missing — every block has trees, an age and a cultivar.</div>";
+}
+
+function renderBudget(b, forecastKg, price) {
+  var el = document.getElementById("budget");
+  if (!b || !b.set) {
+    el.innerHTML = "<div class='budget-empty'>No budget has been set for " +
+      (b && b.season ? b.season : "this season") +
+      " yet. Add one from the <a href='/app/avocado-production-budget/new'>Avocado " +
+      "Production Budget</a> list, or from the phone app.</div>";
+    return;
+  }
+  var diff = forecastKg - b.budget_kg;
+  var ofBudget = b.budget_kg > 0 ? forecastKg / b.budget_kg * 100 : null;
+  var figs = [
+    fig("Budget", fmtT(b.budget_kg), b.season + " · " + b.crop +
+        (b.set_by ? " · set by " + esc(b.set_by) : "")),
+    fig((MODE === "manual" ? "Manual" : "Automatic") + " forecast", fmtT(forecastKg),
+        "shown above, against the budget"),
+    fig("Vs budget", fmtT1(diff),
+        sign(diff) + fmt(Math.abs(diff)) + " kg " + (diff >= 0 ? "over budget" : "under budget") +
+        (ofBudget != null ? " · " + pct1(ofBudget) + " of budget" : ""),
+        diff >= 0 ? "up" : "down"),
+    fig("Budget value", b.budget_value ? "KES " + fmt(b.budget_value) : "—",
+        b.budget_price_per_kg ? "at KES " + fmt(b.budget_price_per_kg) + " / kg budgeted"
+                              : "no price was budgeted")
+  ];
+  var months = b.months || [];
+  var peak = Math.max.apply(null, months.map(function (m) { return m.budget_kg; }).concat([1]));
+  var monthTable = months.length
+    ? "<div class='scroll' style='margin-top:16px'><table>" +
+      "<thead><tr><th>Month</th><th class='num'>Budget</th><th>Share</th>" +
+      "<th class='num'>Value</th></tr></thead><tbody>" +
+      months.map(function (m) {
+        return "<tr><td class='b'>" + esc(m.month) + "</td><td class='num b'>" + fmt(m.budget_kg) +
+          "</td><td><div class='bar' style='min-width:140px'><i style='width:" +
+          (m.budget_kg / peak * 100).toFixed(1) + "%'></i></div></td><td class='num'>" +
+          (m.budget_value ? fmt(m.budget_value) : "—") + "</td></tr>";
+      }).join("") +
+      "<tr><td class='b'>Total</td><td class='num b'>" + fmt(b.budget_kg) + "</td><td></td>" +
+      "<td class='num b'>" + (b.budget_value ? fmt(b.budget_value) : "—") + "</td></tr>" +
+      "</tbody></table></div>"
+    : "<div class='note'>No months have been broken out yet — the total above is " +
+      (b.budget_kg ? "typed as one figure" : "empty") + ". Add monthly rows from the " +
+      "<a href='/app/avocado-production-budget'>Avocado Production Budget</a> list for the " +
+      "month-by-month view.</div>";
+
+  el.innerHTML = "<div class='figs'>" + figs.join("") + "</div>" + monthTable +
+    (b.notes ? "<div class='note'>" + esc(b.notes) + "</div>" : "");
+}
+
+var LAST_AUTO = null, LAST_MANUAL = null, LAST_BUDGET = null;
+
+// Automatic/Manual never re-fetches on its own — both sides are already in hand,
+// so switching is instant and never re-asks the server.
+function renderMode() {
+  if (!LAST_AUTO) return;
+  var auto = LAST_AUTO;
+  var manual = LAST_MANUAL || { rows: [], blocks: 0, total_kg: 0, live_trees: 0,
+                                 bearing_trees: 0, pct_bearing: null, entries: 0 };
+  var useManual = MODE === "manual";
+  var view = useManual
+    ? Object.assign({}, auto, {
+        rows: manual.rows, blocks: manual.blocks, total_kg: manual.total_kg,
+        live_trees: manual.live_trees, bearing_trees: manual.bearing_trees,
+        pct_bearing: manual.pct_bearing, grade_1_share: null, _total_blocks: auto.blocks
+      })
+    : auto;
+
+  document.getElementById("modenote").innerHTML = !useManual
+    ? "Showing the <b>system-calculated</b> forecast — from tree counts, block ages and dry matter samples."
+    : (manual.entries
+        ? "Showing <b>" + manual.entries + " manually entered</b> block forecast" +
+          (manual.entries === 1 ? "" : "s") + " of " + (auto.blocks || 0) +
+          " orchard blocks. Switch to Automatic for the estate's calculated forecast."
+        : "No manual forecasts have been entered yet for this season — add them from the " +
+          "<a href='/app/avocado-production-forecast/new'>Avocado Production Forecast</a> list, " +
+          "or from the phone app in the field. Switch to Automatic to see the calculated forecast.");
+
+  render(view);
+  var price = Number(document.getElementById("price").value) || 0;
+  renderBudget(LAST_BUDGET, view.total_kg, price);
+}
+
+var MODE_KEY = "avocado-production-mode";
+var MODE = "manual";
+try { MODE = localStorage.getItem(MODE_KEY) || "manual"; } catch (e) {}
+
+function setMode(m) {
+  MODE = m;
+  try { localStorage.setItem(MODE_KEY, m); } catch (e) {}
+  var opts = document.querySelectorAll("#mode .seg__opt");
+  for (var i = 0; i < opts.length; i++) opts[i].classList.toggle("on", opts[i].dataset.mode === m);
+  renderMode();
+}
+
+document.querySelectorAll("#mode .seg__opt").forEach(function (btn) {
+  btn.addEventListener("click", function () { setMode(btn.dataset.mode); });
+});
+setMode(MODE);
+
+function load() {
+  var price = Number(document.getElementById("price").value) || 0;
+  document.getElementById("err").innerHTML = "";
+  Promise.all([
+    api("upande_avocado.api.avocadoapi.overview", { price_per_kg: price }),
+    api("upande_avocado.api.avocadoapi.get_manual_forecast", { price_per_kg: price }),
+    api("upande_avocado.api.avocadoapi.get_manual_budget", {})
+  ]).then(function (res) {
+    LAST_AUTO = res[0]; LAST_MANUAL = res[1]; LAST_BUDGET = res[2];
+    renderMode();
+  }).catch(function (e) {
+    document.getElementById("err").innerHTML =
+      "<div class='err'>" + esc(e.message) + "</div>";
+    document.getElementById("sub").textContent = "Could not load";
+  });
+}
+
+document.getElementById("price").addEventListener("change", load);
+load();
+</script>
+</body></html>

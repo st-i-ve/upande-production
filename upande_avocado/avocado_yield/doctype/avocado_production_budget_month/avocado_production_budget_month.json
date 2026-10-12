@@ -1,0 +1,49 @@
+{
+ "actions": [],
+ "creation": "2026-09-17 09:00:00.000000",
+ "description": "One month's slice of a season/crop budget. The parent's price is what turns each row into a value — there is no per-month price, on purpose.",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "month",
+  "budget_kg",
+  "budget_value"
+ ],
+ "fields": [
+  {
+   "fieldname": "month",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Month",
+   "options": "January\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember",
+   "reqd": 1
+  },
+  {
+   "fieldname": "budget_kg",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Budget (kg)",
+   "reqd": 1
+  },
+  {
+   "description": "budget_kg × the parent budget's price. Blank when no price was budgeted.",
+   "fieldname": "budget_value",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Value (KES)",
+   "read_only": 1
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-09-17 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Avocado Yield",
+ "name": "Avocado Production Budget Month",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

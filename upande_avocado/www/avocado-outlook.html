@@ -1,0 +1,984 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Upande · Avocado · Season Outlook</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+</head>
+<body>
+{% include "templates/includes/avocado_shell.html" %}
+<style>
+/* Outlook is a reading instrument: six figures, one timeline, one map of the
+   blocks, three gauges, one row of chips. Everything here extends the shared
+   shell rather than restating it. No rule down the left of anything. */
+/* Six across, always: the strip is one reading, and a sixth tile orphaned onto
+   its own row stops being part of it. */
+.kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px}
+@media (max-width:1240px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:700px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+.kpi{position:relative;overflow:hidden;padding:16px 17px 18px}
+.kpi__label{font-size:9px;letter-spacing:1.3px}
+.kpi__value{display:flex;align-items:baseline;gap:4px;margin-top:8px;font-size:26px}
+.kpi__value i{font:400 12px var(--sans);color:var(--ink-mute);font-style:normal;letter-spacing:0}
+.kpi__trend{margin-top:9px;display:flex;align-items:baseline;gap:7px;
+  font:400 11px var(--meta);color:var(--ink-mute);position:relative;z-index:1}
+.kpi__trend i{width:6px;height:6px;border-radius:99px;flex:none;background:var(--acc);
+  transform:translateY(-1px)}
+.kspark{position:absolute;right:0;bottom:16px;width:52%;height:30px;opacity:.4;
+  pointer-events:none}
+.kmeter{margin-top:12px;height:5px;border-radius:99px;background:#eeede7;overflow:hidden}
+.kmeter i{display:block;height:100%;background:var(--acc)}
+.kpi--flat .kpi__value{color:var(--ink-faint)}
+
+/* Cards, dense grid — the benchmark's dcard vocabulary. */
+.card{padding:16px 20px 18px}
+.card__head{align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.card__head .grow{flex:1}
+.dcard__n{font:400 10px var(--meta);color:var(--ink-faint);white-space:nowrap}
+.dlg{display:inline-flex;align-items:center;gap:5px;font:500 9.5px var(--sans);
+  color:var(--ink-mute);white-space:nowrap;letter-spacing:.2px}
+.dlg i{width:13px;height:8px;border-radius:2px;flex:none}
+.dgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px}
+.dcard{background:var(--surface-2);border-radius:14px;box-shadow:var(--shadow-card);
+  padding:15px 18px 16px;min-width:0}
+.dcard__h{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.dcard__h h4{margin:0;font:600 12.5px var(--sans);color:var(--ink);letter-spacing:-.1px}
+.dcard svg,.plot svg{width:100%;height:auto;display:block;overflow:visible}
+@media (max-width:1100px){.dgrid{grid-template-columns:1fr}}
+
+/* The two big plots. */
+.tm rect{cursor:pointer;stroke:#fff;stroke-width:1.1}
+.tm rect:hover{stroke:var(--ink);stroke-width:1.8}
+.tm .dim{opacity:.22}
+.ramp{display:inline-flex;align-items:center;border-radius:3px}
+.ramp i{width:15px;height:8px;display:block}
+.ramp i:first-of-type{border-radius:2px 0 0 2px}
+.ramp i:last-of-type{border-radius:0 2px 2px 0}
+.ramp b{font:500 9px var(--meta);color:var(--ink-faint);padding:0 6px}
+.fchip{display:inline-flex;align-items:center;gap:7px;background:var(--ink);color:#fafaf6;
+  border-radius:99px;padding:3px 5px 3px 10px;font:500 10px var(--sans);letter-spacing:.2px}
+.fchip button{border:0;background:rgba(255,255,255,.18);color:#fafaf6;width:16px;height:16px;
+  border-radius:99px;cursor:pointer;font:600 10px var(--sans);line-height:1;padding:0}
+
+/* The map. Same chrome as the budget-forecast page: dark imagery, a light
+   fallback, zoom bottom right, attribution knocked back. */
+#map{height:420px;border-radius:10px;overflow:hidden;background:#141618}
+#map.leaflet-container{font-family:var(--sans)}
+#map .leaflet-tile-pane{filter:saturate(1.15) contrast(1.06) brightness(1.02)}
+#map .leaflet-control-attribution{font:400 9px var(--meta)!important;
+  background:rgba(255,255,255,.62)!important;border-radius:6px 0 0 0;
+  padding:1px 6px!important;color:var(--ink-mute)!important}
+#map .leaflet-control-attribution a{color:var(--ink-4)!important}
+#map .leaflet-control-zoom{border:0!important;box-shadow:var(--shadow-card)!important;
+  border-radius:6px!important;overflow:hidden}
+#map .leaflet-control-zoom a{width:30px!important;height:30px!important;
+  line-height:30px!important;color:var(--ink-3)!important;
+  background:rgba(255,255,255,.95)!important;border:0!important;
+  font-size:16px!important;font-weight:400!important}
+#map .leaflet-control-zoom a:hover{background:#fff!important;color:var(--ink)!important}
+#map .leaflet-control-zoom a:first-child{border-bottom:1px solid var(--hairline)!important}
+#map .mlbl{font:600 9px var(--sans);color:#fafaf6;white-space:nowrap;
+  text-shadow:0 1px 3px rgba(0,0,0,.9);pointer-events:none}
+#map .leaflet-tooltip{font:500 10.5px var(--sans);border:0;border-radius:7px;
+  box-shadow:var(--shadow-card);color:var(--ink-2)}
+#map .leaflet-tooltip b{font:600 11px var(--sans);color:var(--ink)}
+#map .leaflet-tooltip s{display:block;text-decoration:none;font:400 9.5px var(--meta);
+  color:var(--neg)}
+.mbtn{border:0;background:rgba(10,10,10,.05);border-radius:6px;padding:5px 9px;cursor:pointer;
+  font:500 9.5px var(--sans);color:var(--ink-4);letter-spacing:.2px}
+.mbtn.on{background:var(--ink);color:#fafaf6}
+
+/* A card with nothing in it states the number that is missing, never a zero. */
+.state{display:flex;align-items:baseline;gap:9px;padding:12px 0 2px;flex-wrap:wrap}
+.state b{font:600 21px var(--sans);color:var(--ink);letter-spacing:-.6px;
+  font-feature-settings:"tnum"}
+.state span{font:400 11px var(--meta);color:var(--ink-mute)}
+.state--big{padding:20px 0 10px}
+.state--big b{font-size:34px}
+
+/* Alert chips: a figure and two words. Nothing wrong is also one line. */
+.chips{display:flex;flex-wrap:wrap;gap:10px}
+.chip{display:inline-flex;align-items:baseline;gap:8px;background:var(--surface-2);
+  border-radius:11px;padding:11px 15px;box-shadow:var(--shadow-card);
+  font:500 11px var(--sans);color:var(--ink-4);letter-spacing:.1px}
+.chip b{font:600 17px var(--mono);color:var(--ink);letter-spacing:-.5px;
+  font-feature-settings:"tnum"}
+.chip--warn b{color:var(--warn)}
+.chip--neg b{color:var(--neg)}
+.chip--ok b{color:var(--pos)}
+.chip small{font:400 10px var(--meta);color:var(--ink-faint)}
+</style>
+
+<div class="wrap">
+  <div class="pagehead">
+    <div>
+      <div class="eyebrow">Upande · Avocado</div>
+      <h1>Season Outlook</h1>
+      <div class="sub" id="sub">Reading the orchard…</div>
+    </div>
+    <div class="ctl">
+      <div><label for="price">Price / kg</label><input id="price" type="number" value="95" min="0"></div>
+      <div><label for="crew">Crew available</label><input id="crew" type="number" value="60" min="0"></div>
+    </div>
+  </div>
+
+  <div id="err"></div>
+  <div class="kpi-grid" id="kpis"></div>
+
+  <div class="card">
+    <div class="card__head">
+      <h3>Season timeline</h3>
+      <span class="dlg"><i style="background:#33471a"></i>Picked</span>
+      <span class="dlg"><i style="background:#eaf0dc;box-shadow:inset 0 0 0 1px #6f8f3f"></i>Forecast</span>
+      <span class="dlg" id="tl-cohortlg"></span>
+      <span class="grow"></span>
+      <span class="dcard__n" id="tl-note"></span>
+    </div>
+    <div class="plot" id="timeline"></div>
+  </div>
+
+  <div class="card">
+    <div class="card__head">
+      <h3>Orchard</h3>
+      <button class="mbtn on" id="mp-sat" onclick="mapToggle('sat')">Satellite</button>
+      <button class="mbtn on" id="mp-lbl" onclick="mapToggle('labels')">Labels</button>
+      <span class="grow"></span>
+      <span class="dcard__n" id="mp-note"></span>
+    </div>
+    <div class="plot" id="maphost"></div>
+  </div>
+
+  <div class="card">
+    <div class="card__head">
+      <h3>Blocks</h3>
+      <span class="dlg" title="Area is forecast tonnage. Shade is the block's own kilograms per tree against what the estate curve expects at that age — a counted block sitting far above its age band is the one to re-walk."><i style="background:#b6c98a"></i>vs age curve</span>
+      <span class="ramp" id="tm-ramp"></span>
+      <span class="grow"></span>
+      <span id="tm-filter"></span>
+      <span class="dcard__n" id="tm-note"></span>
+    </div>
+    <div class="plot tm" id="treemap"></div>
+  </div>
+
+  <div class="dgrid">
+    <div class="dcard">
+      <div class="dcard__h"><h4>Dry matter</h4><span class="grow"></span>
+        <span class="dcard__n" id="dm-note"></span></div>
+      <div id="cohorts"></div>
+    </div>
+    <div class="dcard">
+      <div class="dcard__h"><h4>Pickers</h4><span class="grow"></span>
+        <span class="dcard__n" id="crew-note"></span></div>
+      <div id="crewchart"></div>
+    </div>
+    <div class="dcard">
+      <div class="dcard__h"><h4>Lost to sick trees</h4><span class="grow"></span>
+        <span class="dcard__n" id="loss-note"></span></div>
+      <div id="losses"></div>
+    </div>
+  </div>
+
+  <div class="chips" id="alerts"></div>
+</div>
+
+<!-- The only thing this page fetches from outside. If it does not arrive, the
+     map panel says so and every other panel is untouched. -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
+<script>
+var D = null, YEARS = null, LAB = null, BLK = null, FILTER = null;
+var MS_WEEK = 7 * 864e5;
+
+var val = function (id) { return Number(document.getElementById(id).value) || 0; };
+var put = function (id, html) { document.getElementById(id).innerHTML = html; };
+
+// Tonnes with the unit split off: a KPI sets the figure large and the unit
+// small, where fmtT rightly keeps them together everywhere else.
+function tv(kg) {
+  kg = Number(kg) || 0;
+  if (Math.abs(kg) < 1000) return { v: fmt(kg), u: "kg" };
+  return { v: Math.abs(kg) >= 10000 ? fmt(kg / 1000) : (kg / 1000).toFixed(1), u: "t" };
+}
+function tvs(kg) { var t = tv(kg); return t.v + " " + t.u; }
+function money(v) {
+  v = Number(v) || 0;
+  if (v >= 1e6) return { v: (v / 1e6).toFixed(1), u: "M KES" };
+  if (v >= 1e3) return { v: fmt(v / 1e3), u: "k KES" };
+  return { v: fmt(v), u: "KES" };
+}
+// "1 blocks" is how a page tells you nobody read it back.
+function plural(n, word) { return n + " " + word + (Number(n) === 1 ? "" : "s"); }
+function median(a) {
+  if (!a.length) return null;
+  var s = a.slice().sort(function (x, y) { return x - y; });
+  return s[Math.floor(s.length / 2)];
+}
+function monday(d) {
+  var t = new Date(String(d).length === 10 ? d + "T00:00:00" : d);
+  return new Date(t.getTime() - ((t.getDay() + 6) % 7) * 864e5);
+}
+// Built from the local parts, never toISOString: a server an hour ahead of UTC
+// would otherwise label every Monday as the Sunday before it, and the week keys
+// would stop matching the payload's.
+function iso(t) {
+  var d = new Date(t);
+  return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" +
+    ("0" + d.getDate()).slice(-2);
+}
+var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function shortDate(s) {
+  var d = new Date(s + "T00:00:00");
+  return d.getDate() + " " + MON[d.getMonth()];
+}
+function niceStep(x) {
+  var p = Math.pow(10, Math.floor(Math.log(x) / Math.LN10)), r = x / p;
+  return (r >= 5 ? 5 : r >= 2 ? 2 : 1) * p;
+}
+
+// Art for a KPI tile: a line where there is a series, a fill where there is
+// only a share of something. Both inline, neither decorative.
+function spark(vals, colour) {
+  vals = (vals || []).map(function (v) { return Number(v) || 0; });
+  if (vals.length < 2) return "";
+  var hi = Math.max.apply(null, vals.concat([1]));
+  var pts = vals.map(function (v, i) {
+    return (i / (vals.length - 1) * 100).toFixed(1) + "," + (26 - v / hi * 22).toFixed(1);
+  }).join(" ");
+  return '<svg class="kspark" viewBox="0 0 100 28" preserveAspectRatio="none">' +
+    '<polyline points="' + pts + '" fill="none" stroke="' + colour + '" stroke-width="1.6" ' +
+    'stroke-linejoin="round" stroke-linecap="round"/></svg>';
+}
+function meter(pct) {
+  pct = Math.max(0, Math.min(100, Number(pct) || 0));
+  return '<div class="kmeter"><i style="width:' + pct.toFixed(1) + '%"></i></div>';
+}
+
+// ── Derived model, computed once per render ─────────────────────────────────
+function model() {
+  var rows = (D.rows || []).slice();
+  var proj = D.projection || [];
+  var sch = D.schedule || {};
+  var cal = D.calibration || {};
+  var MIN = (D.maturity || {}).minimum_pct || 24;
+
+  var projBy = {};
+  proj.forEach(function (p) { projBy[p.block] = p; });
+
+  var staleN = proj.filter(function (p) { return p.stale; }).length;
+  var oldest = proj.reduce(function (t, p) { return Math.max(t, p.sample_age_weeks || 0); }, 0);
+  var readyNow = proj.filter(function (p) { return p.ready && !p.stale; });
+
+  // Each block against the yield curve of its own age band. A block counted on
+  // the tree is allowed to disagree with the curve — that disagreement is the
+  // point of walking it, so it is what the treemap shades by.
+  var curve = D.curve || [];
+  rows.forEach(function (r) {
+    var c = curve.filter(function (c) { return r.age >= c.from && r.age <= c.to; })[0];
+    r.vs_curve = c && c.kg_per_tree && r.kg_per_tree
+      ? Math.round(r.kg_per_tree / c.kg_per_tree * 100) : null;
+  });
+
+  // Planting cohorts: blocks of one age ripen together, so this is the unit the
+  // packhouse plans around — not the block, and not the estate.
+  var cm = {};
+  rows.forEach(function (r) {
+    var p = projBy[r.block];
+    if (!p) return;
+    var k = r.planting_year || 0;
+    var c = cm[k] || (cm[k] = { year: k, n: 0, kg: 0, dm: 0, gain: 0, stale: 0,
+                                blocks: [], weeks: [], opens: [] });
+    c.n++; c.kg += r.expected_kg || 0; c.dm += p.dry_matter_pct || 0;
+    c.gain += p.gain_per_week || 0; c.blocks.push(r.block);
+    if (p.stale) c.stale++;
+    if (p.weeks_to_minimum != null) c.weeks.push(p.weeks_to_minimum);
+    if (p.ready_date) c.opens.push(p.ready_date);
+  });
+  var cohorts = Object.keys(cm).map(function (k) {
+    var c = cm[k];
+    c.dm = c.dm / c.n; c.gain = c.gain / c.n;
+    c.wk = median(c.weeks);
+    c.opens.sort();
+    c.open_date = c.opens[0] || null;
+    c.short = Math.max(0, MIN - c.dm);
+    return c;
+  }).sort(function (a, b) { return b.dm - a.dm; });
+
+  // One bar per week, gaps between pick runs filled in — a week with nothing in
+  // it is a real thing to see, not a bar the axis quietly skips.
+  var weeks = sch.weeks || [], kg = sch.kg || [];
+  var byWeek = {}, axis = [];
+  weeks.forEach(function (w, i) { byWeek[w] = kg[i] || 0; });
+  if (weeks.length) {
+    var end = monday(weeks[weeks.length - 1]).getTime();
+    for (var t = monday(weeks[0]).getTime(); t <= end; t += MS_WEEK) axis.push(iso(t));
+  }
+
+  var labRows = (LAB || {}).rows || [];
+  var crewHave = val("crew");
+  var thisMon = monday(iso(Date.now())).getTime();
+  var next = labRows.filter(function (r) { return monday(r.week).getTime() >= thisMon; })[0];
+
+  var yrRows = (YEARS || {}).rows || [];
+  var deliveredThis = yrRows.filter(function (y) { return y.year === D.season; })
+    .reduce(function (t, y) { return t + (y.kg || 0); }, 0);
+
+  return { rows: rows, proj: proj, projBy: projBy, sch: sch, cal: cal, MIN: MIN,
+           staleN: staleN, oldest: oldest, readyNow: readyNow, cohorts: cohorts,
+           axis: axis, byWeek: byWeek, labRows: labRows, crewHave: crewHave,
+           nextWeek: next, thisMon: thisMon, yrRows: yrRows, deliveredThis: deliveredThis };
+}
+
+// ── 1. Six figures ──────────────────────────────────────────────────────────
+function drawKpis(m) {
+  var crop = tv(D.total_kg), value = money(D.total_value);
+  var acc = m.cal.factor ? 100 - Math.abs(m.cal.factor - 1) * 100 : null;
+  var need = m.nextWeek ? Math.round(m.nextWeek.pickers_needed) : null;
+  var readyKg = m.readyNow.reduce(function (t, p) {
+    var r = m.rows.filter(function (r) { return r.block === p.block; })[0];
+    return t + (r ? r.expected_kg || 0 : 0);
+  }, 0);
+  var projN = m.proj.length;
+
+  var K = [
+    { label: "Season crop", v: crop.v, u: crop.u, acc: "#54702c",
+      note: m.deliveredThis ? tvs(m.deliveredThis) + " delivered" : "none delivered yet",
+      title: "Forecast for the " + D.season + " season, calibrated ×" +
+             (m.cal.factor || 1) + ". Delivered is what the yield history holds for " +
+             D.season + " — nothing more.",
+      art: meter(D.total_kg ? m.deliveredThis / D.total_kg * 100 : 0) },
+
+    { label: "Crop value", v: value.v, u: value.u, acc: "#33471a",
+      note: "at KES " + fmt(val("price")) + " / kg",
+      title: "Forecast kilograms at the price in the header — nothing here is invoiced. " +
+             "The curve is the running total across blocks, heaviest first: how few " +
+             "blocks carry the money.",
+      art: spark(m.rows.reduce(function (a, r) {
+        a.push((a[a.length - 1] || 0) + (r.value || r.expected_kg || 0)); return a;
+      }, []), "#33471a") },
+
+    { label: "Ready to pick", v: m.readyNow.length ? String(m.readyNow.length) : "—",
+      u: m.readyNow.length ? (m.readyNow.length === 1 ? "block" : "blocks") : "",
+      flat: !m.readyNow.length,
+      acc: m.readyNow.length ? "#3f8f4f" : "#b8b6ae",
+      note: m.readyNow.length ? tvs(readyKg) + " at the floor" : m.staleN + " readings stale",
+      title: "A block is ready when a sample that is still current puts it at or above " +
+             m.MIN + "% dry matter. A stale sample cannot say.",
+      art: meter(projN ? m.readyNow.length / projN * 100 : 0) },
+
+    { label: "Crew next week", v: need == null ? "—" : fmt(need),
+      u: need == null ? "" : "pickers", flat: need == null,
+      acc: need != null && need > m.crewHave ? "#c4302b" : "#54702c",
+      note: need == null ? "no week dated yet" : fmt(m.crewHave) + " available",
+      title: "Pickers the first dated week needs, at each block's own measured " +
+             "kilograms per picker-day.",
+      art: meter(need == null ? 0 : m.crewHave ? need / m.crewHave * 100 : 100) },
+
+    { label: "Estimate accuracy", v: acc == null ? "—" : acc.toFixed(1),
+      u: acc == null ? "" : "%", flat: acc == null,
+      acc: acc == null ? "#b8b6ae" : acc >= 90 ? "#3f8f4f" : "#d9962e",
+      note: m.cal.basis || "not calibrated",
+      title: "Fitted, not proven: " + fmt(m.cal.estimated_kg) + " kg estimated against " +
+             fmt(m.cal.actual_kg) + " kg delivered, factor ×" + (m.cal.factor || 1) +
+             ". One season is thin evidence.",
+      art: meter(acc == null ? 0 : acc) },
+
+    { label: "Stale readings", v: String(m.staleN), u: projN ? "of " + projN : "",
+      flat: !projN, acc: m.staleN ? "#d9962e" : "#3f8f4f",
+      note: m.staleN ? Math.round(m.oldest) + " weeks old"
+                     : projN ? "every reading current" : "no samples on file",
+      title: "A dry matter sample older than six weeks describes fruit that has already " +
+             "been picked, so it cannot date a harvest.",
+      art: meter(projN ? m.staleN / projN * 100 : 0) }
+  ];
+
+  put("kpis", K.map(function (k) {
+    return '<div class="kpi' + (k.flat ? " kpi--flat" : "") + '" style="--acc:' + k.acc +
+      '" title="' + esc(k.title) + '">' +
+      '<div class="kpi__label">' + esc(k.label) + "</div>" +
+      '<div class="kpi__value">' + esc(k.v) + (k.u ? "<i>" + esc(k.u) + "</i>" : "") + "</div>" +
+      '<div class="kpi__trend"><i></i>' + esc(k.note) + "</div>" + (k.art || "") + "</div>";
+  }).join(""));
+
+  document.getElementById("sub").textContent = D.blocks
+    ? crop.v + " " + crop.u + " forecast · " + fmt(D.blocks) + " blocks · " +
+      m.staleN + " stale · " + m.axis.length + " weeks dated" +
+      (D.biennial_factor === 1 ? " · on year"
+        : D.biennial_factor ? " · off year ×" + D.biennial_factor : "")
+    : "Nothing to forecast yet";
+}
+
+// ── 2. The hero: when the crop arrives ──────────────────────────────────────
+function drawTimeline(m) {
+  var W = 1000, H = 196, L = 46, R = 12, T = 18, B = 30;
+  var iw = W - L - R, ih = H - T - B, axis = m.axis;
+
+  document.getElementById("tl-note").textContent =
+    (m.sch.scheduled_kg ? tvs(m.sch.scheduled_kg) + " dated · " : "") +
+    "×" + (m.cal.factor || 1) + " · " + (m.cal.basis || "not calibrated");
+  document.getElementById("tl-cohortlg").innerHTML =
+    m.cohorts.filter(function (c) { return c.open_date; }).length
+      ? '<i style="background:#c4302b"></i>' + m.MIN + "% crossed" : "";
+
+  if (!axis.length) {
+    // An empty axis is still an axis. What matters is how much crop carries no
+    // date at all, and the payload's own words for what is stopping it.
+    // Two weeks of hindsight, so today's rule stands inside the frame and not
+    // on top of the axis.
+    var n = 16, back = 2, g = "";
+    var start = monday(iso(Date.now())).getTime() - back * MS_WEEK;
+    for (var i = 0; i < n; i++) {
+      var gx = L + i / n * iw;
+      g += '<rect x="' + gx.toFixed(1) + '" y="' + T + '" width="' + (iw / n - 3).toFixed(1) +
+        '" height="' + ih + '" fill="#f7f6f1"/>';
+      if (i % 4 === 0) {
+        g += '<text x="' + (gx + 1).toFixed(1) + '" y="' + (H - 12) + '" font-size="9" ' +
+          'fill="#b8b6ae" font-family="DM Sans,sans-serif">' +
+          shortDate(iso(start + i * MS_WEEK)) + "</text>";
+      }
+    }
+    var tx0 = L + back / n * iw;
+    g += '<line x1="' + L + '" y1="' + (T + ih) + '" x2="' + (W - R) + '" y2="' + (T + ih) +
+      '" stroke="#d9d6cd"/><text class="todaylbl" x="' + (tx0 + 4).toFixed(1) + '" y="' +
+      (T - 7) + '" font-size="8.5" fill="#0a0a0a" font-family="Poppins,sans-serif" ' +
+      'font-weight="600">today</text><line class="today" x1="' + tx0.toFixed(1) + '" y1="' +
+      (T - 4) + '" x2="' + tx0.toFixed(1) + '" y2="' + (T + ih) +
+      '" stroke="#0a0a0a" stroke-width="1.2"/>';
+    var stalled = (m.proj.filter(function (p) { return p.needs; })[0] || {}).needs;
+    var undated = m.sch.unscheduled_kg || 0;
+    var head = !m.rows.length ? "No crop on file" : undated ? tvs(undated) : "No week dated";
+    var tail = !m.rows.length ? "the orchard record is empty"
+      : undated ? "undated · " + plural((m.sch.unscheduled || []).length, "block") + " · " +
+                  m.staleN + " of " + m.proj.length + " readings stale"
+      : plural(m.rows.length, "block") + " on file";
+    put("timeline",
+      '<svg viewBox="0 0 ' + W + " " + H + '">' + g + "</svg>" +
+      '<div class="state state--big"><b>' + esc(head) + "</b><span>" + esc(tail) + "</span>" +
+      (stalled ? "<span>" + esc(stalled) + "</span>" : "") + "</div>");
+    return;
+  }
+
+  var vals = axis.map(function (w) { return m.byWeek[w] || 0; });
+  var hi = Math.max.apply(null, vals.concat([1]));
+  var step = niceStep(hi / 3), top = Math.max(step, Math.ceil(hi / step) * step);
+  var bw = iw / axis.length;
+  var x = function (i) { return L + i * bw; };
+  var y = function (v) { return T + ih - v / top * ih; };
+  var g = "";
+
+  for (var v = step; v <= top + 0.5; v += step) {
+    g += '<line x1="' + L + '" y1="' + y(v).toFixed(1) + '" x2="' + (W - R) + '" y2="' +
+      y(v).toFixed(1) + '" stroke="#efede8"/><text x="' + (L - 7) + '" y="' +
+      (y(v) + 3).toFixed(1) + '" text-anchor="end" font-size="9" fill="#b8b6ae" ' +
+      'font-family="JetBrains Mono,monospace">' +
+      (v >= 1000 ? Math.round(v / 1000) + "t" : Math.round(v) + "kg") + "</text>";
+  }
+
+  axis.forEach(function (w, i) {
+    var kg = m.byWeek[w] || 0;
+    if (!kg) return;
+    var picked = monday(w).getTime() < m.thisMon;
+    var bh = Math.max(1.5, ih - (y(kg) - T));
+    g += '<rect class="wk ' + (picked ? "wk--picked" : "wk--forecast") + '" data-week="' + w +
+      '" x="' + (x(i) + 1.5).toFixed(1) + '" y="' + (T + ih - bh).toFixed(1) + '" width="' +
+      Math.max(1, bw - 3).toFixed(1) + '" height="' + bh.toFixed(1) + '" rx="1.5" ' +
+      (picked ? 'fill="#33471a"'
+              : 'fill="#eaf0dc" stroke="#6f8f3f" stroke-width="1" stroke-dasharray="3 2"') +
+      '><title>' + esc(w) + " · " + fmtT(kg) + " · " +
+      (picked ? "picked" : "forecast") + "</title></rect>";
+  });
+
+  // Today, and where each planting cohort's fruit becomes legal to export.
+  var tIdx = (m.thisMon - monday(axis[0]).getTime()) / MS_WEEK;
+  if (tIdx >= 0 && tIdx <= axis.length) {
+    var tx = x(tIdx) + bw / 2;
+    g += '<line class="today" x1="' + tx.toFixed(1) + '" y1="' + (T - 4) + '" x2="' +
+      tx.toFixed(1) + '" y2="' + (T + ih) + '" stroke="#0a0a0a" stroke-width="1.2"/>' +
+      '<text class="todaylbl" x="' + (tx + 4).toFixed(1) + '" y="' + (T - 7) +
+      '" font-size="8.5" fill="#0a0a0a" font-family="Poppins,sans-serif" ' +
+      'font-weight="600">today</text>';
+  }
+
+  m.cohorts.forEach(function (c) {
+    if (!c.open_date) return;
+    var ci = (monday(c.open_date).getTime() - monday(axis[0]).getTime()) / MS_WEEK;
+    if (ci < 0 || ci > axis.length) return;
+    var cx = x(ci) + bw / 2;
+    g += '<g class="cross" data-cohort="' + esc(c.year) + '">' +
+      '<line x1="' + cx.toFixed(1) + '" y1="' + T + '" x2="' + cx.toFixed(1) + '" y2="' +
+      (T + ih) + '" stroke="#c4302b" stroke-width="1" stroke-dasharray="2 3"/>' +
+      '<circle cx="' + cx.toFixed(1) + '" cy="' + (T + 4) + '" r="2.6" fill="#c4302b"/>' +
+      '<text x="' + (cx + 5).toFixed(1) + '" y="' + (T + 7.5) + '" font-size="8.5" ' +
+      'fill="#a83a48" font-family="Poppins,sans-serif" font-weight="600">' + esc(c.year) +
+      "</text><title>" + esc(c.year) + " planting reaches " + m.MIN + "% on " +
+      esc(c.open_date) + " · " + c.n + " blocks · " + fmtT(c.kg) +
+      "</title></g>";
+  });
+
+  g += '<line x1="' + L + '" y1="' + (T + ih) + '" x2="' + (W - R) + '" y2="' + (T + ih) +
+    '" stroke="#d9d6cd"/>';
+  var every = Math.ceil(axis.length / 14);
+  axis.forEach(function (w, i) {
+    if (i % every) return;
+    g += '<text x="' + (x(i) + bw / 2).toFixed(1) + '" y="' + (H - 12) +
+      '" text-anchor="middle" font-size="9" fill="#8a8780" ' +
+      'font-family="DM Sans,sans-serif">' + shortDate(w) + "</text>";
+  });
+
+  var peak = vals.indexOf(hi);
+  put("timeline", '<svg viewBox="0 0 ' + W + " " + H + '">' + g + "</svg>" +
+    '<div class="state"><b>' + tvs(m.sch.scheduled_kg) + "</b><span>over " + axis.length +
+    " weeks · peak " + shortDate(axis[peak]) + " " + fmtT(hi) +
+    (m.sch.unscheduled_kg ? " · " + fmtT(m.sch.unscheduled_kg) + " undated" : "") +
+    "</span></div>");
+}
+
+// ── 3. Every block on one rectangle ─────────────────────────────────────────
+var BANDS = [
+  { to: 75, c: "#eaf0dc", dark: true },
+  { to: 100, c: "#cfdcb0", dark: true },
+  { to: 150, c: "#b6c98a", dark: true },
+  { to: 250, c: "#6f8f3f", dark: false },
+  { to: 1e9, c: "#33471a", dark: false }
+];
+function band(pct) {
+  if (pct == null) return { c: "#e8e6de", dark: true };
+  for (var i = 0; i < BANDS.length; i++) if (pct < BANDS[i].to) return BANDS[i];
+  return BANDS[BANDS.length - 1];
+}
+
+// Squarified treemap. Each row is laid along the shorter side so the rectangles
+// stay near square, which is the only reason a treemap is readable at all.
+function squarify(vals, W, H) {
+  var total = vals.reduce(function (t, v) { return t + v; }, 0) || 1;
+  var s = vals.map(function (v) { return v * W * H / total; });
+  var out = [], x = 0, y = 0, w = W, h = H, i = 0;
+  var worst = function (row, sum, side) {
+    var mx = Math.max.apply(null, row), mn = Math.min.apply(null, row);
+    var s2 = sum * sum, l2 = side * side;
+    return Math.max(l2 * mx / s2, s2 / (l2 * mn));
+  };
+  while (i < s.length && w > 0.01 && h > 0.01) {
+    var side = Math.min(w, h), row = [], sum = 0, best = Infinity;
+    while (i + row.length < s.length) {
+      var v = s[i + row.length], next = sum + v;
+      var r = worst(row.concat([v]), next, side);
+      if (row.length && r > best) break;
+      row.push(v); sum = next; best = r;
+    }
+    var thick = sum / side, off = 0;
+    for (var k = 0; k < row.length; k++) {
+      var len = row[k] / thick;
+      out.push(w >= h ? { i: i + k, x: x, y: y + off, w: thick, h: len }
+                      : { i: i + k, x: x + off, y: y, w: len, h: thick });
+      off += len;
+    }
+    if (w >= h) { x += thick; w -= thick; } else { y += thick; h -= thick; }
+    i += row.length;
+  }
+  return out;
+}
+
+function drawTreemap(m) {
+  var W = 1000, H = 340;
+  var blocks = m.rows.filter(function (r) { return (r.expected_kg || 0) > 0; })
+    .sort(function (a, b) { return b.expected_kg - a.expected_kg; });
+  var zero = m.rows.length - blocks.length;
+
+  document.getElementById("tm-ramp").innerHTML = "<b>&lt;75%</b>" +
+    BANDS.map(function (b, i) {
+      return '<i style="background:' + b.c + '" title="' + (i ? BANDS[i - 1].to : 0) +
+        "–" + (b.to > 1e8 ? "∞" : b.to) + '% of the age curve"></i>';
+    }).join("") + "<b>250%+</b>";
+  document.getElementById("tm-note").textContent =
+    blocks.length + " with a crop" + (zero ? " · " + zero + " with none" : "");
+  put("tm-filter", FILTER
+    ? '<span class="fchip">' + esc(FILTER) +
+      '<button onclick="pickBlock(null)" title="Clear">×</button></span>' : "");
+
+  if (!blocks.length) {
+    put("treemap", '<div class="state state--big"><b>' +
+      (m.rows.length ? "No block carries a crop" : "No blocks on file") + "</b><span>" +
+      (m.rows.length ? m.rows.length + " blocks, none bearing"
+                     : "the orchard record is empty") + "</span></div>");
+    return;
+  }
+
+  var lay = squarify(blocks.map(function (b) { return b.expected_kg; }), W, H);
+  var g = lay.map(function (r) {
+    var b = blocks[r.i], bd = band(b.vs_curve), t = tv(b.expected_kg);
+    var label = "";
+    if (r.w > 64 && r.h > 28) {
+      label = '<text x="' + (r.x + 6).toFixed(1) + '" y="' + (r.y + 16).toFixed(1) +
+        '" font-size="9.5" font-weight="600" font-family="Poppins,sans-serif" fill="' +
+        (bd.dark ? "#2a2a26" : "#fafaf6") + '" pointer-events="none">' + esc(b.block) +
+        "</text><text x=\"" + (r.x + 6).toFixed(1) + '" y="' + (r.y + 28).toFixed(1) +
+        '" font-size="8.5" font-family="JetBrains Mono,monospace" fill="' +
+        (bd.dark ? "#5a5a52" : "rgba(250,250,246,.82)") + '" pointer-events="none">' +
+        t.v + t.u + (b.vs_curve == null ? "" : " · " + b.vs_curve + "%") + "</text>";
+    }
+    return '<rect class="blk' + (FILTER && FILTER !== b.block ? " dim" : "") +
+      '" data-block="' + esc(b.block) + '" data-kg="' + Math.round(b.expected_kg) +
+      '" x="' + r.x.toFixed(1) + '" y="' + r.y.toFixed(1) + '" width="' +
+      Math.max(0, r.w - 1).toFixed(1) + '" height="' + Math.max(0, r.h - 1).toFixed(1) +
+      '" fill="' + bd.c + '" onclick="pickBlock(&quot;' + esc(b.block) + '&quot;)">' +
+      "<title>" + esc(b.block) + " · " + esc(b.farm || "") + "\n" + fmtT(b.expected_kg) +
+      (b.value ? " · KES " + fmt(b.value) : "") + "\n" +
+      (b.vs_curve == null ? "no age curve"
+        : b.vs_curve + "% of the age " + b.age + " curve") + " · " + esc(b.basis) +
+      "\n" + fmt(b.bearing_trees) + " of " + fmt(b.live_trees) + " trees bearing" +
+      "</title></rect>" + label;
+  }).join("");
+
+  put("treemap", '<svg viewBox="0 0 ' + W + " " + H + '">' + g + "</svg>");
+}
+
+function pickBlock(b) {
+  FILTER = FILTER === b ? null : b;
+  render();
+}
+
+// ── 3b. The same blocks, where they actually are ────────────────────────────
+// The treemap answers "how much", this answers "where". One selection between
+// them: clicking either paints both, because they are two views of one list.
+var MAP = null, LAYERS = {}, LABELS = null, BASE = {};
+var MPREFS = { sat: true, labels: true };
+
+// Survey against the paperwork. A quarter out either way is not a survey error,
+// it is a block being sized wrongly in the forecast.
+function areaGap(b) {
+  var surveyed = (b.mapped_area_m2 || 0) / 10000;
+  if (!surveyed || !b.area_ha) return null;
+  var r = surveyed / b.area_ha;
+  return r > 1.25 || r < 0.75 ? { surveyed: surveyed, paper: b.area_ha, ratio: r } : null;
+}
+
+function mapBlocks(m) {
+  // Boundaries ride along with whatever the block master hands back; a block
+  // without one is simply not on the map, and is counted instead.
+  var by = {};
+  m.rows.forEach(function (r) { by[r.block] = r; });
+  return (BLK || []).map(function (b) {
+    var geo = null;
+    try { geo = b.geojson ? JSON.parse(b.geojson) : null; } catch (e) { geo = null; }
+    if (!geo) return null;
+    var r = by[b.name] || by[b.block_code] || {};
+    return { name: b.name, code: b.block_code || b.name, geo: geo,
+             lat: b.centroid_lat, lon: b.centroid_lon, gap: areaGap(b),
+             kg: r.expected_kg || 0, vs: r.vs_curve == null ? null : r.vs_curve,
+             farm: r.farm || b.farm, basis: r.basis };
+  }).filter(Boolean);
+}
+
+function drawMap(m) {
+  var shapes = mapBlocks(m);
+  var missing = (BLK || []).length ? (BLK.length - shapes.length) : m.rows.length;
+  var gaps = shapes.filter(function (s) { return s.gap; }).length;
+
+  document.getElementById("mp-note").textContent = shapes.length
+    ? plural(shapes.length, "block") + " surveyed" +
+      (missing ? " · " + missing + " without a boundary" : "") +
+      (gaps ? " · " + gaps + " area disagrees" : "")
+    : "";
+
+  // No Leaflet (offline, or the CDN is down) and no boundaries look the same to
+  // a reader: there is no map. Say which one it is and draw nothing.
+  if (typeof L === "undefined" || !shapes.length) {
+    MAP = null;
+    put("maphost", '<div class="state"><b>' +
+      (typeof L === "undefined" ? "Map unavailable" : "No boundaries") + "</b><span>" +
+      (typeof L === "undefined"
+        ? plural(shapes.length, "block") + " surveyed · the map library did not load"
+        : missing + " of " + ((BLK || []).length || m.rows.length) +
+          " blocks have never been surveyed") +
+      " · the treemap below sizes them</span></div>");
+    return;
+  }
+
+  if (!MAP) {
+    put("maphost", '<div id="map"></div>');
+    MAP = L.map("map", { zoomControl: false, zoomSnap: 0.25 });
+    L.control.zoom({ position: "bottomright" }).addTo(MAP);
+    BASE.sat = L.tileLayer(
+      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      { maxZoom: 21, maxNativeZoom: 18, attribution: "Esri World Imagery" });
+    BASE.light = L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+      { maxZoom: 21, maxNativeZoom: 19, attribution: "&copy; OpenStreetMap &copy; CARTO" });
+    (MPREFS.sat ? BASE.sat : BASE.light).addTo(MAP);
+    MAP.on("zoomend", function () {
+      if (LABELS) LABELS.eachLayer(function (l) {
+        l.setOpacity(MAP.getZoom() >= 15 ? 1 : 0);
+      });
+    });
+  }
+
+  Object.keys(LAYERS).forEach(function (k) { MAP.removeLayer(LAYERS[k]); });
+  if (LABELS) MAP.removeLayer(LABELS);
+  LAYERS = {};
+  LABELS = L.layerGroup();
+
+  var bounds = null;
+  shapes.forEach(function (s) {
+    var on = FILTER === s.name, bd = band(s.vs);
+    var layer = L.geoJSON(s.geo, {
+      style: { color: s.gap ? "#c4302b" : on ? "#0a0a0a" : "#fafaf6",
+               weight: on ? 3 : s.gap ? 2 : 1.2,
+               dashArray: s.gap ? "4 3" : null,
+               fillColor: bd.c, fillOpacity: FILTER && !on ? 0.22 : 0.78 },
+      onEachFeature: function (f, l) {
+        l.on("click", function () { pickBlock(s.name); });
+        l.bindTooltip("<b>" + esc(s.name) + "</b>" + fmtT(s.kg) +
+          (s.vs == null ? "" : " · " + s.vs + "%") +
+          (s.gap ? "<s>surveyed " + s.gap.surveyed.toFixed(2) + " ha vs " +
+                   s.gap.paper.toFixed(2) + " on paper</s>" : ""),
+          { sticky: true });
+      }
+    }).addTo(MAP);
+    LAYERS[s.name] = layer;
+    bounds = bounds ? bounds.extend(layer.getBounds()) : layer.getBounds();
+
+    if (s.lat && s.lon) {
+      LABELS.addLayer(L.marker([s.lat, s.lon], {
+        icon: L.divIcon({ className: "mlbl", html: esc(s.code) }), interactive: false
+      }));
+    }
+  });
+  if (MPREFS.labels) LABELS.addTo(MAP);
+  if (bounds && bounds.isValid && bounds.isValid()) MAP.fitBounds(bounds, { padding: [24, 24] });
+}
+
+function mapToggle(what) {
+  MPREFS[what] = !MPREFS[what];
+  var btn = document.getElementById(what === "sat" ? "mp-sat" : "mp-lbl");
+  btn.className = "mbtn" + (MPREFS[what] ? " on" : "");
+  if (!MAP) return;
+  if (what === "sat") {
+    MAP.removeLayer(MPREFS.sat ? BASE.light : BASE.sat);
+    (MPREFS.sat ? BASE.sat : BASE.light).addTo(MAP);
+  } else if (MPREFS.labels) LABELS.addTo(MAP);
+  else MAP.removeLayer(LABELS);
+}
+
+// ── 4a. Dry matter, cohort by cohort, against the export floor ──────────────
+function drawCohorts(m) {
+  var cs = m.cohorts;
+  document.getElementById("dm-note").textContent = m.MIN + "% floor";
+  if (!cs.length) {
+    put("cohorts", '<div class="state"><b>No samples</b>' +
+      "<span>dry matter has never been recorded</span></div>");
+    return;
+  }
+  var focus = null;
+  if (FILTER) {
+    var fr = m.rows.filter(function (r) { return r.block === FILTER; })[0];
+    if (fr) focus = fr.planting_year || 0;
+  }
+
+  var W = 320, rowH = 47, H = cs.length * rowH, lo = 16, hi = 28, L = 32, R = 46;
+  var iw = W - L - R;
+  var x = function (v) { return L + (Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo) * iw; };
+  var mx = x(m.MIN);
+  var g = cs.map(function (c, i) {
+    var yT = i * rowH + 2, cx = x(c.dm);
+    return '<g class="coh" data-cohort="' + esc(c.year) + '" opacity="' +
+      (focus == null || focus === c.year ? "1" : "0.3") + '">' +
+      '<text x="0" y="' + (yT + 11) + '" font-size="10.5" font-weight="600" ' +
+      'font-family="Poppins,sans-serif" fill="#1a1a18">' + (c.year || "unknown") + "</text>" +
+      '<text x="' + W + '" y="' + (yT + 11) + '" text-anchor="end" font-size="9" ' +
+      'font-family="JetBrains Mono,monospace" fill="#8a8780">' + fmtT(c.kg) + " · " +
+      c.n + "b</text>" +
+      '<rect x="' + L + '" y="' + (yT + 19) + '" width="' + iw + '" height="9" rx="4.5" ' +
+      'fill="#f0efe9"/><rect x="' + L + '" y="' + (yT + 19) + '" width="' +
+      Math.max(0, cx - L).toFixed(1) + '" height="9" rx="4.5" fill="' +
+      (c.short ? "#b6c98a" : "#54702c") + '"/>' +
+      '<line class="floor" x1="' + mx.toFixed(1) + '" y1="' + (yT + 14) + '" x2="' +
+      mx.toFixed(1) + '" y2="' + (yT + 33) + '" stroke="#c4302b" stroke-width="1.6"/>' +
+      '<text x="' + L + '" y="' + (yT + 42) + '" font-size="9" ' +
+      'font-family="JetBrains Mono,monospace" fill="#3a3a34">' + c.dm.toFixed(1) + "%</text>" +
+      '<text x="' + (L + 42) + '" y="' + (yT + 42) + '" font-size="9" ' +
+      'font-family="JetBrains Mono,monospace" fill="#8a8780">+' + c.gain.toFixed(2) +
+      "/wk</text>" +
+      '<text x="' + W + '" y="' + (yT + 42) + '" text-anchor="end" font-size="9" ' +
+      'font-family="JetBrains Mono,monospace" fill="' +
+      (c.wk == null ? "#d9962e" : "#3a3a34") + '">' +
+      (c.wk == null ? c.stale + " stale" : c.wk === 0 ? "at floor" : c.wk + " wk") + "</text>" +
+      "<title>" + (c.year || "unknown") + " planting · " + c.n + " blocks · " +
+      c.dm.toFixed(1) + "% dry matter, gaining " + c.gain.toFixed(2) + " a week" +
+      (c.wk == null ? " · no date: " + c.stale + " of " + c.n + " readings stale"
+                    : " · crosses " + m.MIN + "% in " + c.wk + " weeks") +
+      "</title></g>";
+  }).join("");
+  g += '<text x="' + mx.toFixed(1) + '" y="' + (H + 8) + '" text-anchor="middle" ' +
+    'font-size="8.5" font-family="Poppins,sans-serif" fill="#a83a48" font-weight="600">' +
+    m.MIN + "%</text>";
+  put("cohorts", '<svg viewBox="0 0 ' + W + " " + (H + 11) + '">' + g + "</svg>");
+}
+
+// ── 4b. Pickers needed against the crew you have ────────────────────────────
+function drawCrew(m) {
+  var rows = m.labRows;
+  if (FILTER) rows = rows.filter(function (r) { return (r.blocks || []).indexOf(FILTER) > -1; });
+  document.getElementById("crew-note").textContent = fmt(m.crewHave) + " on the books";
+
+  if (!rows.length) {
+    put("crewchart", '<div class="state"><b>' +
+      (m.labRows.length ? "0" : "No week to staff") + "</b><span>" +
+      (m.labRows.length ? "weeks touch this block"
+        : m.sch.unscheduled_kg ? tvs(m.sch.unscheduled_kg) + " waiting on a pick date"
+        : "nothing scheduled") + "</span></div>");
+    return;
+  }
+
+  var W = 320, H = 128, T = 10, B = 20, ih = H - T - B;
+  var hi = Math.max.apply(null, rows.map(function (r) { return r.pickers_needed; })
+    .concat([m.crewHave, 1]));
+  var bw = W / rows.length;
+  var y = function (v) { return T + ih - v / hi * ih; };
+  var every = Math.ceil(rows.length / 5);
+  var g = rows.map(function (r, i) {
+    var over = r.pickers_needed > m.crewHave;
+    var s = '<rect class="pk' + (over ? " pk--short" : "") + '" data-week="' + r.week +
+      '" x="' + (i * bw + 2).toFixed(1) + '" y="' + y(r.pickers_needed).toFixed(1) +
+      '" width="' + Math.max(1, bw - 4).toFixed(1) + '" height="' +
+      Math.max(1, ih - (y(r.pickers_needed) - T)).toFixed(1) + '" rx="2" fill="' +
+      (over ? "#c4302b" : "#6f8f3f") + '"><title>' + esc(r.week) + " · " +
+      Math.round(r.pickers_needed) + " pickers · " + fmtT(r.kg) +
+      (over ? " · " + Math.round(r.shortfall) + " short" : "") + "</title></rect>";
+    if (i % every === 0) {
+      s += '<text x="' + (i * bw + bw / 2).toFixed(1) + '" y="' + (H - 6) +
+        '" text-anchor="middle" font-size="8.5" font-family="DM Sans,sans-serif" ' +
+        'fill="#8a8780">' + shortDate(r.week) + "</text>";
+    }
+    return s;
+  }).join("");
+  g += '<line class="crewline" x1="0" y1="' + y(m.crewHave).toFixed(1) + '" x2="' + W +
+    '" y2="' + y(m.crewHave).toFixed(1) + '" stroke="#0a0a0a" stroke-width="1.1" ' +
+    'stroke-dasharray="4 3"/><text x="' + W + '" y="' + (y(m.crewHave) - 4).toFixed(1) +
+    '" text-anchor="end" font-size="8.5" font-family="Poppins,sans-serif" ' +
+    'font-weight="600" fill="#0a0a0a">crew ' + fmt(m.crewHave) + "</text>";
+
+  var short = rows.filter(function (r) { return r.pickers_needed > m.crewHave; }).length;
+  put("crewchart", '<svg viewBox="0 0 ' + W + " " + H + '">' + g + "</svg>" +
+    '<div class="state"><b>' + short + "</b><span>" + (short === 1 ? "week" : "weeks") +
+    " short of " + rows.length + " · peak " +
+    Math.round(Math.max.apply(null, rows.map(function (r) { return r.pickers_needed; }))) +
+    " pickers</span></div>");
+}
+
+// ── 4c. What the sick trees and the gaps are costing ────────────────────────
+function drawLosses(m) {
+  var L = D.losses || {}, all = L.rows || [], rows = all.slice();
+  if (FILTER) rows = rows.filter(function (r) { return r.block === FILTER; });
+  document.getElementById("loss-note").textContent = L.lost_kg ? tvs(L.lost_kg) + " total" : "";
+
+  if (!rows.length) {
+    put("losses", '<div class="state"><b>' + (all.length ? "0" : "0 kg") + "</b><span>" +
+      (all.length ? "lost on this block" : "no sick trees or gaps recorded") +
+      "</span></div>");
+    return;
+  }
+  rows = rows.slice(0, 7);
+  var W = 320, rowH = 22, H = rows.length * rowH + 2, LW = 88, iw = W - LW - 58;
+  var hi = Math.max.apply(null, rows.map(function (r) { return r.lost_kg; }).concat([1]));
+  var g = rows.map(function (r, i) {
+    var yT = i * rowH;
+    return '<g class="loss" data-block="' + esc(r.block) + '">' +
+      '<text x="0" y="' + (yT + 15) + '" font-size="10" font-weight="500" ' +
+      'font-family="Poppins,sans-serif" fill="#1a1a18">' + esc(r.block) + "</text>" +
+      '<rect x="' + LW + '" y="' + (yT + 6) + '" width="' +
+      Math.max(1, r.lost_kg / hi * iw).toFixed(1) + '" height="10" rx="2" fill="#c4302b" ' +
+      'opacity="' + (0.45 + 0.55 * (r.lost_kg / hi)).toFixed(2) + '"/>' +
+      '<text x="' + W + '" y="' + (yT + 15) + '" text-anchor="end" font-size="9.5" ' +
+      'font-family="JetBrains Mono,monospace" fill="#3a3a34">' + fmtT(r.lost_kg) + "</text>" +
+      "<title>" + esc(r.block) + " · " + fmt(r.sick_trees) + " sick, " + fmt(r.gaps) +
+      " gaps · " + fmtT(r.lost_kg) +
+      (r.lost_value ? " · KES " + fmt(r.lost_value) : "") + "</title></g>";
+  }).join("");
+  put("losses", '<svg viewBox="0 0 ' + W + " " + H + '">' + g + "</svg>" +
+    '<div class="state"><b>' + tvs(L.lost_kg) + "</b><span>across " +
+    plural(all.length, "block") + (L.lost_value ? " · KES " + fmt(L.lost_value) : "") +
+    "</span></div>");
+}
+
+// ── 5. Only what is actually wrong, five at most ────────────────────────────
+function drawAlerts(m) {
+  var a = [], lab = (LAB || {}).summary || {};
+
+  if (lab.short_weeks) {
+    a.push({ w: 10, k: "neg", n: lab.short_weeks,
+             l: (lab.short_weeks === 1 ? "week" : "weeks") + " short of crew",
+             s: plural(Math.round(lab.worst_shortfall), "picker") + " short at worst" +
+                (lab.first_short_week ? " · first " + shortDate(lab.first_short_week) : "") });
+  }
+  if (m.staleN) {
+    a.push({ w: 9, k: "warn", n: m.staleN, l: "readings stale",
+             s: Math.round(m.oldest) + " weeks old · no block can be dated from them" });
+  }
+  if (m.sch.unscheduled_kg) {
+    a.push({ w: 8, k: "warn", n: tvs(m.sch.unscheduled_kg), l: "crop undated",
+             s: plural((m.sch.unscheduled || []).length, "block") + " with no pick date" });
+  }
+  if ((D.losses || {}).lost_kg) {
+    a.push({ w: 7, k: "neg", n: tvs(D.losses.lost_kg), l: "lost to sick trees",
+             s: plural((D.losses.rows || []).length, "block") +
+                (D.losses.lost_value ? " · KES " + fmt(D.losses.lost_value) : "") });
+  }
+  var uncounted = m.rows.filter(function (r) {
+    return (r.expected_kg || 0) > 0 && !/^counted/.test(r.basis || "");
+  }).length;
+  if (uncounted) {
+    a.push({ w: 5, k: "", n: uncounted,
+             l: (uncounted === 1 ? "block" : "blocks") + " never counted",
+             s: "sized off the estate curve, not off the tree" });
+  }
+  var nocrop = m.rows.filter(function (r) { return !(r.expected_kg || 0); }).length;
+  if (nocrop) {
+    a.push({ w: 4, k: "", n: nocrop,
+             l: (nocrop === 1 ? "block" : "blocks") + " with no crop",
+             s: "not bearing yet, or no planting year on record" });
+  }
+  if ((D.issues || []).length) {
+    a.push({ w: 3, k: "", n: D.issues.length,
+             l: D.issues.length === 1 ? "record disagrees" : "records disagree",
+             s: D.issues.slice(0, 3).map(function (i) { return i.block; }).join(", ") });
+  }
+
+  a.sort(function (x, y) { return y.w - x.w; });
+  put("alerts", a.length
+    ? a.slice(0, 5).map(function (c) {
+        return '<span class="chip' + (c.k ? " chip--" + c.k : "") + '" title="' + esc(c.s) +
+          '"><b>' + esc(String(c.n)) + "</b>" + esc(c.l) + "<small>" + esc(c.s) +
+          "</small></span>";
+      }).join("")
+    : '<span class="chip chip--ok"><b>0</b>problems open' +
+      "<small>every block dated, staffed and counted</small></span>");
+}
+
+function render() {
+  var m = model();
+  drawKpis(m); drawTimeline(m); drawMap(m); drawTreemap(m);
+  drawCohorts(m); drawCrew(m); drawLosses(m); drawAlerts(m);
+}
+
+function load() {
+  Promise.all([
+    api("upande_avocado.api.avocadoapi.overview", { price_per_kg: val("price") }),
+    api("upande_avocado.www.avocado_outlook.get_years", {}),
+    api("upande_avocado.api.avocadolabour.get_labour_plan",
+        { crew_available: val("crew"), days_per_week: 5, pay_per_day: 0 }),
+    // The block master is the only place the surveyed boundaries live. It is
+    // asked for them here rather than folded into the forecast, so the map can
+    // be empty without the forecast noticing.
+    api("upande_avocado.api.avocadoapi.get_blocks", {})
+  ]).then(function (r) {
+    D = r[0] || {}; YEARS = r[1] || {}; LAB = r[2] || {}; BLK = r[3] || [];
+    put("err", "");
+    render();
+  }).catch(function (e) {
+    put("err", '<div class="err">' + esc(e.message) + "</div>");
+    document.getElementById("sub").textContent = "Could not load";
+  });
+}
+
+["price", "crew"].forEach(function (id) {
+  document.getElementById(id).addEventListener("change", load);
+});
+load();
+</script>
+</body></html>
