@@ -200,7 +200,7 @@ export const recordTaskWork = (
   note = "",
   workDate: string | null = null,
 ) =>
-  rpc<{ task: PlanTask; work: WorkEntry[] }>("record_task_work", {
+  rpc<{ task: PlanTask; work: string[] }>("record_task_work", {
     plan,
     task,
     status,
