@@ -1,3 +1,4 @@
+import "@testing-library/jest-dom/vitest";
 import { fireEvent, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Blocks } from "@/pages/Blocks";
@@ -9,6 +10,7 @@ vi.mock("@/lib/api", async (orig) => ({
   listUnits: vi.fn(),
   getUnit: vi.fn(),
   getOverview: vi.fn().mockResolvedValue({ error: "no" }),
+  cycleFlags: vi.fn().mockResolvedValue({ error: "no" }),
 }));
 const listUnits = vi.mocked(api.listUnits);
 const getUnit = vi.mocked(api.getUnit);
@@ -90,5 +92,23 @@ describe("Blocks", () => {
     fireEvent.click(screen.getByText("Pond 1"));
     await screen.findByRole("dialog");
     expect(screen.queryByText("Rotation history")).toBeNull();
+  });
+
+  it("shows dry matter with a ready badge, plants replaced and cycle flags", async () => {
+    listUnits.mockResolvedValue({
+      units: [
+        unit({ name: "Block A", current_cycle: "CYC-1", item: "Hass", dry_matter: { pct: 26.4, target: 24, ready: true, date: "2026-10-12" }, plants_replaced: 35 }),
+        unit({ name: "Block B", dry_matter: { pct: 21.2, target: 24, ready: false, date: "2026-10-12" } }),
+      ],
+    });
+    vi.mocked(api.cycleFlags).mockResolvedValue({ rows: [{ cycle: "CYC-1", unit: "Block A", variety: "Hass", flags: ["Block A flowered 3 weeks late"] }] });
+    renderPage(<Blocks />);
+    const a = await screen.findByTestId("block-dm-Block A");
+    expect(a).toHaveTextContent("26.4%");
+    expect(a).toHaveTextContent("Ready to pick");
+    expect(screen.getByTestId("block-dm-Block B")).toHaveTextContent("Not yet");
+    expect(screen.getByText("Plants replaced")).toBeTruthy();
+    expect(screen.getByText("35")).toBeTruthy();
+    expect(await screen.findByTestId("block-flag-Block A")).toHaveTextContent("3 weeks late");
   });
 });

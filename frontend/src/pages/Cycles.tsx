@@ -12,6 +12,7 @@ import { ToolbarButton } from "@/components/ToolbarButton";
 import { useToast } from "@/components/Toast";
 import { StatusPill } from "@/components/blocks/StatusPill";
 import { BODY_ROW, TD, TDR, TH, THEAD_ROW, THR } from "@/components/blocks/tableStyles";
+import { CycleActualsDialog } from "@/components/cycles/CycleActualsDialog";
 import { CycleStageDialog } from "@/components/cycles/CycleStageDialog";
 import { StageChip } from "@/components/varieties/StageChip";
 import { listRules, listVarieties, type ActivityRule, type Variety } from "@/lib/varieties-api";
@@ -63,6 +64,7 @@ export function Cycles() {
   const [varieties, setVarieties] = useState<Variety[]>([]);
   const [rules, setRules] = useState<ActivityRule[]>([]);
   const [picked, setPicked] = useState<Cycle | null>(null);
+  const [recording, setRecording] = useState<Cycle | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -229,15 +231,17 @@ export function Cycles() {
               ) : empty ? (
                 <p className="text-[13px] text-[var(--sd-muted)]">{emptyText}</p>
               ) : (
-                <CycleTable cycles={shown} unitLabel={crop.unit_label} accent={accent} onSelect={setPicked} />
+                <CycleTable cycles={shown} unitLabel={crop.unit_label} accent={accent} onSelect={setPicked} onRecord={crop.boot.can_plan ? setRecording : undefined} />
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
         {picked && (
-          <CycleStageDialog cycle={picked} accent={accent} canRecord={crop.boot.can_plan} onClose={() => setPicked(null)} onChanged={() => void load()} />
+          <CycleStageDialog cycle={picked} accent={accent} canRecord={crop.boot.can_plan} onRecordDates={crop.boot.can_plan ? () => { setRecording(picked); setPicked(null); } : undefined} onClose={() => setPicked(null)} onChanged={() => void load()} />
         )}
+
+        {recording && <CycleActualsDialog cycle={recording} onClose={() => setRecording(null)} onSaved={() => void load()} />}
 
         <NewCycleDialog
           crop={crop}
@@ -252,10 +256,10 @@ export function Cycles() {
   );
 }
 
-function CycleTable({ cycles, unitLabel, accent, onSelect }: { cycles: Cycle[]; unitLabel: string; accent: string; onSelect: (c: Cycle) => void }) {
+function CycleTable({ cycles, unitLabel, accent, onSelect, onRecord }: { cycles: Cycle[]; unitLabel: string; accent: string; onSelect: (c: Cycle) => void; onRecord?: (c: Cycle) => void }) {
   return (
     <ScrollTable tall>
-      <table className="w-full min-w-[980px] text-[13px]">
+      <table className="w-full min-w-[1100px] text-[13px]">
         <thead>
           <tr className={cn(THEAD_ROW, STICKY_HEAD)}>
             <th className={TH}>Cycle</th>
@@ -267,7 +271,9 @@ function CycleTable({ cycles, unitLabel, accent, onSelect }: { cycles: Cycle[]; 
             <th className={TH}>Harvest window</th>
             <th className={THR}>Area (ha)</th>
             <th className={TH}>Protocol</th>
+            <th className={TH}>Flowering</th>
             <th className={TH}>Status</th>
+            {onRecord && <th className={TH}><span className="sr-only">Record dates</span></th>}
           </tr>
         </thead>
         <tbody>
@@ -275,7 +281,15 @@ function CycleTable({ cycles, unitLabel, accent, onSelect }: { cycles: Cycle[]; 
             <tr key={c.name} className={BODY_ROW}>
               <td className={TD}>
                 <div className="font-medium text-[var(--sd-ink)]">{c.item || c.title || c.name}</div>
-                <div className="text-[11px] tabular-nums text-[var(--sd-quiet)]">{c.name}</div>
+                <div className="text-[11px] tabular-nums text-[var(--sd-quiet)]">
+                  {c.name}
+                  {(c.cycle_no ?? 1) > 1 ? ` · cycle ${c.cycle_no}` : ""}
+                </div>
+                {(c.flags ?? []).map((f) => (
+                  <div key={f} className="text-[11px] text-[var(--sd-sev-high)]">{f}</div>
+                ))}
+                {!!Number(c.due_for_uprooting) && <div className="text-[11px] font-medium text-[var(--sd-sev-high)]">Due for uprooting</div>}
+                {c.proposed_next_cycle && <div className="text-[11px] text-[var(--sd-quiet)]">Next: {c.proposed_next_cycle}</div>}
               </td>
               <td className={TD}>{c.unit}</td>
               <td className={TD}>{c.variety || "—"}</td>
@@ -295,9 +309,19 @@ function CycleTable({ cycles, unitLabel, accent, onSelect }: { cycles: Cycle[]; 
               </td>
               <td className={TDR}>{ha(c.area_ha)}</td>
               <td className={cn(TD, "text-[var(--sd-muted)]")}>{c.protocol || "—"}</td>
+              <td className={cn(TD, "tabular-nums text-[var(--sd-muted)]")}>
+                {c.actual_flowering_date ? shortDate(c.actual_flowering_date) : c.expected_flowering_date ? `exp. ${shortDate(c.expected_flowering_date)}` : "—"}
+              </td>
               <td className={TD}>
                 <StatusPill status={c.status} />
               </td>
+              {onRecord && (
+                <td className={TD}>
+                  <button type="button" aria-label={`Record dates for ${c.name}`} className="text-[12px] text-[var(--sd-muted)] underline-offset-2 hover:underline" onClick={() => onRecord(c)}>
+                    Record dates
+                  </button>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>

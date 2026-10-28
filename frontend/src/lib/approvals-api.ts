@@ -44,6 +44,8 @@ export interface ApprovalGroup {
   unit_name: string;
   operation: string;
   operation_name: string;
+  /** The operation's colour, for the activity dot. */
+  color?: string | null;
   plan: string | null;
   plan_year: number | null;
   plan_week: number | null;

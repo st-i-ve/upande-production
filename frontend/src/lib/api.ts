@@ -32,6 +32,10 @@ export interface Crop {
   yield_uom: string;
   /** 0 for bees and fish: they run in hives and ponds, not crop cycles. */
   uses_crop_cycles?: number | boolean;
+  /** Dry matter tests are switched on for this crop (avocado keeps its own page). */
+  dry_matter_testing?: number | boolean;
+  dry_matter_on?: "Fruit" | "Tuber" | null;
+  dry_matter_target_pct?: number | null;
 }
 
 export interface Boot {
@@ -94,6 +98,19 @@ export interface UnitRow {
   /** Variety and growth stage of the current cycle. */
   variety?: string | null;
   current_stage?: string | null;
+  /** Latest dry matter test; null when none (or the crop does not test). */
+  dry_matter?: DryMatterLatest | null;
+  /** Plants replaced by gap filling (approved work, uom Plant). */
+  plants_replaced?: number;
+  /** Off-protocol flags of the unit's current cycle. */
+  flags?: string[];
+}
+
+export interface DryMatterLatest {
+  pct: number;
+  target: number | null;
+  ready: boolean;
+  date: string | null;
 }
 
 export const listUnits = (crop: string) => rpc<{ units: UnitRow[] }>("list_units", { crop });
@@ -127,6 +144,15 @@ export interface Cycle {
   status: string;
   area_ha: number;
   previous_cycle: string | null;
+  cycle_no?: number;
+  expected_flowering_date?: string | null;
+  actual_flowering_date?: string | null;
+  actual_harvest_start?: string | null;
+  actual_harvest_end?: string | null;
+  /** Off-protocol flags, e.g. "Block A flowered 3 weeks late". */
+  flags?: string[];
+  due_for_uprooting?: 0 | 1 | boolean;
+  proposed_next_cycle?: string | null;
   variety?: string | null;
   current_stage?: string | null;
   /** The variety's stages with real dates (actuals applied). */
@@ -147,7 +173,17 @@ export const listCycles = (crop: string, unit?: string | null, status?: string |
   rpc<{ cycles: Cycle[] }>("list_cycles", { crop, unit: unit ?? null, status: status ?? null });
 
 /** Inserts, or updates when `data.name` is set. */
-export const saveCycle = (data: Partial<Cycle> & Row) => rpc<{ name: string }>("save_cycle", { data });
+export const saveCycle = (data: Partial<Cycle> & Row) =>
+  rpc<{ name: string; proposed_next_cycle?: string | null }>("save_cycle", { data });
+
+export interface CycleFlagRow {
+  cycle: string;
+  unit: string;
+  variety: string | null;
+  flags: string[];
+}
+
+export const cycleFlags = (crop: string) => rpc<{ rows: CycleFlagRow[] }>("cycle_flags", { crop });
 
 // -- Weekly plan -------------------------------------------------------------
 
@@ -186,6 +222,8 @@ export interface PlanTask {
   deviation: string | null;
   protocol_ref: string | null;
   note: string | null;
+  /** The operation's colour (Production Operation.color), for the activity dot. */
+  color?: string | null;
   /** Activity rule flag: OK, Warn (allowed with a reason) or Block. */
   rule_status?: RuleStatus | null;
   rule_notes?: string | null;

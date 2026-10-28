@@ -22,12 +22,15 @@ export function CycleStageDialog({
   canRecord,
   onClose,
   onChanged,
+  onRecordDates,
 }: {
   cycle: Cycle;
   accent: string;
   canRecord: boolean;
   onClose: () => void;
   onChanged: () => void;
+  /** Opens the actual flowering / harvest dates dialog. */
+  onRecordDates?: () => void;
 }) {
   const toast = useToast();
   const [stages, setStages] = useState<CycleStage[] | null>(null);
@@ -107,7 +110,12 @@ export function CycleStageDialog({
             </div>
           </div>
         )}
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          {onRecordDates && (
+            <Button variant="outline" onClick={onRecordDates}>
+              Record flowering and harvest dates
+            </Button>
+          )}
           <Button variant="outline" onClick={onClose}>
             Close
           </Button>

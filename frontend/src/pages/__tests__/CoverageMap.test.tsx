@@ -106,4 +106,20 @@ describe("CoverageMap", () => {
     renderPage(<CoverageMap />);
     expect(await screen.findByText("Boom")).toBeInTheDocument();
   });
+
+  it("colours by activity with a legend", async () => {
+    mocked.mockResolvedValue({
+      ...payload,
+      units: (payload.units as Record<string, unknown>[]).map((u) => (u.name === "B-late" ? { ...u, activity: { operation: "Pruning", color: "#8a2be2" } } : u)),
+      legend: [{ operation: "Pruning", color: "#8a2be2" }],
+    } as never);
+    renderPage(<CoverageMap />);
+    await screen.findByTestId("coverage-kpis");
+    expect(screen.queryByTestId("activity-legend")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Colour by activity" }));
+    const legend = await screen.findByTestId("activity-legend");
+    expect(legend).toHaveTextContent("Pruning");
+    const { setCoverageData } = await import("@/components/map");
+    await waitFor(() => expect(vi.mocked(setCoverageData).mock.calls.at(-1)![3]).toBe(true));
+  });
 });

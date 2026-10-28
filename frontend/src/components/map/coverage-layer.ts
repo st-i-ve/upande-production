@@ -1,6 +1,6 @@
 import type maplibregl from "maplibre-gl";
 import type { CoverageMap, CoverageUnit } from "@/lib/map-api";
-import { COVERAGE_STATE_COLOR } from "@/lib/map-api";
+import { COVERAGE_STATE_COLOR, NO_ACTIVITY_COLOR } from "@/lib/map-api";
 
 /**
  * Draws a CoverageMap on a maplibre map: pivot outlines underneath, unit polygons filled by
@@ -12,19 +12,19 @@ export const COVERAGE_FILL_LAYER = "coverage-fill";
 const SRC = "coverage-units";
 const OUT_SRC = "coverage-outlines";
 
-function feature(u: CoverageUnit) {
+function feature(u: CoverageUnit, byActivity = false) {
   const gj = u.geojson;
   const geometry = gj ? (gj.type === "Feature" ? gj.geometry : gj.type === "FeatureCollection" ? undefined : (gj as never)) : undefined;
   if (!geometry) return null;
   return {
     type: "Feature" as const,
     geometry,
-    properties: { name: u.name, state: u.state, color: COVERAGE_STATE_COLOR[u.state], progress: u.progress_pct },
+    properties: { name: u.name, state: u.state, color: byActivity ? u.activity?.color ?? NO_ACTIVITY_COLOR : COVERAGE_STATE_COLOR[u.state], progress: u.progress_pct },
   };
 }
 
-export function setCoverageData(map: maplibregl.Map, data: CoverageMap, selected?: string | null) {
-  const units = { type: "FeatureCollection" as const, features: data.units.map(feature).filter(Boolean) as never[] };
+export function setCoverageData(map: maplibregl.Map, data: CoverageMap, selected?: string | null, byActivity = false) {
+  const units = { type: "FeatureCollection" as const, features: data.units.map((u) => feature(u, byActivity)).filter(Boolean) as never[] };
   const outlines = {
     type: "FeatureCollection" as const,
     features: data.outlines

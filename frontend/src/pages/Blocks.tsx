@@ -15,7 +15,7 @@ import { StatusPill } from "@/components/blocks/StatusPill";
 import { UnitDrawer } from "@/components/blocks/UnitDrawer";
 import { BODY_ROW, TD, TDR, TH, THEAD_ROW, THR } from "@/components/blocks/tableStyles";
 import { EmptyNote, Panel } from "@/components/overview/Panel";
-import { getOverview, listUnits, type OverviewBlock, type UnitRow } from "@/lib/api";
+import { cycleFlags, getOverview, listUnits, type OverviewBlock, type UnitRow } from "@/lib/api";
 import { cropUsesCycles, pluralise, useCurrentCrop, viewLabel } from "@/lib/crops";
 import { isError } from "@/lib/frappe";
 import { ha, qty } from "@/lib/format";
@@ -69,6 +69,7 @@ export function Blocks() {
   const accent = crop.accent_color || "#3f7d3a";
   const [units, setUnits] = useState<UnitRow[] | null>(null);
   const [stats, setStats] = useState<Map<string, OverviewBlock>>(new Map());
+  const [flagsByUnit, setFlagsByUnit] = useState<Map<string, string[]>>(new Map());
   const [loading, setLoading] = useState(true);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState<string | null>(null);
@@ -85,6 +86,14 @@ export function Blocks() {
         if (o && !isError(o)) setStats(new Map(o.blocks.map((b) => [b.unit, b])));
       })
       .catch(() => {});
+    // Manager flags are a bonus too.
+    if (cropUsesCycles(crop)) {
+      void cycleFlags(crop.name)
+        .then((f) => {
+          if (f && !isError(f)) setFlagsByUnit(new Map((f as { rows: { unit: string; flags: string[] }[] }).rows.map((x) => [x.unit, x.flags])));
+        })
+        .catch(() => {});
+    }
     const r = await listUnits(crop.name);
     setLoading(false);
     if (isError(r)) {
@@ -92,12 +101,13 @@ export function Blocks() {
       return;
     }
     setUnits((r as { units: UnitRow[] }).units);
-  }, [crop.name, toast]);
+  }, [crop, toast]);
 
   useEffect(() => {
     setUnits(null);
     setOpen(null);
     setStats(new Map());
+    setFlagsByUnit(new Map());
     void load();
   }, [load]);
 
@@ -125,6 +135,9 @@ export function Blocks() {
   const totalArea = leaves.reduce((s, u) => s + (u.area_ha || 0), 0);
   const usesCycles = cropUsesCycles(crop);
   const withCycle = leaves.filter((u) => u.current_cycle).length;
+  const showDryMatter = !!Number(crop.dry_matter_testing) || (units ?? []).some((u) => u.dry_matter);
+  const showReplaced = (units ?? []).some((u) => (u.plants_replaced ?? 0) > 0);
+  const cols = 6 + (usesCycles ? 1 : 0) + (showDryMatter ? 1 : 0) + (showReplaced ? 1 : 0);
   const maxArea = Math.max(1, ...(units ?? []).map((u) => u.area_ha || 0));
   const plants = leaves.reduce((s, u) => s + (u.plant_count || 0), 0);
 
@@ -206,15 +219,17 @@ export function Blocks() {
                   <th className={TH}>Status</th>
                   <th className={THR}>Open tasks</th>
                   <th className={THR}>Harvest{crop.yield_uom ? ` (${crop.yield_uom})` : ""}</th>
+                  {showDryMatter && <th className={THR}>Dry matter</th>}
+                  {showReplaced && <th className={THR}>Plants replaced</th>}
                   <th className={TH}>Cost centre</th>
                 </tr>
               </thead>
               <tbody>
                 {waiting ? (
-                  <TableRowsSkeleton cols={usesCycles ? 8 : 7} rows={7} />
+                  <TableRowsSkeleton cols={cols + 1} rows={7} />
                 ) : rows.length === 0 ? (
                   <tr>
-                    <td colSpan={usesCycles ? 8 : 7} className="px-3 py-6 text-center text-[13px] text-[var(--sd-muted)]">
+                    <td colSpan={cols + 1} className="px-3 py-6 text-center text-[13px] text-[var(--sd-muted)]">
                       Nothing matches these filters.
                     </td>
                   </tr>
@@ -222,6 +237,8 @@ export function Blocks() {
                   rows.map(({ unit: u, depth }) => {
                     const group = !!u.is_group;
                     const s = stats.get(u.name);
+                    const flags = flagsByUnit.get(u.name) ?? u.flags ?? [];
+                    const dm = u.dry_matter;
                     return (
                       <tr
                         key={u.name}
@@ -270,6 +287,9 @@ export function Blocks() {
                                 <span>{u.current_cycle}</span>
                                 <StageChip stage={u.current_stage} accent={accent} />
                               </div>
+                              {flags.map((f) => (
+                                <div key={f} data-testid={`block-flag-${u.name}`} className="text-[11px] text-[var(--sd-sev-high)]">{f}</div>
+                              ))}
                             </>
                           ) : (
                             <span className="text-[var(--sd-quiet)]">—</span>
@@ -283,6 +303,26 @@ export function Blocks() {
                           {s ? qty(s.tasks_open) : "—"}
                         </td>
                         <td className={TDR}>{s ? qty(s.harvest_qty_season) : "—"}</td>
+                        {showDryMatter && (
+                          <td className={TDR}>
+                            {dm ? (
+                              <span data-testid={`block-dm-${u.name}`} className="inline-flex flex-col items-end gap-0.5">
+                                <span className="tabular-nums text-[var(--sd-ink)]">{dm.pct.toFixed(1)}%</span>
+                                <span
+                                  className={cn(
+                                    "rounded-full px-2 py-0.5 text-[10.5px] font-medium",
+                                    dm.ready ? "bg-[var(--sd-alert-ok)] text-[var(--sd-sev-moderate)]" : "bg-[var(--sd-alert-warn)] text-[var(--sd-sev-high)]",
+                                  )}
+                                >
+                                  {dm.ready ? "Ready to pick" : "Not yet"}
+                                </span>
+                              </span>
+                            ) : (
+                              <span className="text-[var(--sd-quiet)]">—</span>
+                            )}
+                          </td>
+                        )}
+                        {showReplaced && <td className={TDR}>{u.plants_replaced ? qty(u.plants_replaced) : "—"}</td>}
                         <td className={cn(TD, "tabular-nums text-[var(--sd-muted)]")}>{u.cost_center || "—"}</td>
                       </tr>
                     );

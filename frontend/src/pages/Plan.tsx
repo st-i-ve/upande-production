@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ListPlus, Wand2 } from "lucide-react";
+import { ActivityDot } from "@/components/ActivityDot";
 import { ClearFiltersPill } from "@/components/ClearFiltersPill";
 import { KpiCard, KpiGrid } from "@/components/KpiCard";
 import { FilterSelect } from "@/components/FilterSelect";
@@ -314,6 +315,7 @@ export function Plan() {
                       className="flex w-full flex-wrap items-center gap-x-3 gap-y-1.5 rounded-[var(--sd-radius)] px-2.5 py-2.5 text-left transition-colors hover:bg-[var(--sd-bg-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                     >
                       <span className="min-w-[10rem] flex-1 truncate text-[13.5px] font-medium text-[var(--sd-ink)]">
+                        <ActivityDot color={t.color} label={t.operation_name} />
                         {t.operation_name}
                       </span>
                       <span className="flex w-44 flex-col gap-1">

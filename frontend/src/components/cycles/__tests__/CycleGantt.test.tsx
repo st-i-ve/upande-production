@@ -30,4 +30,24 @@ describe("CycleGantt stage bands", () => {
     expect(screen.queryByTestId("gantt-band-CY-1-Harvest")).toBeNull();
     expect(screen.queryByTestId("gantt-preharvest-CY-1")).toBeNull();
   });
+
+  it("marks late flowering, shows the cycle number, flags and uprooting pill", () => {
+    const flowered: Cycle = {
+      ...cycle, cycle_no: 2, expected_flowering_date: "2026-09-01", actual_flowering_date: "2026-09-22",
+      flags: ["Block A flowered 3 weeks late"], due_for_uprooting: 1,
+    };
+    render(<CycleGantt cycles={[flowered]} accent="#2a7" unitLabel="Block" />);
+    expect(screen.getByTestId("gantt-flower-expected-CY-1")).toBeInTheDocument();
+    expect(screen.getByTestId("gantt-flower-actual-CY-1")).toHaveAttribute("data-late", "true");
+    expect(screen.getByTestId("gantt-flags-CY-1")).toHaveTextContent("1 flag");
+    expect(screen.getByText("Block A flowered 3 weeks late")).toBeInTheDocument();
+    expect(screen.getByTestId("gantt-cycleno-CY-1")).toHaveTextContent("Cycle 2");
+    expect(screen.getByTestId("gantt-uproot-CY-1")).toHaveTextContent("Due for uprooting");
+  });
+
+  it("does not mark flowering that came on time", () => {
+    render(<CycleGantt cycles={[{ ...cycle, expected_flowering_date: "2026-09-01", actual_flowering_date: "2026-09-01" }]} accent="#2a7" unitLabel="Block" />);
+    expect(screen.getByTestId("gantt-flower-actual-CY-1")).not.toHaveAttribute("data-late");
+    expect(screen.queryByTestId("gantt-flags-CY-1")).toBeNull();
+  });
 });

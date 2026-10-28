@@ -55,6 +55,14 @@ export interface CoverageTask {
   late: boolean;
 }
 
+export interface CoverageActivity {
+  operation: string;
+  color: string;
+}
+
+/** Fill for a block with no activity when colouring by activity. */
+export const NO_ACTIVITY_COLOR = "#d6d2c8";
+
 export interface CoverageUnit {
   name: string;
   parent: string | null;
@@ -67,6 +75,8 @@ export interface CoverageUnit {
   /** Growth stage of the current cycle. */
   current_stage?: string | null;
   tasks: CoverageTask[];
+  /** The activity the block is going through this week (operation and its colour), or null. */
+  activity?: CoverageActivity | null;
   /** Mean of per-task completion, 0 to 100 (UOMs are not summed). */
   progress_pct: number;
   remaining_qty: QtyByUom;
@@ -102,6 +112,8 @@ export interface CoverageMap {
   week_start: string;
   week_end: string;
   units: CoverageUnit[];
+  /** Operations in use this week with their colours, for the "Colour by activity" legend. */
+  legend?: CoverageActivity[];
   /** Group units (pivot circles) for drawing outlines under their slices. */
   outlines: CoverageOutline[];
   totals: CoverageTotals;

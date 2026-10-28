@@ -1,3 +1,4 @@
+import { ActivityDot } from "@/components/ActivityDot";
 import { useState } from "react";
 import { CheckCircle2, Loader2, RotateCcw, Undo2 } from "lucide-react";
 import { CheckCircle } from "@/components/ui/check-circle";
@@ -75,7 +76,7 @@ export function ApprovalCard({
         )}
         <div className="min-w-0 flex-1">
           <h3 className="text-[15px] font-semibold tracking-tight text-[var(--sd-ink)]">
-            {g.unit_name} <span className="font-normal text-[var(--sd-muted)]">·</span> {g.operation_name}{" "}
+            {g.unit_name} <span className="font-normal text-[var(--sd-muted)]">·</span> <ActivityDot color={g.color} label={g.operation_name} />{g.operation_name}{" "}
             <EnforcementPill status={g.rule_status} className="align-middle" />
           </h3>
           <p className="mt-0.5 text-[12px] text-[var(--sd-quiet)]">

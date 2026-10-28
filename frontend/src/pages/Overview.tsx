@@ -16,7 +16,7 @@ import {
   OperationsProgress,
   UpcomingList,
 } from "@/components/overview/Panels";
-import { getOverview, type Overview as OverviewData } from "@/lib/api";
+import { cycleFlags, getOverview, type CycleFlagRow, type Overview as OverviewData } from "@/lib/api";
 import { cropUsesCycles, pluralise, useCurrentCrop, viewLabel } from "@/lib/crops";
 import { isError } from "@/lib/frappe";
 import { kes, qty } from "@/lib/format";
@@ -36,6 +36,7 @@ export function Overview() {
   const [loading, setLoading] = useState(true);
   const [loadingExtras, setLoadingExtras] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [offProtocol, setOffProtocol] = useState<CycleFlagRow[] | null>(null);
   const [query, setQuery] = useState("");
   const [parent, setParent] = useState("");
 
@@ -47,6 +48,12 @@ export function Overview() {
       setLoadingExtras(false);
       if (!isError(r)) setExtras(r as OverviewExtras);
     });
+    // Manager flags are garnish too: a failure leaves the card out.
+    if (cropUsesCycles(crop)) {
+      void cycleFlags(crop.name).then((f) => {
+        if (f && !isError(f)) setOffProtocol((f as { rows: CycleFlagRow[] }).rows);
+      });
+    }
     const r = await getOverview(crop.name);
     setLoading(false);
     if (isError(r)) {
@@ -56,11 +63,12 @@ export function Overview() {
     }
     setFailed(false);
     setData(r as OverviewData);
-  }, [crop.name, toast]);
+  }, [crop, toast]);
 
   useEffect(() => {
     setData(null);
     setExtras(null);
+    setOffProtocol(null);
     void load();
   }, [load]);
 
@@ -168,6 +176,29 @@ export function Overview() {
         <Panel title="Recent deviations" hint="Last four weeks." className="lg:col-span-2">
           <DeviationList rows={extras?.recent_deviations} loading={exLoading} />
         </Panel>
+        {offProtocol && (
+          <Panel title="Off protocol" hint="Cycles that flowered or were picked later than expected, or have no date recorded." className="lg:col-span-2">
+            {offProtocol.length === 0 ? (
+              <EmptyNote>Every cycle is on protocol.</EmptyNote>
+            ) : (
+              <ul className="divide-y divide-[var(--sd-line-soft)]" data-testid="off-protocol">
+                {offProtocol.map((r) => (
+                  <li key={r.cycle} className="flex flex-wrap items-start gap-x-3 gap-y-1 py-2.5 text-[13px]">
+                    <span className="w-40 shrink-0">
+                      <span className="block font-medium text-[var(--sd-ink)]">{r.unit}</span>
+                      <span className="block text-[11.5px] text-[var(--sd-quiet)]">{[r.variety, r.cycle].filter(Boolean).join(" · ")}</span>
+                    </span>
+                    <span className="min-w-0 flex-1 text-[var(--sd-sev-high)]">
+                      {r.flags.map((f) => (
+                        <span key={f} className="block break-words">{f}</span>
+                      ))}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
+        )}
       </div>
 
       <Panel

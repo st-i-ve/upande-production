@@ -1,10 +1,11 @@
+import "@testing-library/jest-dom/vitest";
 import { screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Overview } from "@/pages/Overview";
 import * as api from "@/lib/api";
 import { AQUA, renderPage } from "./testkit";
 
-vi.mock("@/lib/api", async (orig) => ({ ...(await orig<typeof api>()), getOverview: vi.fn() }));
+vi.mock("@/lib/api", async (orig) => ({ ...(await orig<typeof api>()), getOverview: vi.fn(), cycleFlags: vi.fn() }));
 vi.mock("@/lib/overview-api", () => ({ getOverviewExtras: vi.fn().mockResolvedValue({ error: "no extras" }) }));
 import * as oapi from "@/lib/overview-api";
 const getOverview = vi.mocked(api.getOverview);
@@ -22,7 +23,10 @@ const tiles = {
 };
 
 describe("Overview", () => {
-  beforeEach(() => getOverview.mockReset());
+  beforeEach(() => {
+    getOverview.mockReset();
+    vi.mocked(api.cycleFlags).mockReset().mockResolvedValue({ error: "no" });
+  });
 
   it("says so when the crop has no units", async () => {
     getOverview.mockResolvedValue({ tiles: { ...tiles, active_cycles: 0 }, blocks: [] });
@@ -96,5 +100,23 @@ describe("Overview", () => {
     expect(screen.queryByText("Stage")).toBeNull();
     expect(screen.queryByText(/No active cycle/i)).toBeNull();
     expect(screen.queryByText(/active cycles/i)).toBeNull();
+  });
+
+  it("lists cycles that are off protocol", async () => {
+    getOverview.mockResolvedValue({ tiles, blocks: [] });
+    vi.mocked(api.cycleFlags).mockResolvedValue({
+      rows: [{ cycle: "CYC-9", unit: "Block A", variety: "Hass", flags: ["Block A flowered 3 weeks late"] }],
+    });
+    renderPage(<Overview />);
+    const card = await screen.findByTestId("off-protocol");
+    expect(card).toHaveTextContent("Block A flowered 3 weeks late");
+    expect(screen.getByText("Off protocol")).toBeTruthy();
+  });
+
+  it("says every cycle is on protocol when nothing is flagged", async () => {
+    getOverview.mockResolvedValue({ tiles, blocks: [] });
+    vi.mocked(api.cycleFlags).mockResolvedValue({ rows: [] });
+    renderPage(<Overview />);
+    expect(await screen.findByText("Every cycle is on protocol.")).toBeTruthy();
   });
 });

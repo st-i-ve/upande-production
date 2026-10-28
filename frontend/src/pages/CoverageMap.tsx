@@ -5,10 +5,11 @@ import { FilterSelect } from "@/components/FilterSelect";
 import { firstLoad, MapPageSkeleton } from "@/components/Loading";
 import { PageShell } from "@/components/PageShell";
 import { RefreshButton } from "@/components/RefreshButton";
+import { TogglePill } from "@/components/TogglePill";
 import { useToast } from "@/components/Toast";
 import { WeekPicker } from "@/components/WeekPicker";
 import { BlockCard } from "@/components/coverage/BlockCard";
-import { CoverageLegend } from "@/components/coverage/CoverageLegend";
+import { ActivityLegend, CoverageLegend } from "@/components/coverage/CoverageLegend";
 import { RemainingPanel } from "@/components/coverage/RemainingPanel";
 import { remainingBlockCount, remainingBlocks, unitBounds } from "@/components/coverage/coverage-utils";
 import { useCoverageLabels } from "@/components/coverage/useCoverageLabels";
@@ -41,6 +42,7 @@ export function CoverageMap() {
   const [status, setStatus] = useState("");
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
+  const [byActivity, setByActivity] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [map, setMap] = useState<maplibregl.Map | null>(null);
   const seq = useRef(0);
@@ -95,13 +97,13 @@ export function CoverageMap() {
 
   useEffect(() => {
     if (!map || !data) return;
-    setCoverageData(map, data, selectedRef.current);
+    setCoverageData(map, data, selectedRef.current, byActivity);
     const key = `${crop.name}|${farm}`;
     if (data.bounds && fitted.current !== key) {
       fitted.current = key;
       map.fitBounds(data.bounds, { padding: 48, duration: 0 });
     }
-  }, [map, data, crop.name, farm]);
+  }, [map, data, crop.name, farm, byActivity]);
 
   useEffect(() => {
     if (map) setCoverageSelected(map, selected);
@@ -157,6 +159,9 @@ export function CoverageMap() {
             options={COVERAGE_STATES.map((s) => ({ value: s, label: COVERAGE_STATE_LABEL[s] }))}
             allLabel="All statuses"
           />
+          <TogglePill pressed={byActivity} onPressedChange={setByActivity}>
+            Colour by activity
+          </TogglePill>
           <ClearFiltersPill active={dirty} onClear={clear} />
           <RefreshButton onClick={load} loading={loading} label="the coverage map" />
         </>
@@ -184,7 +189,7 @@ export function CoverageMap() {
           ) : null}
           {t ? (
             <MapPanelDock>
-              <CoverageLegend counts={t.by_state} />
+              {byActivity ? <ActivityLegend items={data?.legend ?? []} /> : <CoverageLegend counts={t.by_state} />}
               <RemainingPanel blocks={remaining} selected={selected} onPick={pick} />
               {selectedUnit ? (
                 <BlockCard unit={selectedUnit} accent={accent} planHref={routeHash(crop.crop_key, "plan")} onClose={() => setSelected(null)} />

@@ -25,6 +25,21 @@ function endOf(c: Cycle): number {
  * window (accent), a line for today. The left column is sticky so the labels
  * stay put while the axis scrolls on a narrow screen.
  */
+/** A diamond on the bar's row: hollow for expected, filled for actual (red when later than expected). */
+function Marker({ at, pct, kind, late, title, testId }: { at: number; pct: (ms: number) => number; kind: "expected" | "actual"; late?: boolean; title: string; testId: string }) {
+  if (!Number.isFinite(at)) return null;
+  const colour = late ? "var(--sd-data-red)" : "var(--sd-ink)";
+  return (
+    <span
+      data-testid={testId}
+      data-late={late ? "true" : undefined}
+      title={title}
+      className="pointer-events-auto absolute top-[21px] z-[4] h-[10px] w-[10px] -translate-x-1/2 rotate-45 border-2"
+      style={{ left: `${pct(at)}%`, borderColor: colour, background: kind === "actual" ? colour : "var(--sd-card)" }}
+    />
+  );
+}
+
 const RANK: Record<string, number> = { Harvesting: 0, Active: 1, Planned: 2, Closed: 3 };
 
 export function CycleGantt({
@@ -97,6 +112,11 @@ export function CycleGantt({
           const harvestBand = bands.find((b) => !!Number(b.is_harvest));
           const harvestAt = harvestBand ? t(harvestBand.start) : hasWindow ? hs : NaN;
           const days = preHarvestDays?.(c) ?? 0;
+          const flowerExp = t(c.expected_flowering_date);
+          const flowerAct = t(c.actual_flowering_date);
+          const harvestAct = t(c.actual_harvest_start);
+          const flags = c.flags ?? [];
+          const uproot = !!Number(c.due_for_uprooting);
           const shade: [number, number] | null = days > 0 && Number.isFinite(harvestAt) ? [harvestAt - days * DAY, harvestAt] : null;
           return (
             <div key={c.name} data-testid={`gantt-${c.name}`} className="flex border-b border-[var(--sd-line-soft)] last:border-0">
@@ -110,9 +130,27 @@ export function CycleGantt({
                   ) : (
                     <span className="min-w-0 break-words text-[13px] font-medium text-[var(--sd-ink)]">{c.unit}</span>
                   )}
+                  {(c.cycle_no ?? 1) > 1 && (
+                    <span data-testid={`gantt-cycleno-${c.name}`} className="rounded-full bg-[var(--sd-bg-soft)] px-1.5 py-0.5 text-[10.5px] font-medium tabular-nums text-[var(--sd-muted)]">
+                      Cycle {c.cycle_no}
+                    </span>
+                  )}
                   <StatusPill status={c.status} />
                   <StageChip stage={c.current_stage} accent={accent} />
+                  {uproot && (
+                    <span data-testid={`gantt-uproot-${c.name}`} className="rounded-full bg-[var(--sd-alert-warn)] px-2 py-0.5 text-[10.5px] font-medium text-[var(--sd-sev-high)]">
+                      Due for uprooting
+                    </span>
+                  )}
+                  {flags.length > 0 && (
+                    <span data-testid={`gantt-flags-${c.name}`} title={flags.join("\n")} className="rounded-full bg-[var(--sd-alert-warn)] px-2 py-0.5 text-[10.5px] font-medium text-[var(--sd-sev-high)]">
+                      {flags.length} {flags.length === 1 ? "flag" : "flags"}
+                    </span>
+                  )}
                 </div>
+                {flags.map((f) => (
+                  <div key={f} className="break-words text-[11px] text-[var(--sd-sev-high)]">{f}</div>
+                ))}
                 <div className="break-words text-[11px] tabular-nums text-[var(--sd-quiet)]">
                   {c.variety ? <span>{c.variety} · </span> : c.item ? <span>{c.item} · </span> : null}
                   <span>{c.name}</span>
@@ -162,6 +200,23 @@ export function CycleGantt({
                     </>
                   )}
                 </div>
+                <Marker at={flowerExp} pct={pct} kind="expected" testId={`gantt-flower-expected-${c.name}`} title={`Flowering expected ${shortDate(c.expected_flowering_date)}`} />
+                <Marker
+                  at={flowerAct}
+                  pct={pct}
+                  kind="actual"
+                  late={Number.isFinite(flowerExp) && flowerAct > flowerExp}
+                  testId={`gantt-flower-actual-${c.name}`}
+                  title={`Flowered ${shortDate(c.actual_flowering_date)}${Number.isFinite(flowerExp) && flowerAct > flowerExp ? ` (expected ${shortDate(c.expected_flowering_date)})` : ""}`}
+                />
+                <Marker
+                  at={harvestAct}
+                  pct={pct}
+                  kind="actual"
+                  late={hasWindow && harvestAct > hs}
+                  testId={`gantt-harvest-actual-${c.name}`}
+                  title={`Harvest began ${shortDate(c.actual_harvest_start)}${hasWindow ? ` (expected ${shortDate(c.expected_harvest_start)})` : ""}`}
+                />
                 {shade && (
                   <div
                     data-testid={`gantt-preharvest-${c.name}`}
@@ -193,6 +248,8 @@ export function CycleGantt({
         <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-4 rounded-full" style={{ background: accent, opacity: 0.35 }} /> Growing</span>
         <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-4 rounded-full" style={{ background: accent }} /> Harvest window</span>
         <span className="inline-flex items-center gap-1.5"><span className="h-3 w-4 rounded-sm border border-dashed border-[var(--sd-amber)]" /> Pre-harvest window</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rotate-45 border-2 border-[var(--sd-ink)] bg-[var(--sd-card)]" /> Expected flowering</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rotate-45 bg-[var(--sd-ink)]" /> Recorded (red when late)</span>
         <span className="inline-flex items-center gap-1.5"><span className="h-3 w-[2px] bg-[var(--sd-data-red)]" /> Today</span>
       </div>
     </div>

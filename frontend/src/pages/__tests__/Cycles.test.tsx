@@ -62,4 +62,26 @@ describe("Cycles", () => {
     renderPage(<Cycles />);
     expect(await screen.findByText("No permission for Crop Cycle.")).toBeTruthy();
   });
+
+  it("records actual dates and toasts the proposed next cycle", async () => {
+    listCycles.mockResolvedValue({
+      cycles: [
+        {
+          name: "CYC-5", title: "Hass", unit: "Block A1", item: "Hass", cycle_type: "Season", start_date: "2026-02-01",
+          expected_harvest_start: "2026-08-01", expected_harvest_end: "2026-10-31", protocol: null, status: "Harvesting",
+          area_ha: 8, previous_cycle: null, cycle_no: 2, expected_flowering_date: "2026-05-01",
+          flags: ["Block A1 flowered 3 weeks late"], due_for_uprooting: 0,
+        },
+      ],
+    });
+    vi.mocked(api.saveCycle).mockResolvedValue({ name: "CYC-5", proposed_next_cycle: "CYC-6" });
+    renderPage(<Cycles />);
+    await screen.findByTestId("gantt-CYC-5");
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "List" }));
+    expect(await screen.findByText("Block A1 flowered 3 weeks late", { selector: "div.text-\\[11px\\]" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Record dates for CYC-5" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Save and close cycle" }));
+    expect(await screen.findByText("Next cycle proposed: CYC-6")).toBeTruthy();
+    expect(api.saveCycle).toHaveBeenCalledWith(expect.objectContaining({ name: "CYC-5", status: "Closed" }));
+  });
 });
