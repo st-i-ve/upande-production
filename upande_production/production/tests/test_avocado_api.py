@@ -18,6 +18,12 @@ from upande_production.production.demo import avocado_seed
 from upande_production.production.demo.avocado_seed import DEMO
 
 
+def _batch_kg():
+	"""Estimated kg that Harvest Batches on avocado blocks (the harvest app) wrote into the logs this season."""
+	return sum(frappe.get_all("Avocado Harvest Log", filters={"client_ref": ("like", "harvest-batch:%"),
+		"harvest_date": ("between", [f"{DEMO['season']}-01-01", f"{DEMO['season']}-12-31"])}, pluck="total_kg"))
+
+
 def _early_total():
 	return sum(parts[(DEMO["season"], "Early")][0]
 			   for parts in DEMO["history"].values() if (DEMO["season"], "Early") in parts)
@@ -80,7 +86,8 @@ class TestAvocadoApi(IntegrationTestCase):
 		self.assertEqual(vb["outturn_kg"], _early_total() + auto["total_kg"])
 		self.assertEqual(vb["diff_kg"], vb["outturn_kg"] - r["budget"]["budget_kg"])
 		# months come from the harvest logs minus the mis-keyed row, so they sum to the delivered figure
-		self.assertEqual(sum(m["delivered_kg"] for m in r["budget"]["months"]), _early_total())
+		# plus any Harvest Batch estimates (the harvest app writes a log row per batch)
+		self.assertEqual(sum(m["delivered_kg"] for m in r["budget"]["months"]), _early_total() + _batch_kg())
 		# estimate vs delivered scored per block off the early crop
 		e = r["estimate_vs_delivered"]
 		self.assertEqual(e["basis"], "block")

@@ -1,0 +1,39 @@
+{
+ "actions": [],
+ "creation": "2026-10-28 18:00:00.000000",
+ "custom": 0,
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "employee",
+  "employee_name"
+ ],
+ "fields": [
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "label": "Employee",
+   "options": "Employee",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "employee_name",
+   "fieldtype": "Data",
+   "label": "Employee Name",
+   "fetch_from": "employee.employee_name",
+   "read_only": 1,
+   "in_list_view": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-10-28 18:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Harvest Team Member",
+ "owner": "Administrator",
+ "states": [],
+ "istable": 1,
+ "permissions": []
+}

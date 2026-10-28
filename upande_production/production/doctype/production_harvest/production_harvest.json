@@ -15,7 +15,9 @@
   "uom",
   "grade",
   "price_per_uom",
-  "value"
+  "value",
+  "harvest_batch",
+  "stock_entry"
  ],
  "fields": [
   {
@@ -78,6 +80,22 @@
    "fieldtype": "Currency",
    "label": "Value",
    "read_only": 1
+  },
+  {
+   "fieldname": "harvest_batch",
+   "fieldtype": "Link",
+   "label": "Harvest Batch",
+   "options": "Harvest Batch",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "stock_entry",
+   "fieldtype": "Link",
+   "label": "Stock Entry",
+   "options": "Stock Entry",
+   "read_only": 1,
+   "no_copy": 1
   }
  ],
  "index_web_pages_for_search": 1,

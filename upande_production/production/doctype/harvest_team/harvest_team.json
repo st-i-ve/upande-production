@@ -1,0 +1,130 @@
+{
+ "actions": [],
+ "creation": "2026-10-28 18:00:00.000000",
+ "custom": 0,
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "team_number",
+  "team_leader",
+  "team_leader_name",
+  "column_break_1",
+  "farm",
+  "unit",
+  "section",
+  "section_members",
+  "harvestors"
+ ],
+ "fields": [
+  {
+   "fieldname": "team_number",
+   "fieldtype": "Data",
+   "label": "Team Number",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "team_leader",
+   "fieldtype": "Link",
+   "label": "Team Leader",
+   "options": "Employee",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "team_leader_name",
+   "fieldtype": "Data",
+   "label": "Team Leader Name",
+   "fetch_from": "team_leader.employee_name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "farm",
+   "fieldtype": "Link",
+   "label": "Farm",
+   "options": "Farm"
+  },
+  {
+   "fieldname": "unit",
+   "fieldtype": "Link",
+   "label": "Usual Block",
+   "options": "Production Unit",
+   "in_list_view": 1,
+   "description": "The block the team usually picks; each crate scan records the block actually picked."
+  },
+  {
+   "fieldname": "section",
+   "fieldtype": "Data",
+   "label": "Section"
+  },
+  {
+   "fieldname": "section_members",
+   "fieldtype": "Section Break",
+   "label": "Pickers"
+  },
+  {
+   "fieldname": "harvestors",
+   "fieldtype": "Table",
+   "label": "Harvestors",
+   "options": "Harvest Team Member"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-10-28 18:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Harvest Team",
+ "owner": "Administrator",
+ "states": [],
+ "autoname": "HT-.#####",
+ "naming_rule": "Expression (old style)",
+ "title_field": "team_number",
+ "show_title_field_in_link": 1,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "write": 1,
+   "role": "System Manager"
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "write": 1,
+   "role": "Production Manager"
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "write": 1,
+   "report": 1,
+   "role": "Production Supervisor"
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "Production Viewer"
+  }
+ ],
+ "track_changes": 1
+}

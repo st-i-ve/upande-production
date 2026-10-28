@@ -17,6 +17,8 @@
   "uses_crop_cycles",
   "default_cycle_type",
   "enabled",
+  "harvests_in_crates",
+  "avg_kg_per_crate",
   "sort_order"
  ],
  "fields": [
@@ -90,6 +92,20 @@
    "fieldname": "sort_order",
    "fieldtype": "Int",
    "label": "Sort Order"
+  },
+  {
+   "fieldname": "harvests_in_crates",
+   "fieldtype": "Check",
+   "label": "Harvests in Crates",
+   "description": "Picked into numbered crates in the field (shows in the harvest app)."
+  },
+  {
+   "fieldname": "avg_kg_per_crate",
+   "fieldtype": "Float",
+   "label": "Avg Kg per Crate",
+   "default": "0",
+   "depends_on": "harvests_in_crates",
+   "description": "Estimated weight of a full crate; an item's own figure overrides it."
   }
  ],
  "index_web_pages_for_search": 1,

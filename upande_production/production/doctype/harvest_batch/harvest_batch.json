@@ -1,0 +1,285 @@
+{
+ "actions": [],
+ "creation": "2026-10-28 18:00:00.000000",
+ "custom": 0,
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "harvest_date",
+  "team",
+  "team_number",
+  "team_leader_name",
+  "column_break_1",
+  "unit",
+  "crop",
+  "farm",
+  "cycle",
+  "status",
+  "section_weight",
+  "item",
+  "crate_count",
+  "avg_kg_per_crate",
+  "estimated_kg",
+  "column_break_2",
+  "warehouse",
+  "cost_center",
+  "valuation_rate",
+  "section_links",
+  "stock_entry",
+  "production_harvest",
+  "column_break_3",
+  "avocado_harvest_log",
+  "section_crates",
+  "crates",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "harvest_date",
+   "fieldtype": "Date",
+   "label": "Harvest Date",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "team",
+   "fieldtype": "Link",
+   "label": "Team",
+   "options": "Harvest Team",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "team_number",
+   "fieldtype": "Data",
+   "label": "Team Number",
+   "fetch_from": "team.team_number",
+   "read_only": 1
+  },
+  {
+   "fieldname": "team_leader_name",
+   "fieldtype": "Data",
+   "label": "Team Leader",
+   "fetch_from": "team.team_leader_name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "unit",
+   "fieldtype": "Link",
+   "label": "Block",
+   "options": "Production Unit",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "crop",
+   "fieldtype": "Link",
+   "label": "Crop",
+   "options": "Production Crop",
+   "read_only": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "farm",
+   "fieldtype": "Link",
+   "label": "Farm",
+   "options": "Farm",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cycle",
+   "fieldtype": "Link",
+   "label": "Cycle",
+   "options": "Production Crop Cycle",
+   "read_only": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Closed\nCancelled",
+   "default": "Closed",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "section_weight",
+   "fieldtype": "Section Break",
+   "label": "Estimated weight"
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "label": "Item",
+   "options": "Item",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "crate_count",
+   "fieldtype": "Int",
+   "label": "Crates",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "avg_kg_per_crate",
+   "fieldtype": "Float",
+   "label": "Avg Kg per Crate",
+   "read_only": 1
+  },
+  {
+   "fieldname": "estimated_kg",
+   "fieldtype": "Float",
+   "label": "Estimated Kg",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "warehouse",
+   "fieldtype": "Link",
+   "label": "Harvest Warehouse",
+   "options": "Warehouse",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "options": "Cost Center",
+   "read_only": 1
+  },
+  {
+   "fieldname": "valuation_rate",
+   "fieldtype": "Currency",
+   "label": "Valuation Rate per Kg",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_links",
+   "fieldtype": "Section Break",
+   "label": "Posted records"
+  },
+  {
+   "fieldname": "stock_entry",
+   "fieldtype": "Link",
+   "label": "Stock Entry",
+   "options": "Stock Entry",
+   "read_only": 1,
+   "no_copy": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "production_harvest",
+   "fieldtype": "Link",
+   "label": "Production Harvest",
+   "options": "Production Harvest",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "avocado_harvest_log",
+   "fieldtype": "Link",
+   "label": "Avocado Harvest Log",
+   "options": "Avocado Harvest Log",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "section_crates",
+   "fieldtype": "Section Break",
+   "label": "Crates"
+  },
+  {
+   "fieldname": "crates",
+   "fieldtype": "Table",
+   "label": "Crates",
+   "options": "Harvest Batch Crate"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "options": "Harvest Batch",
+   "read_only": 1,
+   "no_copy": 1,
+   "print_hide": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-10-28 18:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Harvest Batch",
+ "owner": "Administrator",
+ "states": [],
+ "autoname": "HB-.YYYY.-.#####",
+ "naming_rule": "Expression (old style)",
+ "is_submittable": 1,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "write": 1,
+   "role": "System Manager",
+   "submit": 1,
+   "cancel": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "write": 1,
+   "role": "Production Manager",
+   "submit": 1,
+   "cancel": 1
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "write": 1,
+   "report": 1,
+   "role": "Production Supervisor",
+   "submit": 1,
+   "cancel": 1
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "Production Viewer"
+  }
+ ],
+ "track_changes": 1,
+ "title_field": "unit",
+ "show_title_field_in_link": 0
+}

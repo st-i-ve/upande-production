@@ -1,0 +1,52 @@
+{
+ "actions": [],
+ "creation": "2026-10-28 18:00:00.000000",
+ "custom": 0,
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "crate_scan",
+  "crate_id",
+  "harvestor",
+  "harvestor_name"
+ ],
+ "fields": [
+  {
+   "fieldname": "crate_scan",
+   "fieldtype": "Link",
+   "label": "Crate Scan",
+   "options": "Harvest Crate Scan",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "crate_id",
+   "fieldtype": "Data",
+   "label": "Crate ID",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "harvestor",
+   "fieldtype": "Link",
+   "label": "Picker",
+   "options": "Employee",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "harvestor_name",
+   "fieldtype": "Data",
+   "label": "Picker Name",
+   "fetch_from": "harvestor.employee_name",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-10-28 18:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Harvest Batch Crate",
+ "owner": "Administrator",
+ "states": [],
+ "istable": 1,
+ "permissions": []
+}

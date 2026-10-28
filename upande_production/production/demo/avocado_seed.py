@@ -65,6 +65,8 @@ DEMO = {
 											   ("November", 46000)]},
 }
 
+from upande_production.production.logic.harvest import BATCH_LOG_PREFIX  # noqa: E402
+
 HARVEST_DT = "Avocado Harvest Log"
 MATURITY_DT = "Avocado Maturity Test"
 
@@ -311,9 +313,11 @@ def mirror_harvests():
 	"""Every valid Avocado Harvest Log becomes a Production Harvest on its block's unit."""
 	price = DEMO["price_per_kg"]
 	logs = frappe.get_all(HARVEST_DT, fields=["name", "orchard_block", "harvest_date", "total_kg",
-		"pickers_count", "grade_1_kg", "grade_2_kg"], limit_page_length=0)
+		"pickers_count", "grade_1_kg", "grade_2_kg", "client_ref"], limit_page_length=0)
 	keep, made = set(), 0
 	for h in logs:
+		if (h.client_ref or "").startswith(BATCH_LOG_PREFIX):
+			continue  # a Harvest Batch writes its own Production Harvest; mirroring the log would count it twice
 		unit = f"Avocado Block {h.orchard_block}"
 		if not h.harvest_date or not frappe.db.exists("Production Unit", unit) or not _plausible(h):
 			continue
@@ -333,8 +337,8 @@ def mirror_harvests():
 			doc.insert(ignore_permissions=True)
 			made += 1
 		keep.add(doc.name)
-	stale = [n for n in frappe.get_all("Production Harvest", filters={"crop": "Avocado"}, pluck="name", limit_page_length=0)
-			 if n not in keep]
+	stale = [n for n in frappe.get_all("Production Harvest", filters={"crop": "Avocado", "harvest_batch": ("is", "not set")},
+									   pluck="name", limit_page_length=0) if n not in keep]
 	for n in stale:
 		frappe.delete_doc("Production Harvest", n, force=True, ignore_permissions=True)
 	return made, len(stale)

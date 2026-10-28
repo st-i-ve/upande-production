@@ -156,7 +156,7 @@ doc_events = {
 fixtures = [
 	{
 		"doctype": "Custom Field",
-		"filters": [["name", "in", ["User-custom_expo_push_tokens"]]],
+		"filters": [["name", "in", ["User-custom_expo_push_tokens", "Stock Entry-production_harvest_batch", "Stock Entry Detail-production_harvest_batch", "Stock Entry Detail-production_unit", "Stock Entry Detail-production_crates", "Item-production_avg_kg_per_crate"]]],
 	},
 	{
 		"doctype": "Role",

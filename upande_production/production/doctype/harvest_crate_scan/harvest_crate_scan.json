@@ -1,0 +1,130 @@
+{
+ "actions": [],
+ "creation": "2026-10-28 18:00:00.000000",
+ "custom": 0,
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "crate_id",
+  "team_id",
+  "harvestor",
+  "column_break_1",
+  "block_ref",
+  "status",
+  "allocated_at",
+  "batch_id_ref"
+ ],
+ "fields": [
+  {
+   "fieldname": "crate_id",
+   "fieldtype": "Link",
+   "label": "Crate",
+   "options": "Harvest Crate",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "team_id",
+   "fieldtype": "Link",
+   "label": "Team",
+   "options": "Harvest Team",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "harvestor",
+   "fieldtype": "Link",
+   "label": "Picker",
+   "options": "Employee",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "block_ref",
+   "fieldtype": "Link",
+   "label": "Block",
+   "options": "Production Unit",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Filling\nFull\nBatched",
+   "default": "Filling",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "allocated_at",
+   "fieldtype": "Datetime",
+   "label": "Scanned At"
+  },
+  {
+   "fieldname": "batch_id_ref",
+   "fieldtype": "Link",
+   "label": "Harvest Batch",
+   "options": "Harvest Batch",
+   "read_only": 1,
+   "no_copy": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-10-28 18:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Harvest Crate Scan",
+ "owner": "Administrator",
+ "states": [],
+ "autoname": "HCS-.######",
+ "naming_rule": "Expression (old style)",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "write": 1,
+   "role": "System Manager"
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "write": 1,
+   "role": "Production Manager"
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "write": 1,
+   "report": 1,
+   "role": "Production Supervisor"
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "Production Viewer"
+  }
+ ],
+ "track_changes": 1,
+ "allow_rename": 0
+}

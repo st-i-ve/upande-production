@@ -8,7 +8,10 @@
   "company",
   "late_tolerance_days",
   "approval_stale_days",
-  "cost_center_parent"
+  "cost_center_parent",
+  "harvest_section",
+  "harvest_warehouse",
+  "harvest_default_rate"
  ],
  "fields": [
   {
@@ -35,6 +38,24 @@
    "fieldtype": "Link",
    "label": "Cost Center Parent",
    "options": "Cost Center"
+  },
+  {
+   "fieldname": "harvest_section",
+   "fieldtype": "Section Break",
+   "label": "Harvesting"
+  },
+  {
+   "fieldname": "harvest_warehouse",
+   "fieldtype": "Link",
+   "label": "Harvest Warehouse",
+   "options": "Warehouse",
+   "description": "Harvested crates are received here by the Harvesting stock entry."
+  },
+  {
+   "fieldname": "harvest_default_rate",
+   "fieldtype": "Currency",
+   "label": "Fallback Valuation per Kg",
+   "description": "Used when an item has no valuation rate or buyer price; 0 books the entry at zero valuation."
   }
  ],
  "index_web_pages_for_search": 1,
