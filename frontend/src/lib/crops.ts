@@ -62,6 +62,10 @@ export function viewLabel(view: View, crop?: Pick<Crop, "unit_label"> | null): s
       return "Value Adders";
     case "costs":
       return "Block Costs";
+    case "establishment":
+      return "Setup Costs";
+    case "break-even":
+      return "Break-even";
     case "forecast":
       return "Forecast";
     case "settings":
@@ -80,6 +84,8 @@ export function viewLabel(view: View, crop?: Pick<Crop, "unit_label"> | null): s
       return "Picking Plan";
     case "dry-matter":
       return "Dry Matter";
+    case "dry-matter-tests":
+      return "Dry Matter Tests";
     case "hive-inspections":
       return "Hive Inspections";
     case "honey-harvest":

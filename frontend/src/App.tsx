@@ -67,6 +67,10 @@ const ValueAdders = page(() =>
   import("@/pages/ValueAdders").then((m) => ({ default: m.ValueAdders })),
 );
 const Costs = page(() => import("@/pages/Costs").then((m) => ({ default: m.Costs })));
+const Establishment = page(() =>
+  import("@/pages/Establishment").then((m) => ({ default: m.Establishment })),
+);
+const BreakEven = page(() => import("@/pages/BreakEven").then((m) => ({ default: m.BreakEven })));
 const Forecast = page(() => import("@/pages/Forecast").then((m) => ({ default: m.Forecast })));
 const Settings = page(() => import("@/pages/Settings").then((m) => ({ default: m.Settings })));
 const Approvals = page(() => import("@/pages/Approvals").then((m) => ({ default: m.Approvals })));
@@ -94,6 +98,10 @@ const DryMatter = page(() =>
   import("@/pages/avocado/DryMatter").then((m) => ({ default: m.DryMatter })),
 );
 
+const DryMatterTests = page(() =>
+  import("@/pages/fruits-vegetables/DryMatterTests").then((m) => ({ default: m.DryMatterTests })),
+);
+
 const PAGES: Record<View, React.ComponentType> = {
   overview: Overview,
   blocks: Blocks,
@@ -101,6 +109,8 @@ const PAGES: Record<View, React.ComponentType> = {
   plan: Plan,
   "value-adders": ValueAdders,
   costs: Costs,
+  establishment: Establishment,
+  "break-even": BreakEven,
   forecast: Forecast,
   settings: Settings,
   approvals: Approvals,
@@ -110,6 +120,7 @@ const PAGES: Record<View, React.ComponentType> = {
   "harvest-calendar": HarvestCalendar,
   "picking-plan": PickingPlan,
   "dry-matter": DryMatter,
+  "dry-matter-tests": DryMatterTests,
   "hive-inspections": HiveInspections,
   "honey-harvest": HoneyHarvest,
   "pond-batches": PondBatches,
@@ -160,7 +171,7 @@ export function App() {
   }, [boot, crop, route.view]);
 
   useEffect(() => {
-    if (crop && !viewAllowed(route.view, crop.crop_key)) replaceRoute(crop.crop_key, "overview");
+    if (crop && !viewAllowed(route.view, crop.crop_key, crop)) replaceRoute(crop.crop_key, "overview");
   }, [crop, route.view]);
 
   const Built = PAGES[route.view];

@@ -7,6 +7,8 @@ import {
   Fish,
   FlaskConical,
   Hexagon,
+  Landmark,
+  TrendingUp,
   Scale,
   Waves,
   Stethoscope,
@@ -48,12 +50,15 @@ const ICONS: Record<View, IconType> = {
   blocks: LayoutGrid,
   cycles: Repeat,
   costs: Coins,
+  establishment: Landmark,
+  "break-even": TrendingUp,
   forecast: LineChart,
   outlook: Sunrise,
   "block-forecast": Table2,
   "harvest-calendar": CalendarRange,
   "picking-plan": UserRoundCheck,
   "dry-matter": Droplets,
+  "dry-matter-tests": Droplets,
   settings: SlidersHorizontal,
   "hive-inspections": Stethoscope,
   "honey-harvest": Hexagon,
@@ -92,15 +97,17 @@ const GROUPS: { label: string; views: View[] }[] = [
     label: "Field logs",
     views: ["hive-inspections", "honey-harvest", "pond-batches", "water-quality", "feeding", "irrigation", "grading"],
   },
-  { label: "Blocks", views: ["blocks", "cycles", "costs"] },
+  { label: "Blocks", views: ["blocks", "cycles", "costs", "establishment", "break-even"] },
   {
     label: "Forecast",
-    views: ["forecast", "outlook", "block-forecast", "harvest-calendar", "picking-plan", "dry-matter"],
+    views: ["forecast", "outlook", "block-forecast", "harvest-calendar", "picking-plan", "dry-matter", "dry-matter-tests"],
   },
   { label: "Setup", views: ["settings"] },
 ];
 
-export function viewAllowed(view: View, cropKey: string): boolean {
+export function viewAllowed(view: View, cropKey: string, crop?: Pick<Crop, "dry_matter_testing"> | null): boolean {
+  // Dry matter tests follow the crop's setting; avocado keeps its own Dry Matter page.
+  if (view === "dry-matter-tests") return cropKey !== "avocado" && !!Number(crop?.dry_matter_testing);
   const only = ONLY_FOR[view];
   if (only && !only.includes(cropKey)) return false;
   return !(NOT_FOR[view] ?? []).includes(cropKey);
@@ -111,7 +118,7 @@ export function navForCrop(crop: Crop): NavGroup[] {
   return GROUPS.map((g) => ({
     label: g.label,
     items: g.views
-      .filter((v) => viewAllowed(v, crop.crop_key))
+      .filter((v) => viewAllowed(v, crop.crop_key, crop))
       .map((v) => ({ view: v, label: viewLabel(v, crop), icon: ICONS[v] })),
   })).filter((g) => g.items.length > 0);
 }

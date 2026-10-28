@@ -17,6 +17,10 @@ export const VIEWS = [
   "plan",
   "value-adders",
   "costs",
+  // Capital / setup costs and opening balances per block.
+  "establishment",
+  // Cumulative cost vs harvest value per block and per farm.
+  "break-even",
   "forecast",
   "settings",
   // Approvals: the manager signs off supervisor-keyed work before it counts.
@@ -29,6 +33,8 @@ export const VIEWS = [
   "harvest-calendar",
   "picking-plan",
   "dry-matter",
+  // Generic dry matter tests for crops with dry_matter_testing on (avocado keeps "dry-matter").
+  "dry-matter-tests",
   // Crop-specific field logs.
   "hive-inspections",
   "honey-harvest",
