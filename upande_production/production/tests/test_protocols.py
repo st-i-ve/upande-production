@@ -33,7 +33,7 @@ class TestProtocols(IntegrationTestCase):
 			farm_type=[{"farm_type": "Has Blocks"}])
 		cls.crop = _make("Production Crop", crop_name="TP Crop", crop_key="tp-crop", unit_label="Block", yield_uom="Kg")
 		cls.op = _make("Production Operation", crop=cls.crop.name, operation_name="TP Weeding",
-			category="Field Care", work_uom="Kg", default_rate=40)
+			category="Other", work_uom="Kg", default_rate=40)
 		cls.sup = _user("tp_supervisor@example.com", "Production Supervisor")
 		cls.mgr = _user("tp_manager@example.com", "Production Manager")
 		cls.viewer = _user("tp_viewer@example.com", "Production Viewer")

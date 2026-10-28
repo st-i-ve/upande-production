@@ -645,7 +645,7 @@ role. `is_harvest` operations are the harvest ones.
   {
     "name": "OP-00003",
     "operation_name": "Fertiliser Application",
-    "category": "Nutrition",
+    "category": "Fertilising",
     "work_uom": "Tree",
     "default_rate": 10.0,
     "is_harvest": 0
@@ -653,7 +653,7 @@ role. `is_harvest` operations are the harvest ones.
   {
     "name": "OP-00006",
     "operation_name": "Fruit Count",
-    "category": "Field Care",
+    "category": "Weeding",
     "work_uom": "Tree",
     "default_rate": 5.0,
     "is_harvest": 0
@@ -683,3 +683,29 @@ has no crop). New optional params: `search` (matches name or id) and `limit`.
 ]
 ```
 
+
+## Activity rules (stage and calendar restrictions)
+
+Production Activity Rules forbid (`Block`) or frown on (`Warn`) an operation in a growth stage or window
+(e.g. no spraying 14 days before harvest, no weeding in Tuber initiation, no picking within 7 days after
+spraying). They are checked on `productionAddTask`, `productionUpdateTask` (when work is recorded or the task
+is started/done) and `productionRecordUnplannedWork`, and when plan tasks are generated.
+
+- New optional param `override_reason` on `productionAddTask`, `productionUpdateTask` (also now accepts
+  `work_date`) and `productionRecordUnplannedWork`.
+- `Block`: nothing is saved; response is `{"error": "<message for the supervisor>", "breaches": [...],
+  "rule_status": "Block", "needs_override_reason": false}`.
+- `Warn` without a reason: nothing is saved; same shape with `"rule_status": "Warn"` and
+  `"needs_override_reason": true`. Ask for a reason and resend with `override_reason`.
+- A breach is `{rule, rule_type, enforcement, message}`.
+- Tasks now carry `rule_status` (OK / Warn / Block, empty on old rows), `rule_notes` and `override_reason`
+  (in every task list: week plan, plan detail, add task, update task). A task keeps its reason, so closing it
+  later needs no new one.
+- Work records carry the same three fields; Approvals cards and entries (`rule_status`, `rule_notes`,
+  `override_reason`) show them to the manager.
+- `productionGeneratePlan` adds `skipped`: `[{protocol_ref, unit, cycle, operation, due_date, message}]`, the
+  protocol steps an activity rule blocked (not planned; also noted as a comment on the plan). Warn steps are
+  planned with `rule_status: "Warn"`.
+- `productionProtocolCheck`: each block has `breaches` (`[{rule, rule_type, enforcement, message, operation,
+  operation_name, due_date}]`) and each step has `rule_status` and `breaches`.
+- Operation `category` is one list: Spraying, Weeding, Fertilising, Irrigation, Harvesting, Pruning, Feeding, Other.

@@ -2,13 +2,13 @@
 import frappe
 from frappe.utils import cint, getdate, today
 
-from upande_production.production.logic import analytics, approvals, plans, work
+from upande_production.production.logic import analytics, approvals, plans, rules, work
 from upande_production.production.logic.settings import can_see_pay
 from upande_production.production.logic.weeks import iso_of, iso_week_bounds
 
 TASK_FIELDS = [
 	"name", "unit", "cycle", "operation", "operation_name", "planned_qty", "done_qty", "pending_qty", "uom",
-	"rate", "due_date", "supervisor", "status", "deviation", "note",
+	"rate", "due_date", "supervisor", "status", "deviation", "note", "rule_status", "rule_notes", "override_reason",
 ]
 
 
@@ -61,6 +61,8 @@ def _run(name, fn):
 	except frappe.ValidationError as e:
 		frappe.db.rollback()
 		frappe.response["data"] = {"error": frappe.utils.strip_html(str(e))}
+		if hasattr(e, "breaches"):  # activity rule: Block = cannot save, Warn = send override_reason
+			frappe.response["data"].update(rules.breach_payload(e))
 	except Exception as e:
 		_fail(name + " error", e)
 
@@ -142,7 +144,8 @@ def productionUpdateTask():
 	def go():
 		res = work.record_task_work(
 			_s(data, "plan"), _s(data, "task"), _s(data, "status"),
-			data.get("entries") or [], note=_s(data, "note"),
+			data.get("entries") or [], note=_s(data, "note"), work_date=_s(data, "work_date") or None,
+			override_reason=_s(data, "override_reason") or None,
 		)
 		frappe.db.commit()
 		task = res["task"]
@@ -169,7 +172,7 @@ def productionRecordUnplannedWork():
 	def go():
 		names = work.record_unplanned_work(
 			_s(data, "unit"), _s(data, "operation"), data.get("entries") or [],
-			_s(data, "work_date") or None, _s(data, "note"),
+			_s(data, "work_date") or None, _s(data, "note"), override_reason=_s(data, "override_reason") or None,
 		)
 		frappe.db.commit()
 		return {
@@ -509,11 +512,13 @@ def productionAddTask():
 		if crop_uses_cycles(crop):
 			cycle = frappe.db.get_value("Production Crop Cycle",
 				{"unit": unit, "status": ("in", ["Active", "Harvesting"])}, "name")
+		stamp = rules.enforce(rules.check(cycle=cycle, unit=unit, operation=operation, on_date=due),
+			_s(data, "override_reason"))
 		plan = _plan_for_edit(crop, farm, year, week)
 		plan.append("tasks", {
 			"unit": unit, "cycle": cycle, "operation": operation, "planned_qty": qty, "uom": op.work_uom,
 			"rate": op.default_rate, "due_date": due, "supervisor": supervisor, "status": "Open",
-			"note": _s(data, "note"),
+			"note": _s(data, "note"), **stamp,
 		})
 		plan.save()
 		frappe.db.commit()
@@ -544,7 +549,8 @@ def productionGeneratePlan():
 		crop, farm = _s(data, "crop"), _s(data, "farm")
 		year, week, _start, _end = _week_args(data)
 		plan = _plan_for_edit(crop, farm, year, week)
-		created = plans.generate_week(plan.name)
+		res = plans.generate_week_detail(plan.name)
+		created, skipped = res["created"], res["skipped"]
 		frappe.db.commit()
 		reason = None
 		if not created:
@@ -553,7 +559,7 @@ def productionGeneratePlan():
 			reason = ("This crop does not run in crop cycles, so there are no protocol steps to generate."
 				if not crop_uses_cycles(crop) else "Nothing new to generate: every protocol step due this week is already planned.")
 		return {
-			"status": "success", "plan": plan.name, "created": created, "reason": reason,
+			"status": "success", "plan": plan.name, "created": created, "reason": reason, "skipped": skipped,
 			"message": f"{created} task(s) generated from protocols." if created else reason,
 		}
 

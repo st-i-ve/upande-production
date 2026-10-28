@@ -117,6 +117,11 @@ def _age_days(created) -> int:
 	return max((now_datetime() - frappe.utils.get_datetime(created)).days, 0)
 
 
+def _rule_status(rows) -> str:
+	flags = {r.rule_status for r in rows}
+	return "Block" if "Block" in flags else "Warn" if "Warn" in flags else "OK"
+
+
 def list_approvals(
 	crop=None, status="Pending", from_date=None, to_date=None, unit=None, operation=None, supervisor=None
 ) -> dict:
@@ -143,7 +148,7 @@ def list_approvals(
 		args["hist"] = add_days(today(), -DEFAULT_HISTORY_DAYS)
 	rows = frappe.db.sql(
 		f"""select name, work_date, employee, employee_name, plan, plan_task, unit, crop, operation, qty, uom,
-		hours, rate, pay_value, approval_status, review_note, reviewed_by, reviewed_at, submitted_by, creation
+		hours, rate, pay_value, approval_status, rule_status, rule_notes, override_reason, review_note, reviewed_by, reviewed_at, submitted_by, creation
 		from `tabValue Adder Work` where {' and '.join(cond)} order by creation asc""",
 		args, as_dict=True,
 	)
@@ -223,6 +228,9 @@ def list_approvals(
 			"stale": bool(is_stale),
 			"total_qty": sum(r.qty or 0 for r in rs),
 			"total_pay": sum(r.pay_value or 0 for r in rs) if pay else None,
+			"rule_status": _rule_status(rs),
+			"rule_notes": "\n".join(dict.fromkeys(r.rule_notes for r in rs if r.rule_notes)) or None,
+			"override_reason": next((r.override_reason for r in rs if r.override_reason), None),
 			"review_note": review.review_note,
 			"reviewed_by": review.reviewed_by,
 			"reviewed_at": review.reviewed_at,
@@ -232,6 +240,8 @@ def list_approvals(
 				"uom": r.uom, "hours": r.hours, "rate": r.rate if pay else None,
 				"pay_value": r.pay_value if pay else None, "work_date": r.work_date,
 				"approval_status": r.approval_status, "review_note": r.review_note,
+				"rule_status": r.rule_status or "OK", "rule_notes": r.rule_notes,
+				"override_reason": r.override_reason,
 			} for r in rs],
 		})
 	out.sort(key=lambda g: (g["created"],), reverse=status != "Pending")

@@ -1,0 +1,174 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-10-29 09:00:00.000000",
+ "custom": 0,
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "variety_name",
+  "crop",
+  "product",
+  "item",
+  "enabled",
+  "stage_anchor",
+  "default_protocol",
+  "col_yield",
+  "days_to_first_harvest",
+  "harvest_window_days",
+  "expected_yield_per_ha",
+  "expected_yield_per_plant",
+  "plants_per_ha",
+  "stages_section",
+  "stages",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "variety_name",
+   "fieldtype": "Data",
+   "label": "Variety Name",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "crop",
+   "fieldtype": "Link",
+   "label": "Crop",
+   "options": "Production Crop",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "product",
+   "fieldtype": "Link",
+   "label": "Product",
+   "options": "Item"
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "label": "Item",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "default": "1"
+  },
+  {
+   "fieldname": "stage_anchor",
+   "fieldtype": "Select",
+   "label": "Stage Anchor",
+   "options": "Planting\nFlowering\nStocking",
+   "default": "Planting"
+  },
+  {
+   "fieldname": "default_protocol",
+   "fieldtype": "Link",
+   "label": "Default Protocol",
+   "options": "Production Protocol"
+  },
+  {
+   "fieldname": "col_yield",
+   "fieldtype": "Column Break",
+   "label": "Yield"
+  },
+  {
+   "fieldname": "days_to_first_harvest",
+   "fieldtype": "Int",
+   "label": "Days to First Harvest"
+  },
+  {
+   "fieldname": "harvest_window_days",
+   "fieldtype": "Int",
+   "label": "Harvest Window (days)"
+  },
+  {
+   "fieldname": "expected_yield_per_ha",
+   "fieldtype": "Float",
+   "label": "Expected Yield per Ha (kg)"
+  },
+  {
+   "fieldname": "expected_yield_per_plant",
+   "fieldtype": "Float",
+   "label": "Expected Yield per Plant (kg)"
+  },
+  {
+   "fieldname": "plants_per_ha",
+   "fieldtype": "Float",
+   "label": "Plants per Ha"
+  },
+  {
+   "fieldname": "stages_section",
+   "fieldtype": "Section Break",
+   "label": "Stages"
+  },
+  {
+   "fieldname": "stages",
+   "fieldtype": "Table",
+   "label": "Stages",
+   "options": "Production Variety Stage"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-29 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Production Variety",
+ "owner": "Administrator",
+ "states": [],
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "write": 1,
+   "role": "System Manager"
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "write": 1,
+   "role": "Production Manager"
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "write": 1,
+   "report": 1,
+   "role": "Production Supervisor"
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "Production Viewer"
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "track_changes": 1,
+ "autoname": "field:variety_name",
+ "naming_rule": "By fieldname"
+}

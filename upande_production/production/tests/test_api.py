@@ -37,7 +37,7 @@ class TestApi(IntegrationTestCase):
 		)
 		cls.op = _make(
 			"Production Operation", crop=cls.crop.name, operation_name="API Weeding",
-			category="Field Care", work_uom="Kg", default_rate=40,
+			category="Other", work_uom="Kg", default_rate=40,
 		)
 		cls.emp = _make(
 			"Employee", first_name="APIEmp", gender="Male", date_of_birth="1990-01-01",

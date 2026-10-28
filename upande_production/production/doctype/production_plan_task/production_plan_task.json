@@ -22,7 +22,10 @@
   "pending_qty",
   "deviation",
   "protocol_ref",
-  "note"
+  "note",
+  "rule_status",
+  "rule_notes",
+  "override_reason"
  ],
  "fields": [
   {
@@ -129,6 +132,25 @@
    "fieldname": "note",
    "fieldtype": "Small Text",
    "label": "Note"
+  },
+  {
+   "fieldname": "rule_status",
+   "fieldtype": "Select",
+   "label": "Rule Status",
+   "options": "\nOK\nWarn\nBlock",
+   "read_only": 1
+  },
+  {
+   "fieldname": "rule_notes",
+   "fieldtype": "Small Text",
+   "label": "Rule Notes",
+   "read_only": 1
+  },
+  {
+   "fieldname": "override_reason",
+   "fieldtype": "Small Text",
+   "label": "Override Reason",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,

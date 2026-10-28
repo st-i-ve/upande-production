@@ -143,7 +143,7 @@ def harvest_operation(crop: str) -> str:
 	if not frappe.db.exists("UOM", "Crate"):
 		frappe.get_doc({"doctype": "UOM", "uom_name": "Crate"}).insert(ignore_permissions=True)
 	doc = frappe.get_doc({"doctype": "Production Operation", "crop": crop, "operation_name": "Harvesting",
-		"category": "Harvest", "work_uom": "Crate", "default_rate": DEFAULT_PICK_RATE, "is_harvest": 1})
+		"category": "Harvesting", "work_uom": "Crate", "default_rate": DEFAULT_PICK_RATE, "is_harvest": 1})
 	doc.insert(ignore_permissions=True)
 	return doc.name
 

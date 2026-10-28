@@ -13,6 +13,7 @@ from frappe.utils import add_days, getdate, now_datetime, today
 
 from upande_production.production.demo.config import DEMO
 from upande_production.production.logic import cycles as cycles_logic, plans, work
+from upande_production.production.logic.stages import product_item
 from upande_production.production.logic.weeks import iso_of
 
 C = Counter()
@@ -518,11 +519,12 @@ def seed_production_data():
 			# Production Harvest / Production Forecast. Nothing invented here.
 			continue
 		u = frappe.db.get_value("Production Unit", cy.unit, ["area_ha", "plant_count"], as_dict=True)
-		y = DEMO["weekly_yield"][cy.item]
-		base = (u.plant_count or 0) * y if cy.item in ("Hass Avocado", "Fuerte Avocado") else (
-			y if cy.item in ("Tilapia", "Honey") else (u.area_ha or 1) * y)
+		prod = product_item(cy.item)  # varieties keep their product's figures
+		y = DEMO["weekly_yield"][prod]
+		base = (u.plant_count or 0) * y if prod in ("Hass Avocado", "Fuerte Avocado") else (
+			y if prod in ("Tilapia", "Honey") else (u.area_ha or 1) * y)
 		# Honey and fish harvests are owned by apiary_seed / aquaculture_seed (from their own logs).
-		weeks_back = 0 if cy.item in ("Tilapia", "Honey") else 6
+		weeks_back = 0 if prod in ("Tilapia", "Honey") else 6
 		for k in range(weeks_back):
 			d = mon - timedelta(weeks=k) + timedelta(days=2)
 			if d > td:
@@ -532,7 +534,7 @@ def seed_production_data():
 			r = _rng(f"harvest:{cy.unit}:{d}")
 			_insert({"doctype": "Production Harvest", "harvest_date": d, "unit": cy.unit, "cycle": cy.name,
 				"item": cy.item, "qty": round(base * r.uniform(0.8, 1.2), 1), "uom": "Kg",
-				"grade": "Class 1", "price_per_uom": prices[cy.item]})
+				"grade": "Class 1", "price_per_uom": prices[prod]})
 		# forecast: 6 weeks back + 6 forward
 		season = mon.year
 		if not frappe.db.exists("Production Forecast", {"unit": cy.unit, "season": season}):
@@ -550,8 +552,9 @@ def seed_production_data():
 	cycles = frappe.get_all("Production Crop Cycle", filters={"status": ("in", ["Active", "Harvesting"]), "crop": ("in", ["Avocado", "Fruits & Vegetables"])},
 		fields=["unit", "item", "name"])
 	for cy in cycles:
-		basis, size, yld = DEMO["samples"][cy.item]
-		n = 2 if cy.item in ("Hass Avocado", "Fuerte Avocado") else 3
+		prod = product_item(cy.item)
+		basis, size, yld = DEMO["samples"][prod]
+		n = 2 if prod in ("Hass Avocado", "Fuerte Avocado") else 3
 		for i in range(n):
 			d = td - timedelta(days=7 * (i + 1) + 2)
 			if frappe.db.exists("Yield Sample", {"unit": cy.unit, "sample_date": d}):

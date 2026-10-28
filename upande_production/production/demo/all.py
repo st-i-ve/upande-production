@@ -3,14 +3,24 @@
 bench --site mutara.local execute upande_production.production.demo.all.run
 """
 
+import frappe
+
 from upande_production.production.demo import (
-	apiary_seed, aquaculture_seed, avocado_seed, fv_seed, geo, harvest_seed, seed,
+	apiary_seed, aquaculture_seed, avocado_seed, fv_seed, geo, harvest_seed, rules_seed, seed, varieties_seed,
 )
 
 
 def run():
 	# seed first (units, people, plans, generic harvests); the crop seeds then own their crops'
 	# harvests and logs; geo last so every unit has geometry.
-	for mod in (seed, avocado_seed, harvest_seed, apiary_seed, aquaculture_seed, fv_seed, geo):
-		mod.run()
-		print(f"[demo] {mod.__name__} done")
+	# History is keyed in before any activity rule exists, and must not be refused by one on a re-run.
+	frappe.flags.skip_activity_rules = True
+	try:
+		for mod in (seed, varieties_seed, avocado_seed, harvest_seed, apiary_seed, aquaculture_seed, fv_seed, geo):
+			mod.run()
+			print(f"[demo] {mod.__name__} done")
+	finally:
+		frappe.flags.skip_activity_rules = False
+	# activity rules last: they need the varieties (and their stages) of the crop seeds
+	rules_seed.run()
+	print(f"[demo] {rules_seed.__name__} done")

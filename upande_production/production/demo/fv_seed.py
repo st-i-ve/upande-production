@@ -15,6 +15,8 @@ from datetime import datetime, timedelta
 import frappe
 from frappe.utils import add_days, getdate, nowdate
 
+from upande_production.production.logic.stages import product_item
+
 FV = {
 	"seed": 20261029,
 	"marker": "[fv-seed]",
@@ -110,15 +112,17 @@ def _seed_irrigation(rng):
 
 def _seed_grading(rng):
 	harvests = frappe.get_all(
-		"Production Harvest", filters={"unit": ("like", "P_-B_"), "item": ("in", list(FV["grades"]))},
+		"Production Harvest", filters={"unit": ("like", "P_-B_")},
 		fields=["unit", "cycle", "item", "harvest_date", "qty"], order_by="harvest_date asc, unit asc",
 	)
+	harvests = [h for h in harvests if product_item(h.item) in FV["grades"]]  # varieties grade like their product
 	made = 0
 	for h in harvests:
 		recv = round(float(h.qty), 1)
 		rejects = round(recv * rng.uniform(*FV["reject_share"]), 1)
 		graded = round(recv - rejects, 1)
-		split = FV["grades"][h.item]
+		prod = product_item(h.item)
+		split = FV["grades"][prod]
 		names = list(split)
 		kgs, running = [], 0.0
 		for i, g in enumerate(names):
@@ -126,12 +130,12 @@ def _seed_grading(rng):
 			kg = max(kg, 0.0)
 			kgs.append(kg)
 			running += kg
-		per_crate = FV["kg_per_crate"][h.item]
+		per_crate = FV["kg_per_crate"][prod]
 		frappe.get_doc({
 			"doctype": "Harvest Grading Log", "unit": h.unit, "cycle": h.cycle, "item": h.item,
 			"grading_date": h.harvest_date, "received_kg": recv, "received_crates": round(recv / per_crate),
 			"graded_by": rng.choice(FV["graders"]), "rejects_kg": rejects,
-			"reject_reason": rng.choice(FV["reject_reasons"][h.item]), "notes": FV["marker"],
+			"reject_reason": rng.choice(FV["reject_reasons"][prod]), "notes": FV["marker"],
 			"lines": [{"grade": g, "kg": kg, "crates": round(kg / per_crate, 1)} for g, kg in zip(names, kgs)],
 		}).insert(ignore_permissions=True)
 		made += 1

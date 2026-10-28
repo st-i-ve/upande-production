@@ -2,10 +2,12 @@ import frappe
 from frappe import _
 from frappe.utils import now_datetime, today
 
+from upande_production.production.logic import rules
+
 STATUSES = ("Open", "In Progress", "Done", "Partly Done", "Skipped")
 
 
-def _insert_vaw(entry, work_date, unit, operation, uom, rate, cycle=None, plan=None, plan_task=None):
+def _insert_vaw(entry, work_date, unit, operation, uom, rate, cycle=None, plan=None, plan_task=None, stamp=None):
 	qty = float(entry.get("qty") or 0)
 	if qty <= 0:
 		frappe.throw(_("Quantity must be greater than zero"), frappe.ValidationError)
@@ -13,7 +15,7 @@ def _insert_vaw(entry, work_date, unit, operation, uom, rate, cycle=None, plan=N
 		"doctype": "Value Adder Work", "work_date": work_date, "employee": entry.get("employee"),
 		"plan": plan, "plan_task": plan_task, "unit": unit, "cycle": cycle, "operation": operation,
 		"qty": qty, "uom": uom, "hours": entry.get("hours"), "rate": rate,
-		"approval_status": "Pending", "submitted_by": frappe.session.user,
+		"approval_status": "Pending", "submitted_by": frappe.session.user, **(stamp or {}),
 	})
 	doc.insert()  # stays a draft: it counts only once a manager approves (submits) it
 	return doc.name
@@ -53,7 +55,7 @@ def refresh_task_done(plan, plan_task):
 	doc.save()
 
 
-def record_task_work(plan, task, status, entries, note="", work_date=None) -> dict:
+def record_task_work(plan, task, status, entries, note="", work_date=None, override_reason=None) -> dict:
 	if status not in STATUSES:
 		frappe.throw(_("Invalid status {0}").format(status), frappe.ValidationError)
 	entries = entries or []
@@ -71,8 +73,16 @@ def record_task_work(plan, task, status, entries, note="", work_date=None) -> di
 		frappe.throw(_("Record who did the work before marking it {0}.").format(_(status)),
 			frappe.ValidationError)
 	work_date = work_date or today()
+	stamp = None
+	if entries or status in ("In Progress", "Done", "Partly Done"):
+		# Activity rules: Block refuses, Warn needs a reason (one given earlier on the task still stands)
+		breaches = rules.check(cycle=row.cycle, unit=row.unit, operation=row.operation, on_date=work_date,
+			exclude_task=row.name)
+		stamp = rules.enforce(breaches, override_reason or row.get("override_reason"))
+		row.rule_status, row.rule_notes, row.override_reason = (
+			stamp["rule_status"], stamp["rule_notes"], stamp["override_reason"])
 	names = [
-		_insert_vaw(e, work_date, row.unit, row.operation, row.uom, row.rate, row.cycle, plan, row.name)
+		_insert_vaw(e, work_date, row.unit, row.operation, row.uom, row.rate, row.cycle, plan, row.name, stamp)
 		for e in entries
 	]
 	row.done_qty = submitted_qty(plan, row.name)
@@ -89,9 +99,11 @@ def record_task_work(plan, task, status, entries, note="", work_date=None) -> di
 	return {"task": row.as_dict(), "work": names}
 
 
-def record_unplanned_work(unit, operation, entries, work_date, note="") -> list[str]:
+def record_unplanned_work(unit, operation, entries, work_date, note="", override_reason=None) -> list[str]:
+	work_date = work_date or today()
+	stamp = rules.enforce(rules.check(unit=unit, operation=operation, on_date=work_date), override_reason)
 	op = frappe.db.get_value("Production Operation", operation, ["work_uom", "default_rate"], as_dict=True)
 	return [
-		_insert_vaw(e, work_date or today(), unit, operation, op.work_uom, op.default_rate)
+		_insert_vaw(e, work_date, unit, operation, op.work_uom, op.default_rate, stamp=stamp)
 		for e in entries
 	]

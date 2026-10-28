@@ -8,6 +8,7 @@ from datetime import timedelta
 import frappe
 from frappe.utils import add_days, getdate, today
 
+from upande_production.production.logic import rules
 from upande_production.production.logic.cycles import crop_uses_cycles
 from upande_production.production.logic.weeks import iso_of
 
@@ -423,6 +424,8 @@ def protocol_check(crop, year, week, unit=None):
 					continue
 				t = tasks.get(f"{cy.name}:{step.name}:{k}")
 				status = _step_status(t, due, today_d)
+				breaches = rules.check(cycle=cy.name, unit=cy.unit, operation=step.operation, on_date=due,
+					exclude_task=t.name if t else None)
 				uom = t.uom if t else frappe.db.get_value("Production Operation", step.operation, "work_uom")
 				planned = float(t.planned_qty or 0) if t else float(step.planned_qty or 0)
 				done = float(t.done_qty or 0) if t else 0.0
@@ -433,6 +436,7 @@ def protocol_check(crop, year, week, unit=None):
 					"pending_qty": float(t.pending_qty or 0) if t else 0.0, "uom": uom,
 					"plan": t.parent if t else None, "task": t.name if t else None,
 					"task_status": t.status if t else None, "note": step.note,
+					"rule_status": rules.worst(breaches), "breaches": breaches,
 				})
 				out["totals"][status] += 1
 				out["totals"]["steps"] += 1
@@ -441,7 +445,10 @@ def protocol_check(crop, year, week, unit=None):
 		steps.sort(key=lambda r: (str(r["due_date"]), r["operation_name"]))
 		block = {"unit": cy.unit, "unit_name": unit_names.get(cy.unit) or cy.unit, "cycle": cy.name,
 			"protocol": cy.protocol, "protocol_version_status": proto.version_status,
-			"steps": steps, "counts": {k: sum(1 for s in steps if s["status"] == k) for k in CHECK_KEYS}}
+			"steps": steps, "breaches": [
+				{**b, "operation": s["operation"], "operation_name": s["operation_name"], "due_date": s["due_date"]}
+				for s in steps for b in s["breaches"]],
+			"counts": {k: sum(1 for s in steps if s["status"] == k) for k in CHECK_KEYS}}
 		out["blocks"].append(block)
 	out["totals"]["planned_qty_by_uom"] = merge_uoms(planned_parts)
 	out["totals"]["done_qty_by_uom"] = merge_uoms(done_parts)

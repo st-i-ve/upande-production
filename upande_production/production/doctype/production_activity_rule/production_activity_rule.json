@@ -1,0 +1,186 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "PAR-.#####",
+ "naming_rule": "Expression (old style)",
+ "creation": "2026-10-29 09:00:00.000000",
+ "custom": 0,
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "scope_section",
+  "crop",
+  "variety",
+  "stage",
+  "col1",
+  "operation",
+  "operation_category",
+  "rule_section",
+  "rule_type",
+  "days",
+  "col2",
+  "other_operation",
+  "other_category",
+  "enf_section",
+  "enforcement",
+  "enabled",
+  "reason"
+ ],
+ "fields": [
+  {
+   "fieldname": "scope_section",
+   "fieldtype": "Section Break",
+   "label": "Scope"
+  },
+  {
+   "fieldname": "crop",
+   "fieldtype": "Link",
+   "label": "Crop",
+   "options": "Production Crop",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "variety",
+   "fieldtype": "Link",
+   "label": "Variety",
+   "options": "Production Variety",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Leave empty for every variety of the crop"
+  },
+  {
+   "fieldname": "stage",
+   "fieldtype": "Data",
+   "label": "Stage",
+   "description": "A stage name of the variety (for the stage rule types)"
+  },
+  {
+   "fieldname": "col1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "operation",
+   "fieldtype": "Link",
+   "label": "Operation",
+   "options": "Production Operation",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "operation_category",
+   "fieldtype": "Select",
+   "label": "Operation Category",
+   "options": "\nSpraying\nWeeding\nFertilising\nIrrigation\nHarvesting\nPruning\nFeeding\nOther",
+   "description": "Applies to every operation of this category"
+  },
+  {
+   "fieldname": "rule_section",
+   "fieldtype": "Section Break",
+   "label": "Rule"
+  },
+  {
+   "fieldname": "rule_type",
+   "fieldtype": "Select",
+   "label": "Rule Type",
+   "options": "Not in stage\nOnly in stage\nNot within days before harvest\nNot within days after operation",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "days",
+   "fieldtype": "Int",
+   "label": "Days"
+  },
+  {
+   "fieldname": "col2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "other_operation",
+   "fieldtype": "Link",
+   "label": "Other Operation",
+   "options": "Production Operation",
+   "depends_on": "eval:doc.rule_type=='Not within days after operation'"
+  },
+  {
+   "fieldname": "other_category",
+   "fieldtype": "Select",
+   "label": "Other Category",
+   "options": "\nSpraying\nWeeding\nFertilising\nIrrigation\nHarvesting\nPruning\nFeeding\nOther",
+   "depends_on": "eval:doc.rule_type=='Not within days after operation'"
+  },
+  {
+   "fieldname": "enf_section",
+   "fieldtype": "Section Break",
+   "label": "Enforcement"
+  },
+  {
+   "fieldname": "enforcement",
+   "fieldtype": "Select",
+   "label": "Enforcement",
+   "options": "Block\nWarn",
+   "reqd": 1,
+   "default": "Block",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "default": "1"
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Small Text",
+   "label": "Reason",
+   "description": "Shown to the supervisor when the rule is hit"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-10-29 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Production Activity Rule",
+ "owner": "Administrator",
+ "states": [],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "track_changes": 1,
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "share": 1,
+   "print": 1,
+   "email": 1
+  },
+  {
+   "role": "Production Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "share": 1,
+   "print": 1,
+   "email": 1
+  },
+  {
+   "role": "Production Supervisor",
+   "read": 1
+  },
+  {
+   "role": "Production Viewer",
+   "read": 1,
+   "report": 1
+  }
+ ]
+}

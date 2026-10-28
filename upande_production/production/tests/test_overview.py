@@ -66,7 +66,7 @@ class TestOverviewExtras(IntegrationTestCase):
 			if not frappe.db.exists("UOM", uom):
 				_make("UOM", uom_name=uom)
 			ops.append(_make("Production Operation", crop=self.crop.name, operation_name=f"OV {uom} {unit.name}",
-				category="Field Care", work_uom=uom, default_rate=10))
+				category="Other", work_uom=uom, default_rate=10))
 		return unit, emps, ops, work
 
 	def test_pending_approvals_counts_submissions_not_entries(self):

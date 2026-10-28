@@ -10,12 +10,13 @@ import frappe
 from frappe import _
 from frappe.utils import now_datetime
 
+from upande_production.production.logic import rules
 from upande_production.production.logic.settings import is_manager, is_supervisor
 
 DT = "Production Protocol"
 STATUSES = ("Draft", "Pending Approval", "Active", "Superseded", "Rejected")
-STEP_FIELDS = ("operation", "day_offset", "repeat_every_days", "repeat_count", "planned_qty", "note")
-HEAD_FIELDS = ("protocol_name", "item")
+STEP_FIELDS = ("operation", "anchor_stage", "day_offset", "repeat_every_days", "repeat_count", "planned_qty", "note")
+HEAD_FIELDS = ("protocol_name", "item", "variety")
 
 
 def _need_manager():
@@ -45,14 +46,14 @@ def _steps(doc):
 
 
 def _norm(field, v):
-	if field in ("operation", "note"):
+	if field in ("operation", "note", "anchor_stage"):
 		return v or ""
 	return float(v or 0)
 
 
 def _row(doc) -> dict:
 	return {
-		"name": doc.name, "protocol_name": doc.protocol_name, "crop": doc.crop, "item": doc.item,
+		"name": doc.name, "protocol_name": doc.protocol_name, "crop": doc.crop, "item": doc.item, "variety": doc.variety,
 		"version": doc.version, "version_status": doc.version_status, "protocol_family": doc.protocol_family,
 		"previous_version": doc.previous_version, "submitted_by": doc.submitted_by,
 		"submitted_at": doc.submitted_at, "approved_by": doc.approved_by, "approved_at": doc.approved_at,
@@ -94,7 +95,7 @@ def new_version(name) -> dict:
 	top = max(frappe.get_all(DT, filters={"protocol_family": fam}, pluck="version") or [1])
 	base = frappe.db.get_value(DT, fam, "protocol_name") or src.protocol_name.rsplit(" v", 1)[0]
 	doc = frappe.get_doc({
-		"doctype": DT, "protocol_name": f"{base} v{top + 1}", "crop": src.crop, "item": src.item,
+		"doctype": DT, "protocol_name": f"{base} v{top + 1}", "crop": src.crop, "item": src.item, "variety": src.variety,
 		"version": top + 1, "version_status": "Draft", "protocol_family": fam, "previous_version": src.name,
 		"steps": [{k: s.get(k) for k in STEP_FIELDS} for s in src.steps],
 	})
@@ -160,7 +161,8 @@ def diff(name) -> dict:
 	doc = _doc(name)
 	prev = frappe.get_doc(DT, doc.previous_version) if doc.previous_version else None
 	op_names = dict(frappe.get_all("Production Operation", fields=["name", "operation_name"], as_list=True))
-	out = {"name": doc.name, "previous": prev.name if prev else None, "fields": [], "steps": []}
+	out = {"name": doc.name, "previous": prev.name if prev else None, "fields": [], "steps": [],
+		"rule_check": rules.rule_check(doc)}
 	if not prev:
 		out["steps"] = [{"change": "added", "operation": s["operation"],
 			"operation_name": op_names.get(s["operation"], s["operation"]), "after": s} for s in _steps(doc)]
@@ -192,6 +194,11 @@ def diff(name) -> dict:
 			if ch:
 				out["steps"].append({**base, "change": "changed", "changes": ch, "before": a, "after": b})
 	return out
+
+
+def rule_check(name) -> list:
+	"""Steps of this version that would land in a forbidden stage or window for its variety."""
+	return rules.rule_check(_doc(name))
 
 
 def pending_list(crop=None) -> dict:

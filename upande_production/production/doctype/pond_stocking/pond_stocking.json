@@ -10,6 +10,7 @@
  "field_order": [
   "pond",
   "species",
+  "strain",
   "stocking_date",
   "status",
   "fingerlings_count",
@@ -104,6 +105,12 @@
    "fieldname": "notes",
    "fieldtype": "Small Text",
    "label": "Notes"
+  },
+  {
+   "fieldname": "strain",
+   "fieldtype": "Link",
+   "label": "Strain",
+   "options": "Production Variety"
   }
  ],
  "index_web_pages_for_search": 1,

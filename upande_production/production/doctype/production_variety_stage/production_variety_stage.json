@@ -1,0 +1,58 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-10-29 09:00:00.000000",
+ "custom": 0,
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "stage",
+  "start_day",
+  "length_days",
+  "is_harvest",
+  "description"
+ ],
+ "fields": [
+  {
+   "fieldname": "stage",
+   "fieldtype": "Data",
+   "label": "Stage",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "start_day",
+   "fieldtype": "Int",
+   "label": "Start Day",
+   "in_list_view": 1,
+   "description": "Days from the anchor"
+  },
+  {
+   "fieldname": "length_days",
+   "fieldtype": "Int",
+   "label": "Length (days)",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "is_harvest",
+   "fieldtype": "Check",
+   "label": "Harvest Stage",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-29 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Production Variety Stage",
+ "owner": "Administrator",
+ "states": [],
+ "istable": 1,
+ "editable_grid": 1
+}

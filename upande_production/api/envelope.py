@@ -28,7 +28,11 @@ def run(fn):
 			return {"error": str(e) or _("Not permitted.")}
 		except frappe.ValidationError as e:
 			frappe.db.rollback()
-			return {"error": str(e) or _("Operation failed.")}
+			out = {"error": str(e) or _("Operation failed.")}
+			if hasattr(e, "breaches"):  # an activity rule: the desk shows the breaches and asks for a reason
+				out.update({"breaches": e.breaches, "rule_status": e.rule_status,
+					"needs_override_reason": e.rule_status == "Warn"})
+			return out
 		except Exception as e:
 			frappe.db.rollback()
 			frappe.log_error(title=f"upande_production: {fn.__name__}")

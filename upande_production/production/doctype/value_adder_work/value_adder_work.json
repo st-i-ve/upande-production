@@ -29,7 +29,10 @@
   "reviewed_by",
   "reviewed_at",
   "submitted_by",
-  "amended_from"
+  "amended_from",
+  "rule_status",
+  "rule_notes",
+  "override_reason"
  ],
  "fields": [
   {
@@ -195,6 +198,25 @@
    "options": "Harvest Batch",
    "read_only": 1,
    "no_copy": 1
+  },
+  {
+   "fieldname": "rule_status",
+   "fieldtype": "Select",
+   "label": "Rule Status",
+   "options": "\nOK\nWarn\nBlock",
+   "read_only": 1
+  },
+  {
+   "fieldname": "rule_notes",
+   "fieldtype": "Small Text",
+   "label": "Rule Notes",
+   "read_only": 1
+  },
+  {
+   "fieldname": "override_reason",
+   "fieldtype": "Small Text",
+   "label": "Override Reason",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,

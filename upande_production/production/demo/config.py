@@ -16,24 +16,24 @@ DEMO = {
 	# crop -> [(operation, work_uom, default_rate, category, is_harvest)]
 	"operations": {
 		"Avocado": [
-			("Pruning", "Tree", 25, "Field Care", 0), ("Fertiliser Application", "Tree", 10, "Nutrition", 0),
-			("Irrigation Check", "Hectare", 150, "Irrigation", 0), ("Weeding", "Hectare", 1200, "Field Care", 0),
-			("Fruit Count", "Tree", 5, "Field Care", 0), ("Harvest Picking", "Crate", 30, "Harvest", 1),
-			("Spraying", "Hectare", 600, "Spray", 0),
+			("Pruning", "Tree", 25, "Pruning", 0), ("Fertiliser Application", "Tree", 10, "Fertilising", 0),
+			("Irrigation Check", "Hectare", 150, "Irrigation", 0), ("Weeding", "Hectare", 1200, "Weeding", 0),
+			("Fruit Count", "Tree", 5, "Other", 0), ("Harvest Picking", "Crate", 30, "Harvesting", 1),
+			("Spraying", "Hectare", 600, "Spraying", 0),
 		],
 		"Fruits & Vegetables": [
-			("Land Preparation", "Hectare", 2500, "Planting", 0), ("Planting", "Bed", 60, "Planting", 0),
-			("Weeding", "Bed", 40, "Field Care", 0), ("Top Dressing", "Bed", 35, "Nutrition", 0),
-			("Spraying", "Hectare", 600, "Spray", 0), ("Harvest", "Crate", 25, "Harvest", 1),
-			("Passion Pruning", "Plant", 8, "Field Care", 0),
+			("Land Preparation", "Hectare", 2500, "Other", 0), ("Planting", "Bed", 60, "Other", 0),
+			("Weeding", "Bed", 40, "Weeding", 0), ("Top Dressing", "Bed", 35, "Fertilising", 0),
+			("Spraying", "Hectare", 600, "Spraying", 0), ("Harvest", "Crate", 25, "Harvesting", 1),
+			("Passion Pruning", "Plant", 8, "Pruning", 0),
 		],
 		"Aquaculture": [
-			("Stocking", "Fingerlings (x1000)", 300, "Husbandry", 0), ("Feeding", "Kg", 5, "Husbandry", 0),
-			("Water Quality Check", "Pond", 100, "Husbandry", 0), ("Harvest", "Kg", 10, "Harvest", 1),
+			("Stocking", "Fingerlings (x1000)", 300, "Other", 0), ("Feeding", "Kg", 5, "Feeding", 0),
+			("Water Quality Check", "Pond", 100, "Other", 0), ("Harvest", "Kg", 10, "Harvesting", 1),
 		],
 		"Apiary": [
-			("Hive Inspection", "Hive", 20, "Husbandry", 0), ("Treatment", "Hive", 30, "Husbandry", 0),
-			("Honey Harvest", "Kg", 40, "Harvest", 1),
+			("Hive Inspection", "Hive", 20, "Other", 0), ("Treatment", "Hive", 30, "Other", 0),
+			("Honey Harvest", "Kg", 40, "Harvesting", 1),
 		],
 	},
 	# protocol -> (crop, item, [(operation, day_offset, repeat_every, repeat_count, planned_qty)])

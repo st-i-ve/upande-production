@@ -9,6 +9,7 @@
   "protocol_name",
   "crop",
   "item",
+  "variety",
   "steps",
   "version_section",
   "version",
@@ -121,6 +122,12 @@
    "fieldtype": "Small Text",
    "label": "Review Note",
    "read_only": 1
+  },
+  {
+   "fieldname": "variety",
+   "fieldtype": "Link",
+   "label": "Variety",
+   "options": "Production Variety"
   }
  ],
  "index_web_pages_for_search": 1,

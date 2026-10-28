@@ -33,7 +33,7 @@
    "fieldname": "category",
    "fieldtype": "Select",
    "label": "Category",
-   "options": "Planting\nField Care\nNutrition\nSpray\nIrrigation\nHarvest\nHusbandry\nOther"
+   "options": "\nSpraying\nWeeding\nFertilising\nIrrigation\nHarvesting\nPruning\nFeeding\nOther"
   },
   {
    "fieldname": "work_uom",

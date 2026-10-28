@@ -171,6 +171,12 @@ fixtures = [
 # Scheduled Tasks
 # ---------------
 
+scheduler_events = {
+	"daily": [
+		"upande_production.production.logic.stages.refresh_all_open",
+	],
+}
+
 # scheduler_events = {
 # 	"all": [
 # 		"upande_production.tasks.all"

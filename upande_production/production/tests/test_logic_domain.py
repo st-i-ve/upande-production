@@ -38,7 +38,7 @@ class TestLogicDomain(IntegrationTestCase):
 		)
 		cls.op = _make(
 			"Production Operation", crop=cls.crop.name, operation_name="TC Weeding",
-			category="Field Care", work_uom="Kg", default_rate=40,
+			category="Other", work_uom="Kg", default_rate=40,
 		)
 		cls.emps = [
 			_make(

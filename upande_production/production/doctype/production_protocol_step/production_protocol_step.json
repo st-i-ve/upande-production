@@ -7,6 +7,7 @@
  "engine": "InnoDB",
  "field_order": [
   "operation",
+  "anchor_stage",
   "day_offset",
   "repeat_every_days",
   "repeat_count",
@@ -49,6 +50,12 @@
    "fieldname": "note",
    "fieldtype": "Data",
    "label": "Note"
+  },
+  {
+   "fieldname": "anchor_stage",
+   "fieldtype": "Data",
+   "label": "Anchor Stage",
+   "description": "Count Day Offset from the start of this stage"
   }
  ],
  "index_web_pages_for_search": 1,

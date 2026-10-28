@@ -4,7 +4,7 @@ import frappe
 from frappe import _
 
 from upande_production.api.envelope import as_dict, run
-from upande_production.production.logic import analytics, plans, work
+from upande_production.production.logic import analytics, plans, rules, work
 from upande_production.production.logic.settings import PAY_ROLES, can_see_pay
 from upande_production.production.logic.weeks import iso_week_bounds
 
@@ -192,6 +192,7 @@ def get_plan(crop, farm, year, week):
 		fields=[
 			"name", "unit", "cycle", "operation", "operation_name", "planned_qty", "done_qty", "pending_qty", "uom",
 			"rate", "due_date", "supervisor", "status", "deviation", "protocol_ref", "note",
+			"rule_status", "rule_notes", "override_reason",
 		],
 		order_by="idx asc",
 	)
@@ -220,9 +221,18 @@ def get_plan(crop, farm, year, week):
 	return out
 
 
+def _task_rules(vals, override_reason=None, exclude_task=None) -> dict:
+	"""Activity rules for a task being added or moved: Block refuses, Warn needs override_reason."""
+	if not (vals.get("operation") and vals.get("unit") and vals.get("due_date")):
+		return {}
+	breaches = rules.check(cycle=vals.get("cycle") or None, unit=vals["unit"], operation=vals["operation"],
+		on_date=vals["due_date"], exclude_task=exclude_task)
+	return rules.enforce(breaches, override_reason)
+
+
 @frappe.whitelist(methods=["POST"])
 @run
-def save_plan_tasks(crop, farm, year, week, tasks):
+def save_plan_tasks(crop, farm, year, week, tasks, override_reason=None):
 	_need("Production Work Plan", "write")
 	tasks = as_dict(tasks) or []
 	plan = plans.get_or_create_plan(crop, _farm(farm), int(year), int(week))
@@ -236,6 +246,8 @@ def save_plan_tasks(crop, farm, year, week, tasks):
 			row = next((r for r in plan.tasks if r.name == name), None)
 			if not row:
 				frappe.throw(_("Task {0} not found on this plan").format(name), frappe.ValidationError)
+			if any(k in vals and vals[k] != row.get(k) for k in ("unit", "operation", "due_date")):
+				vals.update(_task_rules({**row.as_dict(), **vals}, override_reason, exclude_task=row.name))
 			row.update(vals)
 		else:
 			if vals.get("operation") and not (vals.get("uom") and vals.get("rate")):
@@ -245,6 +257,7 @@ def save_plan_tasks(crop, farm, year, week, tasks):
 				vals.setdefault("uom", op.work_uom)
 				if vals.get("rate") in (None, ""):
 					vals["rate"] = op.default_rate
+			vals.update(_task_rules(vals, override_reason))
 			plan.append("tasks", {**vals, "status": "Open"})
 	for i, r in enumerate(plan.tasks, 1):
 		r.idx = i
@@ -257,17 +270,19 @@ def save_plan_tasks(crop, farm, year, week, tasks):
 def generate_plan_week(crop, farm, year, week):
 	_need("Production Work Plan", "create")
 	plan = plans.get_or_create_plan(crop, _farm(farm), int(year), int(week))
-	return {"name": plan.name, "created": plans.generate_week(plan.name)}
+	res = plans.generate_week_detail(plan.name)
+	return {"name": plan.name, "created": res["created"], "skipped": res["skipped"]}
 
 
 @frappe.whitelist(methods=["POST"])
 @run
-def record_task_work(plan, task, status, entries=None, note="", work_date=None):
+def record_task_work(plan, task, status, entries=None, note="", work_date=None, override_reason=None):
 	_need("Production Work Plan", "write")
 	entries = as_dict(entries) or []
 	if entries:
 		_need("Value Adder Work", "create")
-	res = work.record_task_work(plan, task, status, entries, note or "", work_date or None)
+	res = work.record_task_work(plan, task, status, entries, note or "", work_date or None,
+		override_reason=override_reason or None)
 	if not _can_see_pay():
 		res["task"]["rate"] = None
 	return res

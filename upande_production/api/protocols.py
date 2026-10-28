@@ -56,6 +56,12 @@ def diff(name):
 
 @frappe.whitelist(methods=["POST"])
 @run
+def rule_check(name):
+	return logic.rule_check(name)
+
+
+@frappe.whitelist(methods=["POST"])
+@run
 def save_draft(data):
 	"""Edit a Draft (steps, item). Active/Pending/Superseded versions are refused by the doctype."""
 	return logic.save_draft(data)
