@@ -3,6 +3,9 @@
 
 from frappe.model.document import Document
 
+from upande_production.production.logic.weeks import iso_of
+
 
 class BuyerCommitment(Document):
-	pass
+	def validate(self):
+		self.iso_year, self.iso_week = iso_of(self.week_start)
