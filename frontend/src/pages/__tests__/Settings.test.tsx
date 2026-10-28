@@ -3,13 +3,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderPage } from "./helpers";
 
 vi.mock("@/lib/api", () => ({ listOperations: vi.fn(), saveOperation: vi.fn(), listProtocols: vi.fn() }));
-vi.mock("@/lib/varieties-api", () => ({
+vi.mock("@/lib/varieties-api", async (orig) => ({
+  ...(await orig<typeof import("@/lib/varieties-api")>()),
   listVarieties: vi.fn(),
   listRules: vi.fn(),
   saveVariety: vi.fn(),
   saveRule: vi.fn(),
   setRuleEnabled: vi.fn(),
   RULE_TYPES: ["Not in stage", "Only in stage", "Not within days before harvest", "Not within days after operation"],
+}));
+vi.mock("@/components/cycles/ItemField", () => ({
+  ItemField: ({ id, value, onChange }: { id?: string; value: string; onChange: (v: string) => void }) => (
+    <input id={id} aria-label={id} value={value} onChange={(e) => onChange(e.target.value)} />
+  ),
 }));
 vi.mock("@/lib/protocols-api", () => ({
   listProtocolFamilies: vi.fn(),
@@ -20,7 +26,7 @@ vi.mock("@/lib/protocols-api", () => ({
   saveProtocolDraft: vi.fn(),
 }));
 import { listOperations, listProtocols, saveOperation } from "@/lib/api";
-import { listRules, listVarieties } from "@/lib/varieties-api";
+import { listRules, listVarieties, saveVariety, type Variety } from "@/lib/varieties-api";
 import {
   approveProtocol,
   listProtocolFamilies,
@@ -76,7 +82,8 @@ describe("Settings", () => {
     name: n === 1 ? "Season" : `Season v${n}`, protocol_name: n === 1 ? "Season" : `Season v${n}`, crop: "Test Crop", item: null,
     version: n, version_status: status, protocol_family: "Season", previous_version: n > 1 ? "Season" : null,
     submitted_by: null, submitted_at: null, approved_by: null, approved_at: null, review_note: null,
-    steps: [{ operation: "OP-1", day_offset: 3, repeat_every_days: 0, repeat_count: 1, planned_qty: 10, note: null }],
+    key_activities: [{ operation: "OP-1", week: 3, repeats: "Every cycle", planned_qty: 10, description: null }],
+    cultural_activities: [], capital_activities: [],
     ...over,
   });
   const family = (versions: ProtocolVersion[]): ProtocolFamily => ({
@@ -128,5 +135,67 @@ describe("Settings", () => {
     fireEvent.mouseDown(await screen.findByRole("tab", { name: "Protocols" }), { button: 0 });
     fireEvent.click(await screen.findByRole("button", { name: /Season/ }));
     expect(screen.queryByRole("button", { name: /Approve/ })).toBeNull();
+  });
+
+  it("saves an activity colour and type", async () => {
+    vi.mocked(listOperations).mockResolvedValue({
+      rows: [{ name: "OP-1", operation_name: "Pruning", category: "Pruning", work_uom: "Nos", default_rate: 25, is_harvest: 0, activity_type: "Cultural", color: "" }],
+    });
+    vi.mocked(saveOperation).mockResolvedValue({ name: "OP-1" });
+    renderPage(<Settings />);
+    expect(await screen.findByRole("tab", { name: "Activities & rates" })).toBeInTheDocument();
+    await screen.findByDisplayValue("Pruning");
+    fireEvent.change(screen.getByLabelText("Activity colour"), { target: { value: "#ff0000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save Pruning" }));
+    await waitFor(() => expect(saveOperation).toHaveBeenCalled());
+    expect(vi.mocked(saveOperation).mock.calls[0][0]).toMatchObject({ name: "OP-1", color: "#ff0000", activity_type: "Cultural" });
+  });
+
+  const hass: Variety = {
+    name: "Hass", variety_name: "Hass", crop: "Test Crop", product: null, item: "Avocado - Hass", enabled: 1,
+    stage_anchor: "Planting", default_protocol: null, days_to_first_harvest: null, harvest_window_days: null,
+    expected_yield_per_ha: null, expected_yield_per_plant: null, plants_per_ha: null, stages: [],
+  };
+  const openVariety = async (over: Partial<Variety> = {}) => {
+    vi.mocked(listOperations).mockResolvedValue({ rows: [] });
+    vi.mocked(listVarieties).mockResolvedValue({ varieties: [{ ...hass, ...over }] });
+    renderPage(<Settings />);
+    fireEvent.mouseDown(await screen.findByRole("tab", { name: "Varieties" }), { button: 0 });
+    fireEvent.click(await screen.findByRole("button", { name: "Edit Hass" }));
+    await screen.findByLabelText("Lifespan (years)");
+  };
+
+  it("shows flowering fields only when flowering", async () => {
+    await openVariety();
+    expect(screen.queryByLabelText("Weeks to first flowering")).toBeNull();
+    expect(screen.queryByLabelText("Weeks from flowering to harvest")).toBeNull();
+    fireEvent.click(screen.getByRole("switch", { name: "Flowering crop" }));
+    expect(screen.getByLabelText("Weeks to first flowering")).toBeInTheDocument();
+    expect(screen.getByLabelText("Weeks from flowering to harvest")).toBeInTheDocument();
+  });
+
+  it("hides reflower and interval when harvested once", async () => {
+    await openVariety({ is_flowering: 1, harvest_pattern: "Once" });
+    expect(screen.queryByLabelText("Weeks to re-flower after harvest")).toBeNull();
+    expect(screen.queryByLabelText("Harvest interval (weeks)")).toBeNull();
+  });
+
+  it("shows reflower and interval when harvested more than once", async () => {
+    await openVariety({ is_flowering: 1, harvest_pattern: "Interval", harvest_interval_weeks: 6 });
+    expect(screen.getByLabelText("Weeks to re-flower after harvest")).toBeInTheDocument();
+    expect(screen.getByLabelText("Harvest interval (weeks)")).toHaveValue("6");
+  });
+
+  it("computes weeks to first harvest for flowering", async () => {
+    vi.mocked(saveVariety).mockResolvedValue({ name: "Hass" });
+    await openVariety({ is_flowering: 1, weeks_to_first_flowering: 20, weeks_flowering_to_harvest: 30 });
+    const first = screen.getByLabelText("Weeks to first harvest") as HTMLInputElement;
+    expect(first).toHaveValue("50");
+    expect(first.readOnly).toBe(true);
+    fireEvent.change(screen.getByLabelText("Weeks to first flowering"), { target: { value: "24" } });
+    expect(first).toHaveValue("54");
+    fireEvent.click(screen.getByRole("button", { name: "Save variety" }));
+    await waitFor(() => expect(saveVariety).toHaveBeenCalled());
+    expect(vi.mocked(saveVariety).mock.calls[0][0]).toMatchObject({ is_flowering: 1, weeks_to_first_harvest: 54 });
   });
 });

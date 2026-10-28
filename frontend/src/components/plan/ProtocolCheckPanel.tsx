@@ -2,7 +2,7 @@ import { EnforcementPill } from "@/components/rules/RuleParts";
 import type { ProtocolCheck } from "@/lib/varieties-api";
 import { rowDate } from "@/components/plan/fmt";
 
-/** Per-block activity rule breaches among the protocol steps due in the week. Quiet when there are none. */
+/** Per-block activity rule breaches among the protocol activities due in the week. Quiet when there are none. */
 export function ProtocolCheckPanel({ check }: { check: ProtocolCheck | null }) {
   if (!check) return null;
   const blocks = check.blocks.filter((b) => b.breaches.length > 0);
@@ -11,11 +11,11 @@ export function ProtocolCheckPanel({ check }: { check: ProtocolCheck | null }) {
   return (
     <section
       data-testid="protocol-check-breaches"
-      aria-label="Protocol steps that break a rule"
+      aria-label="Protocol activities that break a rule"
       className="mb-4 rounded-[var(--sd-radius-lg)] bg-[var(--sd-amber-bg)] px-4 py-3"
     >
       <h2 className="mb-2 text-[13.5px] font-semibold text-[var(--sd-ink)]">
-        {total} protocol step{total === 1 ? "" : "s"} this week break an activity rule, in {blocks.length} block{blocks.length === 1 ? "" : "s"}
+        {total} protocol activit{total === 1 ? "y" : "ies"} this week break an activity rule, in {blocks.length} block{blocks.length === 1 ? "" : "s"}
       </h2>
       <ul className="flex flex-col gap-3">
         {blocks.map((b) => (

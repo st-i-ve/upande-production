@@ -81,8 +81,8 @@ export function Settings() {
     void load();
   }, [load]);
 
-  const opNames = useMemo(
-    () => Object.fromEntries((ops ?? []).map((o) => [String(o.name), String(o.operation_name ?? o.name)])),
+  const protocolOps = useMemo(
+    () => (ops ?? []).map((o) => ({ value: String(o.name), label: String(o.operation_name ?? o.name), type: String(o.activity_type ?? "Cultural") })),
     [ops],
   );
 
@@ -111,7 +111,10 @@ export function Settings() {
     const list = ops ?? [];
     const rates = list.map((o) => Number(o.default_rate)).filter((n) => Number.isFinite(n) && n > 0);
     const steps = (protocols ?? []).reduce(
-      (t, p) => t + ((p.versions.find((v) => v.name === p.active) ?? p.versions[0])?.steps.length ?? 0),
+      (t, p) => {
+        const v = p.versions.find((x) => x.name === p.active) ?? p.versions[0];
+        return t + (v ? (v.key_activities?.length ?? 0) + (v.cultural_activities?.length ?? 0) : 0);
+      },
       0,
     );
     return {
@@ -141,7 +144,7 @@ export function Settings() {
       submit: (v) => void run(submitForApproval(v.name), "Submitted for approval."),
       approve: (v) => void run(approveProtocol(v.name), "Approved. This version is now active."),
       sendBack: (v, note) => void run(sendBackProtocol(v.name, note), "Sent back to draft."),
-      saveDraft: (v, steps) => void run(saveProtocolDraft({ name: v.name, steps }), "Draft saved."),
+      saveDraft: (v, tables) => void run(saveProtocolDraft({ name: v.name, ...tables }), "Draft saved."),
     }),
     [run],
   );
@@ -162,7 +165,7 @@ export function Settings() {
         description={`The operations, default rates and protocols used to plan work on ${crop.name.toLowerCase()}.`}
         tabs={
           <TabsList>
-            <TabsTrigger value="operations">Operations &amp; rates</TabsTrigger>
+            <TabsTrigger value="operations">Activities &amp; rates</TabsTrigger>
             <TabsTrigger value="protocols">Protocols</TabsTrigger>
             <TabsTrigger value="varieties">Varieties</TabsTrigger>
             <TabsTrigger value="rules">Activity rules</TabsTrigger>
@@ -202,7 +205,7 @@ export function Settings() {
         <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
           <KpiCard loading={first} label="Operations" value={stats.ops} hint="defined for this crop" />
           <KpiCard loading={first} label="Harvest operations" value={stats.harvest} hint="count toward harvest quantity" />
-          <KpiCard loading={first} label="Protocols" value={protocols?.length ?? 0} hint={`${stats.steps} steps in all`} />
+          <KpiCard loading={first} label="Protocols" value={protocols?.length ?? 0} hint={`${stats.steps} activities in all`} />
           {canSeePay && <KpiCard loading={first} label="Average rate" value={kes(stats.avgRate)} hint="default rate per work unit" />}
         </div>
 
@@ -210,7 +213,7 @@ export function Settings() {
           <Card>
             <CardHeaderRow>
               <CardHeading>
-                <CardTitle>Operations &amp; rates</CardTitle>
+                <CardTitle>Activities &amp; rates</CardTitle>
                 <CardDescription>
                   {canManage ? "Edit a row, then save it. Rates are in KES per work unit." : "Rates are in KES per work unit."}
                 </CardDescription>
@@ -235,7 +238,7 @@ export function Settings() {
               </CardHeading>
             </CardHeaderRow>
             <CardContent>
-              {!protocols ? <RowsSkeleton rows={4} /> : <ProtocolsList families={visibleProtocols} opNames={opNames} canPlan={crop.boot.can_plan} canManage={canManage} actions={actions} />}
+              {!protocols ? <RowsSkeleton rows={4} /> : <ProtocolsList families={visibleProtocols} operations={protocolOps} canPlan={crop.boot.can_plan} canManage={canManage} actions={actions} />}
             </CardContent>
           </Card>
         </TabsContent>

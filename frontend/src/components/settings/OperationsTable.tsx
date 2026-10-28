@@ -13,6 +13,10 @@ import { cn, matchesQuery } from "@/lib/utils";
 /** Operation categories: the same list the activity rules use. */
 export const CATEGORIES: string[] = ["Spraying", "Weeding", "Fertilising", "Irrigation", "Harvesting", "Pruning", "Feeding", "Other"];
 
+/** Activity types of a Production Operation; the protocol tables pick from these. */
+export const ACTIVITY_TYPES = ["Capital", "Planting", "Key activity", "Cultural", "Harvesting", "Uprooting"] as const;
+const NO_COLOUR = "#9aa5a0";
+
 interface Draft {
   key: string;
   name?: string;
@@ -21,6 +25,8 @@ interface Draft {
   work_uom: string;
   default_rate: string;
   is_harvest: boolean;
+  activity_type: string;
+  color: string;
 }
 
 function toDraft(r: Row): Draft {
@@ -32,6 +38,8 @@ function toDraft(r: Row): Draft {
     work_uom: String(r.work_uom ?? ""),
     default_rate: r.default_rate == null ? "" : String(r.default_rate),
     is_harvest: !!Number(r.is_harvest ?? 0),
+    activity_type: String(r.activity_type ?? "Cultural"),
+    color: String(r.color ?? ""),
   };
 }
 
@@ -40,7 +48,9 @@ const same = (a: Draft, b: Draft) =>
   a.category === b.category &&
   a.work_uom === b.work_uom &&
   a.default_rate === b.default_rate &&
-  a.is_harvest === b.is_harvest;
+  a.is_harvest === b.is_harvest &&
+  a.activity_type === b.activity_type &&
+  a.color === b.color;
 
 const TH = "px-3 py-2.5 font-medium";
 
@@ -86,7 +96,7 @@ export function OperationsTable({
   const add = () => {
     counter.current += 1;
     setFresh((f) => [
-      { key: `new-${counter.current}`, operation_name: "", category: "Other", work_uom: "", default_rate: "", is_harvest: false },
+      { key: `new-${counter.current}`, operation_name: "", category: "Other", work_uom: "", default_rate: "", is_harvest: false, activity_type: "Cultural", color: "" },
       ...f,
     ]);
   };
@@ -99,6 +109,8 @@ export function OperationsTable({
       category: d.category || undefined,
       work_uom: d.work_uom.trim() || undefined,
       is_harvest: d.is_harvest ? 1 : 0,
+      activity_type: d.activity_type || "Cultural",
+      color: d.color || undefined,
     };
     if (canSeePay && d.default_rate !== "") payload.default_rate = Number(d.default_rate);
     if (d.name) payload.name = d.name;
@@ -119,17 +131,19 @@ export function OperationsTable({
     (d) => !d.name || ((!query || matchesQuery(`${d.operation_name} ${d.category} ${d.work_uom}`, query)) && (!category || d.category === category)),
   );
   const nothingMatches = everything.length > 0 && all.length === 0;
-  const emptyText = nothingMatches ? "No operations match these filters." : "No operations defined for this crop yet.";
+  const emptyText = nothingMatches ? "No activities match these filters." : "No operations defined for this crop yet.";
 
   if (!canEdit) {
     return all.length === 0 ? (
       <p className="px-1 py-6 text-center text-[13px] text-[var(--sd-muted)]">{emptyText}</p>
     ) : (
       <div className="overflow-x-auto rounded-[var(--sd-radius-lg)] border border-[var(--sd-line)]">
-        <table className="w-full min-w-[40rem] text-[13px]">
+        <table className="w-full min-w-[48rem] text-[13px]">
           <thead>
             <tr className="border-b border-[var(--sd-line)] text-left text-[11px] uppercase tracking-[0.1em] text-[var(--sd-quiet)]">
               <th className={TH}>Operation</th>
+              <th className={TH}>Type</th>
+              <th className={TH}>Colour</th>
               <th className={TH}>Category</th>
               <th className={TH}>Work unit</th>
               {canSeePay && <th className={`${TH} text-right`}>Default rate</th>}
@@ -140,6 +154,10 @@ export function OperationsTable({
             {all.map((d) => (
               <tr key={d.key} className="border-b border-[var(--sd-line-soft)] last:border-0">
                 <td className="px-3 py-2.5 font-medium text-[var(--sd-ink)]">{d.operation_name}</td>
+                <td className="px-3 py-2.5 text-[var(--sd-muted)]">{d.activity_type}</td>
+                <td className="px-3 py-2.5">
+                  {d.color ? <span aria-label={`Colour ${d.color}`} className="inline-block h-4 w-4 rounded-full border border-[var(--sd-line)]" style={{ background: d.color }} /> : "—"}
+                </td>
                 <td className="px-3 py-2.5 text-[var(--sd-muted)]">{d.category || "—"}</td>
                 <td className="px-3 py-2.5 text-[var(--sd-muted)]">{d.work_uom || "—"}</td>
                 {canSeePay && <td className="px-3 py-2.5 text-right tabular-nums">{kes(d.default_rate === "" ? null : Number(d.default_rate))}</td>}
@@ -163,10 +181,12 @@ export function OperationsTable({
         <p className="px-1 py-6 text-center text-[13px] text-[var(--sd-muted)]">{emptyText}</p>
       ) : (
         <div className="overflow-x-auto rounded-[var(--sd-radius-lg)] border border-[var(--sd-line)]">
-          <table className="w-full min-w-[52rem] text-[13px]">
+          <table className="w-full min-w-[64rem] text-[13px]">
             <thead>
               <tr className="border-b border-[var(--sd-line)] text-left text-[11px] uppercase tracking-[0.1em] text-[var(--sd-quiet)]">
                 <th className={TH}>Operation</th>
+                <th className={TH}>Type</th>
+                <th className={TH}>Colour</th>
                 <th className={TH}>Category</th>
                 <th className={TH}>Work unit</th>
                 {canSeePay && <th className={`${TH} text-right`}>Default rate (KES)</th>}
@@ -183,6 +203,12 @@ export function OperationsTable({
                   <tr key={d.key} data-testid={`op-${d.name ?? d.key}`} className={cn("border-b border-[var(--sd-line-soft)] last:border-0", !d.name && "bg-[var(--sd-bg-soft)]/60")}>
                     <td className="px-3 py-2">
                       <Input aria-label="Operation name" className="h-8 min-w-[11rem]" value={d.operation_name} onChange={(e) => patch(d.key, { operation_name: e.target.value })} />
+                    </td>
+                    <td className="px-3 py-2">
+                      <FilterSelect aria-label="Activity type" className="h-8" value={d.activity_type} placeholder="Type" options={ACTIVITY_TYPES.map((c) => ({ value: c, label: c }))} onChange={(v) => patch(d.key, { activity_type: v })} />
+                    </td>
+                    <td className="px-3 py-2">
+                      <input type="color" aria-label="Activity colour" className="h-8 w-10 cursor-pointer rounded border border-[var(--sd-line)] bg-transparent p-0.5" value={d.color || NO_COLOUR} onChange={(e) => patch(d.key, { color: e.target.value })} />
                     </td>
                     <td className="px-3 py-2">
                       <FilterSelect aria-label="Category" className="h-8" value={d.category} placeholder="Category" options={CATEGORIES.map((c) => ({ value: c, label: c }))} onChange={(v) => patch(d.key, { category: v })} />

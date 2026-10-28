@@ -23,6 +23,13 @@ export interface VarietyStage {
 
 export type StageAnchor = "Planting" | "Flowering" | "Stocking";
 
+export type HarvestPattern = "Once" | "Continuous" | "Interval";
+export const HARVEST_PATTERNS: HarvestPattern[] = ["Once", "Continuous", "Interval"];
+
+/** Weeks to first harvest of a flowering variety: weeks to first flowering + weeks flowering to harvest. */
+export const firstHarvestWeeks = (flowering: number | null | undefined, toHarvest: number | null | undefined): number =>
+  (Number(flowering) || 0) + (Number(toHarvest) || 0);
+
 export interface Variety {
   name: string;
   variety_name: string;
@@ -38,6 +45,18 @@ export interface Variety {
   expected_yield_per_ha: number | null;
   expected_yield_per_plant: number | null;
   plants_per_ha: number | null;
+  /** Template fields (weeks). Days and plants per ha above are derived from these. */
+  lifespan_years?: number | null;
+  harvest_pattern?: HarvestPattern | null;
+  harvest_interval_weeks?: number | null;
+  is_flowering?: 0 | 1 | boolean;
+  weeks_to_first_flowering?: number | null;
+  weeks_flowering_to_harvest?: number | null;
+  weeks_to_reflower_after_harvest?: number | null;
+  weeks_to_first_harvest?: number | null;
+  harvest_window_weeks?: number | null;
+  plants_per_m2?: number | null;
+  dry_matter_target_pct?: number | null;
   notes?: string | null;
   stages: VarietyStage[];
 }

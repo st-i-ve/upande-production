@@ -1,22 +1,39 @@
-import type { ProtocolDiff as Diff, ProtocolStep } from "@/lib/protocols-api";
+import type { ProtocolDiff as Diff, ProtocolRow } from "@/lib/protocols-api";
 
 const LABEL: Record<string, string> = {
-  operation: "Operation",
-  day_offset: "Day",
-  repeat_every_days: "Repeat every (days)",
-  repeat_count: "Repeats",
+  operation: "Activity",
+  week: "Week",
+  repeats: "Repeats",
+  schedule: "Schedule",
+  interval_weeks: "Interval (weeks)",
+  establishment_period_weeks: "Establishment period (weeks)",
+  pre_harvest_interval_days: "PHI (days)",
+  budget_per_ha: "Budget per ha",
   planned_qty: "Planned qty",
-  note: "Note",
+  description: "Description",
   item: "Item",
+};
+const TABLE: Record<string, string> = {
+  key_activities: "Key activities",
+  cultural_activities: "Cultural activities",
+  capital_activities: "Capital activities",
 };
 const show = (v: unknown) => (v === null || v === undefined || v === "" ? "none" : String(v));
 
-function stepLine(s?: ProtocolStep) {
+function rowLine(s?: ProtocolRow) {
   if (!s) return "";
-  const every = Number(s.repeat_every_days || 0);
-  const times = Number(s.repeat_count || 1);
-  const when = every > 0 && times > 1 ? `day ${s.day_offset ?? 0}, every ${every} d x ${times}` : `day ${s.day_offset ?? 0}`;
-  return `${when}${s.planned_qty ? `, qty ${s.planned_qty}` : ""}${s.note ? `, ${s.note}` : ""}`;
+  const r = s as unknown as Record<string, unknown>;
+  const parts: string[] = [];
+  if (r.week != null) parts.push(`week ${r.week}${r.repeats === "First cycle only" ? ", first cycle only" : ""}`);
+  if (r.schedule) {
+    parts.push(r.schedule === "As needed" ? "as needed" : `every ${show(r.interval_weeks)} wk`);
+    if (r.establishment_period_weeks) parts.push(`from week ${r.establishment_period_weeks}`);
+    if (r.pre_harvest_interval_days) parts.push(`PHI ${r.pre_harvest_interval_days} d`);
+  }
+  if (r.budget_per_ha) parts.push(`budget ${r.budget_per_ha} per ha`);
+  if (r.planned_qty) parts.push(`qty ${r.planned_qty}`);
+  if (r.description) parts.push(String(r.description));
+  return parts.join(", ");
 }
 
 /** What changed in this version against the previous one. */
@@ -24,7 +41,7 @@ export function ProtocolDiff({ diff }: { diff: Diff }) {
   const none = diff.fields.length === 0 && diff.steps.length === 0;
   return (
     <div data-testid="protocol-diff" className="flex flex-col gap-1.5 text-[12.5px]">
-      {!diff.previous && <p className="text-[var(--sd-muted)]">First version: every step is new.</p>}
+      {!diff.previous && <p className="text-[var(--sd-muted)]">First version: every activity is new.</p>}
       {diff.previous && none && <p className="text-[var(--sd-muted)]">No differences from {diff.previous}.</p>}
       {diff.fields.map((f) => (
         <p key={f.field}>
@@ -47,7 +64,8 @@ export function ProtocolDiff({ diff }: { diff: Diff }) {
             >
               {s.change === "added" ? "Added" : s.change === "removed" ? "Removed" : "Changed"}
             </span>{" "}
-            {s.operation_name}
+            {s.operation_name}{" "}
+            {s.table && <span data-testid="diff-table" className="text-[11.5px] font-normal text-[var(--sd-quiet)]">{TABLE[s.table] ?? s.table}</span>}
           </p>
           {s.change === "changed" ? (
             <ul className="mt-0.5 text-[var(--sd-muted)]">
@@ -59,7 +77,7 @@ export function ProtocolDiff({ diff }: { diff: Diff }) {
               ))}
             </ul>
           ) : (
-            <p className="text-[var(--sd-muted)]">{stepLine(s.change === "added" ? s.after : s.before)}</p>
+            <p className="text-[var(--sd-muted)]">{rowLine(s.change === "added" ? s.after : s.before)}</p>
           )}
         </div>
       ))}

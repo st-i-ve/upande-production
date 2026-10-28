@@ -109,10 +109,10 @@ describe("variety form", () => {
     mocked.saveVariety.mockResolvedValue({ error: "Stage Harvest is listed twice" });
     wrap(<VarietyDialog crop="Potatoes" accent="#2a7" variety={potato} protocols={[]} onClose={() => {}} onSaved={() => {}} />);
     expect(screen.getByLabelText("Variety name")).toBeDisabled();
-    fireEvent.change(screen.getByLabelText("Days to first harvest"), { target: { value: "95" } });
+    fireEvent.change(screen.getByLabelText("Weeks to first harvest"), { target: { value: "95" } });
     fireEvent.click(screen.getByRole("button", { name: "Save variety" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("listed twice");
-    expect(mocked.saveVariety.mock.calls[0][0]).toMatchObject({ name: "Shangi", days_to_first_harvest: 95 });
+    expect(mocked.saveVariety.mock.calls[0][0]).toMatchObject({ name: "Shangi", weeks_to_first_harvest: 95 });
   });
 });
 

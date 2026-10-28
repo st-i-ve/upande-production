@@ -61,10 +61,11 @@ export function VarietiesPanel({
               <p className="break-words text-[12.5px] text-[var(--sd-muted)]">{v.item}</p>
             </div>
             <div className="flex flex-wrap gap-x-5 gap-y-2">
-              <Stat label="To first harvest" value={n(v.days_to_first_harvest, " d")} />
-              <Stat label="Harvest window" value={n(v.harvest_window_days, " d")} />
+              <Stat label="To first harvest" value={v.weeks_to_first_harvest ? n(v.weeks_to_first_harvest, " wk") : n(v.days_to_first_harvest, " d")} />
+              <Stat label="Harvest window" value={v.harvest_window_weeks ? n(v.harvest_window_weeks, " wk") : n(v.harvest_window_days, " d")} />
               <Stat label="Yield / ha" value={n(v.expected_yield_per_ha)} />
               <Stat label="Density / ha" value={n(v.plants_per_ha)} />
+              {v.harvest_pattern && v.harvest_pattern !== "Once" && <Stat label="Harvest" value={`${v.harvest_pattern}${v.harvest_interval_weeks ? `, ${v.harvest_interval_weeks} wk` : ""}`} />}
               <Stat label="Default protocol" value={protoLabel(v.default_protocol)} />
             </div>
             {canEdit && (

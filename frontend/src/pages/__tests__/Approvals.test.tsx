@@ -45,11 +45,11 @@ const pv: PendingProtocol = {
   name: "Season v2", protocol_name: "Season v2", crop: "Test Crop", item: null, version: 2,
   version_status: "Pending Approval", protocol_family: "Season", previous_version: "Season",
   submitted_by: "sup@x.com", submitted_at: "2026-10-27 09:00:00", approved_by: null, approved_at: null,
-  review_note: null, steps: [], submitted_by_name: "Sam Supervisor",
+  review_note: null, key_activities: [], cultural_activities: [], capital_activities: [], submitted_by_name: "Sam Supervisor",
   diff: {
     name: "Season v2", previous: "Season", fields: [],
     steps: [{
-      change: "changed", operation: "OP-1", operation_name: "Fertilise",
+      table: "key_activities", change: "changed", operation: "OP-1", operation_name: "Fertilise",
       changes: [{ field: "planned_qty", before: 10, after: 12 }],
     }],
   },
@@ -184,6 +184,7 @@ describe("Approvals", () => {
     const card = within(await screen.findByTestId("protocol-card-Season v2"));
     expect(card.getByText("Fertilise")).toBeInTheDocument();
     expect(within(card.getByTestId("diff-step-changed")).getByText("12")).toBeInTheDocument();
+    expect(within(card.getByTestId("diff-step-changed")).getByTestId("diff-table")).toHaveTextContent("Key activities");
     fireEvent.click(card.getByRole("button", { name: "Approve" }));
     await waitFor(() => expect(approveProtocol).toHaveBeenCalledWith("Season v2"));
     await waitFor(() => expect(screen.queryByTestId("protocol-card-Season v2")).toBeNull());

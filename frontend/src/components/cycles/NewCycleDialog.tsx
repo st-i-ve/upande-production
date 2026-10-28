@@ -109,7 +109,7 @@ export function NewCycleDialog({
         <DialogHeader>
           <DialogTitle>New crop cycle</DialogTitle>
           <DialogDescription>
-            Start a cycle on a {label.toLowerCase()}. A protocol, if chosen, schedules its steps from the start
+            Start a cycle on a {label.toLowerCase()}. A protocol, if chosen, schedules its activities from the start
             date.
           </DialogDescription>
         </DialogHeader>

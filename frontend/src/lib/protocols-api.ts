@@ -16,16 +16,56 @@ const rpc = <T>(name: string, args: Record<string, unknown> = {}): Promise<Envel
 
 export type VersionStatus = "Draft" | "Pending Approval" | "Active" | "Superseded" | "Rejected";
 
-export interface ProtocolStep {
+export type ProtocolTable = "key_activities" | "cultural_activities" | "capital_activities";
+
+/** A key activity: done in a given week of the cycle, in week order. */
+export interface KeyActivity {
   operation: string | null;
-  day_offset: number | null;
-  repeat_every_days: number | null;
-  repeat_count: number | null;
+  week: number | null;
+  repeats: "Every cycle" | "First cycle only";
   planned_qty: number | null;
-  note: string | null;
+  description: string | null;
 }
 
-export interface ProtocolVersion {
+/** A cultural activity: repeated at an interval, or done as needed, after an establishment period. */
+export interface CulturalActivity {
+  operation: string | null;
+  schedule: "Interval" | "As needed";
+  interval_weeks: number | null;
+  /** Weeks after planting / last harvest. */
+  establishment_period_weeks: number | null;
+  /** Days before harvest. */
+  pre_harvest_interval_days: number | null;
+  planned_qty: number | null;
+  description: string | null;
+}
+
+/** A capital (set-up) activity with its budget per hectare. */
+export interface CapitalActivity {
+  operation: string | null;
+  description: string | null;
+  budget_per_ha: number | null;
+}
+
+/** Template values the protocol reads from its variety. */
+export interface ProtocolTemplate {
+  lifespan_years?: number | null;
+  harvest_pattern?: string | null;
+  harvest_interval_weeks?: number | null;
+  is_flowering?: 0 | 1 | boolean;
+  weeks_to_first_flowering?: number | null;
+  weeks_flowering_to_harvest?: number | null;
+  weeks_to_reflower_after_harvest?: number | null;
+  plants_per_m2?: number | null;
+}
+
+export interface ProtocolTables {
+  key_activities: KeyActivity[];
+  cultural_activities: CulturalActivity[];
+  capital_activities: CapitalActivity[];
+}
+
+export interface ProtocolVersion extends ProtocolTemplate, ProtocolTables {
   /** Document name; pass to every action. */
   name: string;
   protocol_name: string;
@@ -40,7 +80,7 @@ export interface ProtocolVersion {
   approved_by: string | null;
   approved_at: string | null;
   review_note: string | null;
-  steps: ProtocolStep[];
+  variety?: string | null;
 }
 
 export interface ProtocolFamily {
@@ -56,12 +96,16 @@ export interface ProtocolFamily {
   versions: ProtocolVersion[];
 }
 
+export type ProtocolRow = KeyActivity | CulturalActivity | CapitalActivity;
+
 export interface StepChange {
+  /** Which table the row belongs to. */
+  table: ProtocolTable;
   change: "added" | "removed" | "changed";
   operation: string;
   operation_name: string;
-  before?: ProtocolStep;
-  after?: ProtocolStep;
+  before?: ProtocolRow;
+  after?: ProtocolRow;
   changes?: { field: string; before: unknown; after: unknown }[];
 }
 
@@ -82,6 +126,7 @@ export interface ProtocolDiff {
   name: string;
   previous: string | null;
   fields: { field: string; before: unknown; after: unknown }[];
+  /** Row changes of all three tables, each with its `table`. */
   steps: StepChange[];
 }
 
@@ -102,8 +147,8 @@ export const sendBackProtocol = (name: string, note: string) => rpc<{ name: stri
 /** Managers only; the note is required. */
 export const rejectProtocol = (name: string, note: string) => rpc<{ name: string }>("reject", { name, note });
 export const protocolDiff = (name: string) => rpc<ProtocolDiff>("diff", { name });
-/** Edit a Draft's item and steps. */
-export const saveProtocolDraft = (data: { name: string; item?: string | null; steps?: Partial<ProtocolStep>[] }) =>
+/** Edit a Draft's item and its three activity tables. */
+export const saveProtocolDraft = (data: { name: string; item?: string | null } & Partial<ProtocolTables>) =>
   rpc<{ name: string }>("save_draft", { data });
 
 /** Steps of a version that break an activity rule for its variety. */
