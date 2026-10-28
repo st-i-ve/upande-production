@@ -41,8 +41,22 @@ PLAUSIBLE_RATE = (150.0, 1200.0)
 DEFAULT_PICKING_DAYS_PER_WEEK = 5
 
 
+# Logs written by a closed Harvest Batch (crates scanned in the field) carry this client_ref.
+CRATE_BATCH_REF = "harvest-batch:"
+
+
+def from_crate_batch(h):
+	"""A log a Harvest Batch wrote: its kg comes from scanned crates, not from a typed figure."""
+	return str(h.get("client_ref") or "").startswith(CRATE_BATCH_REF)
+
+
 def is_plausible(h):
-	"""True when a harvest log is one day's picking (kg per picker-day inside PLAUSIBLE_RATE)."""
+	"""True when a harvest log is one day's picking (kg per picker-day inside PLAUSIBLE_RATE).
+
+	Crate batches always count: the rate check is there to catch mis-keyed manual entries, and a
+	small batch (a few crates, part of a day) is real fruit, not a typing mistake."""
+	if from_crate_batch(h):
+		return flt(h.get("total_kg")) > 0
 	kg, pickers = flt(h.get("total_kg")), flt(h.get("pickers_count"))
 	return bool(kg > 0 and pickers > 0 and PLAUSIBLE_RATE[0] <= kg / pickers <= PLAUSIBLE_RATE[1])
 
@@ -60,6 +74,9 @@ def picker_rates(harvests):
 		pickers = flt(h.get("pickers_count"))
 		block = h.get("orchard_block")
 		if not (kg and pickers and block):
+			continue
+		if from_crate_batch(h):
+			# a batch may be part of a day's picking, so it says nothing about a picker-day
 			continue
 		rate = kg / pickers
 		if not (PLAUSIBLE_RATE[0] <= rate <= PLAUSIBLE_RATE[1]):
@@ -216,7 +233,7 @@ def build_plan(forecast_rows, projection, windows, harvests, crew_available=0,
 def read_harvests():
 	return (frappe.get_all(HARVEST_DOCTYPE,
 						   fields=["orchard_block", "harvest_date", "total_kg",
-								   "pickers_count", "bins_harvested"],
+								   "pickers_count", "bins_harvested", "client_ref"],
 						   limit_page_length=0)
 			if frappe.db.exists("DocType", HARVEST_DOCTYPE) else [])
 

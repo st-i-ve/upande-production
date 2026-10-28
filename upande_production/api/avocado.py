@@ -294,10 +294,10 @@ def _budget_months_actual(budget, ctx, season, sched_weeks):
 		return budget
 	got, ahead = {}, {}
 	for h in ctx.harvests:
-		# Same rule as the picking plan's refused records: a row whose implied rate is not
-		# one day's picking is a mis-keyed record, not a delivery.
-		pk = flt(h.get("pickers_count"))
-		if pk and not (avocadolabour.PLAUSIBLE_RATE[0] <= flt(h.get("total_kg")) / pk <= avocadolabour.PLAUSIBLE_RATE[1]):
+		# Same rule as the picking plan's refused records (one shared rule): a row whose implied
+		# rate is not one day's picking is a mis-keyed record, not a delivery. Crate batches always
+		# count; rows without a picker count can't be judged and count too.
+		if flt(h.get("pickers_count")) and not avocadolabour.is_plausible(h):
 			continue
 		if h.harvest_date and getdate(h.harvest_date).year == cint(season):
 			m = _month_name(h.harvest_date)
