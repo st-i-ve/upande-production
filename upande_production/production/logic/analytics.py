@@ -351,6 +351,105 @@ def _missed(crop, frm, to, op_names):
 	return out
 
 
+# -- protocol check ----------------------------------------------------------
+
+
+def _step_status(task, due, today_d):
+	"""Status of one protocol step occurrence. `task` is the plan task row or None."""
+	if not task:
+		return "not_planned"
+	if task.status == "Skipped":
+		return "skipped"
+	if task.status in ("Done", "Partly Done") and float(task.pending_qty or 0) > 0:
+		return "pending_approval"
+	if task.deviation == "Late":
+		return "late"
+	if task.deviation == "Partial" or task.status == "Partly Done":
+		return "partial"
+	if task.status == "Done":
+		return "done"
+	return "late" if due < today_d else "open"
+
+
+CHECK_KEYS = ("done", "partial", "late", "skipped", "pending_approval", "open", "not_planned")
+
+
+def protocol_check(crop, year, week, unit=None):
+	"""Protocol steps due in an ISO week for each cycle's pinned (Active or Superseded) protocol, with
+	their plan status. Crops without cycles (apiary, aquaculture) return no rows and a reason."""
+	from upande_production.production.logic.weeks import iso_week_bounds
+
+	start, end = iso_week_bounds(year, week)
+	today_d = getdate(today())
+	out = {"crop": crop, "year": int(year), "week": int(week), "week_start": start, "week_end": end,
+		"unit": unit or None, "reason": None, "blocks": [],
+		"totals": {"steps": 0, **{k: 0 for k in CHECK_KEYS}, "planned_qty_by_uom": [], "done_qty_by_uom": []}}
+	if not crop_uses_cycles(crop):
+		out["reason"] = "This crop does not run in crop cycles, so it has no protocol steps."
+		return out
+	filters = {"crop": crop, "status": ("in", ["Active", "Harvesting"]), "protocol": ("is", "set")}
+	if unit:
+		filters["unit"] = unit
+	cycles = frappe.get_all("Production Crop Cycle", filters=filters,
+		fields=["name", "unit", "start_date", "protocol"], order_by="unit asc")
+	if not cycles:
+		out["reason"] = "No active cycle with a protocol" + (" on this block." if unit else " for this crop.")
+		return out
+	tasks = {
+		t.protocol_ref: t for t in frappe.get_all(
+			"Production Plan Task",
+			filters={"parenttype": "Production Work Plan", "cycle": ("in", [c.name for c in cycles]),
+				"protocol_ref": ("is", "set")},
+			fields=["name", "parent", "protocol_ref", "status", "deviation", "planned_qty", "done_qty",
+				"pending_qty", "uom", "due_date"],
+		)
+	}
+	op_names = dict(frappe.get_all("Production Operation", filters={"crop": crop},
+		fields=["name", "operation_name"], as_list=True))
+	unit_names = dict(frappe.get_all("Production Unit", filters={"crop": crop},
+		fields=["name", "unit_name"], as_list=True))
+	planned_parts, done_parts, protocols = [], [], {}
+	for cy in cycles:
+		proto = protocols.get(cy.protocol) or protocols.setdefault(
+			cy.protocol, frappe.get_doc("Production Protocol", cy.protocol))
+		if proto.version_status not in ("Active", "Superseded"):
+			continue
+		steps = []
+		for step in proto.steps:
+			for k in range(int(step.repeat_count or 1)):
+				due = getdate(add_days(getdate(cy.start_date),
+					int(step.day_offset or 0) + k * int(step.repeat_every_days or 0)))
+				if not (start <= due <= end):
+					continue
+				t = tasks.get(f"{cy.name}:{step.name}:{k}")
+				status = _step_status(t, due, today_d)
+				uom = t.uom if t else frappe.db.get_value("Production Operation", step.operation, "work_uom")
+				planned = float(t.planned_qty or 0) if t else float(step.planned_qty or 0)
+				done = float(t.done_qty or 0) if t else 0.0
+				steps.append({
+					"protocol_ref": f"{cy.name}:{step.name}:{k}", "operation": step.operation,
+					"operation_name": op_names.get(step.operation) or step.operation, "due_date": due,
+					"status": status, "planned_qty": planned, "done_qty": done,
+					"pending_qty": float(t.pending_qty or 0) if t else 0.0, "uom": uom,
+					"plan": t.parent if t else None, "task": t.name if t else None,
+					"task_status": t.status if t else None, "note": step.note,
+				})
+				out["totals"][status] += 1
+				out["totals"]["steps"] += 1
+				planned_parts.append((uom, planned))
+				done_parts.append((uom, done))
+		steps.sort(key=lambda r: (str(r["due_date"]), r["operation_name"]))
+		block = {"unit": cy.unit, "unit_name": unit_names.get(cy.unit) or cy.unit, "cycle": cy.name,
+			"protocol": cy.protocol, "protocol_version_status": proto.version_status,
+			"steps": steps, "counts": {k: sum(1 for s in steps if s["status"] == k) for k in CHECK_KEYS}}
+		out["blocks"].append(block)
+	out["totals"]["planned_qty_by_uom"] = merge_uoms(planned_parts)
+	out["totals"]["done_qty_by_uom"] = merge_uoms(done_parts)
+	if not out["totals"]["steps"]:
+		out["reason"] = "No protocol steps fall due in this week."
+	return out
+
+
 # -- forecast ----------------------------------------------------------------
 
 

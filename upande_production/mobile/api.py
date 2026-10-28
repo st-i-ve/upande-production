@@ -1,8 +1,8 @@
 """Mobile (field capture) API. Payload via request JSON, result in frappe.response['data']."""
 import frappe
-from frappe.utils import cint, today
+from frappe.utils import cint, getdate, today
 
-from upande_production.production.logic import approvals, work
+from upande_production.production.logic import analytics, approvals, plans, work
 from upande_production.production.logic.settings import can_see_pay
 from upande_production.production.logic.weeks import iso_of, iso_week_bounds
 
@@ -136,6 +136,8 @@ def productionUpdateTask():
 		return _fail(err)
 	if _s(data, "status") not in work.STATUSES:
 		return _fail("Status must be one of " + ", ".join(work.STATUSES) + ".")
+	if data.get("entries") and _denied(("Value Adder Work", "create")):
+		return
 
 	def go():
 		res = work.record_task_work(
@@ -146,6 +148,7 @@ def productionUpdateTask():
 		task = res["task"]
 		return {
 			"status": "success", "task": _strip_pay({k: task.get(k) for k in TASK_FIELDS}, "rate"),
+			"entries": _task_entries(_s(data, "plan")).get(_s(data, "task"), []),
 			"work": res["work"], "approval_status": "Pending" if res["work"] else None,
 			"message": f"{task.get('operation_name') or 'Task'} marked {task.get('status')}."
 				+ (" Work awaits manager approval." if res["work"] else ""),
@@ -275,10 +278,15 @@ def productionRecordSample():
 def productionListValueAdders():
 	if _denied(("Value Adder Work", "create")):
 		return
+	data = _payload()
+
 	def go():
 		filters = {"status": "Active", "designation": "Value Adder"}
+		search = _s(data, "search")
+		or_filters = {"employee_name": ("like", f"%{search}%"), "name": ("like", f"%{search}%")} if search else None
 		return frappe.get_all(
-			"Employee", filters=filters, fields=["name", "employee_name"], order_by="employee_name asc"
+			"Employee", filters=filters, or_filters=or_filters, fields=["name", "employee_name"],
+			order_by="employee_name asc", limit=cint(data.get("limit")) or 0,
 		)
 
 	_run("productionListValueAdders", go)
@@ -297,3 +305,274 @@ def productionListOperations():
 		fields=["name", "operation_name", "category", "work_uom", "default_rate", "is_harvest"],
 		order_by="operation_name asc",
 	), "default_rate"))
+
+
+# -- supervisor planning -------------------------------------------------------
+
+PLAN_TASK_FIELDS = TASK_FIELDS + ["protocol_ref", "started_at", "completed_at"]
+
+
+def _week_args(data):
+	cur_year, cur_week = iso_of(today())
+	year, week = cint(data.get("year")) or cur_year, cint(data.get("week")) or cur_week
+	try:
+		start, end = iso_week_bounds(year, week)
+	except ValueError:
+		frappe.throw("Not a valid ISO week.", frappe.ValidationError)
+	return year, week, start, end
+
+
+def _find_plan(crop, farm, year, week):
+	"""The plan of a week. Without a farm: the farm-less plan, else the crop's only plan for that week."""
+	filters = {"crop": crop, "plan_year": year, "plan_week": week}
+	if farm:
+		return frappe.db.get_value("Production Work Plan", {**filters, "farm": farm})
+	rows = frappe.get_all("Production Work Plan", filters=filters, fields=["name", "farm"], order_by="creation asc")
+	return next((r.name for r in rows if not r.farm), rows[0].name if rows else None)
+
+
+def _crop_farm(crop):
+	"""The crop's farm when all its units sit on one (Mutara today), so a phone that sends no farm
+	still lands on the same week plan as the desk instead of a farm-less one."""
+	farms = {f for f in frappe.get_all("Production Unit", filters={"crop": crop}, pluck="farm") if f}
+	return farms.pop() if len(farms) == 1 else None
+
+
+def _plan_for_edit(crop, farm, year, week):
+	farm = farm or _crop_farm(crop)
+	name = _find_plan(crop, farm, year, week)
+	if name:
+		return frappe.get_doc("Production Work Plan", name)
+	if not frappe.has_permission("Production Work Plan", "create"):
+		frappe.throw("You do not have permission to create a plan.", frappe.PermissionError)
+	return plans.get_or_create_plan(crop, farm, year, week)
+
+
+def _is_late(t) -> bool:
+	if t.deviation == "Late":
+		return True
+	return t.status in ("Open", "In Progress") and bool(t.due_date) and getdate(t.due_date) < getdate(today())
+
+
+def _counts(tasks) -> dict:
+	return {
+		"tasks_total": len(tasks),
+		"tasks_open": sum(1 for t in tasks if t.status in ("Open", "In Progress")),
+		"tasks_done": sum(1 for t in tasks if t.status in ("Done", "Partly Done", "Skipped")),
+		"tasks_pending_approval": sum(1 for t in tasks if (t.pending_qty or 0) > 0),
+		"tasks_late": sum(1 for t in tasks if _is_late(t)),
+	}
+
+
+def _task_entries(plan) -> dict:
+	"""plan_task -> crew entries recorded so far (drafts, sent back and approved)."""
+	pay = can_see_pay()
+	by_task = {}
+	for w in frappe.get_all(
+		"Value Adder Work", filters={"plan": plan, "docstatus": ("<", 2)},
+		fields=["name", "plan_task", "employee", "employee_name", "qty", "uom", "hours", "work_date",
+			"pay_value", "approval_status", "review_note"],
+		order_by="creation asc",
+	):
+		if not pay:
+			w["pay_value"] = None
+		by_task.setdefault(w.pop("plan_task"), []).append(w)
+	return by_task
+
+
+@frappe.whitelist()
+def productionListWeekPlans():
+	"""Plans (weeks) of a crop, newest week first, with task counts. Also says which week is current."""
+	if _denied(("Production Work Plan", "read")):
+		return
+	data = _payload()
+	err = _require(data, "crop")
+	if err:
+		return _fail(err)
+
+	def go():
+		crop, farm = _s(data, "crop"), _s(data, "farm")
+		cur_year, cur_week = iso_of(today())
+		filters = {"crop": crop}
+		if farm:
+			filters["farm"] = farm
+		if cint(data.get("year")):
+			filters["plan_year"] = cint(data.get("year"))
+		rows = frappe.get_all(
+			"Production Work Plan", filters=filters,
+			fields=["name", "farm", "plan_year", "plan_week", "week_start", "week_end"],
+			order_by="plan_year desc, plan_week desc", limit=cint(data.get("limit")) or 26,
+		)
+		tasks = frappe.get_all(
+			"Production Plan Task",
+			filters={"parenttype": "Production Work Plan", "parent": ("in", [r.name for r in rows] or [""])},
+			fields=["parent", "status", "deviation", "due_date", "pending_qty"],
+		)
+		by_plan = {}
+		for t in tasks:
+			by_plan.setdefault(t.parent, []).append(t)
+		for r in rows:
+			r.update(_counts(by_plan.get(r.name, [])))
+			r["is_current"] = (r.plan_year, r.plan_week) == (cur_year, cur_week)
+		return {
+			"crop": crop, "current_year": cur_year, "current_week": cur_week, "plans": rows,
+			"current_plan": next((r.name for r in rows if r["is_current"]), None),
+		}
+
+	_run("productionListWeekPlans", go)
+
+
+@frappe.whitelist()
+def productionGetPlanDetail():
+	"""One week's plan for a crop (optionally one block): tasks grouped by block, each with its crew entries."""
+	if _denied(("Production Work Plan", "read")):
+		return
+	data = _payload()
+	err = _require(data, "crop")
+	if err:
+		return _fail(err)
+
+	def go():
+		crop, farm, unit = _s(data, "crop"), _s(data, "farm"), _s(data, "unit")
+		year, week, start, end = _week_args(data)
+		name = _find_plan(crop, farm, year, week)
+		out = {
+			"plan": name, "crop": crop, "farm": (frappe.db.get_value("Production Work Plan", name, "farm") if name else farm) or None,
+			"year": year, "week": week, "week_start": str(start), "week_end": str(end), "unit": unit or None,
+			"tasks_total": 0, "tasks_open": 0, "tasks_done": 0, "tasks_pending_approval": 0,
+			"tasks_late": 0, "blocks": [],
+		}
+		if not name:
+			return out
+		filters = {"parent": name, "parenttype": "Production Work Plan"}
+		if unit:
+			filters["unit"] = unit
+		tasks = frappe.get_all("Production Plan Task", filters=filters, fields=PLAN_TASK_FIELDS,
+			order_by="due_date asc, idx asc")
+		crew = _task_entries(name)
+		sup = [t.supervisor for t in tasks if t.supervisor]
+		sup_names = dict(frappe.get_all("Employee", filters={"name": ("in", sup)},
+			fields=["name", "employee_name"], as_list=True)) if sup else {}
+		unit_names = dict(frappe.get_all("Production Unit", filters={"crop": crop},
+			fields=["name", "unit_name"], as_list=True))
+		out.update(_counts(tasks))
+		blocks = {}
+		for t in tasks:
+			row = {k: t.get(k) for k in PLAN_TASK_FIELDS}
+			row.update({
+				"supervisor_name": sup_names.get(t.supervisor), "is_late": _is_late(t),
+				"deviation": t.deviation or None, "entries": crew.get(t.name, []),
+				"from_protocol": bool(t.protocol_ref),
+			})
+			_strip_pay(row, "rate")
+			b = blocks.setdefault(t.unit, {"unit": t.unit, "unit_name": unit_names.get(t.unit) or t.unit, "tasks": []})
+			b["tasks"].append(row)
+		for b in blocks.values():
+			b.update(_counts([t for t in tasks if t.unit == b["unit"]]))
+		out["blocks"] = sorted(blocks.values(), key=lambda b: b["unit_name"])
+		return out
+
+	_run("productionGetPlanDetail", go)
+
+
+@frappe.whitelist()
+def productionAddTask():
+	"""Assign work: add a planned task to a crop's week plan (the plan is created when the week has none)."""
+	if _denied(("Production Work Plan", "write")):
+		return
+	data = _payload()
+	err = _require(data, "crop", "unit", "operation", "planned_qty")
+	if err:
+		return _fail(err)
+
+	def go():
+		crop, farm = _s(data, "crop"), _s(data, "farm")
+		year, week, start, end = _week_args(data)
+		unit, operation = _s(data, "unit"), _s(data, "operation")
+		qty = float(data.get("planned_qty") or 0)
+		if qty <= 0:
+			frappe.throw("Planned quantity must be greater than zero.", frappe.ValidationError)
+		if frappe.db.get_value("Production Unit", unit, "crop") != crop:
+			frappe.throw("That block does not belong to this crop.", frappe.ValidationError)
+		op = frappe.db.get_value("Production Operation", operation, ["crop", "work_uom", "default_rate"], as_dict=True)
+		if not op or op.crop != crop:
+			frappe.throw("That operation does not belong to this crop.", frappe.ValidationError)
+		due = getdate(_s(data, "due_date") or start)
+		if not (start <= due <= end):
+			frappe.throw(f"Due date must fall in week {week} ({start} to {end}).", frappe.ValidationError)
+		supervisor = _s(data, "supervisor") or None
+		if supervisor and not frappe.db.exists("Employee", supervisor):
+			frappe.throw("Unknown supervisor.", frappe.ValidationError)
+		cycle = None
+		from upande_production.production.logic.cycles import crop_uses_cycles
+
+		if crop_uses_cycles(crop):
+			cycle = frappe.db.get_value("Production Crop Cycle",
+				{"unit": unit, "status": ("in", ["Active", "Harvesting"])}, "name")
+		plan = _plan_for_edit(crop, farm, year, week)
+		plan.append("tasks", {
+			"unit": unit, "cycle": cycle, "operation": operation, "planned_qty": qty, "uom": op.work_uom,
+			"rate": op.default_rate, "due_date": due, "supervisor": supervisor, "status": "Open",
+			"note": _s(data, "note"),
+		})
+		plan.save()
+		frappe.db.commit()
+		task = plan.tasks[-1]
+		return {
+			"status": "success", "plan": plan.name,
+			"task": _strip_pay({
+				**{k: task.get(k) for k in PLAN_TASK_FIELDS}, "done_qty": task.done_qty or 0,
+				"pending_qty": task.pending_qty or 0, "deviation": task.deviation or None,
+			}, "rate"),
+			"message": f"{task.operation_name or 'Task'} added to week {week}.",
+		}
+
+	_run("productionAddTask", go)
+
+
+@frappe.whitelist()
+def productionGeneratePlan():
+	"""Generate the week's tasks from the cycles' protocols. Idempotent: steps already planned are skipped."""
+	if _denied(("Production Work Plan", "write")):
+		return
+	data = _payload()
+	err = _require(data, "crop")
+	if err:
+		return _fail(err)
+
+	def go():
+		crop, farm = _s(data, "crop"), _s(data, "farm")
+		year, week, _start, _end = _week_args(data)
+		plan = _plan_for_edit(crop, farm, year, week)
+		created = plans.generate_week(plan.name)
+		frappe.db.commit()
+		reason = None
+		if not created:
+			from upande_production.production.logic.cycles import crop_uses_cycles
+
+			reason = ("This crop does not run in crop cycles, so there are no protocol steps to generate."
+				if not crop_uses_cycles(crop) else "Nothing new to generate: every protocol step due this week is already planned.")
+		return {
+			"status": "success", "plan": plan.name, "created": created, "reason": reason,
+			"message": f"{created} task(s) generated from protocols." if created else reason,
+		}
+
+	_run("productionGeneratePlan", go)
+
+
+@frappe.whitelist()
+def productionProtocolCheck():
+	"""Protocol steps due in a week per block: done / partial / late / skipped / pending_approval / open /
+	not_planned. Params: crop, year, week (default: this week), optional unit (block)."""
+	if _denied(("Production Work Plan", "read")):
+		return
+	data = _payload()
+	err = _require(data, "crop")
+	if err:
+		return _fail(err)
+
+	def go():
+		year, week, _s0, _e0 = _week_args(data)
+		return analytics.protocol_check(_s(data, "crop"), year, week, _s(data, "unit") or None)
+
+	_run("productionProtocolCheck", go)

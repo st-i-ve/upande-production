@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import frappe
 from frappe.tests import IntegrationTestCase
-from frappe.utils import today
+from frappe.utils import add_days, today
 
 from upande_production.mobile import api
 from upande_production.production.logic import plans
@@ -65,6 +65,7 @@ class TestMobileApi(IntegrationTestCase):
 			frappe.delete_doc("Production Work Plan", n, force=True, ignore_permissions=True)
 		for dt, filt in (
 			("Production Crop Cycle", {"unit": unit}),
+			("Production Protocol", {"crop": crop}),
 			("Production Unit", {"name": unit}),
 			("Production Operation", {"crop": crop}),
 			("Production Crop", {"name": crop}),
@@ -106,11 +107,141 @@ class TestMobileApi(IntegrationTestCase):
 		self.assertEqual(res["task"]["done_qty"], 0)
 		wk = self._call(api.productionGetWeekPlan, {"crop": self.crop.name, "farm": self.farm.name})
 		self.assertEqual(wk["plan"], plan.name)
-		self.assertEqual(wk["tasks"][0]["done_qty"], 0)
-		self.assertEqual(wk["tasks"][0]["pending_qty"], 10)
+		t = next(t for t in wk["tasks"] if t["name"] == task)
+		self.assertEqual(t["done_qty"], 0)
+		self.assertEqual(t["pending_qty"], 10)
 
 	def test_bad_status_returns_error(self):
 		res = self._call(api.productionUpdateTask, {"plan": "x", "task": "y", "status": "Bogus"})
 		self.assertIn("error", res)
 		res = self._call(api.productionUpdateTask, {})
 		self.assertIn("error", res)
+
+	def _plan_with_task(self, **task):
+		y, w = iso_of(today())
+		plan = plans.get_or_create_plan(self.crop.name, self.farm.name, y, w)
+		plan.append("tasks", {
+			"unit": self.unit.name, "operation": self.op.name, "planned_qty": 10, "uom": "Kg",
+			"rate": 40, "due_date": today(), "status": "Open", **task,
+		})
+		plan.save()
+		return plan, plan.tasks[-1].name
+
+	def test_update_task_with_crew_returns_entries(self):
+		emp2 = _make(
+			"Employee", first_name="TMEmpTwo", gender="Male", date_of_birth="1991-01-01",
+			date_of_joining="2020-01-01", company=self.company,
+		)
+		self.addCleanup(lambda: frappe.delete_doc("Employee", emp2.name, force=True, ignore_permissions=True))
+		plan, task = self._plan_with_task()
+		res = self._call(api.productionUpdateTask, {
+			"plan": plan.name, "task": task, "status": "Partly Done", "note": "rain",
+			"entries": [{"employee": self.emp.name, "qty": 4, "hours": 3}, {"employee": emp2.name, "qty": 3}],
+		})
+		self.assertEqual(len(res["work"]), 2)
+		self.assertEqual(res["task"]["pending_qty"], 7)
+		self.assertEqual(len(res["entries"]), 2)
+		self.assertEqual({e["approval_status"] for e in res["entries"]}, {"Pending"})
+		self.assertEqual(res["task"]["note"], "rain")
+
+	def test_plan_list_and_detail(self):
+		plan, task = self._plan_with_task(due_date=add_days(today(), -3), supervisor=self.emp.name)
+		y, w = iso_of(today())
+		lst = self._call(api.productionListWeekPlans, {"crop": self.crop.name, "farm": self.farm.name})
+		row = next(p for p in lst["plans"] if p["name"] == plan.name)
+		self.assertTrue(row["is_current"])
+		self.assertEqual(row["tasks_total"], len(plan.tasks))
+		self.assertGreaterEqual(row["tasks_late"], 1)
+		self.assertEqual(lst["current_plan"], plan.name)
+		self._call(api.productionUpdateTask, {
+			"plan": plan.name, "task": task, "status": "Done", "entries": [{"employee": self.emp.name, "qty": 10}],
+		})
+		det = self._call(api.productionGetPlanDetail, {"crop": self.crop.name, "farm": self.farm.name, "year": y, "week": w})
+		self.assertEqual(det["plan"], plan.name)
+		self.assertEqual(det["tasks_pending_approval"], 1)
+		blk = next(b for b in det["blocks"] if b["unit"] == self.unit.name)
+		t = next(t for t in blk["tasks"] if t["name"] == task)
+		self.assertEqual(t["pending_qty"], 10)
+		self.assertEqual(t["supervisor_name"], self.emp.employee_name)
+		self.assertEqual(t["entries"][0]["approval_status"], "Pending")
+		other = self._call(api.productionGetPlanDetail, {"crop": self.crop.name, "farm": self.farm.name, "year": y, "week": w, "unit": "nope"})
+		self.assertEqual(other["blocks"], [])
+
+	def test_add_task_validates_and_creates(self):
+		y, w = iso_of(add_days(today(), 21))
+		due = add_days(today(), 21)
+		res = self._call(api.productionAddTask, {
+			"crop": self.crop.name, "farm": self.farm.name, "year": y, "week": w, "unit": self.unit.name,
+			"operation": self.op.name, "planned_qty": 5, "due_date": str(due), "supervisor": self.emp.name,
+		})
+		self.assertEqual(res["status"], "success")
+		self.assertEqual(res["task"]["uom"], "Kg")
+		self.assertEqual(res["task"]["status"], "Open")
+		bad = self._call(api.productionAddTask, {
+			"crop": self.crop.name, "year": y, "week": w, "unit": self.unit.name,
+			"operation": self.op.name, "planned_qty": 5, "due_date": str(add_days(due, 30)),
+		})
+		self.assertIn("Due date", bad["error"])
+		self.assertIn("error", self._call(api.productionAddTask, {
+			"crop": self.crop.name, "unit": self.unit.name, "operation": self.op.name, "planned_qty": 0,
+		}))
+
+	def test_generate_plan_without_cycles_explains(self):
+		res = self._call(api.productionGeneratePlan, {"crop": self.crop.name, "farm": self.farm.name})
+		self.assertEqual(res["status"], "success")
+		self.assertIsNotNone(res["plan"])
+
+	def test_protocol_check_statuses(self):
+		from upande_production.production.logic import analytics
+
+		proto = _make(
+			"Production Protocol", protocol_name="TM Proto", crop=self.crop.name, version_status="Active",
+			steps=[{"operation": self.op.name, "day_offset": 0, "planned_qty": 10},
+				{"operation": self.op.name, "day_offset": 1, "planned_qty": 5}],
+		)
+		start = frappe.utils.getdate(today())
+		y, w = iso_of(start)
+		cycle = _make(
+			"Production Crop Cycle", unit=self.unit.name, crop=self.crop.name, start_date=add_days(start, -start.weekday()),
+			protocol=proto.name, status="Active",
+		)
+		def cleanup():
+			for dt in ("Value Adder Work",):
+				for n in frappe.get_all(dt, filters={"cycle": cycle.name}, pluck="name"):
+					d = frappe.get_doc(dt, n)
+					if d.docstatus == 1:
+						d.cancel()
+					frappe.delete_doc(dt, n, force=True, ignore_permissions=True)
+			frappe.db.sql("delete from `tabProduction Plan Task` where cycle = %s", cycle.name)
+			frappe.delete_doc("Production Crop Cycle", cycle.name, force=True, ignore_permissions=True)
+			frappe.delete_doc("Production Protocol", proto.name, force=True, ignore_permissions=True)
+			frappe.db.commit()
+
+		self.addCleanup(cleanup)
+		res = analytics.protocol_check(self.crop.name, y, w)
+		steps = res["blocks"][0]["steps"]
+		self.assertEqual(len(steps), 2)
+		self.assertEqual({s["status"] for s in steps}, {"not_planned"})
+		self.assertEqual(res["totals"]["not_planned"], 2)
+		plans.generate_week(plans.get_or_create_plan(self.crop.name, self.farm.name, y, w).name)
+		res = self._call(api.productionProtocolCheck, {"crop": self.crop.name, "unit": self.unit.name})
+		self.assertEqual(res["totals"]["steps"], 2)
+		self.assertNotIn("not_planned", {s["status"] for s in res["blocks"][0]["steps"]})
+		plan = frappe.get_doc("Production Work Plan", res["blocks"][0]["steps"][0]["plan"])
+		t0 = next(t for t in plan.tasks if t.protocol_ref == res["blocks"][0]["steps"][0]["protocol_ref"])
+		self._call(api.productionUpdateTask, {
+			"plan": plan.name, "task": t0.name, "status": "Done", "entries": [{"employee": self.emp.name, "qty": 10}],
+		})
+		res = self._call(api.productionProtocolCheck, {"crop": self.crop.name, "unit": self.unit.name})
+		self.assertEqual(res["totals"]["pending_approval"], 1)
+
+	def test_protocol_check_cycleless_crop(self):
+		res = self._call(api.productionProtocolCheck, {"crop": "Apiary"}) if frappe.db.exists("Production Crop", "Apiary") else None
+		if res is None:
+			self.skipTest("no Apiary crop")
+		self.assertEqual(res["blocks"], [])
+		self.assertTrue(res["reason"])
+
+	def test_value_adder_search(self):
+		res = self._call(api.productionListValueAdders, {"search": "zzzz-none", "limit": 5})
+		self.assertEqual(res, [])
