@@ -189,6 +189,7 @@ def list_approvals(
 	}
 	unit_names = dict(frappe.get_all("Production Unit", fields=["name", "unit_name"], as_list=True))
 	op_names = dict(frappe.get_all("Production Operation", fields=["name", "operation_name"], as_list=True))
+	op_colors = dict(frappe.get_all("Production Operation", fields=["name", "color"], as_list=True))
 
 	out = []
 	for g in groups.values():
@@ -209,6 +210,7 @@ def list_approvals(
 			"unit_name": unit_names.get(first.unit) or first.unit,
 			"operation": first.operation,
 			"operation_name": op_names.get(first.operation) or first.operation,
+			"color": op_colors.get(first.operation) or None,
 			"plan": first.plan,
 			"plan_year": plan.plan_year if plan else None,
 			"plan_week": plan.plan_week if plan else None,

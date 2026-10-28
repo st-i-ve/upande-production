@@ -117,3 +117,30 @@ class TestCoverageMap(IntegrationTestCase):
 		self.assertEqual(e["state"], "pending_approval")
 		self.assertEqual(e["tasks"][0]["pending_qty"], 6.0)
 		self.assertEqual(res["totals"]["pending"], {"Kg": 6.0})
+
+	def test_coverage_activity_colour(self):
+		U = self.units
+		frappe.db.set_value("Production Operation", self.op1.name, "color", "#112233")
+		frappe.db.set_value("Production Operation", self.op2.name, "color", "#445566")
+		self._plan(2098, 10, [
+			self._row(U["A"], self.op1, 10, 0, "Open", "2098-03-04"),
+			self._row(U["B"], self.op2, 6, 0, "In Progress", "2098-03-05", "Bed"),
+			self._row(U["B"], self.op1, 6, 0, "Open", "2098-03-05"),
+			self._row(U["C"], self.op1, 6, 0, "Open", "2098-03-05"),
+		])
+		w = frappe.get_doc({
+			"doctype": "Value Adder Work", "work_date": "2098-03-03", "unit": U["C"], "crop": self.crop.name,
+			"operation": self.op2.name, "qty": 1, "uom": "Bed", "approval_status": "Pending",
+		})
+		w.flags.ignore_validate = True
+		w.flags.ignore_mandatory = True
+		w.insert()
+		res = coverage.coverage_map(self.crop.name, 2098, 10)
+		by = {u["name"]: u for u in res["units"]}
+		self.assertEqual(by[U["A"]]["activity"], {"operation": "Cov Weeding", "color": "#112233"})
+		self.assertEqual(by[U["B"]]["activity"]["operation"], "Cov Spraying")  # in progress beats open
+		self.assertEqual(by[U["C"]]["activity"], {"operation": "Cov Spraying", "color": "#445566"})  # work wins
+		self.assertIsNone(by[U["D"]]["activity"])
+		self.assertEqual(res["legend"], [
+			{"operation": "Cov Spraying", "color": "#445566"}, {"operation": "Cov Weeding", "color": "#112233"},
+		])

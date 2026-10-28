@@ -638,7 +638,8 @@ Crop without cycles:
 ## productionListOperations  (existing, verified)
 
 Operations of the crop only (filter is on `crop`; `crop` required). `default_rate` is `null` without a pay
-role. `is_harvest` operations are the harvest ones.
+role. `is_harvest` operations are the harvest ones. `activity_type` (Capital, Planting, Key activity, Cultural,
+Harvesting, Uprooting) and `color` (hex or null) tag each operation.
 
 ```json
 [
@@ -648,7 +649,9 @@ role. `is_harvest` operations are the harvest ones.
     "category": "Fertilising",
     "work_uom": "Tree",
     "default_rate": 10.0,
-    "is_harvest": 0
+    "is_harvest": 0,
+    "activity_type": "Cultural",
+    "color": "#3f7d3a"
   },
   {
     "name": "OP-00006",
@@ -725,3 +728,30 @@ blocks carry, from the unit's open (Active / Harvesting) cycle:
 | `in_pre_harvest` | `true` when `days_to_harvest <= pre_harvest_days` — restricted work (spraying etc.) will be refused or warned |
 
 Example (Avocado Block A, Hass): `{"variety": "Hass", "current_stage": "Harvest", "days_to_harvest": -35, "pre_harvest_days": 21, "in_pre_harvest": true}`.
+
+## productionDryMatterTests  (read only)
+
+Dry matter tests of a crop that has `dry_matter_testing` on (not avocado, which keeps its Maturity Test), newest
+first (max 500). Params: `crop` (required), `unit` (optional). Tests are entered on the desk.
+
+```json
+[
+  {
+    "name": "DMT-2026-00001",
+    "unit": "Block A",
+    "cycle": "CYC-0001",
+    "crop": "Mango",
+    "variety": "Tommy",
+    "test_date": "2026-10-05",
+    "tested_on": "Fruit",
+    "tested_by": "user@example.com",
+    "avg_pct": 21.83,
+    "target_pct": 21.0,
+    "ready": true,
+    "samples": [{"sample_no": 1, "dry_matter_pct": 20.0}, {"sample_no": 2, "dry_matter_pct": 23.5}]
+  }
+]
+```
+
+`ready` is average at or above target (variety target, else crop target). Missing `crop` fails with an error;
+no read permission on Dry Matter Test is a permission error.

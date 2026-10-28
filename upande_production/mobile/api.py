@@ -360,9 +360,27 @@ def productionListOperations():
 		return _fail(err)
 	_run("productionListOperations", lambda: _strip_pay(frappe.get_all(
 		"Production Operation", filters={"crop": _s(data, "crop")},
-		fields=["name", "operation_name", "category", "work_uom", "default_rate", "is_harvest"],
+		fields=["name", "operation_name", "category", "work_uom", "default_rate", "is_harvest", "activity_type", "color"],
 		order_by="operation_name asc",
 	), "default_rate"))
+
+
+@frappe.whitelist()
+def productionDryMatterTests():
+	if _denied(("Dry Matter Test", "read")):
+		return
+	data = _payload()
+	err = _require(data, "crop")
+	if err:
+		return _fail(err)
+
+	def go():
+		from upande_production.api import drymatter
+
+		res = drymatter.list_tests(_s(data, "crop"), _s(data, "unit") or None)
+		return res if "error" in res else res["rows"]
+
+	_run("productionDryMatterTests", go)
 
 
 # -- supervisor planning -------------------------------------------------------

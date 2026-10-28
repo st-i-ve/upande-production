@@ -31,6 +31,31 @@ def _task_rows(crop, year, week, farm):
 	)
 
 
+def _work_rows(crop, start, end, farm):
+	"""Value Adder Work (approved or pending) in the week, newest first."""
+	return frappe.db.sql(
+		"""select w.unit, w.operation, o.operation_name, o.color from `tabValue Adder Work` w
+		join `tabProduction Operation` o on o.name = w.operation
+		where w.crop = %(crop)s and w.docstatus < 2 and w.approval_status in ('Approved', 'Pending')
+		and w.work_date between %(s)s and %(e)s
+		order by w.work_date desc, w.creation desc""",
+		{"crop": crop, "s": start, "e": end},
+		as_dict=True,
+	)
+
+
+def unit_activity(work, tasks, colors):
+	"""The activity a unit is going through: latest work this week, else the first In Progress task,
+	else the first Open task. `work` newest first; `tasks` shaped tasks."""
+	if work:
+		return {"operation": work[0].operation_name or work[0].operation, "color": work[0].color}
+	for status in ("In Progress", "Open"):
+		for t in tasks:
+			if t["status"] == status:
+				return {"operation": t["operation_name"], "color": colors.get(t["operation"])}
+	return None
+
+
 def _shape_task(r, week_end, ref_day):
 	planned = flt(r.planned_qty)
 	done = flt(r.done_qty)
@@ -146,6 +171,11 @@ def coverage_map(crop, year, week, farm=None, operation=None, status=None):
 	cycles = analytics.current_cycles(crop)
 	task_rows = _task_rows(crop, year, week, farm or None)
 
+	colors = dict(frappe.get_all("Production Operation", filters={"crop": crop}, fields=["name", "color"], as_list=True))
+	work_by_unit = {}
+	for w in _work_rows(crop, start, end, farm or None):
+		work_by_unit.setdefault(w.unit, []).append(w)
+	legend = {}
 	ops, by_unit = {}, {}
 	for r in task_rows:
 		ops.setdefault(r.operation, {"operation": r.operation, "operation_name": r.operation_name or r.operation, "uom": r.uom})
@@ -166,6 +196,9 @@ def coverage_map(crop, year, week, farm=None, operation=None, status=None):
 		if status and state != status:
 			continue
 		cy = cycles.get(u.name)
+		activity = unit_activity(work_by_unit.get(u.name, []), tasks, colors)
+		if activity:
+			legend.setdefault(activity["operation"], activity["color"])
 		remaining = {}
 		for t in tasks:
 			if t["status"] == "Skipped":
@@ -194,6 +227,7 @@ def coverage_map(crop, year, week, farm=None, operation=None, status=None):
 			"progress_pct": progress_pct(tasks),
 			"remaining_qty": remaining,
 			"state": state,
+			"activity": activity,
 		})
 
 	center, bounds = _bounds([u["geojson"] for u in units] + [o["geojson"] for o in outlines])
@@ -203,6 +237,7 @@ def coverage_map(crop, year, week, farm=None, operation=None, status=None):
 		"units": units,
 		"outlines": outlines,
 		"totals": totals,
+		"legend": [{"operation": o, "color": c} for o, c in sorted(legend.items())],
 		"operations": sorted(ops.values(), key=lambda o: o["operation_name"]),
 		"center": center,
 		"bounds": bounds,

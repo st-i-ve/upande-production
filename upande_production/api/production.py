@@ -4,7 +4,7 @@ import frappe
 from frappe import _
 
 from upande_production.api.envelope import as_dict, run
-from upande_production.production.logic import analytics, plans, rules, stages, work
+from upande_production.production.logic import analytics, cycle_chain, plans, rules, stages, work
 from upande_production.production.logic.settings import PAY_ROLES, can_see_pay
 from upande_production.production.logic.weeks import iso_week_bounds
 
@@ -64,13 +64,50 @@ def _unit_rows(crop):
 		as_dict=True,
 	)
 	cycles = analytics.current_cycles(crop)
+	flag_by_cycle = {x["cycle"]: x["flags"] for x in cycle_chain.flag_rows(crop)}
 	for r in rows:
 		cy = cycles.get(r.name)
 		r["current_cycle"] = cy.name if cy else None
 		r["item"] = cy.item if cy else None
 		r["variety"] = cy.variety if cy else None
 		r["current_stage"] = cy.current_stage if cy else None
+		r["flags"] = flag_by_cycle.get(cy.name, []) if cy else []
+	dm = _dry_matter_by_unit(crop)
+	replaced = _plants_replaced(crop)
+	for r in rows:
+		r["dry_matter"] = dm.get(r.name)
+		r["plants_replaced"] = replaced.get(r.name, 0)
 	return rows
+
+
+def _dry_matter_by_unit(crop):
+	"""Latest dry matter per unit: generic Dry Matter Test, or Avocado Maturity Test for avocado."""
+	from upande_production.api import drymatter
+
+	out = drymatter.latest_by_unit(crop)
+	if frappe.db.get_value("Production Crop", crop, "crop_key") == "avocado":
+		try:
+			from upande_production.api import avocadoapi
+			from upande_production.api.avocadomaturity import MIN_DRY_MATTER_PCT
+
+			for blk, p in avocadoapi.dm_projection(avocadoapi._samples()).items():
+				out.setdefault(blk, {"pct": p["dry_matter_pct"], "target": MIN_DRY_MATTER_PCT,
+					"ready": bool(p["ready"]), "date": p["sample_date"]})
+		except Exception:
+			frappe.log_error(title="upande_production: avocado dry matter on blocks")
+	return out
+
+
+def _plants_replaced(crop):
+	"""Approved Gap filling work (uom Plant) per unit."""
+	rows = frappe.db.sql(
+		"""select w.unit, sum(w.qty) from `tabValue Adder Work` w
+		join `tabProduction Operation` o on o.name = w.operation
+		where w.crop = %s and w.docstatus < 2 and w.approval_status = 'Approved' and w.uom = 'Plant'
+		and o.operation_name = 'Gap filling' group by w.unit""",
+		(crop,),
+	)
+	return {u: int(q or 0) for u, q in rows}
 
 
 # -- bootstrap ---------------------------------------------------------------
@@ -145,6 +182,8 @@ def get_unit(name):
 _CYCLE_FIELDS = [
 	"name", "title", "unit", "item", "cycle_type", "start_date", "expected_harvest_start",
 	"expected_harvest_end", "protocol", "status", "area_ha", "previous_cycle", "variety", "current_stage",
+	"cycle_no", "expected_flowering_date", "actual_flowering_date", "actual_harvest_start", "actual_harvest_end",
+	"due_for_uprooting", "proposed_next_cycle", "protocol_flags",
 ]
 
 
@@ -160,7 +199,16 @@ def list_cycles(crop, unit=None, status=None):
 	cycles = frappe.get_all("Production Crop Cycle", filters=filters, fields=_CYCLE_FIELDS, order_by="start_date desc")
 	for c in cycles:
 		c["stage_bands"] = _stage_bands(c)
+		c["flags"] = [f for f in (c.pop("protocol_flags", None) or "").split("\n") if f]
 	return {"cycles": cycles}
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def cycle_flags(crop):
+	"""Open cycles that are off protocol: {"rows": [{cycle, unit, variety, flags: [str]}]}."""
+	_need("Production Crop Cycle")
+	return {"rows": cycle_chain.flag_rows(crop)}
 
 
 def _stage_bands(c):
@@ -180,7 +228,13 @@ def _stage_bands(c):
 @frappe.whitelist(methods=["POST"])
 @run
 def save_cycle(data):
-	return {"name": _save("Production Crop Cycle", data).name}
+	before = None
+	name = as_dict(data).get("name") if as_dict(data) else None
+	if name:
+		before = frappe.db.get_value("Production Crop Cycle", name, "proposed_next_cycle")
+	doc = _save("Production Crop Cycle", data)
+	after = doc.get("proposed_next_cycle")
+	return {"name": doc.name, "proposed_next_cycle": after if after and after != before else None}
 
 
 # -- weekly plan -------------------------------------------------------------
@@ -227,7 +281,9 @@ def get_plan(crop, farm, year, week):
 		if sup
 		else {}
 	)
+	colors = dict(frappe.get_all("Production Operation", fields=["name", "color"], as_list=True))
 	for t in tasks:
+		t["color"] = colors.get(t.operation) or None
 		t["rate"] = _pay(t["rate"], pay)
 		t["deviation"] = t.deviation or None
 		t["supervisor_name"] = sup_names.get(t.supervisor)
@@ -431,10 +487,12 @@ def list_protocols(crop):
 	_need("Production Protocol")
 	rows = frappe.get_all("Production Protocol", filters={"crop": crop, "version_status": "Active"}, fields=["*"], order_by="protocol_name asc")
 	for r in rows:
-		r["steps"] = frappe.get_all(
-			"Production Protocol Step",
-			filters={"parent": r.name, "parenttype": "Production Protocol"},
-			fields=["name", "operation", "day_offset", "repeat_every_days", "repeat_count", "planned_qty", "note"],
-			order_by="idx asc",
-		)
+		for table, doctype, fields in (
+			("key_activities", "Production Protocol Key Activity", ["name", "operation", "week", "repeats", "planned_qty", "description"]),
+			("cultural_activities", "Production Protocol Cultural Activity", ["name", "operation", "schedule", "interval_weeks",
+				"establishment_period_weeks", "pre_harvest_interval_days", "planned_qty", "description"]),
+			("capital_activities", "Production Protocol Capital Activity", ["name", "operation", "description", "budget_per_ha"]),
+		):
+			r[table] = frappe.get_all(doctype, filters={"parent": r.name, "parenttype": "Production Protocol", "parentfield": table},
+				fields=fields, order_by="idx asc")
 	return {"rows": rows}
