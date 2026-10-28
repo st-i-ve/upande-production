@@ -1,0 +1,1 @@
+const t="px-3 py-2.5 font-medium",e="px-3 py-2.5 text-right font-medium",r="px-3 py-2.5",s="px-3 py-2.5 text-right tabular-nums",a="border-b border-[var(--sd-line)] text-left text-[11px] uppercase tracking-[0.1em] text-[var(--sd-quiet)]",o="border-b border-[var(--sd-line-soft)] last:border-0";export{o as B,t as T,e as a,a as b,r as c,s as d};

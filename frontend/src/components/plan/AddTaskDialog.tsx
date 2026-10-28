@@ -19,7 +19,7 @@ import { num, ymd } from "@/lib/utils";
 export interface OperationOption {
   name: string;
   operation_name: string;
-  uom: string | null;
+  work_uom: string | null;
 }
 
 /** Plan one more task in the chosen week. */
@@ -82,7 +82,7 @@ export function AddTaskDialog({
         cycle: u?.current_cycle ?? null,
         operation,
         planned_qty: num(planned),
-        uom: op?.uom ?? null,
+        uom: op?.work_uom ?? null,
         due_date: due,
         supervisor: supervisor || null,
       },
@@ -114,7 +114,7 @@ export function AddTaskDialog({
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="add-qty">Planned quantity{op?.uom ? ` (${op.uom})` : ""}</Label>
+            <Label htmlFor="add-qty">Planned quantity{op?.work_uom ? ` (${op.work_uom})` : ""}</Label>
             <Input id="add-qty" inputMode="decimal" className="tabular-nums" value={planned} onChange={(e) => setPlanned(e.target.value)} />
           </div>
           <div className="flex flex-col gap-1.5">

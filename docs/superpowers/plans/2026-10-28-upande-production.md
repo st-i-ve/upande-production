@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Paths: app at `/mnt/data/code/frappe16-mutara/apps/upande_production` on branch `mutara`. Bench `/mnt/data/code/frappe16-mutara`, site `mutara.local` (company `Mutara`, abbr `MUT`, currency KES).
+- Paths: app at `/mnt/data/code/frappe16-mutara/apps/upande_production` on branch `main` (the build line; `mutara` is fast-forwarded to it at the end). Bench `/mnt/data/code/frappe16-mutara`, site `mutara.local` (company `Mutara`, abbr `MUT`, currency KES).
 - **Commits: never add a `Co-Authored-By` trailer.** Never pass `-c user.name/-c user.email`; the git identity is already correct (st-i-ve).
 - Never restart, reset or reconfigure MariaDB. Never use any Kaitet MCP. Don't touch other apps' code. The only exception is Task 9 (a docs file in upande_livestock).
 - Don't rename or change the fields of the 8 `Avocado*` doctypes or the files in `upande_production/avocado_yield/`, `api/avocado*.py` or `www/avocado*`.
