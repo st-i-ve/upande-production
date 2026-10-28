@@ -19,24 +19,24 @@
     .honey { transform-box: fill-box; transform-origin: 50% 100%; }
     .drop0 { transform-box: view-box; transform-origin: 0px 0px; }
     .drop1 { transform-box: view-box; transform-origin: 0px 0px; }
-    .arrow { animation: production-in-0 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .scene { animation: production-in-1 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .hive { animation: production-round-0 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .bee { animation: production-round-1 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .wings { animation: production-round-2 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .face { animation: production-round-3 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .comb { animation: production-round-4 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .h0 { animation: production-round-5 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .h1 { animation: production-round-6 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .h2 { animation: production-round-7 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .h3 { animation: production-round-8 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .h4 { animation: production-round-9 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .h5 { animation: production-round-10 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .h6 { animation: production-round-11 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .jar { animation: production-round-12 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .honey { animation: production-round-13 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .drop0 { animation: production-round-14 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .drop1 { animation: production-round-15 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .arrow { animation: production-in-0 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .scene { animation: production-in-1 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .hive { animation: production-round-0 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .bee { animation: production-round-1 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .wings { animation: production-round-2 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .face { animation: production-round-3 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .comb { animation: production-round-4 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .h0 { animation: production-round-5 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .h1 { animation: production-round-6 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .h2 { animation: production-round-7 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .h3 { animation: production-round-8 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .h4 { animation: production-round-9 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .h5 { animation: production-round-10 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .h6 { animation: production-round-11 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .jar { animation: production-round-12 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .honey { animation: production-round-13 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .drop0 { animation: production-round-14 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .drop1 { animation: production-round-15 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
     @keyframes production-in-0 {
       0% { transform: translate(0px, 0px) scale(1); opacity: 1; }
       8.1% { transform: translate(0px, 0px) scale(0); opacity: 0; }

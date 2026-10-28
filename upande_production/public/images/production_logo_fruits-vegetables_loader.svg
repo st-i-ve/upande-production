@@ -6,20 +6,20 @@
     .field { transform-box: view-box; transform-origin: 344px 420px; }
     .arm { transform-box: view-box; transform-origin: 344px 410px; }
     .crate { transform-box: view-box; transform-origin: 344px 420px; }
-    .arrow { animation: production-in-0 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .scene { animation: production-in-1 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .field { animation: production-round-0 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .arm { animation: production-round-1 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .s0 { animation: production-round-2 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .s1 { animation: production-round-3 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .s2 { animation: production-round-4 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .s3 { animation: production-round-5 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .s4 { animation: production-round-6 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .s5 { animation: production-round-7 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .crate { animation: production-round-8 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .cabbage { animation: production-round-9 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .potato { animation: production-round-10 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .onion { animation: production-round-11 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .arrow { animation: production-in-0 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .scene { animation: production-in-1 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .field { animation: production-round-0 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .arm { animation: production-round-1 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .s0 { animation: production-round-2 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .s1 { animation: production-round-3 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .s2 { animation: production-round-4 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .s3 { animation: production-round-5 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .s4 { animation: production-round-6 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .s5 { animation: production-round-7 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .crate { animation: production-round-8 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .cabbage { animation: production-round-9 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .potato { animation: production-round-10 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .onion { animation: production-round-11 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
     @keyframes production-in-0 {
       0% { transform: translate(0px, 0px) scale(1); opacity: 1; }
       8.1% { transform: translate(0px, 0px) scale(0); opacity: 0; }

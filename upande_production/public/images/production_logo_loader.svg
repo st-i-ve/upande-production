@@ -11,24 +11,24 @@
     .head { transform-box: view-box; transform-origin: 434px 278px; }
     .gauge { transform-box: view-box; transform-origin: 344px 500px; }
     .needle { transform-box: view-box; transform-origin: 344px 500px; }
-    .arrow { animation: production-in-0 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .scene { animation: production-in-1 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .checklist { animation: production-round-0 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .tick0 { animation: production-round-1 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .tick1 { animation: production-round-2 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .tick2 { animation: production-round-3 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .line0 { animation: production-round-4 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .line1 { animation: production-round-5 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .line2 { animation: production-round-6 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .bars { animation: production-round-7 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .bar0 { animation: production-round-8 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .bar1 { animation: production-round-9 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .bar2 { animation: production-round-10 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .trend { animation: production-round-11 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .head { animation: production-round-12 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .gauge { animation: production-round-13 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .needle { animation: production-round-14 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .zone { animation: production-round-15 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .arrow { animation: production-in-0 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .scene { animation: production-in-1 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .checklist { animation: production-round-0 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .tick0 { animation: production-round-1 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .tick1 { animation: production-round-2 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .tick2 { animation: production-round-3 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .line0 { animation: production-round-4 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .line1 { animation: production-round-5 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .line2 { animation: production-round-6 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .bars { animation: production-round-7 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .bar0 { animation: production-round-8 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .bar1 { animation: production-round-9 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .bar2 { animation: production-round-10 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .trend { animation: production-round-11 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .head { animation: production-round-12 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .gauge { animation: production-round-13 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .needle { animation: production-round-14 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .zone { animation: production-round-15 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
     @keyframes production-in-0 {
       0% { transform: translate(0px, 0px) scale(1); opacity: 1; }
       8.1% { transform: translate(0px, 0px) scale(0); opacity: 0; }

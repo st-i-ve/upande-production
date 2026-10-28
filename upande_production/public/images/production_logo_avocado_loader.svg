@@ -13,21 +13,21 @@
     .stow1 { transform-box: fill-box; transform-origin: 50% 100%; }
     .stow2 { transform-box: fill-box; transform-origin: 50% 100%; }
     .halfin { transform-box: view-box; transform-origin: 300px 340px; }
-    .arrow { animation: production-in-0 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .scene { animation: production-in-1 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .pick0 .body { animation: production-round-0 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .pick1 .body { animation: production-round-1 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .pick2 .body { animation: production-round-2 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .pick0 { animation: production-round-3 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .pick1 { animation: production-round-4 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .pick2 { animation: production-round-5 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .ring0 { animation: production-round-6 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .ring1 { animation: production-round-7 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .ring2 { animation: production-round-8 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .stow0 { animation: production-round-9 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .stow1 { animation: production-round-10 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .stow2 { animation: production-round-11 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .halfin { animation: production-round-12 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .arrow { animation: production-in-0 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .scene { animation: production-in-1 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .pick0 .body { animation: production-round-0 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .pick1 .body { animation: production-round-1 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .pick2 .body { animation: production-round-2 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .pick0 { animation: production-round-3 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .pick1 { animation: production-round-4 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .pick2 { animation: production-round-5 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .ring0 { animation: production-round-6 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .ring1 { animation: production-round-7 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .ring2 { animation: production-round-8 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .stow0 { animation: production-round-9 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .stow1 { animation: production-round-10 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .stow2 { animation: production-round-11 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .halfin { animation: production-round-12 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
     @keyframes production-in-0 {
       0% { transform: translate(0px, 0px) scale(1); opacity: 1; }
       8.1% { transform: translate(0px, 0px) scale(0); opacity: 0; }
