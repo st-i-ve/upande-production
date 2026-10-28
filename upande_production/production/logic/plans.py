@@ -8,11 +8,11 @@ from upande_production.production.logic.weeks import iso_week_bounds
 def get_or_create_plan(crop, farm, year, week):
 	filters = {"crop": crop, "plan_year": int(year), "plan_week": int(week)}
 	filters["farm"] = farm if farm else ("in", ["", None])
-	name = frappe.db.get_value("Production Plan", filters)
+	name = frappe.db.get_value("Production Work Plan", filters)
 	if name:
-		return frappe.get_doc("Production Plan", name)
+		return frappe.get_doc("Production Work Plan", name)
 	doc = frappe.get_doc({
-		"doctype": "Production Plan", "crop": crop, "farm": farm or None,
+		"doctype": "Production Work Plan", "crop": crop, "farm": farm or None,
 		"plan_year": int(year), "plan_week": int(week),
 	})
 	doc.insert()
@@ -20,7 +20,7 @@ def get_or_create_plan(crop, farm, year, week):
 
 
 def generate_week(plan_name: str) -> int:
-	plan = frappe.get_doc("Production Plan", plan_name)
+	plan = frappe.get_doc("Production Work Plan", plan_name)
 	start, end = iso_week_bounds(plan.plan_year, plan.plan_week)
 	existing = {t.protocol_ref for t in plan.tasks if t.protocol_ref}
 	count = 0

@@ -208,7 +208,7 @@ def _fit(dt):
 def _process_plan(plan_name, current, vas, supers):
 	cfg = DEMO["status_mix"]
 	td = getdate(today())
-	doc = frappe.get_doc("Production Plan", plan_name)
+	doc = frappe.get_doc("Production Work Plan", plan_name)
 	todo = [(t.name, t.protocol_ref, getdate(t.due_date), float(t.planned_qty or 1))
 		for t in doc.tasks if t.status == "Open" and not t.done_qty]
 	adjust = {}
@@ -249,7 +249,7 @@ def _process_plan(plan_name, current, vas, supers):
 			adjust[tname] = (started, datetime.combine(wdate, time(15, 30)))
 		else:
 			adjust[tname] = (started, datetime.combine(wdate, time(13 + r.randint(0, 3), 10)))
-	doc = frappe.get_doc("Production Plan", plan_name)
+	doc = frappe.get_doc("Production Work Plan", plan_name)
 	changed = bool(adjust)
 	for t in doc.tasks:
 		if t.name in adjust:
@@ -268,10 +268,10 @@ def seed_plans():
 	vas, supers = _employees("Value Adder"), _employees("Production Supervisor")
 	for crop in [c["name"] for c in DEMO["crops"]]:
 		for y, w, mon, current in _weeks():
-			existed = frappe.db.exists("Production Plan", {"crop": crop, "farm": farm, "plan_year": y, "plan_week": w})
+			existed = frappe.db.exists("Production Work Plan", {"crop": crop, "farm": farm, "plan_year": y, "plan_week": w})
 			doc = plans.get_or_create_plan(crop, farm, y, w)
 			if not existed:
-				C["Production Plan"] += 1
+				C["Production Work Plan"] += 1
 			C["Production Plan Task"] += plans.generate_week(doc.name)
 			_process_plan(doc.name, current, vas, supers)
 			frappe.db.commit()

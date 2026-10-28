@@ -107,13 +107,13 @@ def _inputs_by_cc(ccs, frm, to):
 
 def _week_tasks(crop, year, week):
 	plans = frappe.get_all(
-		"Production Plan", filters={"crop": crop, "plan_year": year, "plan_week": week}, pluck="name"
+		"Production Work Plan", filters={"crop": crop, "plan_year": year, "plan_week": week}, pluck="name"
 	)
 	if not plans:
 		return []
 	return frappe.get_all(
 		"Production Plan Task",
-		filters={"parenttype": "Production Plan", "parent": ("in", plans)},
+		filters={"parenttype": "Production Work Plan", "parent": ("in", plans)},
 		fields=["unit", "status", "deviation"],
 	)
 
@@ -253,12 +253,12 @@ def deviations(crop, from_date, to_date):
 	frm, to = _range(from_date, to_date)
 	rows = []
 
-	plans = frappe.get_all("Production Plan", filters={"crop": crop}, pluck="name")
+	plans = frappe.get_all("Production Work Plan", filters={"crop": crop}, pluck="name")
 	if plans:
 		tasks = frappe.get_all(
 			"Production Plan Task",
 			filters={
-				"parenttype": "Production Plan", "parent": ("in", plans),
+				"parenttype": "Production Work Plan", "parent": ("in", plans),
 				"deviation": ("in", ["Late", "Partial", "Skipped"]),
 				"due_date": ("between", [frm, to]),
 			},
@@ -313,7 +313,7 @@ def _missed(crop, frm, to, op_names):
 	refs = set(
 		frappe.get_all(
 			"Production Plan Task",
-			filters={"parenttype": "Production Plan", "cycle": ("in", [c.name for c in cycles]), "protocol_ref": ("is", "set")},
+			filters={"parenttype": "Production Work Plan", "cycle": ("in", [c.name for c in cycles]), "protocol_ref": ("is", "set")},
 			pluck="protocol_ref",
 		)
 	)

@@ -75,10 +75,10 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-28 09:00:00.000000",
+ "modified": "2026-10-28 15:00:00.000000",
  "modified_by": "Administrator",
  "module": "Production",
- "name": "Production Plan",
+ "name": "Production Work Plan",
  "owner": "Administrator",
  "states": [],
  "autoname": "PLAN-.YYYY.-.#####",
@@ -119,6 +119,24 @@
    "read": 1,
    "report": 1,
    "role": "Production Viewer"
+  },
+  {
+   "read": 1,
+   "role": "System Manager",
+   "permlevel": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Production Manager",
+   "permlevel": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Production Supervisor",
+   "permlevel": 1,
+   "write": 1
   }
  ],
  "sort_field": "creation",

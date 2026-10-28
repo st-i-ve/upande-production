@@ -10,12 +10,12 @@ from upande_production.production.logic.settings import get_company, get_toleran
 from upande_production.production.logic.weeks import iso_week_bounds
 
 
-class ProductionPlan(Document):
+class ProductionWorkPlan(Document):
 	def validate(self):
 		self.week_start, self.week_end = iso_week_bounds(self.plan_year, self.plan_week)
 		self.company = self.company or get_company()
 		dup = frappe.db.sql(
-			"""select name from `tabProduction Plan` where crop=%s and ifnull(farm,'')=%s
+			"""select name from `tabProduction Work Plan` where crop=%s and ifnull(farm,'')=%s
 			and plan_year=%s and plan_week=%s and name != %s limit 1""",
 			(self.crop, self.farm or "", self.plan_year, self.plan_week, self.name or ""),
 		)
