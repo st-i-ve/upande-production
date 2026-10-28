@@ -178,7 +178,7 @@ export function Blocks() {
       actions={actions}
       description={
         usesCycles
-          ? `Every ${crop.unit_label.toLowerCase()} under ${crop.parent_unit_label.toLowerCase()}, with its current cycle. Open one for its rotation history and recent work.`
+          ? `Every ${crop.unit_label.toLowerCase()}${crop.parent_unit_label ? ` under each ${crop.parent_unit_label.toLowerCase()}` : ""}, with its current cycle. Open one for its rotation history and recent work.`
           : `Every ${crop.unit_label.toLowerCase()}, with its area, status and recent work. Open one for its latest activity.`
       }
     >
