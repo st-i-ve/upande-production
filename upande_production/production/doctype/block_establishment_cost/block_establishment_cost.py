@@ -3,6 +3,9 @@
 
 from frappe.model.document import Document
 
+from upande_production.production.logic import establishment
+
 
 class BlockEstablishmentCost(Document):
-	pass
+	def validate(self):
+		establishment.split(self)
