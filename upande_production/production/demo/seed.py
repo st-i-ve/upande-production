@@ -12,6 +12,7 @@ import frappe
 from frappe.utils import add_days, getdate, now_datetime, today
 
 from upande_production.production.demo.config import DEMO
+from upande_production.patches import convert_protocol_steps
 from upande_production.production.logic import cycles as cycles_logic, plans, work
 from upande_production.production.logic.stages import product_item
 from upande_production.production.logic.weeks import iso_of
@@ -85,7 +86,8 @@ def seed_masters():
 		for op, off, every, count, qty in steps:
 			rows.append({"operation": frappe.db.get_value("Production Operation", {"crop": crop, "operation_name": op}),
 				"day_offset": off, "repeat_every_days": every, "repeat_count": count, "planned_qty": qty})
-		_insert({"doctype": "Production Protocol", "protocol_name": pname, "crop": crop, "item": item, "steps": rows})
+		doc = _insert({"doctype": "Production Protocol", "protocol_name": pname, "crop": crop, "item": item, "steps": rows})
+		convert_protocol_steps.convert(doc)  # key and cultural rows from the demo steps
 	frappe.db.commit()
 
 
@@ -657,19 +659,22 @@ def seed_protocol_versions():
 		return name
 
 	def bump_rate(doc):
-		for s in doc.steps:
-			if "fert" in (frappe.db.get_value("Production Operation", s.operation, "operation_name") or "").lower():
-				s.planned_qty = (s.planned_qty or 1) * 1.2
-				s.note = "Fertiliser rate +20% after the leaf analysis"
+		rows = list(doc.cultural_activities) + list(doc.key_activities)
+		for r in rows:
+			if "fert" in (frappe.db.get_value("Production Operation", r.operation, "operation_name") or "").lower():
+				r.planned_qty = (r.planned_qty or 1) * 1.2
+				r.description = "Fertiliser rate +20% after the leaf analysis"
 				return
-		if doc.steps:
-			doc.steps[0].planned_qty = (doc.steps[0].planned_qty or 1) * 1.2
-			doc.steps[0].note = "Rate +20% after the leaf analysis"
+		if rows:
+			rows[0].planned_qty = (rows[0].planned_qty or 1) * 1.2
+			rows[0].description = "Rate +20% after the leaf analysis"
 
 	def trim(doc):
-		if doc.steps:
-			doc.steps[-1].repeat_count = max(int(doc.steps[-1].repeat_count or 1) - 1, 1)
-			doc.steps[-1].note = "One pass fewer"
+		if doc.cultural_activities:
+			doc.cultural_activities[-1].interval_weeks = (doc.cultural_activities[-1].interval_weeks or 1) + 1
+			doc.cultural_activities[-1].description = "One pass fewer: interval stretched by a week"
+		elif doc.key_activities:
+			doc.key_activities[-1].description = "One pass fewer"
 
 	avo = frappe.db.get_value("Production Crop", {"crop_key": "avocado"}) or "Avocado"
 	fv = frappe.db.get_value("Production Crop", {"crop_key": "fruits-vegetables"}) or "Fruits & Vegetables"

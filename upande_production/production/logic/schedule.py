@@ -84,3 +84,29 @@ def due_items(cycle_doc, protocol_doc, frm, to, harvest_start=None, picks=(), ha
 def rows_for_check(protocol_doc, operation):
 	"""Cultural rows of an operation (for the buffer rules)."""
 	return [r for r in protocol_doc.get("cultural_activities") or [] if _g(r, "operation") == operation]
+
+
+def harvest_context(cycle) -> dict:
+	"""{"harvest_start", "picks", "harvest_interval_weeks"} of a cycle from the database: the expected harvest
+	start (stages.harvest_start), the distinct dates of its Production Harvests and its variety's interval."""
+	import frappe
+
+	from upande_production.production.logic import stages
+
+	name = cycle if isinstance(cycle, str) else cycle.get("name")
+	try:
+		hs = stages.harvest_start(name)
+	except Exception:
+		hs = None
+	picks = sorted({getdate(d) for d in frappe.get_all("Production Harvest", filters={"cycle": name},
+		pluck="harvest_date") if d})
+	variety = frappe.db.get_value("Production Crop Cycle", name, "variety")
+	interval = None
+	if variety:
+		interval = cint(frappe.db.get_value("Production Variety", variety, "harvest_interval_weeks")) or None
+	return {"harvest_start": hs, "picks": picks, "harvest_interval_weeks": interval}
+
+
+def due_for_cycle(cycle_doc, protocol_doc, frm, to) -> list:
+	"""due_items with the cycle's harvest context filled in from the database."""
+	return due_items(cycle_doc, protocol_doc, frm, to, **harvest_context(cycle_doc))

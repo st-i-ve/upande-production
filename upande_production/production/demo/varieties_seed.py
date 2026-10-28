@@ -12,6 +12,7 @@ cycle's variety item. Every invented figure is in DEMO below.
 import frappe
 from frappe.utils import add_days, cint, getdate, today
 
+from upande_production.patches import convert_protocol_steps
 from upande_production.production.logic import stages
 
 # stage = (name, start_day, length_days[, is_harvest])
@@ -215,8 +216,9 @@ def _protocol_for(v):
 				"repeat_count": count, "planned_qty": qty, "note": note})
 	frappe.flags.in_demo_seed = True
 	try:
-		frappe.get_doc({"doctype": "Production Protocol", "protocol_name": pname, "crop": crop, "item": v["item"],
+		doc = frappe.get_doc({"doctype": "Production Protocol", "protocol_name": pname, "crop": crop, "item": v["item"],
 			"variety": v["name"], "steps": steps}).insert(ignore_permissions=True)  # demo flag: v1 Active
+		convert_protocol_steps.convert(doc)  # key and cultural rows (anchored steps use the variety's stages)
 	finally:
 		frappe.flags.in_demo_seed = False
 	return pname
