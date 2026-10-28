@@ -63,6 +63,9 @@ export interface CoverageUnit {
   geojson: UnitGeoJSON;
   cycle: string | null;
   item: string | null;
+  variety?: string | null;
+  /** Growth stage of the current cycle. */
+  current_stage?: string | null;
   tasks: CoverageTask[];
   /** Mean of per-task completion, 0 to 100 (UOMs are not summed). */
   progress_pct: number;

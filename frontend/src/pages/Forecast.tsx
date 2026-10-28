@@ -17,6 +17,8 @@ import { SEASONS_CHART_HEIGHT, SeasonsChart } from "@/components/forecast/Season
 import { Card, CardContent, CardDescription, CardHeaderRow, CardHeading, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { forecastSummary, type ForecastSummary, type ForecastTotals } from "@/lib/api";
+import { FilterSelect } from "@/components/FilterSelect";
+import { useVarietyFilter } from "@/lib/use-varieties";
 import { useCurrentCrop, viewLabel } from "@/lib/crops";
 import { isError } from "@/lib/frappe";
 import { qty } from "@/lib/format";
@@ -45,6 +47,8 @@ export function Forecast() {
   const [range, setRange] = useState<DateRange>(defaultRange);
   const [q, setQ] = useState("");
   const [offOnly, setOffOnly] = useState(false);
+  const [variety, setVariety] = useState("");
+  const vf = useVarietyFilter(crop.name);
   const [data, setData] = useState<ForecastSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [failure, setFailure] = useState<string | null>(null);
@@ -71,7 +75,19 @@ export function Forecast() {
   const uom = data?.uom || crop.yield_uom || "";
   const unitLabel = crop.unit_label || "Unit";
   const canEdit = crop.boot.can_plan || crop.boot.can_manage;
-  const totals = data?.totals ?? EMPTY_TOTALS;
+  const varietyUnits = useMemo(
+    () => (data?.units ?? []).filter((u) => !variety || vf.byUnit.get(u.unit) === variety),
+    [data, variety, vf.byUnit],
+  );
+  // The weekly chart is crop-wide; with a variety chosen the totals are summed from its blocks.
+  const totals = useMemo<ForecastTotals>(() => {
+    const base = data?.totals ?? EMPTY_TOTALS;
+    if (!variety) return base;
+    const forecast = varietyUnits.reduce((t, u) => t + u.forecast, 0);
+    const toDate = varietyUnits.reduce((t, u) => t + u.forecast_to_date, 0);
+    const actual = varietyUnits.reduce((t, u) => t + u.actual, 0);
+    return { forecast, forecast_to_date: toDate, actual, committed: base.committed, error_pct: toDate > 0 ? Math.round(((actual - toDate) / toDate) * 1000) / 10 : null };
+  }, [data, variety, varietyUnits]);
   const first = firstLoad(loading, !!data);
 
   const series = useMemo(() => {
@@ -94,23 +110,24 @@ export function Forecast() {
     };
   }, [data]);
 
-  const offTarget = useMemo(() => (data?.units ?? []).filter((u) => errorTone(u.error_pct) === "poor").length, [data]);
+  const offTarget = useMemo(() => varietyUnits.filter((u) => errorTone(u.error_pct) === "poor").length, [varietyUnits]);
   const cover = totals.forecast > 0 ? (totals.committed / totals.forecast) * 100 : null;
 
   const units = useMemo(
     () =>
-      (data?.units ?? [])
+      varietyUnits
         .filter((u) => !q || matchesQuery(u.unit, q))
         .filter((u) => !offOnly || errorTone(u.error_pct) !== "good")
         .sort((a, b) => Math.abs(b.error_pct ?? 0) - Math.abs(a.error_pct ?? 0)),
-    [data, q, offOnly],
+    [varietyUnits, q, offOnly],
   );
 
-  const dirty = range.from !== defaultRange().from || range.to !== defaultRange().to || !!q || offOnly;
+  const dirty = range.from !== defaultRange().from || range.to !== defaultRange().to || !!q || offOnly || !!variety;
   const clear = () => {
     setRange(defaultRange());
     setQ("");
     setOffOnly(false);
+    setVariety("");
   };
 
   return (
@@ -139,6 +156,9 @@ export function Forecast() {
               </TogglePill>
             ),
           },
+          ...(vf.options.length
+            ? [{ key: "variety", tabs: ["overview", "accuracy"], node: <FilterSelect label="Variety" value={variety} onChange={setVariety} options={vf.options} allLabel="All varieties" /> }]
+            : []),
           { key: "range", tabs: ["overview", "accuracy"], node: <DateRangePicker label="Period" value={range} onChange={setRange} /> },
         ]}
         actions={

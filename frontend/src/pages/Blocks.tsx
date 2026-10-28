@@ -1,3 +1,4 @@
+import { StageChip } from "@/components/varieties/StageChip";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { ClearFiltersPill } from "@/components/ClearFiltersPill";
@@ -106,7 +107,7 @@ export function Blocks() {
     if (!dirty) return flatten(all, collapsed, null);
     const hits = all.filter(
       (u) =>
-        matchesQuery(`${u.name} ${u.item ?? ""} ${usesCycles ? u.current_cycle ?? "" : ""}`, query) &&
+        matchesQuery(`${u.name} ${u.item ?? ""} ${u.variety ?? ""} ${u.current_stage ?? ""} ${usesCycles ? u.current_cycle ?? "" : ""}`, query) &&
         (!status || u.status === status) &&
         (!type || u.unit_type === type) &&
         (!usesCycles || !cycleOnly || !!u.current_cycle),
@@ -263,8 +264,12 @@ export function Blocks() {
                         <td className={TD}>
                           {u.current_cycle ? (
                             <>
-                              <div className="text-[var(--sd-ink)]">{u.item || u.current_cycle}</div>
-                              <div className="text-[11px] text-[var(--sd-quiet)]">{u.current_cycle}</div>
+                              <div className="text-[var(--sd-ink)]">{u.variety || u.item || u.current_cycle}</div>
+                              <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-[var(--sd-quiet)]">
+                                {u.variety && u.item ? <span>{u.item} ·</span> : null}
+                                <span>{u.current_cycle}</span>
+                                <StageChip stage={u.current_stage} accent={accent} />
+                              </div>
                             </>
                           ) : (
                             <span className="text-[var(--sd-quiet)]">—</span>

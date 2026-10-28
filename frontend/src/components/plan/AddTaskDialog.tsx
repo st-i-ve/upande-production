@@ -11,6 +11,8 @@ import { DatePicker } from "@/components/DatePicker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchPicker } from "@/components/ui/search-picker";
+import { BlockNotice, OverrideReasonDialog } from "@/components/rules/RuleParts";
+import { ruleFailure, type RuleFailure } from "@/lib/rules";
 import { savePlanTasks, type UnitRow } from "@/lib/api";
 import { isError } from "@/lib/frappe";
 import { addDays } from "@/components/plan/fmt";
@@ -59,6 +61,7 @@ export function AddTaskDialog({
   const [supervisor, setSupervisor] = useState("");
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  const [rule, setRule] = useState<RuleFailure | null>(null);
 
   const unitOptions = useMemo(
     () =>
@@ -74,9 +77,10 @@ export function AddTaskDialog({
   const op = operations.find((o) => o.name === operation);
   const ready = !!unit && !!operation && !!due;
 
-  async function save() {
+  async function save(overrideReason?: string) {
     setBusy(true);
     setFailure(null);
+    setRule(null);
     const u = units.find((x) => x.name === unit);
     const r = await savePlanTasks(crop, farm, year, week, [
       {
@@ -88,10 +92,12 @@ export function AddTaskDialog({
         due_date: due,
         supervisor: supervisor || null,
       },
-    ]);
+    ], overrideReason ?? null);
     setBusy(false);
     if (isError(r)) {
-      setFailure(r.error);
+      const rf = ruleFailure(r);
+      if (rf) setRule(rf);
+      else setFailure(r.error);
       return;
     }
     onAdded();
@@ -130,6 +136,7 @@ export function AddTaskDialog({
             <SearchPicker value={supervisor} onChange={setSupervisor} options={supervisors} placeholder="None" label="Supervisor" />
           </div>
         )}
+        {rule?.status === "Block" && <BlockNotice breaches={rule.breaches} />}
         {failure && (
           <p role="alert" className="rounded-[var(--sd-radius)] bg-[var(--sd-alert-error)] px-3 py-2 text-[13px] text-[var(--sd-ink)]">
             {failure}
@@ -139,11 +146,14 @@ export function AddTaskDialog({
           <Button variant="outline" onClick={onClose} disabled={busy}>
             Cancel
           </Button>
-          <Button onClick={save} disabled={busy || !ready}>
+          <Button onClick={() => void save()} disabled={busy || !ready || rule?.status === "Block"}>
             {busy ? "Adding…" : "Add task"}
           </Button>
         </div>
       </DialogContent>
+      {rule?.status === "Warn" && (
+        <OverrideReasonDialog breaches={rule.breaches} busy={busy} onCancel={() => setRule(null)} onConfirm={(reason) => void save(reason)} />
+      )}
     </Dialog>
   );
 }

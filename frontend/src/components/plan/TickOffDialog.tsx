@@ -12,6 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchPicker } from "@/components/ui/search-picker";
 import { Textarea } from "@/components/ui/textarea";
+import { BlockNotice, OverrideReasonDialog, RuleFlag } from "@/components/rules/RuleParts";
+import { ruleFailure, type RuleFailure } from "@/lib/rules";
 import { STATUSES, StatusPill } from "@/components/plan/badges";
 import { recordTaskWork, type PlanTask, type ValueAdder } from "@/lib/api";
 import { isError } from "@/lib/frappe";
@@ -51,6 +53,7 @@ export function TickOffDialog({
   const [note, setNote] = useState(task.note ?? "");
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  const [rule, setRule] = useState<RuleFailure | null>(null);
   const seq = useRef(0);
 
   const options = useMemo(
@@ -68,14 +71,17 @@ export function TickOffDialog({
   const bad = filled.some((r) => num(r.qty) <= 0);
   const preview = rate == null ? null : filled.reduce((s, r) => s + num(r.qty) * rate, 0);
 
-  async function save() {
+  async function save(overrideReason?: string) {
     setBusy(true);
     setFailure(null);
+    setRule(null);
     const entries = filled.map((r) => ({ employee: r.employee, qty: num(r.qty), hours: num(r.hours) }));
-    const r = await recordTaskWork(plan, task.name as string, status, entries, note);
+    const r = await recordTaskWork(plan, task.name as string, status, entries, note, null, overrideReason ?? null);
     setBusy(false);
     if (isError(r)) {
-      setFailure(r.error);
+      const rf = ruleFailure(r);
+      if (rf) setRule(rf);
+      else setFailure(r.error);
       return;
     }
     onSaved(r.task);
@@ -91,6 +97,13 @@ export function TickOffDialog({
             {fmtQty(task.done_qty)} {uom}
           </DialogDescription>
         </DialogHeader>
+
+        {task.rule_status && task.rule_status !== "OK" && (
+          <div className="flex items-start gap-2 rounded-[var(--sd-radius)] bg-[var(--sd-amber-bg)] px-3 py-2 text-[12.5px] text-[var(--sd-ink)]">
+            <RuleFlag status={task.rule_status} />
+            <span className="whitespace-pre-line">{[task.rule_notes, task.override_reason ? `Reason given: ${task.override_reason}` : ""].filter(Boolean).join("\n")}</span>
+          </div>
+        )}
 
         <div className="flex flex-col gap-1.5">
           <Label>Status</Label>
@@ -203,6 +216,7 @@ export function TickOffDialog({
           <Textarea id="tick-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Anything the next shift should know" />
         </div>
 
+        {rule?.status === "Block" && <BlockNotice breaches={rule.breaches} />}
         {failure && (
           <p role="alert" className="rounded-[var(--sd-radius)] bg-[var(--sd-alert-error)] px-3 py-2 text-[13px] text-[var(--sd-ink)]">
             {failure}
@@ -215,12 +229,15 @@ export function TickOffDialog({
             <Button variant="outline" onClick={onClose} disabled={busy}>
               Cancel
             </Button>
-            <Button onClick={save} disabled={busy || bad}>
+            <Button onClick={() => void save()} disabled={busy || bad || rule?.status === "Block"}>
               {busy ? "Saving…" : "Save"}
             </Button>
           </div>
         </div>
       </DialogContent>
+      {rule?.status === "Warn" && (
+        <OverrideReasonDialog breaches={rule.breaches} busy={busy} onCancel={() => setRule(null)} onConfirm={(reason) => void save(reason)} />
+      )}
     </Dialog>
   );
 }

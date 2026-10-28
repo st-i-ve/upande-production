@@ -4,7 +4,7 @@ import frappe
 from frappe import _
 
 from upande_production.api.envelope import as_dict, run
-from upande_production.production.logic import analytics, plans, rules, work
+from upande_production.production.logic import analytics, plans, rules, stages, work
 from upande_production.production.logic.settings import PAY_ROLES, can_see_pay
 from upande_production.production.logic.weeks import iso_week_bounds
 
@@ -68,6 +68,8 @@ def _unit_rows(crop):
 		cy = cycles.get(r.name)
 		r["current_cycle"] = cy.name if cy else None
 		r["item"] = cy.item if cy else None
+		r["variety"] = cy.variety if cy else None
+		r["current_stage"] = cy.current_stage if cy else None
 	return rows
 
 
@@ -142,7 +144,7 @@ def get_unit(name):
 
 _CYCLE_FIELDS = [
 	"name", "title", "unit", "item", "cycle_type", "start_date", "expected_harvest_start",
-	"expected_harvest_end", "protocol", "status", "area_ha", "previous_cycle",
+	"expected_harvest_end", "protocol", "status", "area_ha", "previous_cycle", "variety", "current_stage",
 ]
 
 
@@ -155,11 +157,24 @@ def list_cycles(crop, unit=None, status=None):
 		filters["unit"] = unit
 	if status:
 		filters["status"] = status
-	return {
-		"cycles": frappe.get_all(
-			"Production Crop Cycle", filters=filters, fields=_CYCLE_FIELDS, order_by="start_date desc"
-		)
-	}
+	cycles = frappe.get_all("Production Crop Cycle", filters=filters, fields=_CYCLE_FIELDS, order_by="start_date desc")
+	for c in cycles:
+		c["stage_bands"] = _stage_bands(c)
+	return {"cycles": cycles}
+
+
+def _stage_bands(c):
+	"""The variety's stages with real dates (actuals applied) for the Gantt; [] without a variety."""
+	if not c.get("variety"):
+		return []
+	try:
+		return [
+			{"stage": b["stage"], "start": str(b["start"]), "end": str(b["end"]), "is_harvest": int(b["is_harvest"]),
+				"actual": bool(b["actual"])}
+			for b in stages.timeline(c["name"])
+		]
+	except Exception:
+		return []
 
 
 @frappe.whitelist(methods=["POST"])

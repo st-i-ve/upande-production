@@ -3,6 +3,7 @@ import { CheckCircle2 } from "lucide-react";
 import { Bar } from "@/components/Loading";
 import { Button } from "@/components/ui/button";
 import { SendBackDialog } from "@/components/approvals/SendBackDialog";
+import { ProtocolRuleCheck } from "@/components/approvals/ProtocolRuleCheck";
 import { ProtocolDiff } from "@/components/approvals/ProtocolDiff";
 import type { PendingProtocol } from "@/lib/protocols-api";
 
@@ -69,6 +70,7 @@ export function ProtocolReview({
               </div>
             )}
           </header>
+          <ProtocolRuleCheck problems={p.diff.rule_check} />
           <ProtocolDiff diff={p.diff} />
         </article>
       ))}

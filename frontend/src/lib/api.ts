@@ -91,6 +91,9 @@ export interface UnitRow {
   current_cycle: string | null;
   item: string | null;
   has_geojson: 0 | 1 | boolean;
+  /** Variety and growth stage of the current cycle. */
+  variety?: string | null;
+  current_stage?: string | null;
 }
 
 export const listUnits = (crop: string) => rpc<{ units: UnitRow[] }>("list_units", { crop });
@@ -124,6 +127,20 @@ export interface Cycle {
   status: string;
   area_ha: number;
   previous_cycle: string | null;
+  variety?: string | null;
+  current_stage?: string | null;
+  /** The variety's stages with real dates (actuals applied). */
+  stage_bands?: StageBand[];
+}
+
+export interface StageBand {
+  stage: string;
+  start: string;
+  /** Exclusive: the day the next stage begins. */
+  end: string;
+  is_harvest: 0 | 1 | boolean;
+  /** A recorded actual date moved this stage. */
+  actual: boolean;
 }
 
 export const listCycles = (crop: string, unit?: string | null, status?: string | null) =>
@@ -146,6 +163,8 @@ export interface WorkEntry {
   review_note?: string | null;
 }
 
+export type RuleStatus = "OK" | "Warn" | "Block";
+
 export interface PlanTask {
   /** Absent on a row that has not been saved yet. */
   name?: string;
@@ -167,6 +186,10 @@ export interface PlanTask {
   deviation: string | null;
   protocol_ref: string | null;
   note: string | null;
+  /** Activity rule flag: OK, Warn (allowed with a reason) or Block. */
+  rule_status?: RuleStatus | null;
+  rule_notes?: string | null;
+  override_reason?: string | null;
   work: WorkEntry[];
   /** Set to 1 on a row passed to `savePlanTasks` to delete it. */
   _delete?: 1;
@@ -189,10 +212,21 @@ export const savePlanTasks = (
   year: number,
   week: number,
   tasks: Array<Partial<PlanTask> & Row>,
-) => rpc<{ name: string }>("save_plan_tasks", { crop, farm, year, week, tasks });
+  overrideReason?: string | null,
+) => rpc<{ name: string }>("save_plan_tasks", { crop, farm, year, week, tasks, override_reason: overrideReason ?? null });
+
+/** A protocol step the activity rules refused to plan (Block). */
+export interface SkippedStep {
+  protocol_ref: string;
+  unit: string;
+  cycle: string;
+  operation: string;
+  due_date: string;
+  message: string;
+}
 
 export const generatePlanWeek = (crop: string, farm: string, year: number, week: number) =>
-  rpc<{ name: string; created: number }>("generate_plan_week", { crop, farm, year, week });
+  rpc<{ name: string; created: number; skipped?: SkippedStep[] }>("generate_plan_week", { crop, farm, year, week });
 
 export interface WorkInput {
   employee: string;
@@ -208,6 +242,7 @@ export const recordTaskWork = (
   entries: WorkInput[],
   note = "",
   workDate: string | null = null,
+  overrideReason: string | null = null,
 ) =>
   rpc<{ task: PlanTask; work: string[] }>("record_task_work", {
     plan,
@@ -216,6 +251,7 @@ export const recordTaskWork = (
     entries,
     note,
     work_date: workDate,
+    override_reason: overrideReason,
   });
 
 // -- Value Adders ------------------------------------------------------------

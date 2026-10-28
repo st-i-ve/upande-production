@@ -10,7 +10,8 @@ import { isError } from "@/lib/frappe";
 import { kes } from "@/lib/format";
 import { cn, matchesQuery } from "@/lib/utils";
 
-export const CATEGORIES = ["Planting", "Field Care", "Nutrition", "Spray", "Irrigation", "Harvest", "Husbandry", "Other"];
+/** Operation categories: the same list the activity rules use. */
+export const CATEGORIES: string[] = ["Spraying", "Weeding", "Fertilising", "Irrigation", "Harvesting", "Pruning", "Feeding", "Other"];
 
 interface Draft {
   key: string;

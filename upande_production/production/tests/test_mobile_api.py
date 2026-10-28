@@ -186,6 +186,20 @@ class TestMobileApi(IntegrationTestCase):
 			"crop": self.crop.name, "unit": self.unit.name, "operation": self.op.name, "planned_qty": 0,
 		}))
 
+	def test_units_and_detail_carry_variety_and_stage_keys(self):
+		units = self._call(api.productionListUnits, {"crop": self.crop.name})
+		u = next(u for u in units if u["name"] == self.unit.name)
+		for k in ("variety", "current_stage", "stage_day", "days_to_harvest", "pre_harvest_days", "in_pre_harvest"):
+			self.assertIn(k, u)
+		plan, task = self._plan_with_task(due_date=today(), supervisor=self.emp.name)
+		y, w = iso_of(today())
+		det = self._call(api.productionGetPlanDetail, {"crop": self.crop.name, "farm": self.farm.name, "year": y, "week": w})
+		blk = next(b for b in det["blocks"] if b["unit"] == self.unit.name)
+		t = next(t for t in blk["tasks"] if t["name"] == task)
+		for k in ("variety", "current_stage", "stage_day", "days_to_harvest", "pre_harvest_days", "in_pre_harvest"):
+			self.assertIn(k, blk)
+			self.assertIn(k, t)
+
 	def test_generate_plan_without_cycles_explains(self):
 		res = self._call(api.productionGeneratePlan, {"crop": self.crop.name, "farm": self.farm.name})
 		self.assertEqual(res["status"], "success")

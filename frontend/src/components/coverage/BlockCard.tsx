@@ -1,3 +1,4 @@
+import { StageChip } from "@/components/varieties/StageChip";
 import { MapFloatingCard } from "@/components/map";
 import { COVERAGE_STATE_COLOR, COVERAGE_STATE_LABEL, formatQty, type CoverageUnit } from "@/lib/map-api";
 import { taskProgress } from "./coverage-utils";
@@ -26,7 +27,8 @@ export function BlockCard({
             {COVERAGE_STATE_LABEL[unit.state]}
           </span>
           <span className="tabular-nums text-[var(--sd-muted)]">{num(unit.area_ha)} ha</span>
-          {unit.item ? <span className="text-[var(--sd-muted)]">{unit.item}</span> : null}
+          {unit.variety || unit.item ? <span className="text-[var(--sd-muted)]">{unit.variety || unit.item}</span> : null}
+          <StageChip stage={unit.current_stage} accent={accent} />
         </div>
         {unit.tasks.length === 0 ? (
           <p className="text-[var(--sd-muted)]">No work planned this week.</p>

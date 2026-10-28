@@ -67,6 +67,56 @@ def _run(name, fn):
 		_fail(name + " error", e)
 
 
+def _stage_info(units, crop=None) -> dict:
+	"""{unit: {variety, current_stage, stage_day, days_to_harvest, pre_harvest_days, in_pre_harvest}} from
+	each unit's open cycle. stage_day = days into the stage; pre_harvest_days = the longest "not within N
+	days before harvest" rule for the variety; in_pre_harvest = harvest is that close (or under way)."""
+	out = {}
+	if not units:
+		return out
+	meta = frappe.get_meta("Production Crop Cycle")
+	if not meta.has_field("variety"):
+		return out
+	from upande_production.production.logic import rules, stages
+
+	rows = frappe.get_all(
+		"Production Crop Cycle", filters={"unit": ("in", list(units)), "status": ("in", ["Active", "Harvesting"])},
+		fields=["name", "unit", "variety", "crop"], order_by="start_date desc",
+	)
+	crop_of = {r.name: r.crop for r in rows}
+	for r in rows:
+		if r.unit in out:
+			continue
+		info = dict(_NO_STAGE, variety=r.variety or None)
+		if r.variety:
+			try:
+				st = stages.stage_on(r.name)
+				info["current_stage"] = st["stage"]
+				if st["stage"] and st["start"]:
+					info["stage_day"] = (getdate(today()) - getdate(st["start"])).days
+				hs = stages.harvest_start(r.name)
+				if hs:
+					info["days_to_harvest"] = (getdate(hs) - getdate(today())).days
+				window = max((cint(x.days) for x in rules._crop_rules(crop_of.get(r.name))
+					if x.rule_type == rules.BEFORE and rules._applies_to_variety(x, r.variety)), default=0)
+				info["pre_harvest_days"] = window or None
+				if window and info["days_to_harvest"] is not None:
+					info["in_pre_harvest"] = info["days_to_harvest"] <= window
+			except Exception:
+				frappe.log_error(title="productionStageInfo")
+		out[r.unit] = info
+	return out
+
+
+_NO_STAGE = {"variety": None, "current_stage": None, "stage_day": None, "days_to_harvest": None,
+	"pre_harvest_days": None, "in_pre_harvest": False}
+
+
+def _with_stage(row: dict, info: dict) -> dict:
+	row.update(info.get(row.get("unit") or row.get("name")) or dict(_NO_STAGE))
+	return row
+
+
 @frappe.whitelist()
 def productionListCrops():
 	if _denied(("Production Crop", "read")):
@@ -87,12 +137,17 @@ def productionListUnits():
 	err = _require(data, "crop")
 	if err:
 		return _fail(err)
-	_run("productionListUnits", lambda: frappe.get_all(
-		"Production Unit", filters={"crop": _s(data, "crop"), "status": "Active"},
-		fields=["name", "unit_name", "unit_type", "farm", "is_group", "parent_production_unit",
-			"area_ha", "plant_count"],
-		order_by="unit_name asc",
-	))
+	def go():
+		rows = frappe.get_all(
+			"Production Unit", filters={"crop": _s(data, "crop"), "status": "Active"},
+			fields=["name", "unit_name", "unit_type", "farm", "is_group", "parent_production_unit",
+				"area_ha", "plant_count"],
+			order_by="unit_name asc",
+		)
+		info = _stage_info([r.name for r in rows])
+		return [_with_stage(r, info) for r in rows]
+
+	_run("productionListUnits", go)
 
 
 @frappe.whitelist()
@@ -472,6 +527,11 @@ def productionGetPlanDetail():
 			b["tasks"].append(row)
 		for b in blocks.values():
 			b.update(_counts([t for t in tasks if t.unit == b["unit"]]))
+		info = _stage_info(list(blocks))
+		for b in blocks.values():
+			_with_stage(b, info)
+			for t in b["tasks"]:
+				t.update({k: b[k] for k in _NO_STAGE})
 		out["blocks"] = sorted(blocks.values(), key=lambda b: b["unit_name"])
 		return out
 
@@ -579,6 +639,10 @@ def productionProtocolCheck():
 
 	def go():
 		year, week, _s0, _e0 = _week_args(data)
-		return analytics.protocol_check(_s(data, "crop"), year, week, _s(data, "unit") or None)
+		res = analytics.protocol_check(_s(data, "crop"), year, week, _s(data, "unit") or None)
+		info = _stage_info([b["unit"] for b in res.get("blocks", [])])
+		for b in res.get("blocks", []):
+			_with_stage(b, info)
+		return res
 
 	_run("productionProtocolCheck", go)

@@ -226,3 +226,35 @@ class TestVarieties(IntegrationTestCase):
 		self.assertEqual(frappe.db.get_value("Production Crop Cycle", {"unit": "Avocado Block B", "status": "Harvesting"}, "variety"), "Fuerte")
 		self.assertFalse(frappe.get_all("Production Operation", filters={"category": ("is", "not set")}, pluck="name"))
 		self.assertFalse(frappe.get_all("Pond Stocking", filters={"strain": ("is", "not set")}, pluck="name"))
+
+	# ---------------------------------------------------------------- desk api
+
+	def test_save_list_variety_rules_and_actuals(self):
+		from unittest import mock
+
+		from upande_production.api import varieties as api
+		patcher = mock.patch.object(frappe.db, "rollback")  # envelope errors must not wipe class fixtures
+		patcher.start()
+		self.addCleanup(patcher.stop)
+		r = api.save_variety({"variety_name": "TV Gamma", "crop": self.crop.name, "item": "TV Product - Alpha",
+			"stages": [{"stage": "Plant", "start_day": 0, "length_days": 10, "is_harvest": 0},
+				{"stage": "Pick", "start_day": 10, "length_days": 5, "is_harvest": 1}]})
+		self.assertEqual(r["name"], "TV Gamma")
+		rows = api.list_varieties(self.crop.name)["varieties"]
+		g = next(v for v in rows if v["name"] == "TV Gamma")
+		self.assertEqual([s["stage"] for s in g["stages"]], ["Plant", "Pick"])
+		bad = api.save_variety({"variety_name": "TV Bad", "crop": self.crop.name, "item": "TV Product - Alpha",
+			"stages": [{"stage": "X", "start_day": 0, "length_days": 0}]})
+		self.assertIn("error", bad)
+		rule = api.save_rule({"crop": self.crop.name, "variety": "TV Gamma", "stage": "Plant",
+			"operation_category": "Weeding", "rule_type": "Not in stage", "enforcement": "Warn", "enabled": 1})
+		self.assertTrue(rule["name"])
+		self.assertIn("error", api.save_rule({"crop": self.crop.name, "rule_type": "Not in stage", "enforcement": "Warn"}))
+		api.set_rule_enabled(rule["name"], 0)
+		self.assertEqual(next(x for x in api.list_rules(self.crop.name)["rules"] if x["name"] == rule["name"])["enabled"], 0)
+		cy = _make("Production Crop Cycle", unit=self.unit.name, crop=self.crop.name, variety="TV Gamma",
+			start_date=add_days(today(), -3), status="Active")
+		out = api.set_stage_actual(cy.name, "Pick", str(add_days(today(), 2)))
+		self.assertEqual(out["current_stage"], "Plant")
+		self.assertTrue(next(b for b in out["stage_bands"] if b["stage"] == "Pick")["actual"])
+		self.assertIn("error", api.set_stage_actual(cy.name, "Nope", str(today())))

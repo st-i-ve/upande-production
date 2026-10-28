@@ -29,6 +29,9 @@ export interface ApprovalEntry {
   work_date: string;
   approval_status: ApprovalStatus;
   review_note: string | null;
+  rule_status?: "OK" | "Warn" | "Block";
+  rule_notes?: string | null;
+  override_reason?: string | null;
 }
 
 /** One card: a supervisor's submission for a plan task (or an unplanned unit + operation + date). */
@@ -66,6 +69,10 @@ export interface ApprovalGroup {
   stale: boolean;
   total_qty: number;
   total_pay: Money;
+  /** Worst activity-rule flag over the rows, the rules' messages and the reason the supervisor gave. */
+  rule_status?: "OK" | "Warn" | "Block";
+  rule_notes?: string | null;
+  override_reason?: string | null;
   review_note: string | null;
   reviewed_by: string | null;
   reviewed_at: string | null;

@@ -15,6 +15,7 @@ import { Picker } from "@/components/ui/picker";
 import { SearchPicker } from "@/components/ui/search-picker";
 import { listProtocols, saveCycle, type Crop } from "@/lib/api";
 import { isError } from "@/lib/frappe";
+import { listVarieties, type Variety } from "@/lib/varieties-api";
 import { todayISO } from "@/lib/utils";
 
 /** Select options of the Crop Cycle doctype. */
@@ -45,12 +46,15 @@ export function NewCycleDialog({
   const [hEnd, setHEnd] = useState("");
   const [protocol, setProtocol] = useState("");
   const [protocols, setProtocols] = useState<{ value: string; label: string }[]>([]);
+  const [variety, setVariety] = useState("");
+  const [varieties, setVarieties] = useState<Variety[]>([]);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setUnit(defaultUnit ?? "");
     let live = true;
+    void listVarieties(crop.name).then((r) => live && !isError(r) && setVarieties(r.varieties.filter((v) => !!Number(v.enabled))));
     void listProtocols(crop.name).then((r) => {
       if (!live || isError(r)) {
         if (live && isError(r)) toast(r.error, "error");
@@ -76,7 +80,8 @@ export function NewCycleDialog({
     const r = await saveCycle({
       crop: crop.name,
       unit,
-      item: item.trim() || null,
+      variety: variety || null,
+      item: variety ? undefined : item.trim() || null,
       cycle_type: type,
       start_date: start,
       expected_harvest_start: hStart || null,
@@ -90,6 +95,7 @@ export function NewCycleDialog({
     }
     toast(`Cycle ${(r as { name: string }).name} saved.`);
     setItem("");
+    setVariety("");
     setHStart("");
     setHEnd("");
     setProtocol("");
@@ -120,10 +126,27 @@ export function NewCycleDialog({
               options={units.filter((u) => !u.is_group).map((u) => ({ value: u.name, label: u.name }))}
             />
           </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="cy-item">Item</Label>
-            <ItemField id="cy-item" value={item} onChange={setItem} />
-          </div>
+          {varieties.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="cy-variety">Variety</Label>
+              <Picker
+                id="cy-variety"
+                label="Variety"
+                value={variety}
+                onChange={setVariety}
+                options={varieties.map((v) => ({ value: v.name, label: v.variety_name }))}
+                clearable
+                clearLabel="No variety"
+                placeholder="No variety"
+              />
+            </div>
+          )}
+          {!variety && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="cy-item">Item</Label>
+              <ItemField id="cy-item" value={item} onChange={setItem} />
+            </div>
+          )}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="cy-type">Cycle type</Label>
             <Picker id="cy-type" label="Cycle type" value={type} onChange={setType} options={CYCLE_TYPES} />

@@ -188,6 +188,8 @@ def coverage_map(crop, year, week, farm=None, operation=None, status=None):
 			"geojson": gj,
 			"cycle": cy.name if cy else None,
 			"item": cy.item if cy else None,
+			"variety": cy.variety if cy else None,
+			"current_stage": cy.current_stage if cy else None,
 			"tasks": tasks,
 			"progress_pct": progress_pct(tasks),
 			"remaining_qty": remaining,

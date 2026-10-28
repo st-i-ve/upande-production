@@ -13,6 +13,8 @@ import { AddTaskDialog, type OperationOption } from "@/components/plan/AddTaskDi
 import { AvatarStack, DeviationBadge, STATUSES, StatusPill } from "@/components/plan/badges";
 import { PendingChip, QtyBar } from "@/components/plan/QtyBar";
 import { addDays, q, rowDate } from "@/components/plan/fmt";
+import { RuleFlag } from "@/components/rules/RuleParts";
+import { ProtocolCheckPanel } from "@/components/plan/ProtocolCheckPanel";
 import { TickOffDialog } from "@/components/plan/TickOffDialog";
 import {
   generatePlanWeek,
@@ -21,10 +23,12 @@ import {
   listUnits,
   listValueAdders,
   type Plan as PlanData,
+  type SkippedStep,
   type PlanTask,
   type UnitRow,
   type ValueAdder,
 } from "@/lib/api";
+import { protocolCheck, type ProtocolCheck } from "@/lib/varieties-api";
 import { cropUsesCycles, useCurrentCrop } from "@/lib/crops";
 import { formatUoms, kes, sumByUom } from "@/lib/format";
 import { isError } from "@/lib/frappe";
@@ -53,6 +57,8 @@ export function Plan() {
   const [generating, setGenerating] = useState(false);
   const [picked, setPicked] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [check, setCheck] = useState<ProtocolCheck | null>(null);
+  const [skipped, setSkipped] = useState<SkippedStep[]>([]);
   const seq = useRef(0);
 
   const load = useCallback(
@@ -80,6 +86,7 @@ export function Plan() {
   );
 
   useEffect(() => {
+    setSkipped([]);
     void load();
   }, [load]);
 
@@ -95,6 +102,26 @@ export function Plan() {
       live = false;
     };
   }, [crop.name]);
+
+  const usesCycles = cropUsesCycles(crop);
+  // Protocol steps due this week that an activity rule would stop; a failure just hides the panel.
+  useEffect(() => {
+    let live = true;
+    setCheck(null);
+    if (usesCycles) {
+      void (async () => {
+        try {
+          const r = await protocolCheck(crop.name, week.year, week.week);
+          if (live && !isError(r)) setCheck(r);
+        } catch {
+          /* no panel */
+        }
+      })();
+    }
+    return () => {
+      live = false;
+    };
+  }, [crop.name, usesCycles, week.year, week.week, plan]);
 
   const allTasks = useMemo(() => plan?.tasks ?? [], [plan]);
   const tasks = useMemo(
@@ -154,6 +181,7 @@ export function Plan() {
       toast(r.error, "error");
       return;
     }
+    setSkipped(r.skipped ?? []);
     toast(
       r.created ? `${r.created} task${r.created === 1 ? "" : "s"} added` : "No new tasks: the protocols are already planned",
       r.created ? "ok" : "info",
@@ -298,6 +326,7 @@ export function Plan() {
                       <span className="w-24 text-[12.5px] tabular-nums text-[var(--sd-muted)]">{rowDate(t.due_date)}</span>
                       <StatusPill status={t.status} />
                       <DeviationBadge deviation={t.deviation} />
+                      <RuleFlag status={t.rule_status} notes={t.rule_notes} overrideReason={t.override_reason} />
                       {(t.pending_qty ?? 0) > 0 && <PendingChip>Awaiting approval</PendingChip>}
                       <span className="ml-auto">
                         <AvatarStack names={t.work.map((w) => w.employee_name || w.employee)} />
@@ -312,6 +341,28 @@ export function Plan() {
       </div>
     );
   }
+
+  const opLabel = (name: string) => ops.find((o) => o.name === name)?.operation_name || name;
+  const skippedPanel = skipped.length > 0 && (
+    <div role="status" data-testid="skipped-steps" className="mb-4 rounded-[var(--sd-radius-lg)] bg-[var(--sd-alert-error)] px-4 py-3">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <h2 className="text-[13.5px] font-semibold text-[var(--sd-ink)]">
+          {skipped.length} protocol step{skipped.length === 1 ? "" : "s"} not planned: an activity rule blocks {skipped.length === 1 ? "it" : "them"}
+        </h2>
+        <button type="button" className="text-[12px] text-[var(--sd-muted)] underline" onClick={() => setSkipped([])}>
+          Dismiss
+        </button>
+      </div>
+      <ul className="flex flex-col gap-1">
+        {skipped.map((s) => (
+          <li key={s.protocol_ref} className="text-[13px] text-[var(--sd-ink)]">
+            <span className="font-medium">{s.unit}</span> · {opLabel(s.operation)} · due {rowDate(s.due_date)}
+            <span className="block text-[12.5px] text-[var(--sd-muted)]">{s.message}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 
   const showSummary = !!farm && !error && (loading ? false : allTasks.length > 0);
 
@@ -360,6 +411,8 @@ export function Plan() {
           </KpiGrid>
         </div>
       )}
+      {skippedPanel}
+      <ProtocolCheckPanel check={check} />
       {body}
       {selected && plan?.plan && (
         <TickOffDialog

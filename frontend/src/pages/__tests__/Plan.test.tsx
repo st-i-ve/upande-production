@@ -154,6 +154,8 @@ describe("Plan", () => {
         "Done",
         [{ employee: "EMP-1", qty: 10, hours: 4 }],
         "",
+        null,
+        null, // no override reason
       ),
     );
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());

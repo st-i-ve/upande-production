@@ -12,7 +12,10 @@ import { CATEGORIES, OperationsTable } from "@/components/settings/OperationsTab
 import { ProtocolsList, type ProtocolActions } from "@/components/settings/ProtocolsList";
 import { Card, CardContent, CardDescription, CardHeaderRow, CardHeading, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { listOperations, type Row } from "@/lib/api";
+import { RulesPanel } from "@/components/varieties/RulesPanel";
+import { VarietiesPanel } from "@/components/varieties/VarietiesPanel";
+import { listOperations, listProtocols, type Row } from "@/lib/api";
+import { listRules, listVarieties, type ActivityRule, type Variety } from "@/lib/varieties-api";
 import {
   approveProtocol,
   listProtocolFamilies,
@@ -44,14 +47,28 @@ export function Settings() {
   const [category, setCategory] = useState("");
   const [ops, setOps] = useState<Row[] | null>(null);
   const [protocols, setProtocols] = useState<ProtocolFamily[] | null>(null);
+  const [varieties, setVarieties] = useState<Variety[] | null>(null);
+  const [rules, setRules] = useState<ActivityRule[] | null>(null);
+  const [activeProtocols, setActiveProtocols] = useState<{ value: string; label: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [o, p] = await Promise.all([listOperations(crop.name), listProtocolFamilies(crop.name)]);
+    const [o, p, v, r, ap] = await Promise.all([
+      listOperations(crop.name),
+      listProtocolFamilies(crop.name),
+      listVarieties(crop.name),
+      listRules(crop.name),
+      listProtocols(crop.name),
+    ]);
     setLoading(false);
     if (isError(o)) toast(o.error, "error");
     if (isError(p)) toast(p.error, "error");
+    if (isError(v)) toast(v.error, "error");
+    if (isError(r)) toast(r.error, "error");
+    setVarieties(isError(v) ? [] : (v.varieties ?? []));
+    setRules(isError(r) ? [] : (r.rules ?? []));
+    setActiveProtocols(isError(ap) ? [] : (ap.rows ?? []).map((x) => ({ value: String(x.name), label: String(x.protocol_name ?? x.name) })));
     setOps(isError(o) ? [] : (o.rows ?? []));
     setProtocols(isError(p) ? [] : (p.families ?? []));
   }, [crop.name, toast]);
@@ -59,12 +76,27 @@ export function Settings() {
   useEffect(() => {
     setOps(null);
     setProtocols(null);
+    setVarieties(null);
+    setRules(null);
     void load();
   }, [load]);
 
   const opNames = useMemo(
     () => Object.fromEntries((ops ?? []).map((o) => [String(o.name), String(o.operation_name ?? o.name)])),
     [ops],
+  );
+
+  const opOptions = useMemo(() => (ops ?? []).map((o) => ({ value: String(o.name), label: String(o.operation_name ?? o.name) })), [ops]);
+  const visibleVarieties = useMemo(
+    () => (varieties ?? []).filter((v) => !q || matchesQuery(`${v.variety_name} ${v.item}`, q)),
+    [varieties, q],
+  );
+  const visibleRules = useMemo(
+    () =>
+      (rules ?? []).filter(
+        (r) => !q || matchesQuery(`${r.rule_type} ${r.variety ?? ""} ${r.stage ?? ""} ${r.operation ?? ""} ${r.operation_category ?? ""} ${r.reason ?? ""}`, q),
+      ),
+    [rules, q],
   );
 
   const visibleProtocols = useMemo(
@@ -132,12 +164,14 @@ export function Settings() {
           <TabsList>
             <TabsTrigger value="operations">Operations &amp; rates</TabsTrigger>
             <TabsTrigger value="protocols">Protocols</TabsTrigger>
+            <TabsTrigger value="varieties">Varieties</TabsTrigger>
+            <TabsTrigger value="rules">Activity rules</TabsTrigger>
           </TabsList>
         }
         filters={[
           {
             key: "q",
-            node: <SearchInput size="md" value={q} onChange={setQ} placeholder={tab === "protocols" ? "Search protocols" : "Search operations"} className="w-52" />,
+            node: <SearchInput size="md" value={q} onChange={setQ} placeholder={tab === "protocols" ? "Search protocols" : tab === "varieties" ? "Search varieties" : tab === "rules" ? "Search rules" : "Search operations"} className="w-52" />,
           },
           {
             key: "category",
@@ -202,6 +236,42 @@ export function Settings() {
             </CardHeaderRow>
             <CardContent>
               {!protocols ? <RowsSkeleton rows={4} /> : <ProtocolsList families={visibleProtocols} opNames={opNames} canPlan={crop.boot.can_plan} canManage={canManage} actions={actions} />}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="varieties" className="mt-0">
+          <Card>
+            <CardHeaderRow>
+              <CardHeading>
+                <CardTitle>Varieties</CardTitle>
+                <CardDescription>Each variety is its own stock item, with growth stages that restrict what work can happen when.</CardDescription>
+              </CardHeading>
+            </CardHeaderRow>
+            <CardContent>
+              {!varieties ? (
+                <RowsSkeleton rows={4} />
+              ) : (
+                <VarietiesPanel crop={crop.name} accent={crop.accent_color || "#3f7d3a"} varieties={visibleVarieties} protocols={activeProtocols} canEdit={canManage} onChanged={load} />
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="rules" className="mt-0">
+          <Card>
+            <CardHeaderRow>
+              <CardHeading>
+                <CardTitle>Activity rules</CardTitle>
+                <CardDescription>What a stage or the harvest date forbids. Block refuses the work; Warn needs a reason and is flagged to the manager.</CardDescription>
+              </CardHeading>
+            </CardHeaderRow>
+            <CardContent>
+              {!rules || !varieties ? (
+                <RowsSkeleton rows={4} />
+              ) : (
+                <RulesPanel crop={crop.name} rules={visibleRules} varieties={varieties} operations={opOptions} canEdit={canManage} onChanged={load} />
+              )}
             </CardContent>
           </Card>
         </TabsContent>

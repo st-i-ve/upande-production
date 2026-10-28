@@ -2,7 +2,15 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderPage } from "./helpers";
 
-vi.mock("@/lib/api", () => ({ listOperations: vi.fn(), saveOperation: vi.fn() }));
+vi.mock("@/lib/api", () => ({ listOperations: vi.fn(), saveOperation: vi.fn(), listProtocols: vi.fn() }));
+vi.mock("@/lib/varieties-api", () => ({
+  listVarieties: vi.fn(),
+  listRules: vi.fn(),
+  saveVariety: vi.fn(),
+  saveRule: vi.fn(),
+  setRuleEnabled: vi.fn(),
+  RULE_TYPES: ["Not in stage", "Only in stage", "Not within days before harvest", "Not within days after operation"],
+}));
 vi.mock("@/lib/protocols-api", () => ({
   listProtocolFamilies: vi.fn(),
   newVersion: vi.fn(),
@@ -11,7 +19,8 @@ vi.mock("@/lib/protocols-api", () => ({
   sendBackProtocol: vi.fn(),
   saveProtocolDraft: vi.fn(),
 }));
-import { listOperations, saveOperation } from "@/lib/api";
+import { listOperations, listProtocols, saveOperation } from "@/lib/api";
+import { listRules, listVarieties } from "@/lib/varieties-api";
 import {
   approveProtocol,
   listProtocolFamilies,
@@ -25,6 +34,9 @@ import { Settings } from "@/pages/Settings";
 describe("Settings", () => {
   beforeEach(() => {
     vi.mocked(listProtocolFamilies).mockResolvedValue({ families: [] });
+    vi.mocked(listProtocols).mockResolvedValue({ rows: [] });
+    vi.mocked(listVarieties).mockResolvedValue({ varieties: [] });
+    vi.mocked(listRules).mockResolvedValue({ rules: [] });
     vi.mocked(saveOperation).mockReset();
   });
 
@@ -36,7 +48,7 @@ describe("Settings", () => {
 
   it("edits and saves one row for a manager", async () => {
     vi.mocked(listOperations).mockResolvedValue({
-      rows: [{ name: "OP-1", operation_name: "Pruning", category: "Field Care", work_uom: "Nos", default_rate: 25, is_harvest: 0 }],
+      rows: [{ name: "OP-1", operation_name: "Pruning", category: "Spraying", work_uom: "Nos", default_rate: 25, is_harvest: 0 }],
     });
     vi.mocked(saveOperation).mockResolvedValue({ name: "OP-1" });
     renderPage(<Settings />);
@@ -51,7 +63,7 @@ describe("Settings", () => {
 
   it("is read-only for non-managers", async () => {
     vi.mocked(listOperations).mockResolvedValue({
-      rows: [{ name: "OP-1", operation_name: "Pruning", category: "Field Care", work_uom: "Nos", default_rate: 25, is_harvest: 1 }],
+      rows: [{ name: "OP-1", operation_name: "Pruning", category: "Spraying", work_uom: "Nos", default_rate: 25, is_harvest: 1 }],
     });
     renderPage(<Settings />, { can_manage: false });
     expect(await screen.findByText("Pruning")).toBeInTheDocument();

@@ -2,6 +2,8 @@ import { useState } from "react";
 import { CheckCircle2, Loader2, RotateCcw, Undo2 } from "lucide-react";
 import { CheckCircle } from "@/components/ui/check-circle";
 import { Input } from "@/components/ui/input";
+import { RuleBanner } from "@/components/approvals/RuleBanner";
+import { EnforcementPill } from "@/components/rules/RuleParts";
 import { StepLine } from "@/components/approvals/StepLine";
 import type { ApprovalGroup, ResubmitEdit } from "@/lib/approvals-api";
 import { kes, shortDate, trimQty } from "@/lib/format";
@@ -73,7 +75,8 @@ export function ApprovalCard({
         )}
         <div className="min-w-0 flex-1">
           <h3 className="text-[15px] font-semibold tracking-tight text-[var(--sd-ink)]">
-            {g.unit_name} <span className="font-normal text-[var(--sd-muted)]">·</span> {g.operation_name}
+            {g.unit_name} <span className="font-normal text-[var(--sd-muted)]">·</span> {g.operation_name}{" "}
+            <EnforcementPill status={g.rule_status} className="align-middle" />
           </h3>
           <p className="mt-0.5 text-[12px] text-[var(--sd-quiet)]">
             {[plan, shortDate(g.work_date)].filter(Boolean).join(" · ")}
@@ -90,6 +93,8 @@ export function ApprovalCard({
           </div>
         </div>
       </header>
+
+      <RuleBanner status={g.rule_status} notes={g.rule_notes} overrideReason={g.override_reason ?? g.entries.find((e) => e.override_reason)?.override_reason} />
 
       <div className="px-5 pt-3">
         <StepLine planned={g.task_planned_qty} done={g.task_done_qty} pending={g.total_qty} uom={g.uom} />

@@ -8,6 +8,7 @@
  */
 
 import { call, type Envelope } from "@/lib/frappe";
+import type { Breach } from "@/lib/rules";
 
 const PREFIX = "upande_production.api.protocols.";
 const rpc = <T>(name: string, args: Record<string, unknown> = {}): Promise<Envelope<T>> =>
@@ -64,7 +65,20 @@ export interface StepChange {
   changes?: { field: string; before: unknown; after: unknown }[];
 }
 
+/** A protocol step that would land in a forbidden stage or window for the variety. */
+export interface RuleCheckProblem {
+  operation: string;
+  operation_name: string;
+  repeat: number;
+  /** Days from the cycle start (or the step's anchor stage). */
+  day: number;
+  stage: string | null;
+  rule_status: "OK" | "Warn" | "Block";
+  breaches: Breach[];
+}
+
 export interface ProtocolDiff {
+  rule_check?: RuleCheckProblem[];
   name: string;
   previous: string | null;
   fields: { field: string; before: unknown; after: unknown }[];
@@ -91,3 +105,6 @@ export const protocolDiff = (name: string) => rpc<ProtocolDiff>("diff", { name }
 /** Edit a Draft's item and steps. */
 export const saveProtocolDraft = (data: { name: string; item?: string | null; steps?: Partial<ProtocolStep>[] }) =>
   rpc<{ name: string }>("save_draft", { data });
+
+/** Steps of a version that break an activity rule for its variety. */
+export const protocolRuleCheck = (name: string) => rpc<RuleCheckProblem[]>("rule_check", { name });

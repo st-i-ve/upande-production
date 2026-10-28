@@ -12,6 +12,9 @@ import { ToolbarButton } from "@/components/ToolbarButton";
 import { useToast } from "@/components/Toast";
 import { StatusPill } from "@/components/blocks/StatusPill";
 import { BODY_ROW, TD, TDR, TH, THEAD_ROW, THR } from "@/components/blocks/tableStyles";
+import { CycleStageDialog } from "@/components/cycles/CycleStageDialog";
+import { StageChip } from "@/components/varieties/StageChip";
+import { listRules, listVarieties, type ActivityRule, type Variety } from "@/lib/varieties-api";
 import { CycleGantt } from "@/components/cycles/CycleGantt";
 import { CYCLE_STATUSES, NewCycleDialog } from "@/components/cycles/NewCycleDialog";
 import { Card, CardContent, CardDescription, CardHeaderRow, CardHeading, CardTitle } from "@/components/ui/card";
@@ -56,6 +59,10 @@ export function Cycles() {
   const [q, setQ] = useState("");
   const [tab, setTab] = useState("timeline");
   const [creating, setCreating] = useState(false);
+  const [variety, setVariety] = useState(ALL);
+  const [varieties, setVarieties] = useState<Variety[]>([]);
+  const [rules, setRules] = useState<ActivityRule[]>([]);
+  const [picked, setPicked] = useState<Cycle | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -86,12 +93,40 @@ export function Cycles() {
     };
   }, [crop.name, toast]);
 
+  // Varieties feed the filter and the form; rules give the pre-harvest window on the timeline.
+  useEffect(() => {
+    let live = true;
+    setVariety(ALL);
+    void listVarieties(crop.name).then((r) => live && !isError(r) && setVarieties(r.varieties));
+    void listRules(crop.name).then((r) => live && !isError(r) && setRules(r.rules));
+    return () => {
+      live = false;
+    };
+  }, [crop.name]);
+
+  const preHarvestDays = useCallback(
+    (c: Cycle) =>
+      Math.max(
+        0,
+        ...rules
+          .filter((r) => Number(r.enabled) && r.rule_type === "Not within days before harvest" && (!r.variety || r.variety === c.variety))
+          .map((r) => Number(r.days) || 0),
+      ),
+    [rules],
+  );
+  const varietyOptions = useMemo(() => varieties.map((v) => ({ value: v.name, label: v.variety_name })), [varieties]);
+
   const unitOptions = useMemo(() => units.map((u) => u.name), [units]);
   const statusOptions = useMemo(() => CYCLE_STATUSES.map((s) => ({ value: s, label: s })), []);
 
   const shown = useMemo(
-    () => (cycles ?? []).filter((c) => !q || matchesQuery(`${c.name} ${c.title} ${c.unit} ${c.item ?? ""} ${c.protocol ?? ""}`, q)),
-    [cycles, q],
+    () =>
+      (cycles ?? []).filter(
+        (c) =>
+          (!variety || c.variety === variety) &&
+          (!q || matchesQuery(`${c.name} ${c.title} ${c.unit} ${c.item ?? ""} ${c.variety ?? ""} ${c.current_stage ?? ""} ${c.protocol ?? ""}`, q)),
+      ),
+    [cycles, q, variety],
   );
 
   const kpis = useMemo(() => {
@@ -112,7 +147,7 @@ export function Cycles() {
   }, [shown]);
 
   const first = firstLoad(loading, !!cycles);
-  const filtered = !!status || !!unit || !!q;
+  const filtered = !!status || !!unit || !!q || !!variety;
   const unitWord = pluralise(crop.unit_label).toLowerCase();
   const empty = !!cycles && shown.length === 0;
 
@@ -133,12 +168,14 @@ export function Cycles() {
           <>
             <SearchInput size="md" value={q} onChange={setQ} placeholder="Search cycles" className="w-48" />
             <FilterSelect aria-label="Status" value={status} options={statusOptions} onChange={setStatus} allLabel="All statuses" />
+            {varietyOptions.length > 0 && <FilterSelect label="Variety" value={variety} options={varietyOptions} onChange={setVariety} allLabel="All varieties" />}
             <FilterSelect aria-label={crop.unit_label} value={unit} options={unitOptions} onChange={setUnit} allLabel={`All ${unitWord}`} />
             <ClearFiltersPill
               active={filtered}
               onClear={() => {
                 setStatus(ALL);
                 setUnit(ALL);
+                setVariety(ALL);
                 setQ("");
               }}
             />
@@ -169,11 +206,11 @@ export function Cycles() {
             <CardHeaderRow>
               <CardHeading>
                 <CardTitle>Stage timeline</CardTitle>
-                <CardDescription>{cycles ? `${qty(shown.length)} shown, oldest start first` : "Loading…"}</CardDescription>
+                <CardDescription>{cycles ? `${qty(shown.length)} shown, running first` : "Loading…"}</CardDescription>
               </CardHeading>
             </CardHeaderRow>
             <CardContent>
-              {first ? <RowsSkeleton rows={6} /> : empty ? <p className="text-[13px] text-[var(--sd-muted)]">{emptyText}</p> : <CycleGantt cycles={shown} accent={accent} unitLabel={crop.unit_label} />}
+              {first ? <RowsSkeleton rows={6} /> : empty ? <p className="text-[13px] text-[var(--sd-muted)]">{emptyText}</p> : <CycleGantt cycles={shown} accent={accent} unitLabel={crop.unit_label} preHarvestDays={preHarvestDays} onSelect={setPicked} />}
             </CardContent>
           </Card>
         </TabsContent>
@@ -192,11 +229,15 @@ export function Cycles() {
               ) : empty ? (
                 <p className="text-[13px] text-[var(--sd-muted)]">{emptyText}</p>
               ) : (
-                <CycleTable cycles={shown} unitLabel={crop.unit_label} />
+                <CycleTable cycles={shown} unitLabel={crop.unit_label} accent={accent} onSelect={setPicked} />
               )}
             </CardContent>
           </Card>
         </TabsContent>
+
+        {picked && (
+          <CycleStageDialog cycle={picked} accent={accent} canRecord={crop.boot.can_plan} onClose={() => setPicked(null)} onChanged={() => void load()} />
+        )}
 
         <NewCycleDialog
           crop={crop}
@@ -211,14 +252,16 @@ export function Cycles() {
   );
 }
 
-function CycleTable({ cycles, unitLabel }: { cycles: Cycle[]; unitLabel: string }) {
+function CycleTable({ cycles, unitLabel, accent, onSelect }: { cycles: Cycle[]; unitLabel: string; accent: string; onSelect: (c: Cycle) => void }) {
   return (
     <ScrollTable tall>
-      <table className="w-full min-w-[820px] text-[13px]">
+      <table className="w-full min-w-[980px] text-[13px]">
         <thead>
           <tr className={cn(THEAD_ROW, STICKY_HEAD)}>
             <th className={TH}>Cycle</th>
             <th className={TH}>{unitLabel}</th>
+            <th className={TH}>Variety</th>
+            <th className={TH}>Stage</th>
             <th className={TH}>Type</th>
             <th className={TH}>Started</th>
             <th className={TH}>Harvest window</th>
@@ -235,6 +278,16 @@ function CycleTable({ cycles, unitLabel }: { cycles: Cycle[]; unitLabel: string 
                 <div className="text-[11px] tabular-nums text-[var(--sd-quiet)]">{c.name}</div>
               </td>
               <td className={TD}>{c.unit}</td>
+              <td className={TD}>{c.variety || "—"}</td>
+              <td className={TD}>
+                {c.current_stage ? (
+                  <button type="button" aria-label={`Stages of ${c.name}`} onClick={() => onSelect(c)}>
+                    <StageChip stage={c.current_stage} accent={accent} />
+                  </button>
+                ) : (
+                  <button type="button" className="text-[var(--sd-quiet)] hover:underline" onClick={() => onSelect(c)}>—</button>
+                )}
+              </td>
               <td className={cn(TD, "text-[var(--sd-muted)]")}>{c.cycle_type}</td>
               <td className={cn(TD, "tabular-nums")}>{shortDate(c.start_date)}</td>
               <td className={cn(TD, "tabular-nums text-[var(--sd-muted)]")}>

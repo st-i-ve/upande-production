@@ -709,3 +709,19 @@ is started/done) and `productionRecordUnplannedWork`, and when plan tasks are ge
 - `productionProtocolCheck`: each block has `breaches` (`[{rule, rule_type, enforcement, message, operation,
   operation_name, due_date}]`) and each step has `rule_status` and `breaches`.
 - Operation `category` is one list: Spraying, Weeding, Fertilising, Irrigation, Harvesting, Pruning, Feeding, Other.
+
+## Stage and pre-harvest fields
+
+`productionListUnits` rows, `productionGetPlanDetail` blocks and tasks, and `productionProtocolCheck`
+blocks carry, from the unit's open (Active / Harvesting) cycle:
+
+| field | meaning |
+|---|---|
+| `variety` | the cycle's Production Variety |
+| `current_stage` | the variety stage the cycle is in today |
+| `stage_day` | days into that stage (0 = first day) |
+| `days_to_harvest` | days until harvest starts; negative once harvest is under way |
+| `pre_harvest_days` | the longest "Not within days before harvest" rule for the variety (e.g. no spraying for 21 days) |
+| `in_pre_harvest` | `true` when `days_to_harvest <= pre_harvest_days` — restricted work (spraying etc.) will be refused or warned |
+
+Example (Avocado Block A, Hass): `{"variety": "Hass", "current_stage": "Harvest", "days_to_harvest": -35, "pre_harvest_days": 21, "in_pre_harvest": true}`.

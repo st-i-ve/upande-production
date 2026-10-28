@@ -15,6 +15,7 @@ import { MarginChart } from "@/components/costs/MarginChart";
 import { PivotRollup } from "@/components/costs/PivotRollup";
 import { Card, CardContent, CardDescription, CardHeaderRow, CardHeading, CardTitle } from "@/components/ui/card";
 import { blockCosts, type BlockCostRow } from "@/lib/api";
+import { useVarietyFilter } from "@/lib/use-varieties";
 import { useCurrentCrop, viewLabel } from "@/lib/crops";
 import { isError } from "@/lib/frappe";
 import { costTrend, type CostTrendWeek } from "@/lib/insights-api";
@@ -54,6 +55,8 @@ export function Costs() {
   const accent = crop.accent_color || "#3f7d3a";
   const [range, setRange] = useState<DateRange>(defaultRange);
   const [group, setGroup] = useState(ALL);
+  const [variety, setVariety] = useState(ALL);
+  const vf = useVarietyFilter(crop.name);
   const [allRows, setRows] = useState<BlockCostRow[] | null>(null);
   const [trend, setTrend] = useState<CostTrendWeek[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -81,7 +84,12 @@ export function Costs() {
   }, [load]);
 
   const groups = useMemo(() => (allRows ?? []).filter((r) => r.is_group).map((r) => r.unit), [allRows]);
-  const rows = useMemo(() => (allRows && group ? inSubtree(allRows, group) : allRows), [allRows, group]);
+  const rows = useMemo(() => {
+    const scoped = allRows && group ? inSubtree(allRows, group) : allRows;
+    if (!scoped || !variety) return scoped;
+    // A variety is grown on blocks; show those blocks flat (a group's roll-up mixes varieties).
+    return scoped.filter((r) => !r.is_group && vf.byUnit.get(r.unit) === variety).map((r) => ({ ...r, parent: null }));
+  }, [allRows, group, variety, vf.byUnit]);
 
   const totals = useMemo(() => {
     const roots = buildTree(rows ?? []).map((n) => n.row);
@@ -118,7 +126,7 @@ export function Costs() {
   const first = firstLoad(loading, !!allRows);
   const empty = !!allRows && allRows.length === 0;
   const unitWord = crop.unit_label || "Block";
-  const dirty = !!group || range.from !== defaultRange().from || range.to !== defaultRange().to;
+  const dirty = !!group || !!variety || range.from !== defaultRange().from || range.to !== defaultRange().to;
   const uom = crop.yield_uom || "kg";
   const hasData = !!rows && rows.length > 0;
 
@@ -138,11 +146,13 @@ export function Costs() {
               allLabel={`All ${(crop.parent_unit_label || "groups").toLowerCase()}s`}
             />
           )}
+          {vf.options.length > 0 && <FilterSelect label="Variety" value={variety} onChange={setVariety} options={vf.options} allLabel="All varieties" />}
           <DateRangePicker label="Period" value={range} onChange={setRange} max={todayISO()} />
           <ClearFiltersPill
             active={dirty}
             onClear={() => {
               setGroup(ALL);
+              setVariety(ALL);
               setRange(defaultRange());
             }}
           />
