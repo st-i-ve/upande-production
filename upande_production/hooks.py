@@ -16,7 +16,7 @@ add_to_apps_screen = [
 		"name": "upande_production",
 		"logo": "/assets/upande_production/images/upande_mark.svg",
 		"title": "Production",
-		"route": "/production_app",
+		"route": "/app/production",
 	}
 ]
 
@@ -25,7 +25,9 @@ add_to_apps_screen = [
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/upande_production/css/upande_production.css"
-# app_include_js = "/assets/upande_production/js/upande_production.js"
+# Same-tab navigation for the /production_app sidebar and launcher links (Frappe
+# forces target="_blank" on URL sidebar items, which production_desk.js overrides).
+app_include_js = "/assets/upande_production/js/production_desk.js"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/upande_production/css/upande_production.css"
@@ -157,6 +159,10 @@ fixtures = [
 		"doctype": "Role",
 		"filters": [["name", "in", ["Production Manager", "Production Supervisor", "Production Viewer"]]],
 	},
+	# The desk workspace's launcher (one section of app links per crop) and the
+	# desk-grid icon that opens that workspace.
+	{"doctype": "Custom HTML Block", "filters": [["name", "in", ["Production Navigation"]]]},
+	{"doctype": "Desktop Icon", "filters": [["name", "in", ["Production"]]]},
 ]
 
 # Scheduled Tasks

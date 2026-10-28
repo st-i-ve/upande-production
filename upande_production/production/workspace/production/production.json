@@ -1,0 +1,119 @@
+{
+ "app": "upande_production",
+ "charts": [],
+ "content": "[{\"id\": \"prNav00001\", \"type\": \"custom_block\", \"data\": {\"custom_block_name\": \"Production Navigation\", \"col\": 12}}]",
+ "creation": "2026-10-28 12:00:00.000000",
+ "custom_blocks": [
+  {
+   "custom_block_name": "Production Navigation",
+   "label": "Production Navigation"
+  }
+ ],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "agriculture",
+ "idx": 1,
+ "indicator_color": "green",
+ "is_hidden": 0,
+ "label": "Production",
+ "links": [],
+ "module": "Production",
+ "name": "Production",
+ "number_cards": [],
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "sequence_id": 48.0,
+ "shortcuts": [
+  {
+   "color": "Green",
+   "doc_view": "List",
+   "label": "Blocks",
+   "link_to": "Production Unit",
+   "type": "DocType"
+  },
+  {
+   "color": "Green",
+   "doc_view": "List",
+   "label": "Crop Cycles",
+   "link_to": "Production Crop Cycle",
+   "type": "DocType"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "List",
+   "label": "Work Plans",
+   "link_to": "Production Work Plan",
+   "type": "DocType"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "List",
+   "label": "Value Adder Work",
+   "link_to": "Value Adder Work",
+   "type": "DocType"
+  },
+  {
+   "color": "Orange",
+   "doc_view": "List",
+   "label": "Harvests",
+   "link_to": "Production Harvest",
+   "type": "DocType"
+  },
+  {
+   "color": "Orange",
+   "doc_view": "List",
+   "label": "Yield Samples",
+   "link_to": "Yield Sample",
+   "type": "DocType"
+  },
+  {
+   "color": "Purple",
+   "doc_view": "List",
+   "label": "Forecasts",
+   "link_to": "Production Forecast",
+   "type": "DocType"
+  },
+  {
+   "color": "Purple",
+   "doc_view": "List",
+   "label": "Buyer Commitments",
+   "link_to": "Buyer Commitment",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Operations",
+   "link_to": "Production Operation",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Protocols",
+   "link_to": "Production Protocol",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Crops",
+   "link_to": "Production Crop",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Settings",
+   "link_to": "Production Settings",
+   "type": "DocType"
+  }
+ ],
+ "title": "Production",
+ "type": "Workspace",
+ "modified": "2026-10-28 12:00:00.000000"
+}
