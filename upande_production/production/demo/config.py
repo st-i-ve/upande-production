@@ -19,6 +19,7 @@ DEMO = {
 			("Pruning", "Tree", 25, "Field Care", 0), ("Fertiliser Application", "Tree", 10, "Nutrition", 0),
 			("Irrigation Check", "Hectare", 150, "Irrigation", 0), ("Weeding", "Hectare", 1200, "Field Care", 0),
 			("Fruit Count", "Tree", 5, "Field Care", 0), ("Harvest Picking", "Crate", 30, "Harvest", 1),
+			("Spraying", "Hectare", 600, "Spray", 0),
 		],
 		"Fruits & Vegetables": [
 			("Land Preparation", "Hectare", 2500, "Planting", 0), ("Planting", "Bed", 60, "Planting", 0),
@@ -96,6 +97,26 @@ DEMO = {
 		("Kimani", "Ndung'u", "Male"), ("Wambui", "Maina", "Female"), ("Juma", "Hassan", "Male"),
 		("Achieng", "Awino", "Female"), ("Kosgei", "Langat", "Male"), ("Mwende", "Kioko", "Female"),
 		("Barasa", "Wekesa", "Male"), ("Wangui", "Karanja", "Female"), ("Ochieng", "Okoth", "Male"),
+	],
+	# users who "key in" work (submitted_by on the demo Value Adder Work) and what managers sent back
+	"keying_users": ["moses@upande.com", "rose@upande.com", "mumo@upande.com"],
+	"approval_mix": {"stale_pending": 4, "fresh_pending": 5, "sent_back": 2, "stale_days": (3, 4),
+		"lead_pending": 4, "lead_stale": 1},
+	"lead_crop": "Avocado",
+	# Avocado leads the demo, so it gets a realistic trailing history: plans for the last `weeks` weeks
+	# plus unplanned (ad hoc) work by a crew drawn from the value adders, on Blocks A and B.
+	# operation -> (probability per block per week, picks per week when it happens, qty range per person, step)
+	"avocado_history": {
+		"weeks": 8, "crew": 12, "crew_per_job": (2, 3), "hours": (3.0, 8.0), "last_day_ago": 6,
+		"jobs": {
+			"Pruning": (0.5, 1, (25, 70), 1), "Irrigation Check": (1.0, 1, (1, 3), 0.5),
+			"Fertiliser Application": (0.5, 1, (40, 120), 1), "Spraying": (0.7, 1, (1, 3), 0.5),
+			"Weeding": (0.6, 1, (0.5, 2), 0.5), "Harvest Picking": (1.0, 2, (8, 18), 1),
+		},
+	},
+	"sent_back_notes": [
+		"Quantity looks too high for the hours worked. Please recheck the count and resubmit.",
+		"Wrong people listed for this block. Fix the names, then resubmit.",
 	],
 	"supervisors": [("Grace", "Wairimu", "Female"), ("Peter", "Kiplagat", "Male"), ("Mary", "Anyango", "Female")],
 }

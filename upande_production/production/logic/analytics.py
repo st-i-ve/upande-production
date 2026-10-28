@@ -221,6 +221,17 @@ def block_costs(crop, from_date, to_date, can_see_pay):
 # -- value adders ------------------------------------------------------------
 
 
+def merge_uoms(parts):
+	"""[(uom, qty), ...] -> [{"uom", "qty"}] summed per UOM, biggest first.
+
+	Work quantities are never added across units of measure (6 Hectare + 309 Tree is
+	not 315 of anything), so every figure is carried per UOM."""
+	acc = {}
+	for uom, qty in parts:
+		acc[uom or ""] = acc.get(uom or "", 0.0) + float(qty or 0)
+	return [{"uom": u, "qty": round(v, 4)} for u, v in sorted(acc.items(), key=lambda kv: (-kv[1], kv[0]))]
+
+
 def value_adder_summary(crop, from_date, to_date, group_by, can_see_pay):
 	frm, to = _range(from_date, to_date)
 	if group_by not in ("employee", "day", "unit"):
@@ -228,22 +239,33 @@ def value_adder_summary(crop, from_date, to_date, group_by, can_see_pay):
 	key = {"employee": "employee", "day": "work_date", "unit": "unit"}[group_by]
 	label = "max(employee_name)" if group_by == "employee" else key
 	data = frappe.db.sql(
-		f"""select {key}, {label}, sum(qty), sum(hours), sum(pay_value), count(*)
+		f"""select {key}, {label}, uom, sum(qty), sum(hours), sum(pay_value), count(*)
 		from `tabValue Adder Work`
 		where docstatus = 1 and crop = %s and work_date between %s and %s
-		group by {key} order by {key}""",
+		group by {key}, uom order by {key}""",
 		(crop, frm, to),
 	)
+	grouped = {}
+	for k, lab, uom, qty, hours, pay, n in data:
+		g = grouped.setdefault(str(k), {"label": None, "uoms": [], "hours": 0.0, "pay": 0.0, "entries": 0})
+		g["label"] = g["label"] or str(lab or k)
+		g["uoms"].append((uom, qty))
+		g["hours"] += float(hours or 0)
+		g["pay"] += float(pay or 0)
+		g["entries"] += n
 	rows = [
 		{
-			"key": str(r[0]), "label": str(r[1] or r[0]), "qty": float(r[2] or 0),
-			"hours": float(r[3] or 0), "pay_value": _pay(round(float(r[4] or 0), 2), can_see_pay),
-			"entries": r[5],
+			"key": k, "label": g["label"], "qty_by_uom": merge_uoms(g["uoms"]),
+			"hours": g["hours"], "pay_value": _pay(round(g["pay"], 2), can_see_pay), "entries": g["entries"],
 		}
-		for r in data
+		for k, g in grouped.items()
 	]
-	total = round(sum(float(r[4] or 0) for r in data), 2)
-	return {"rows": rows, "total_pay": _pay(total, can_see_pay)}
+	total = round(sum(float(r[5] or 0) for r in data), 2)
+	return {
+		"rows": rows,
+		"total_pay": _pay(total, can_see_pay),
+		"total_qty_by_uom": merge_uoms((r[2], r[3]) for r in data),
+	}
 
 
 # -- deviations --------------------------------------------------------------

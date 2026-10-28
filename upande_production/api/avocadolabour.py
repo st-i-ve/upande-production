@@ -167,36 +167,27 @@ def summarise(rows):
 # ── Site-facing ──────────────────────────────────────────────────────────────
 
 
-@frappe.whitelist()
-def get_labour_plan(crew_available=0, days_per_week=DEFAULT_PICKING_DAYS_PER_WEEK,
-					pay_per_day=0, price_per_kg=0):
-	"""The picking plan, built on the forecast the outlook page already shows."""
+def build_plan(forecast_rows, projection, windows, harvests, crew_available=0,
+			   days_per_week=DEFAULT_PICKING_DAYS_PER_WEEK, pay_per_day=0.0):
+	"""The whole labour plan for a set of forecast rows. Pure over the rows given.
+
+	Shared by the legacy labour page and the React picking plan / season outlook, so
+	every page staffs the same weeks.
+	"""
 	from upande_production.api import avocadoapi
 
-	forecast = avocadoapi.get_forecast(price_per_kg=price_per_kg)
-	projection = avocadoapi.dm_projection(avocadoapi._samples())
-	# Where dry matter is too old to date a pick, the forecast falls back to the
-	# window that crop was actually picked in last season. The plan has to use the
-	# same windows or a crew gets booked for weeks the calendar does not have.
-	windows = avocadoapi.seasonal_windows(avocadoapi._history(), forecast.get("season"))
-	schedule = avocadoapi.weekly_spread(forecast["rows"], projection, windows=windows)
+	schedule = avocadoapi.weekly_spread(forecast_rows, projection, windows=windows)
 
 	# weekly_spread totals the estate per week; the plan needs it per block, so the
 	# same spread is rebuilt one block at a time. Same function, so the two pages
 	# can never disagree about which week a block lands in.
 	block_kg = {}
-	for row in forecast["rows"]:
+	for row in forecast_rows:
 		one = avocadoapi.weekly_spread([row], projection, windows=windows)
 		for week, kg in zip(one["weeks"], one["kg"]):
 			block_kg.setdefault(week, {})[row["block"]] = kg
 
-	harvests = (frappe.get_all(HARVEST_DOCTYPE,
-							   fields=["orchard_block", "harvest_date", "total_kg",
-									   "pickers_count", "bins_harvested"],
-							   limit_page_length=0)
-				if frappe.db.exists("DocType", HARVEST_DOCTYPE) else [])
 	rates = picker_rates(harvests)
-
 	rows = labour_plan(schedule["weeks"], block_kg, rates,
 					   crew_available=flt(crew_available), days_per_week=days_per_week,
 					   pay_per_day=flt(pay_per_day))
@@ -211,4 +202,34 @@ def get_labour_plan(crew_available=0, days_per_week=DEFAULT_PICKING_DAYS_PER_WEE
 		# is the manager's cue to go and sample those blocks.
 		"unscheduled": schedule.get("unscheduled", []),
 		"unscheduled_kg": schedule.get("unscheduled_kg", 0),
+		"block_kg": block_kg,
+		"schedule": schedule,
 	}
+
+
+def read_harvests():
+	return (frappe.get_all(HARVEST_DOCTYPE,
+						   fields=["orchard_block", "harvest_date", "total_kg",
+								   "pickers_count", "bins_harvested"],
+						   limit_page_length=0)
+			if frappe.db.exists("DocType", HARVEST_DOCTYPE) else [])
+
+
+@frappe.whitelist()
+def get_labour_plan(crew_available=0, days_per_week=DEFAULT_PICKING_DAYS_PER_WEEK,
+					pay_per_day=0, price_per_kg=0):
+	"""The picking plan, built on the forecast the outlook page already shows."""
+	from upande_production.api import avocadoapi
+
+	forecast = avocadoapi.get_forecast(price_per_kg=price_per_kg)
+	projection = avocadoapi.dm_projection(avocadoapi._samples())
+	# Where dry matter is too old to date a pick, the forecast falls back to the
+	# window that crop was actually picked in last season. The plan has to use the
+	# same windows or a crew gets booked for weeks the calendar does not have.
+	windows = avocadoapi.seasonal_windows(avocadoapi._history(), forecast.get("season"))
+	out = build_plan(forecast["rows"], projection, windows, read_harvests(),
+					 crew_available=crew_available, days_per_week=days_per_week,
+					 pay_per_day=pay_per_day)
+	out.pop("block_kg")
+	out.pop("schedule")
+	return out

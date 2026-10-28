@@ -50,7 +50,9 @@ describe("Cycles", () => {
     renderPage(<Cycles />);
     expect(await screen.findByText("CYC-2026-0007")).toBeTruthy();
     expect(screen.getByText("Harvesting")).toBeTruthy();
-    expect(screen.getByText("8.0")).toBeTruthy();
+    expect(screen.getByTestId("gantt-CYC-2026-0007")).toBeTruthy();
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "List" }));
+    expect(await screen.findByText("8.0")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /New cycle/i }));
     expect(await screen.findByText("New crop cycle")).toBeTruthy();
   });

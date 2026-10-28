@@ -2,7 +2,7 @@ import frappe
 from frappe.tests import IntegrationTestCase
 from frappe.utils import add_days, get_datetime, getdate, now_datetime, today
 
-from upande_production.production.logic import plans, units, work
+from upande_production.production.logic import approvals, plans, units, work
 from upande_production.production.logic.weeks import iso_of
 
 
@@ -102,7 +102,12 @@ class TestLogicDomain(IntegrationTestCase):
 		e = self.emps[0].name
 		work.record_task_work(plan.name, task.name, "In Progress", [{"employee": e, "qty": 6}])
 		res = work.record_task_work(plan.name, task.name, "Done", [{"employee": self.emps[1].name, "qty": 4}])
-		self.assertEqual(res["task"]["done_qty"], 10)
+		self.assertEqual(res["task"]["done_qty"], 0)
+		self.assertEqual(res["task"]["pending_qty"], 10)
+		approvals.approve(frappe.get_all("Value Adder Work", filters={"plan": plan.name, "plan_task": task.name}, pluck="name"))
+		plan.reload()
+		self.assertEqual(next(t for t in plan.tasks if t.name == task.name).done_qty, 10)
+		self.assertEqual(next(t for t in plan.tasks if t.name == task.name).pending_qty, 0)
 		vaws = frappe.get_all(
 			"Value Adder Work", filters={"plan": plan.name, "plan_task": task.name, "docstatus": 1},
 			fields=["qty", "rate", "pay_value"],
@@ -115,10 +120,12 @@ class TestLogicDomain(IntegrationTestCase):
 		plan, task = self._plan_with_task(today())
 		work.record_task_work(plan.name, task.name, "In Progress", [{"employee": self.emps[0].name, "qty": 6}])
 		res = work.record_task_work(plan.name, task.name, "Done", [{"employee": self.emps[1].name, "qty": 4}])
-		self.assertEqual(res["task"]["done_qty"], 10)
+		approvals.approve(frappe.get_all("Value Adder Work", filters={"plan": plan.name, "plan_task": task.name}, pluck="name"))
+		plan.reload()
+		self.assertEqual(next(t for t in plan.tasks if t.name == task.name).done_qty, 10)
 		frappe.get_doc("Value Adder Work", res["work"][0]).cancel()
 		plan.reload()
-		self.assertEqual(plan.tasks[0].done_qty, 6)
+		self.assertEqual(next(t for t in plan.tasks if t.name == task.name).done_qty, 6)
 
 	def test_status_only_creates_no_work(self):
 		plan, task = self._plan_with_task(today())
@@ -130,7 +137,11 @@ class TestLogicDomain(IntegrationTestCase):
 	def test_late_flag_on_plan_save(self):
 		plan, task = self._plan_with_task(add_days(today(), -3))
 		res = work.record_task_work(plan.name, task.name, "Done", [{"employee": self.emps[0].name, "qty": 10}])
-		self.assertEqual(res["task"]["deviation"], "Late")
+		self.assertEqual(res["task"]["deviation"], "Partial")
+		self.assertEqual(res["task"]["done_qty"], 0)  # deviation maths stay on approved qty
+		approvals.approve(res["work"])
+		plan.reload()
+		self.assertEqual(next(t for t in plan.tasks if t.name == task.name).deviation, "Late")
 
 	def test_sample_estimate(self):
 		unit = self._unit("TC SampleUnit", plant_count=400)

@@ -128,8 +128,10 @@ html { font-size: 85%; }
 
   /* Type */
   --sd-font: "Poppins", "Inter", "Helvetica Neue", Arial, sans-serif;
-  --sd-font-mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas,
-    monospace;
+  /* One typeface. IDs and figures used to switch to a system monospace, which
+     read as a different font beside Poppins; they stay in Poppins and line up
+     through tabular figures instead (see .font-mono and body below). */
+  --sd-font-mono: var(--sd-font);
 
   /* Geometry */
   /* Alert washes, taken from Frappe's own desk alert so a livestock toast and
@@ -286,6 +288,7 @@ html { font-size: 85%; }
     font-size: 14px;
     line-height: 1.5;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    font-variant-numeric: tabular-nums;
     -webkit-font-smoothing: antialiased;
   }
   ::selection {
@@ -359,3 +362,70 @@ html { font-size: 85%; }
   --sd-amber-bg: #fef6e7;
   --sd-amber-line: rgba(180, 83, 9, 0.28);
 }
+
+/* Page-level motion shared with SCP: map cards and panels rise/slide in, tab
+   content fades in. */
+@keyframes scp-card-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+.scp-card-in { animation: scp-card-in 280ms cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+@keyframes scp-panel-in {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: none; }
+}
+.scp-panel-in { animation: scp-panel-in 300ms cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+@keyframes scp-fade-in { from { opacity: 0; } to { opacity: 1; } }
+.scp-fade-in { animation: scp-fade-in 180ms ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .scp-card-in, .scp-panel-in, .scp-fade-in { animation: none; }
+}
+
+/* Date range picker motion (components/DateRangePicker.tsx + ui/calendar.tsx).
+   Quick (<=220ms) and transform/opacity only. The range fill grows out from
+   the start day, a picked end day pops, the month grid slides in the
+   direction of travel. Two identical keyframes per direction let a changed
+   data-tick restart the slide without remounting (which would drop keyboard
+   focus). */
+@keyframes scp-cal-fill {
+  from { transform: scaleX(0); opacity: 0.4; }
+  to { transform: scaleX(1); opacity: 1; }
+}
+@keyframes scp-cal-pop {
+  0% { transform: scale(0.82); }
+  60% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+@keyframes scp-cal-next-a { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+@keyframes scp-cal-next-b { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+@keyframes scp-cal-prev-a { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
+@keyframes scp-cal-prev-b { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
+@keyframes scp-cal-zoom { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: none; } }
+
+.scp-cal-fill { transform-origin: left center; animation: scp-cal-fill 200ms ease-out both; }
+.scp-cal-pop { animation: scp-cal-pop 200ms ease-out both; }
+.scp-cal-slide[data-dir="next"][data-tick="0"] { animation: scp-cal-next-a 200ms ease-out both; }
+.scp-cal-slide[data-dir="next"][data-tick="1"] { animation: scp-cal-next-b 200ms ease-out both; }
+.scp-cal-slide[data-dir="prev"][data-tick="0"] { animation: scp-cal-prev-a 200ms ease-out both; }
+.scp-cal-slide[data-dir="prev"][data-tick="1"] { animation: scp-cal-prev-b 200ms ease-out both; }
+.scp-cal-zoom { animation: scp-cal-zoom 160ms ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .scp-cal-fill,
+  .scp-cal-pop,
+  .scp-cal-slide,
+  .scp-cal-zoom {
+    animation: none !important;
+  }
+  .scp-cal-day { transition: none !important; }
+  .scp-cal-day:active { transform: none !important; }
+}
+
+/* Basemap credit folded into a small ⓘ (maps). */
+.scp-map-credit { display: flex; align-items: center; gap: 6px; margin: 0 0 8px 8px; font: 400 10px var(--sd-font), Poppins, sans-serif; color: var(--muted-foreground, #5d5b55); }
+.scp-map-credit button { width: 18px; height: 18px; border-radius: 9999px; border: 1px solid rgba(0,0,0,.12); background: rgba(255,255,255,.85); color: #5d5b55; font: 600 10px/1 Georgia, serif; font-style: italic; cursor: pointer; opacity: .7; }
+.scp-map-credit button:hover { opacity: 1; }
+.scp-map-credit span { display: none; padding: 2px 8px; border-radius: 9999px; background: rgba(255,255,255,.92); }
+.scp-map-credit:hover span, .scp-map-credit.open span { display: inline; }
+.scp-map-credit a { color: inherit; text-decoration: underline; }
+

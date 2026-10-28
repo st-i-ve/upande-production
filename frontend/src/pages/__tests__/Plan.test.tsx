@@ -100,6 +100,38 @@ describe("Plan", () => {
     expect(within(screen.getByRole("region", { name: "Block B" })).getByText("Weeding")).toBeTruthy();
   });
 
+  it("shows pending quantity apart from done, with an awaiting-approval chip", async () => {
+    mocked.getPlan.mockResolvedValue({
+      plan: "PLAN-1",
+      week_start: "2026-10-26",
+      week_end: "2026-11-01",
+      tasks: [task({ name: "T1", done_qty: 4, pending_qty: 3 }), task({ name: "T2", operation_name: "Weeding" })],
+    });
+    renderPlan();
+    expect(await screen.findByText("Awaiting approval", { selector: "span" })).toBeTruthy();
+    expect(screen.getByText("+3")).toBeTruthy();
+    expect(document.querySelector("[data-pending]")).toBeTruthy();
+  });
+
+  it("totals quantities per unit of measure, never across, and formats labour as KES", async () => {
+    mocked.getPlan.mockResolvedValue({
+      plan: "PLAN-1",
+      week_start: "2026-10-26",
+      week_end: "2026-11-01",
+      tasks: [
+        task({ name: "T1", planned_qty: 20, done_qty: 6, uom: "Hectare", work: [{ name: "W1", plan_task: "T1", employee: "E", employee_name: "E", qty: 6, hours: 1, pay_value: 4380.6, work_date: "2026-10-27", approval_status: "Approved" } as never] }),
+        task({ name: "T2", unit: "Block B", operation_name: "Weeding", planned_qty: 400, done_qty: 100, pending_qty: 25.16, uom: "Tree" }),
+      ],
+    });
+    renderPlan();
+    await screen.findByText("Quantity done");
+    expect(screen.getByText("100 Tree · 6 Hectare")).toBeTruthy();
+    expect(screen.getByText(/of 400 Tree · 20 Hectare planned · 25.16 Tree awaiting approval/)).toBeTruthy();
+    expect(screen.queryByText("106")).toBeNull();
+    expect(screen.getByText("KES 4,381")).toBeTruthy();
+    expect(screen.queryByText("4,380.60")).toBeNull();
+  });
+
   it("tick-off Save calls recordTaskWork with entries and updates the row", async () => {
     const t1 = task({ name: "T1" });
     mocked.getPlan.mockResolvedValue({ plan: "PLAN-1", week_start: "2026-10-26", week_end: "2026-11-01", tasks: [t1] });
@@ -125,8 +157,7 @@ describe("Plan", () => {
       ),
     );
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(await screen.findByText("Done", { selector: "span" })).toBeTruthy();
-    expect(mocked.getPlan.mock.calls.length).toBeGreaterThan(1); // quiet refetch
+    await waitFor(() => expect(mocked.getPlan.mock.calls.length).toBeGreaterThan(1)); // quiet refetch
   });
 
   it("tick-off disables Save and hints when a row has no quantity", async () => {

@@ -190,7 +190,7 @@ def get_plan(crop, farm, year, week):
 		"Production Plan Task",
 		filters={"parent": name, "parenttype": "Production Work Plan"},
 		fields=[
-			"name", "unit", "cycle", "operation", "operation_name", "planned_qty", "done_qty", "uom",
+			"name", "unit", "cycle", "operation", "operation_name", "planned_qty", "done_qty", "pending_qty", "uom",
 			"rate", "due_date", "supervisor", "status", "deviation", "protocol_ref", "note",
 		],
 		order_by="idx asc",
@@ -198,8 +198,9 @@ def get_plan(crop, farm, year, week):
 	by_task = {}
 	for w in frappe.get_all(
 		"Value Adder Work",
-		filters={"plan": name, "docstatus": 1},
-		fields=["name", "plan_task", "employee", "employee_name", "qty", "hours", "pay_value"],
+		filters={"plan": name, "docstatus": ("<", 2)},
+		fields=["name", "plan_task", "employee", "employee_name", "qty", "hours", "pay_value",
+			"approval_status", "review_note"],
 		order_by="creation asc",
 	):
 		w["pay_value"] = _pay(w["pay_value"], pay)

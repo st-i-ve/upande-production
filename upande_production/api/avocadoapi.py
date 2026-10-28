@@ -855,7 +855,7 @@ def _block_source():
 				 "or load blocks into Avocado Yield Block.")
 
 
-def _read_blocks(extra=None):
+def _read_blocks(extra=None, farm=None):
 	fields = BLOCK_FIELDS + (extra or [])
 	source = _block_source()
 	if source == LOCAL_BLOCK_DOCTYPE:
@@ -863,7 +863,8 @@ def _read_blocks(extra=None):
 		# it carries the same fieldnames deliberately, so nothing downstream cares
 		# which of the two answered.
 		pass
-	return frappe.get_all(source, fields=fields, limit_page_length=0), source
+	filters = {"farm": farm} if farm else None
+	return frappe.get_all(source, fields=fields, filters=filters, limit_page_length=0), source
 
 
 def _latest_counts():
@@ -985,6 +986,19 @@ def _cohort_samples():
 				"harvest_ready": "Yes - Above Minimum" if flt(t.dry_matter_pct) >= MIN_DRY_MATTER_PCT
 								 else "No - Below Minimum",
 			}))
+	# One visit dries several fruit sizes; they are looks at the same fruit, so a
+	# block's reading for a date is their mean, not whichever size was saved last.
+	merged = {}
+	for d in direct:
+		merged.setdefault((d["orchard_block"], d["sample_date"]), []).append(d)
+	direct = []
+	for (_blk, _date), group in sorted(merged.items(), key=lambda kv: kv[0][1]):
+		dm = sum(g["avg_dry_matter_pct"] for g in group) / len(group)
+		first = group[0]
+		first["avg_dry_matter_pct"] = dm
+		first["harvest_ready"] = ("Yes - Above Minimum" if dm >= MIN_DRY_MATTER_PCT
+								  else "No - Below Minimum")
+		direct.append(first)
 	blocks_with_own = {d["orchard_block"] for d in direct}
 	tests = [t for t in tests if not t.get("orchard_block")]
 	# Average the fruit sizes: a cohort is at one stage of maturity, and the sizes
@@ -1127,12 +1141,18 @@ def _history():
 
 
 @frappe.whitelist()
-def get_late_forecast(price_per_kg=0, drop_pct=DEFAULT_DROP_PCT):
+def get_late_forecast(price_per_kg=0, drop_pct=DEFAULT_DROP_PCT, farm=None):
 	"""The crop still on the trees, per block, and which evidence sized each one."""
-	blocks, source = _read_blocks(["to_infill"])
+	blocks, source = _read_blocks(["to_infill"], farm=farm)
+	names = {b["name"] for b in blocks}
 	harvests = (frappe.get_all(HARVEST_DOCTYPE, fields=HARVEST_FIELDS, limit_page_length=0)
 				if frappe.db.exists("DocType", HARVEST_DOCTYPE) else [])
-	out = late_crop_estimate(blocks, _history(), harvests=harvests, counts=_latest_counts(),
+	if farm:
+		harvests = [h for h in harvests if h.orchard_block in names]
+	history = _history()
+	if farm:
+		history = [h for h in history if (h.get("block_code") or h.get("block")) in names]
+	out = late_crop_estimate(blocks, history, harvests=harvests, counts=_latest_counts(),
 							 price_per_kg=flt(price_per_kg), drop_pct=flt(drop_pct))
 	out["block_source"] = source
 	out["losses"] = lost_potential(blocks, out["curve"], price_per_kg=flt(price_per_kg))
@@ -1169,7 +1189,7 @@ def get_schedule(price_per_kg=0, pick_weeks=DEFAULT_PICK_WEEKS):
 
 
 @frappe.whitelist()
-def overview(price_per_kg=0):
+def overview(price_per_kg=0, farm=None):
 	"""One call for a page: the crop that is coming, when it lands, what is lost.
 
 	The forecast here is the LATE crop, because that is the crop still on the trees.
@@ -1178,16 +1198,24 @@ def overview(price_per_kg=0):
 	two would print a season no truck will deliver. `season_total_kg` is the pair,
 	added once, for a page that wants the year.
 	"""
-	f = get_late_forecast(price_per_kg=price_per_kg)
+	f = get_late_forecast(price_per_kg=price_per_kg, farm=farm)
+	names = {r["block"] for r in f["rows"]}
 	f["maturity"] = get_maturity()
+	if farm:
+		f["maturity"]["blocks"] = [b for b in f["maturity"]["blocks"] if b["block"] in names]
+		f["maturity"]["sampled"] = len(f["maturity"]["blocks"])
 	# The second opinion, carried alongside and never folded in: it moves no kilogram
 	# and no pick date. See ripening_agreement for why it decides nothing yet.
 	f["ripening"] = get_ripening()
 	projection = dm_projection(_samples())
+	if farm:
+		projection = {k: v for k, v in projection.items() if k in names}
 	f["projection"] = sorted(projection.values(),
 							 key=lambda p: (p["weeks_to_minimum"] is None,
 											p["weeks_to_minimum"] or 0))
 	history = _history()
+	if farm:
+		history = [h for h in history if (h.get("block_code") or h.get("block")) in names]
 	windows = seasonal_windows(history, f["season"])
 	f["windows"] = sorted(windows.values(), key=lambda w: w["start"])
 	f["schedule"] = weekly_spread(f["rows"], projection, windows=windows)
@@ -1221,6 +1249,10 @@ def _manual_forecast_rows(season=None, crop=None):
 		filters["season"] = cint(season)
 	if crop:
 		filters["crop"] = crop
+	else:
+		# An Early entry estimates the crop that is already delivered (it is what the
+		# estimate-vs-delivered card scores), not the crop still coming.
+		filters["crop"] = ["!=", "Early"]
 	entries = frappe.get_all(
 		MANUAL_FORECAST_DOCTYPE, filters=filters,
 		fields=["name", "orchard_block", "season", "crop", "expected_kg",

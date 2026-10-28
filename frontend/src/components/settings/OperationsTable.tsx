@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { saveOperation, type Row } from "@/lib/api";
 import { isError } from "@/lib/frappe";
 import { kes } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { cn, matchesQuery } from "@/lib/utils";
 
 export const CATEGORIES = ["Planting", "Field Care", "Nutrition", "Spray", "Irrigation", "Harvest", "Husbandry", "Other"];
 
@@ -54,7 +54,11 @@ export function OperationsTable({
   canEdit,
   canSeePay,
   onSaved,
+  query = "",
+  category = "",
 }: {
+  query?: string;
+  category?: string;
   crop: string;
   rows: Row[];
   canEdit: boolean;
@@ -108,11 +112,17 @@ export function OperationsTable({
     onSaved();
   }
 
-  const all = [...fresh, ...drafts];
+  const everything = [...fresh, ...drafts];
+  // New (unsaved) rows always show so a filter never hides what is being typed.
+  const all = everything.filter(
+    (d) => !d.name || ((!query || matchesQuery(`${d.operation_name} ${d.category} ${d.work_uom}`, query)) && (!category || d.category === category)),
+  );
+  const nothingMatches = everything.length > 0 && all.length === 0;
+  const emptyText = nothingMatches ? "No operations match these filters." : "No operations defined for this crop yet.";
 
   if (!canEdit) {
     return all.length === 0 ? (
-      <p className="px-1 py-6 text-center text-[13px] text-[var(--sd-muted)]">No operations defined for this crop yet.</p>
+      <p className="px-1 py-6 text-center text-[13px] text-[var(--sd-muted)]">{emptyText}</p>
     ) : (
       <div className="overflow-x-auto rounded-[var(--sd-radius-lg)] border border-[var(--sd-line)]">
         <table className="w-full min-w-[40rem] text-[13px]">
@@ -149,7 +159,7 @@ export function OperationsTable({
         </Button>
       </div>
       {all.length === 0 ? (
-        <p className="px-1 py-6 text-center text-[13px] text-[var(--sd-muted)]">No operations defined for this crop yet.</p>
+        <p className="px-1 py-6 text-center text-[13px] text-[var(--sd-muted)]">{emptyText}</p>
       ) : (
         <div className="overflow-x-auto rounded-[var(--sd-radius-lg)] border border-[var(--sd-line)]">
           <table className="w-full min-w-[52rem] text-[13px]">

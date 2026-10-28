@@ -1,83 +1,78 @@
-import { useState } from "react";
-import { Check, ChevronDown } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+/**
+ * A page filter dropdown in the header pill style (`HEADER_PILL`) — the one
+ * every page uses for farm, status, group-by and the like, so a filter looks
+ * and opens the same wherever it is. Ported from SCP; replaces native
+ * <select>s, which drew the browser's own control and menu.
+ *
+ * `options` is either plain strings or `{ value, label }` pairs. `allLabel`
+ * adds an "All …" first option that stands for "" (Radix Select cannot hold an
+ * empty value, so it travels as a sentinel inside). The accessible name comes
+ * from `label` (or `aria-label`).
+ */
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { HEADER_PILL } from "@/components/header-controls";
 import { cn } from "@/lib/utils";
+
+const ALL = "__all__";
 
 export interface FilterOption {
   value: string;
   label: string;
 }
 
-/**
- * The filter pill: a rounded trigger showing the current choice, opening a
- * list. Used for every page filter; a native <select> never appears in a
- * filter row.
- */
 export function FilterSelect({
-  value,
-  options,
-  onChange,
-  placeholder = "Select",
-  className,
+  label,
   "aria-label": ariaLabel,
+  value,
+  onChange,
+  options,
+  allLabel,
+  placeholder,
+  disabled,
+  className,
+  format,
 }: {
-  value: string;
-  options: FilterOption[];
-  onChange: (value: string) => void;
-  placeholder?: string;
-  className?: string;
+  /** accessible name, e.g. "Farm"; also the placeholder when none is given */
+  label?: string;
   "aria-label"?: string;
+  value: string;
+  onChange: (next: string) => void;
+  options: Array<string | FilterOption>;
+  allLabel?: string;
+  placeholder?: string;
+  disabled?: boolean;
+  className?: string;
+  /** how a plain-string option reads (defaults to itself) */
+  format?: (option: string) => string;
 }) {
-  const [open, setOpen] = useState(false);
-  const current = options.find((o) => o.value === value);
-
+  const seen = new Set<string>();
+  const opts: FilterOption[] = [];
+  for (const o of options) {
+    const item = typeof o === "string" ? { value: o, label: format ? format(o) : o } : o;
+    if (!item.value || seen.has(item.value)) continue;
+    seen.add(item.value);
+    opts.push(item);
+  }
+  const name = ariaLabel ?? label;
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          aria-label={ariaLabel}
-          aria-haspopup="listbox"
-          aria-expanded={open}
-          className={cn(
-            "inline-flex h-9 max-w-full items-center gap-2 rounded-full bg-[var(--sd-card)] px-3.5 text-[13px] font-medium",
-            "text-[var(--sd-ink)] shadow-[var(--sd-shadow-1)] ring-1 ring-border/60 transition-shadow hover:ring-2 hover:ring-border",
-            !current && "text-[var(--sd-quiet)]",
-            className,
-          )}
-        >
-          <span className="truncate">{current ? current.label : placeholder}</span>
-          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[var(--sd-quiet)]" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto min-w-[10rem] max-w-[20rem] p-1.5" align="start">
-        <ul role="listbox" className="flex max-h-72 flex-col overflow-y-auto">
-          {options.length === 0 && (
-            <li className="px-3 py-2 text-[13px] text-[var(--sd-quiet)]">Nothing to choose</li>
-          )}
-          {options.map((o) => {
-            const selected = o.value === value;
-            return (
-              <li key={o.value} role="option" aria-selected={selected}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onChange(o.value);
-                    setOpen(false);
-                  }}
-                  className={cn(
-                    "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[13px] hover:bg-[var(--sd-bg-soft)]",
-                    selected && "font-semibold",
-                  )}
-                >
-                  <span className="min-w-0 flex-1 truncate">{o.label}</span>
-                  {selected && <Check className="h-3.5 w-3.5 shrink-0" />}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </PopoverContent>
-    </Popover>
+    <Select
+      value={value ? value : allLabel ? ALL : undefined}
+      onValueChange={(v) => onChange(v === ALL ? "" : v)}
+      disabled={disabled}
+    >
+      <SelectTrigger aria-label={name} className={cn(HEADER_PILL, className)}>
+        <SelectValue placeholder={placeholder ?? label ?? name} />
+      </SelectTrigger>
+      <SelectContent>
+        {allLabel && <SelectItem value={ALL}>{allLabel}</SelectItem>}
+        {opts.map((o) => (
+          <SelectItem key={o.value} value={o.value}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }

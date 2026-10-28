@@ -1,0 +1,221 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-10-28 09:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "harvest_date",
+  "orchard_block",
+  "column_break_head",
+  "farm",
+  "variety",
+  "status",
+  "section_pick",
+  "total_kg",
+  "trees_harvested",
+  "pickers_count",
+  "bins_harvested",
+  "column_break_pick",
+  "avg_fruit_weight_g",
+  "dry_matter_pct",
+  "section_grade",
+  "grade_1_kg",
+  "column_break_grade",
+  "grade_2_kg",
+  "column_break_grade_2",
+  "reject_kg",
+  "section_notes",
+  "client_ref",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Naming Series",
+   "hidden": 1,
+   "options": "AHL-.YYYY.-.####",
+   "default": "AHL-.YYYY.-.####"
+  },
+  {
+   "fieldname": "harvest_date",
+   "fieldtype": "Date",
+   "label": "Harvest Date",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "orchard_block",
+   "fieldtype": "Data",
+   "label": "Orchard Block",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "farm",
+   "fieldtype": "Data",
+   "label": "Farm",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "variety",
+   "fieldtype": "Data",
+   "label": "Variety"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Data",
+   "label": "Status",
+   "default": "Packed"
+  },
+  {
+   "fieldname": "section_pick",
+   "fieldtype": "Section Break",
+   "label": "The Pick"
+  },
+  {
+   "fieldname": "total_kg",
+   "fieldtype": "Float",
+   "label": "Total Kg",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "trees_harvested",
+   "fieldtype": "Int",
+   "label": "Trees Harvested"
+  },
+  {
+   "fieldname": "pickers_count",
+   "fieldtype": "Int",
+   "label": "Pickers"
+  },
+  {
+   "fieldname": "bins_harvested",
+   "fieldtype": "Int",
+   "label": "Bins"
+  },
+  {
+   "fieldname": "column_break_pick",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "avg_fruit_weight_g",
+   "fieldtype": "Float",
+   "label": "Average Fruit Weight (g)"
+  },
+  {
+   "fieldname": "dry_matter_pct",
+   "fieldtype": "Float",
+   "label": "Dry Matter %"
+  },
+  {
+   "fieldname": "section_grade",
+   "fieldtype": "Section Break",
+   "label": "Packed Grades"
+  },
+  {
+   "fieldname": "grade_1_kg",
+   "fieldtype": "Float",
+   "label": "Grade 1 Kg"
+  },
+  {
+   "fieldname": "column_break_grade",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "grade_2_kg",
+   "fieldtype": "Float",
+   "label": "Grade 2 Kg"
+  },
+  {
+   "fieldname": "column_break_grade_2",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "reject_kg",
+   "fieldtype": "Float",
+   "label": "Reject Kg"
+  },
+  {
+   "fieldname": "section_notes",
+   "fieldtype": "Section Break",
+   "label": ""
+  },
+  {
+   "fieldname": "client_ref",
+   "fieldtype": "Data",
+   "label": "Client Ref",
+   "hidden": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-10-28 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Avocado Yield",
+ "name": "Avocado Harvest Log",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Agriculture Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Agriculture User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "harvest_date",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

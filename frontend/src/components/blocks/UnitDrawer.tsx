@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { Figure, FigureRow } from "@/components/Figure";
+import { KpiCard, KpiGrid } from "@/components/KpiCard";
 import { RowsSkeleton } from "@/components/Loading";
 import { useToast } from "@/components/Toast";
 import { StatusPill } from "@/components/blocks/StatusPill";
 import { BODY_ROW, TD, TDR, TH, THEAD_ROW, THR } from "@/components/blocks/tableStyles";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { getUnit, type Row, type Unit } from "@/lib/api";
+import { getUnit, type OverviewBlock, type Row, type Unit } from "@/lib/api";
 import { isError } from "@/lib/frappe";
 import { ha, kes, qty, shortDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -17,11 +17,16 @@ export function UnitDrawer({
   name,
   unitLabel,
   canSeePay,
+  stats,
+  uom,
   onClose,
 }: {
   name: string;
   unitLabel: string;
   canSeePay: boolean;
+  /** Season totals for this unit from the overview, when they have arrived. */
+  stats?: OverviewBlock;
+  uom?: string;
   onClose: () => void;
 }) {
   const toast = useToast();
@@ -73,10 +78,21 @@ export function UnitDrawer({
           <p className="text-[13px] text-[var(--sd-muted)]">This {unitLabel.toLowerCase()} could not be loaded.</p>
         ) : (
           <>
-            <FigureRow>
-              <Figure label="Area" value={ha(u.area_ha)} unit="ha" />
-              <Figure label="Plants" value={u.plant_count ? qty(u.plant_count) : "—"} />
-            </FigureRow>
+            <KpiGrid cols={2}>
+              <KpiCard label="Area" value={`${ha(u.area_ha)} ha`} hint={u.plant_count ? `${qty(u.plant_count)} plants` : undefined} />
+              <KpiCard
+                label="Plants per ha"
+                value={u.plant_count && u.area_ha ? qty(u.plant_count / u.area_ha) : "—"}
+              />
+              {stats && <KpiCard label="Open tasks" value={qty(stats.tasks_open)} hint="this week" tone={stats.tasks_open ? "warning" : "good"} />}
+              {stats && <KpiCard label="Harvest this season" value={`${qty(stats.harvest_qty_season)}${uom ? ` ${uom}` : ""}`} />}
+              {stats && canSeePay && <KpiCard label="Labour this season" value={kes(stats.labour_cost_season)} />}
+              <KpiCard
+                label="Recent work"
+                value={`${qty(data.recent_work.reduce((t, w) => t + Number(w.hours ?? 0), 0), 1)} h`}
+                hint={`${data.recent_work.length} latest entries`}
+              />
+            </KpiGrid>
             {u.cost_center && (
               <p className="text-[12px] text-[var(--sd-quiet)]">
                 Cost centre <span className="tabular-nums text-[var(--sd-muted)]">{u.cost_center}</span>

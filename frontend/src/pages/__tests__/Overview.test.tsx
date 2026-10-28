@@ -5,6 +5,8 @@ import * as api from "@/lib/api";
 import { renderPage } from "./testkit";
 
 vi.mock("@/lib/api", async (orig) => ({ ...(await orig<typeof api>()), getOverview: vi.fn() }));
+vi.mock("@/lib/overview-api", () => ({ getOverviewExtras: vi.fn().mockResolvedValue({ error: "no extras" }) }));
+import * as oapi from "@/lib/overview-api";
 const getOverview = vi.mocked(api.getOverview);
 
 const tiles = {
@@ -47,10 +49,21 @@ describe("Overview", () => {
     });
     renderPage(<Overview />);
     expect(await screen.findByText("KES 1,234,567")).toBeTruthy();
-    expect(screen.getByText("910,000")).toBeTruthy();
+    expect(screen.getByText(/910,000/)).toBeTruthy();
     expect(screen.getByText("Block A1")).toBeTruthy();
     expect(screen.getByText("12.3")).toBeTruthy();
     expect(screen.getByText("KES 98,000")).toBeTruthy();
+  });
+
+  it("counts pending approvals as submissions and links to the Approvals page", async () => {
+    getOverview.mockResolvedValue({ tiles, blocks: [] });
+    vi.mocked(oapi.getOverviewExtras).mockResolvedValue({
+      trend: [], forecast_weeks: [], operations: [], upcoming: [], recent_deviations: [], blocks: [], pending_approvals: 4,
+    } as never);
+    renderPage(<Overview />);
+    const hint = await screen.findByText("submissions waiting for a manager");
+    expect(hint.closest("a")?.getAttribute("href")).toBe("#/avocado/approvals");
+    expect(screen.queryByText(/entries waiting/i)).toBeNull();
   });
 
   it("hides money when pay is not visible", async () => {

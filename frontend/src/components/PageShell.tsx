@@ -1,7 +1,5 @@
-import { useRef } from "react";
-
-import { PageDock } from "@/components/PageDock";
-import { headingFade, useDockProgress } from "@/lib/use-dock-progress";
+import { PageHeader } from "@/components/PageHeader";
+import type { ToolbarFilter } from "@/components/PageToolbar";
 
 /**
  * The frame every surface sits in.
@@ -24,93 +22,55 @@ export function Page({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function PageHeading({
-  eyebrow,
-  title,
-  children,
-  actions,
-}: {
-  eyebrow: string;
-  title: string;
-  children?: React.ReactNode;
-  /** Controls that belong to the page rather than to any one card. Right
-   *  aligned on the title's own line from `md` up, stacked beneath it on a
-   *  phone where there is no room beside a 40px heading. */
-  actions?: React.ReactNode;
-}) {
-  // The heading owns its own dock rather than each page wiring one up. Every
-  // surface in this app has a heading and every one of them scrolls, so making
-  // it opt-in would mean eleven identical opt-ins and one page that forgot.
-  const ref = useRef<HTMLElement | null>(null);
-  const progress = useDockProgress(ref);
-
-  return (
-    <>
-      <header ref={ref} className="flex flex-col gap-3">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-6">
-          <div className="min-w-0">
-            {/* The rule before the eyebrow is the scouting app's, and it earns
-                its place: it stops a 10px tracked label floating unanchored
-                above a 40px heading. */}
-            <div className="mb-2 flex items-center gap-2.5 text-[11px] font-medium uppercase tracking-[0.2em] text-[var(--sd-quiet)]">
-              <span className="h-px w-[18px] shrink-0 bg-[var(--sd-text)]" />
-              <span className="truncate">{eyebrow}</span>
-            </div>
-            {/* Handed over, not hidden. The title thins out across exactly
-                the stretch of scroll the pill uses to arrive, so at no point
-                are there two of it — which is what the old boolean did in the
-                window where both were drawn. It also lifts a little, so the
-                text reads as leaving upward rather than dissolving in place. */}
-            <h1
-              className="text-[28px] font-semibold leading-[1.05] tracking-[-0.03em] text-[var(--sd-ink)] will-change-[transform,opacity] md:text-[40px]"
-              style={{
-                opacity: headingFade(progress),
-                transform: `translateY(${progress * -10}px)`,
-              }}
-            >
-              {title}
-            </h1>
-          </div>
-          {actions && (
-            <div className="flex shrink-0 flex-wrap items-center gap-2 md:pt-1">
-              {actions}
-            </div>
-          )}
-        </div>
-        {children && (
-          <p className="max-w-[68ch] text-[13px] leading-relaxed text-[var(--sd-muted)]">
-            {children}
-          </p>
-        )}
-      </header>
-      <PageDock eyebrow={eyebrow} title={title} progress={progress} />
-    </>
-  );
-}
-
 /**
- * Page + heading in one: what every production view renders. `eyebrow`
- * defaults to the product name; views pass the crop's name instead.
+ * Page + SCP header in one: what every production view renders.
+ *
+ * The header is SCP's `PageHeader` (eyebrow with a thin rule, big title, then
+ * ONE toolbar row under it). `eyebrow` defaults to the product name; views
+ * pass the crop's name instead.
+ *
+ * Toolbar slots, all optional:
+ * - `tabs`     left side of the row (a pill TabsList / segmented control)
+ * - `filters`  tab-scoped filters (`{ key, tabs?, node }`, see PageToolbar);
+ *              pair with `tab` (the active tab id)
+ * - `actions`  right side of the row: FilterSelect / DateRangePicker pills,
+ *              refresh, ClearFiltersPill, ToolbarButton ... (legacy name kept)
+ * - `description` a quiet sentence under the toolbar
+ *
+ * The body is padded to line up with the header; give it cards, not padding.
  */
 export function PageShell({
   title,
   eyebrow = "Upande Production",
   actions,
+  tabs,
+  filters,
+  tab,
   description,
   children,
 }: {
-  title: string;
-  eyebrow?: string;
+  title: React.ReactNode;
+  eyebrow?: React.ReactNode;
   actions?: React.ReactNode;
+  tabs?: React.ReactNode;
+  filters?: ToolbarFilter[];
+  tab?: string;
   description?: React.ReactNode;
   children?: React.ReactNode;
 }) {
   return (
-    <Page>
-      <PageHeading eyebrow={eyebrow} title={title} actions={actions}>
-        {description}
-      </PageHeading>
-      {children}
-    </Page>
+    <div className="flex min-w-0 flex-1 flex-col">
+      <PageHeader title={title} eyebrow={eyebrow} switcher={tabs} filters={filters} tab={tab}>
+        {actions}
+      </PageHeader>
+      <div className="flex min-w-0 flex-1 flex-col gap-6 px-4 pt-4 pb-6 md:px-6">
+        {description && (
+          <p className="max-w-[68ch] text-[13px] leading-relaxed text-[var(--sd-muted)]">
+            {description}
+          </p>
+        )}
+        {children}
+      </div>
+    </div>
   );
 }

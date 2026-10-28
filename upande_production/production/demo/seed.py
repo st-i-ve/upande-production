@@ -190,11 +190,12 @@ def seed_units_and_cycles():
 	frappe.db.commit()
 
 
-def _weeks():
-	"""(year, week, monday, is_current), oldest first."""
+def _weeks(crop=None):
+	"""(year, week, monday, is_current), oldest first. The lead crop reaches further back."""
 	mon = _monday(today())
 	out = []
-	for k in (3, 2, 1, 0):
+	back = DEMO["avocado_history"]["weeks"] - 1 if crop == DEMO["lead_crop"] else 3
+	for k in range(back, -1, -1):
 		m = mon - timedelta(weeks=k)
 		y, w = iso_of(m)
 		out.append((y, w, m, k == 0))
@@ -267,14 +268,233 @@ def seed_plans():
 	farm = DEMO["farm"]["name"]
 	vas, supers = _employees("Value Adder"), _employees("Production Supervisor")
 	for crop in [c["name"] for c in DEMO["crops"]]:
-		for y, w, mon, current in _weeks():
+		pool = _avocado_crew() if crop == DEMO["lead_crop"] else vas
+		for y, w, mon, current in _weeks(crop):
 			existed = frappe.db.exists("Production Work Plan", {"crop": crop, "farm": farm, "plan_year": y, "plan_week": w})
 			doc = plans.get_or_create_plan(crop, farm, y, w)
 			if not existed:
 				C["Production Work Plan"] += 1
 			C["Production Plan Task"] += plans.generate_week(doc.name)
-			_process_plan(doc.name, current, vas, supers)
+			_process_plan(doc.name, current, pool, supers)
 			frappe.db.commit()
+
+
+def _avocado_crew():
+	"""The 12 or so value adders who work the lead crop's blocks (a stable pick, so reruns agree)."""
+	crew = _employees("Value Adder")
+	return _rng("avocado-crew").sample(crew, min(DEMO["avocado_history"]["crew"], len(crew)))
+
+
+def _keep_to_crew(crop, crew):
+	"""Plan-driven work was keyed with anyone on the farm; a block is worked by a crew, so move entries
+	from other people onto the crew (never twice onto one card). A no-op once everything is on the crew."""
+	rows = frappe.db.sql(
+		"""select name, employee, ifnull(plan_task, concat(unit, '|', operation, '|', work_date)) k
+		from `tabValue Adder Work` where crop = %s and docstatus < 2 order by name""", (crop,), as_dict=True)
+	on_card = {}
+	for r in rows:
+		on_card.setdefault(r.k, set()).add(r.employee)
+	names = {e: frappe.db.get_value("Employee", e, "employee_name") for e in crew}
+	i = 0
+	for r in rows:
+		if r.employee in crew:
+			continue
+		for _ in range(len(crew)):
+			emp = crew[i % len(crew)]
+			i += 1
+			if emp not in on_card[r.k]:
+				break
+		else:
+			continue
+		on_card[r.k].discard(r.employee)
+		on_card[r.k].add(emp)
+		frappe.db.sql("update `tabValue Adder Work` set employee = %s, employee_name = %s where name = %s",
+			(emp, names[emp], r.name))
+		C["VAW moved to avocado crew"] += 1
+
+
+def seed_avocado_history():
+	"""Unplanned work for the lead crop's blocks over the trailing weeks (the plan-driven work only
+	covers what the protocol schedules). Entries stay drafts; seed_approvals then approves the old
+	ones like the rest. Idempotent: a (block, operation, day) that already has unplanned work is skipped."""
+	crop, cfg = DEMO["lead_crop"], DEMO["avocado_history"]
+	td = getdate(today())
+	crew = _avocado_crew()
+	_keep_to_crew(crop, crew)
+	last = add_days(td, -cfg["last_day_ago"])
+	for b in DEMO["avocado_blocks"]:
+		unit = b["name"]
+		cycle = frappe.db.get_value("Production Crop Cycle", {"unit": unit, "crop": crop}, "name")
+		for k in range(cfg["weeks"], 0, -1):
+			mon = _monday(td) - timedelta(weeks=k)
+			for op_name, (prob, picks, (lo, hi), step) in cfg["jobs"].items():
+				op = frappe.db.get_value("Production Operation", {"crop": crop, "operation_name": op_name}, "name")
+				if not op:
+					continue
+				r = _rng(f"avh:{unit}:{k}:{op_name}")
+				if r.random() > prob:
+					continue
+				days = r.sample(range(0, 6), picks)
+				for d in sorted(days):
+					day = mon + timedelta(days=d)
+					if day > last or frappe.db.exists("Value Adder Work", {
+							"unit": unit, "operation": op, "work_date": day, "plan_task": ("is", "not set")}):
+						continue
+					n = r.randint(*cfg["crew_per_job"])
+					entries = []
+					for emp in r.sample(crew, n):
+						qty = round(r.uniform(lo, hi) / step) * step
+						entries.append({"employee": emp, "qty": max(step, qty), "hours": round(r.uniform(*cfg["hours"]), 1)})
+					names = work.record_unplanned_work(unit, op, entries, day)
+					if cycle:
+						frappe.db.sql("update `tabValue Adder Work` set cycle = %s where name in %s", (cycle, tuple(names)))
+					C["Value Adder Work (avocado history)"] += len(names)
+		frappe.db.commit()
+
+
+def _backdate(names, created, reviewed=None):
+	"""Make demo work look keyed (and reviewed) on the day it was done, not when the seed ran."""
+	now = now_datetime()
+	created = min(created, now)
+	frappe.db.sql("update `tabValue Adder Work` set creation = %s where name in %s", (created, tuple(names)))
+	if reviewed:
+		frappe.db.sql("update `tabValue Adder Work` set reviewed_at = %s where name in %s",
+			(min(reviewed, now), tuple(names)))
+
+
+def seed_approvals():
+	"""Leave a realistic approval mix: old work Approved, recent work a handful Pending (some stale,
+	3-4 days old) and one or two Sent Back with a note. Idempotent: skips once a Sent Back entry exists."""
+	cfg = DEMO["approval_mix"]
+	td = getdate(today())
+	users = DEMO["keying_users"]
+	rows = frappe.db.sql(
+		"""select name, docstatus, approval_status, plan, plan_task, crop, unit, operation, work_date
+		from `tabValue Adder Work` where docstatus < 2 order by work_date, name""", as_dict=True)
+	groups = {}
+	for r in rows:
+		groups.setdefault(r.plan_task or f"{r.unit}|{r.operation}|{r.work_date}", []).append(r)
+	crops = sorted({r.crop for r in rows})
+	touched = set()
+
+	def key_as(g, crop, i):
+		user = users[(crops.index(crop) + i) % len(users)]
+		frappe.db.sql("update `tabValue Adder Work` set submitted_by = %s where name in %s",
+			(user, tuple(r.name for r in g)))
+
+	def approve(g, day):
+		for r in g:
+			if r.docstatus == 0:
+				doc = frappe.get_doc("Value Adder Work", r.name)
+				doc.submit()
+		names = [r.name for r in g]
+		_backdate(names, datetime.combine(day, time(16, 0)), datetime.combine(day + timedelta(days=1), time(9, 30)))
+		frappe.db.sql("update `tabValue Adder Work` set reviewed_by = %s where name in %s",
+			(users[0], tuple(names)))
+		C["VAW approved"] += len(names)
+
+	def demote(g, status, day, note=None):
+		names = tuple(r.name for r in g)
+		frappe.db.sql(
+			"""update `tabValue Adder Work` set docstatus = 0, approval_status = %s, review_note = %s,
+			reviewed_by = %s, reviewed_at = %s where name in %s""",
+			(status, note, "Administrator" if note else None,
+			 now_datetime() - timedelta(hours=5) if note else None, names))
+		_backdate(names, datetime.combine(day, time(16, 0)))
+		C[f"VAW {status.lower()}"] += len(names)
+
+	mixed = frappe.db.exists("Value Adder Work", {"approval_status": "Sent Back"})
+	recent_cut = add_days(td, -cfg["stale_days"][1] - 1)
+	by_crop = {}
+	for k, g in groups.items():
+		by_crop.setdefault(g[0].crop, []).append((k, g))
+	for crop, items in by_crop.items():
+		for i, (k, g) in enumerate(items):
+			key_as(g, crop, i)
+			day = getdate(g[0].work_date)
+			if day <= recent_cut and any(r.docstatus == 0 and r.approval_status == "Pending" for r in g):
+				approve(g, day)
+				touched.add((g[0].plan, g[0].plan_task))
+	if not mixed:
+		# choose the mix from the recent groups, spread across crops, oldest first
+		recent = sorted(((g[0].crop, getdate(g[0].work_date), k, g) for items in by_crop.values()
+			for k, g in items if getdate(g[0].work_date) > recent_cut), key=lambda x: (x[1], x[0]))
+		lo, hi = cfg["stale_days"]
+		stale = [x for x in recent if lo <= (td - x[1]).days <= hi]
+		fresh = [x for x in recent if (td - x[1]).days < lo]
+		picks = {"Pending": [], "Sent Back": []}
+		used_crops = {}
+		for x in stale:  # at most two stale per crop
+			if used_crops.get(x[0], 0) < 2 and len(picks["Pending"]) < cfg["stale_pending"]:
+				picks["Pending"].append(x)
+				used_crops[x[0]] = used_crops.get(x[0], 0) + 1
+		chosen = {x[2] for x in picks["Pending"]}
+		sb_crops = set()
+		for x in fresh:  # sent back: one per crop, from earlier in the week
+			if x[0] not in sb_crops and len(picks["Sent Back"]) < cfg["sent_back"] and (td - x[1]).days >= 1:
+				picks["Sent Back"].append(x)
+				sb_crops.add(x[0])
+		chosen |= {x[2] for x in picks["Sent Back"]}
+		fresh_pending = [x for x in fresh if x[2] not in chosen][-cfg["fresh_pending"]:]
+		picks["Pending"] += fresh_pending
+		chosen |= {x[2] for x in fresh_pending}
+		for status, xs in picks.items():
+			for n, (crop, day, k, g) in enumerate(xs):
+				note = DEMO["sent_back_notes"][n % len(DEMO["sent_back_notes"])] if status == "Sent Back" else None
+				demote(g, status, day, note) if g[0].docstatus == 1 else frappe.db.sql(
+					"""update `tabValue Adder Work` set approval_status = %s, review_note = %s, reviewed_by = %s,
+					reviewed_at = %s where name in %s""",
+					(status, note, "Administrator" if note else None,
+					 now_datetime() - timedelta(hours=5) if note else None, tuple(r.name for r in g)))
+				_backdate([r.name for r in g], datetime.combine(day, time(16, 0)))
+		for crop, day, k, g in recent:
+			if k not in chosen:
+				approve(g, day)
+		for crop, day, k, g in recent:
+			touched.add((g[0].plan, g[0].plan_task))
+	frappe.db.commit()
+	for plan, task in touched:
+		work.refresh_task_done(plan, task)
+	frappe.db.commit()
+	_ensure_pending(DEMO["lead_crop"], cfg["lead_pending"], cfg["lead_stale"])
+
+
+def _ensure_pending(crop, want, stale_n):
+	"""The demo leads with `crop`: make sure it has `want` Pending cards, `stale_n` of them stale.
+	Idempotent (does nothing once enough Pending cards exist). Takes the latest Approved cards and
+	reopens them as the supervisor's draft, aged 1-2 days (fresh) or 4 days (stale)."""
+	td = getdate(today())
+	rows = frappe.db.sql(
+		"""select name, docstatus, approval_status, plan, plan_task, unit, operation, work_date
+		from `tabValue Adder Work` where crop = %s and docstatus < 2 order by work_date desc, name""",
+		(crop,), as_dict=True)
+	groups = {}
+	for r in rows:
+		groups.setdefault(r.plan_task or f"{r.unit}|{r.operation}|{r.work_date}", []).append(r)
+	pending = [g for g in groups.values() if all(r.approval_status == "Pending" for r in g)]
+	if len(pending) >= want:
+		return
+	approved = [g for g in groups.values() if all(r.approval_status == "Approved" for r in g)]
+	ages = [DEMO["approval_mix"]["stale_days"][1]] * stale_n + [1, 2, 1, 2, 1]
+	ages = ages[:want]
+	need = want - len(pending)
+	ages = ages[len(pending):][:need]
+	users = DEMO["keying_users"]
+	touched = set()
+	for i, (g, age) in enumerate(zip(approved, ages)):
+		names = tuple(r.name for r in g)
+		frappe.db.sql(
+			"""update `tabValue Adder Work` set docstatus = 0, approval_status = 'Pending', review_note = null,
+			reviewed_by = null, reviewed_at = null, submitted_by = %s where name in %s""",
+			(users[i % len(users)], names))
+		_backdate(names, datetime.combine(add_days(td, -age), time(16, 0)))
+		C["VAW pending"] += len(names)
+		touched.add((g[0].plan, g[0].plan_task))
+	frappe.db.commit()
+	for plan, task in touched:
+		if plan and task:
+			work.refresh_task_done(plan, task)
+	frappe.db.commit()
 
 
 def seed_production_data():
@@ -288,7 +508,7 @@ def seed_production_data():
 		y = DEMO["weekly_yield"][cy.item]
 		base = (u.plant_count or 0) * y if cy.item in ("Hass Avocado", "Fuerte Avocado") else (
 			y if cy.item in ("Tilapia", "Honey") else (u.area_ha or 1) * y)
-		weeks_back = 3 if cy.crop == "Avocado" else 6
+		weeks_back = DEMO["avocado_history"]["weeks"] if cy.crop == "Avocado" else 6
 		for k in range(weeks_back):
 			d = mon - timedelta(weeks=k) + timedelta(days=2)
 			if d > td:
@@ -397,7 +617,7 @@ def run(reset: bool = False) -> dict:
 		frappe.throw("reset is not supported by the demo seed")
 	C.clear()
 	frappe.flags.in_demo_seed = True
-	for step in (seed_masters, seed_people, seed_units_and_cycles, seed_plans, seed_production_data, seed_journals):
+	for step in (seed_masters, seed_people, seed_units_and_cycles, seed_plans, seed_avocado_history, seed_approvals, seed_production_data, seed_journals):
 		step()
 		print(f"[seed] {step.__name__} done")
 	frappe.db.commit()

@@ -1,11 +1,15 @@
-import { useCallback, useEffect, useState } from "react";
-import { ChartSkeleton, RowsSkeleton } from "@/components/Loading";
-import { Figure, FigureRow } from "@/components/Figure";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ChartSkeleton, RowsSkeleton, firstLoad } from "@/components/Loading";
+import { ClearFiltersPill } from "@/components/ClearFiltersPill";
+import { DateRangePicker, type DateRange } from "@/components/DateRangePicker";
+import { flagCurrentWeek } from "@/components/Sparkline";
+import { KpiCard } from "@/components/KpiCard";
 import { PageShell } from "@/components/PageShell";
 import { RefreshButton } from "@/components/RefreshButton";
+import { SearchInput } from "@/components/SearchInput";
+import { TogglePill } from "@/components/TogglePill";
 import { useToast } from "@/components/Toast";
-import { DateRangePill } from "@/components/costs/DateRangePill";
-import { AccuracyTable } from "@/components/forecast/AccuracyTable";
+import { AccuracyTable, errorTone, vsForecast } from "@/components/forecast/AccuracyTable";
 import { CommitmentsPanel } from "@/components/forecast/CommitmentsPanel";
 import { FORECAST_CHART_HEIGHT, ForecastChart } from "@/components/forecast/ForecastChart";
 import { SamplesPanel } from "@/components/forecast/SamplesPanel";
@@ -16,7 +20,7 @@ import { forecastSummary, type ForecastSummary, type ForecastTotals } from "@/li
 import { useCurrentCrop, viewLabel } from "@/lib/crops";
 import { isError } from "@/lib/frappe";
 import { qty } from "@/lib/format";
-import { todayISO, ymd } from "@/lib/utils";
+import { matchesQuery, todayISO, ymd } from "@/lib/utils";
 
 const EMPTY_TOTALS: ForecastTotals = { forecast: 0, forecast_to_date: 0, actual: 0, committed: 0, error_pct: null };
 
@@ -25,25 +29,29 @@ function offsetDays(n: number): string {
   d.setDate(d.getDate() + n);
   return ymd(d);
 }
+const defaultRange = (): DateRange => ({ from: offsetDays(-56), to: offsetDays(56) });
 
 /**
  * What is expected to be harvested, what was, and what buyers have asked for.
  *
- * Accuracy is judged per unit over the chosen window; the seasons chart is the
- * long view, one bar per calendar year.
+ * Tabs as pills: Overview (KPIs, weekly chart, seasons), Accuracy (per unit),
+ * Samples and Commitments (the records behind the numbers). Accuracy is judged
+ * per unit over the chosen window.
  */
 export function Forecast() {
   const crop = useCurrentCrop();
   const toast = useToast();
-  const [from, setFrom] = useState(() => offsetDays(-56));
-  const [to, setTo] = useState(() => offsetDays(56));
+  const [tab, setTab] = useState("overview");
+  const [range, setRange] = useState<DateRange>(defaultRange);
+  const [q, setQ] = useState("");
+  const [offOnly, setOffOnly] = useState(false);
   const [data, setData] = useState<ForecastSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [failure, setFailure] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const r = await forecastSummary(crop.name, from, to);
+    const r = await forecastSummary(crop.name, range.from, range.to);
     setLoading(false);
     if (isError(r)) {
       setFailure(r.error);
@@ -53,7 +61,7 @@ export function Forecast() {
     }
     setFailure(null);
     setData({ ...r, weeks: r.weeks ?? [], units: r.units ?? [], totals: r.totals ?? EMPTY_TOTALS, seasons: r.seasons ?? [] });
-  }, [crop.name, crop.yield_uom, from, to, toast]);
+  }, [crop.name, crop.yield_uom, range.from, range.to, toast]);
 
   useEffect(() => {
     setData(null);
@@ -63,100 +71,184 @@ export function Forecast() {
   const uom = data?.uom || crop.yield_uom || "";
   const unitLabel = crop.unit_label || "Unit";
   const canEdit = crop.boot.can_plan || crop.boot.can_manage;
-
   const totals = data?.totals ?? EMPTY_TOTALS;
+  const first = firstLoad(loading, !!data);
 
+  const series = useMemo(() => {
+    const w = data?.weeks ?? [];
+    const today = todayISO();
+    // `realised` series (actual, error) stop at today: weeks still to come have nothing to compare.
+    const pts = (f: (x: (typeof w)[number]) => number | null, realised = false) =>
+      flagCurrentWeek(
+        w.flatMap((x) => {
+          const v = f(x);
+          return v == null || (realised && x.week_start > today) ? [] : [{ week: x.week_start, value: v }];
+        }),
+      ) ?? [];
+    return {
+      forecast: pts((x) => x.forecast),
+      actual: pts((x) => x.actual, true),
+      committed: pts((x) => x.committed),
+      error: pts((x) => (x.error_pct == null ? null : Math.abs(x.error_pct)), true),
+      cover: pts((x) => (x.forecast > 0 ? (x.committed / x.forecast) * 100 : null)),
+    };
+  }, [data]);
+
+  const offTarget = useMemo(() => (data?.units ?? []).filter((u) => errorTone(u.error_pct) === "poor").length, [data]);
+  const cover = totals.forecast > 0 ? (totals.committed / totals.forecast) * 100 : null;
+
+  const units = useMemo(
+    () =>
+      (data?.units ?? [])
+        .filter((u) => !q || matchesQuery(u.unit, q))
+        .filter((u) => !offOnly || errorTone(u.error_pct) !== "good")
+        .sort((a, b) => Math.abs(b.error_pct ?? 0) - Math.abs(a.error_pct ?? 0)),
+    [data, q, offOnly],
+  );
+
+  const dirty = range.from !== defaultRange().from || range.to !== defaultRange().to || !!q || offOnly;
+  const clear = () => {
+    setRange(defaultRange());
+    setQ("");
+    setOffOnly(false);
+  };
 
   return (
-    <PageShell
-      title={viewLabel("forecast", crop)}
-      eyebrow={crop.name}
-      description={`Expected ${uom ? uom + " " : ""}harvest by week against what came in and what buyers have committed.`}
-      actions={
-        <>
-          <DateRangePill from={from} to={to} onChange={(f, t) => (setFrom(f), setTo(t))} />
-          <RefreshButton onClick={load} loading={loading} label="the forecast" />
-        </>
-      }
-    >
-      {failure && (
-        <div role="alert" className="rounded-[var(--sd-radius-toast)] bg-[var(--sd-alert-error)] px-4 py-3 text-[13px] font-medium text-[var(--sd-ink)]">
-          {failure}
-        </div>
-      )}
+    <Tabs value={tab} onValueChange={setTab} className="flex min-w-0 flex-1 flex-col">
+      <PageShell
+        title={viewLabel("forecast", crop)}
+        eyebrow={crop.name}
+        tab={tab}
+        description={`Expected ${uom ? uom + " " : ""}harvest by week against what came in and what buyers have committed.`}
+        tabs={
+          <TabsList>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="accuracy">Accuracy</TabsTrigger>
+            <TabsTrigger value="samples">Samples</TabsTrigger>
+            <TabsTrigger value="commitments">Commitments</TabsTrigger>
+          </TabsList>
+        }
+        filters={[
+          { key: "q", tabs: ["accuracy"], node: <SearchInput size="md" value={q} onChange={setQ} placeholder={`Search ${unitLabel.toLowerCase()}s`} className="w-48" /> },
+          {
+            key: "off",
+            tabs: ["accuracy"],
+            node: (
+              <TogglePill pressed={offOnly} onPressedChange={setOffOnly}>
+                Off by more than 10%
+              </TogglePill>
+            ),
+          },
+          { key: "range", tabs: ["overview", "accuracy"], node: <DateRangePicker label="Period" value={range} onChange={setRange} /> },
+        ]}
+        actions={
+          <>
+            <ClearFiltersPill active={dirty} onClear={clear} />
+            <RefreshButton onClick={load} loading={loading} label="the forecast" />
+          </>
+        }
+      >
+        {failure && (
+          <div role="alert" className="rounded-[var(--sd-radius-toast)] bg-[var(--sd-alert-error)] px-4 py-3 text-[13px] font-medium text-[var(--sd-ink)]">
+            {failure}
+          </div>
+        )}
 
-      <FigureRow>
-        <Figure loading={!data} label="Forecast" value={data ? qty(totals.forecast) : "—"} unit={uom} hint="in this period" />
-        <Figure loading={!data} label="Actual" value={data ? qty(totals.actual) : "—"} unit={uom} hint="harvested" />
-        <Figure loading={!data} label="Committed" value={data ? qty(totals.committed) : "—"} unit={uom} hint="to buyers" />
-        <Figure
-          loading={!data}
-          label="Accuracy to date"
-          value={data && totals.error_pct != null ? `${totals.error_pct > 0 ? "+" : ""}${totals.error_pct.toFixed(1)}%` : "—"}
-          hint="actual vs forecast so far"
-        />
-      </FigureRow>
+        <TabsContent value="overview" className="mt-0 flex flex-col gap-6">
+          <div className="grid grid-cols-2 gap-4 xl:grid-cols-3">
+            <KpiCard loading={first} label="Forecast" value={data ? `${qty(totals.forecast)} ${uom}` : "—"} hint="in this period" series={series.forecast} />
+            <KpiCard loading={first} label="Actual" value={data ? `${qty(totals.actual)} ${uom}` : "—"} hint="harvested" series={series.actual} goodDirection="up" />
+            <KpiCard loading={first} label="Committed" value={data ? `${qty(totals.committed)} ${uom}` : "—"} hint="to buyers" series={series.committed} goodDirection="up" />
+            <KpiCard
+              loading={first}
+              label="Actual vs forecast to date"
+              value={data ? vsForecast(totals.error_pct) : "—"}
+              tone={data ? ({ good: "accent", fair: "warning", poor: "critical", none: "default" } as const)[errorTone(totals.error_pct)] : "default"}
+              hint="harvest so far against the forecast for the same weeks"
+              series={series.error}
+              goodDirection="down"
+              deltaLabel="weekly miss"
+            />
+            <KpiCard
+              loading={first}
+              label="Buyer cover"
+              value={cover == null ? "—" : `${cover.toFixed(0)}%`}
+              hint="committed as a share of forecast"
+              series={series.cover}
+              goodDirection="up"
+            />
+            <KpiCard
+              loading={first}
+              label={`${unitLabel}s off target`}
+              value={data ? offTarget : "—"}
+              hint="more than 25% from forecast"
+              tone={offTarget ? "warning" : "good"}
+            />
+          </div>
 
-      <Card>
-        <CardHeaderRow>
-          <CardHeading>
-            <CardTitle>Weekly forecast, actual and committed</CardTitle>
-            <CardDescription>Hover a week for the figures behind it. Weeks start on Monday.</CardDescription>
-          </CardHeading>
-        </CardHeaderRow>
-        <CardContent className="pt-0">
-          {!data ? <ChartSkeleton height={FORECAST_CHART_HEIGHT} /> : <ForecastChart weeks={data.weeks} uom={uom} today={todayISO()} />}
-        </CardContent>
-      </Card>
+          <Card>
+            <CardHeaderRow>
+              <CardHeading>
+                <CardTitle>Weekly forecast, actual and committed</CardTitle>
+                <CardDescription>Hover a week for the figures behind it. Weeks start on Monday.</CardDescription>
+              </CardHeading>
+            </CardHeaderRow>
+            <CardContent className="pt-0">
+              {!data ? <ChartSkeleton height={FORECAST_CHART_HEIGHT} /> : <ForecastChart weeks={data.weeks} uom={uom} today={todayISO()} />}
+            </CardContent>
+          </Card>
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        <Card>
-          <CardHeaderRow>
-            <CardHeading>
-              <CardTitle>Accuracy by {unitLabel.toLowerCase()}</CardTitle>
-              <CardDescription>How close the forecast was to what was harvested.</CardDescription>
-            </CardHeading>
-          </CardHeaderRow>
-          <CardContent className="pt-0">
-            {!data ? (
-              <RowsSkeleton rows={5} />
-            ) : data.units.length === 0 ? (
-              <p className="px-1 py-6 text-center text-[13px] text-[var(--sd-muted)]">No forecasts to compare for this period.</p>
-            ) : (
-              <AccuracyTable units={data.units} uom={uom} unitLabel={unitLabel} />
-            )}
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeaderRow>
+              <CardHeading>
+                <CardTitle>Seasons</CardTitle>
+                <CardDescription>Harvest per year.</CardDescription>
+              </CardHeading>
+            </CardHeaderRow>
+            <CardContent className="pt-0">
+              {!data ? <ChartSkeleton height={SEASONS_CHART_HEIGHT} /> : <SeasonsChart seasons={data.seasons} uom={uom} />}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-        <Card>
-          <CardHeaderRow>
-            <CardHeading>
-              <CardTitle>Seasons</CardTitle>
-              <CardDescription>Harvest per year.</CardDescription>
-            </CardHeading>
-          </CardHeaderRow>
-          <CardContent className="pt-0">
-            {!data ? <ChartSkeleton height={SEASONS_CHART_HEIGHT} /> : <SeasonsChart seasons={data.seasons} uom={uom} />}
-          </CardContent>
-        </Card>
-      </div>
+        <TabsContent value="accuracy" className="mt-0">
+          <Card>
+            <CardHeaderRow>
+              <CardHeading>
+                <CardTitle>Accuracy by {unitLabel.toLowerCase()}</CardTitle>
+                <CardDescription>How close the forecast was to what was harvested, furthest off first.</CardDescription>
+              </CardHeading>
+            </CardHeaderRow>
+            <CardContent className="pt-0">
+              {!data ? (
+                <RowsSkeleton rows={5} />
+              ) : data.units.length === 0 ? (
+                <p className="px-1 py-6 text-center text-[13px] text-[var(--sd-muted)]">No forecasts to compare for this period.</p>
+              ) : units.length === 0 ? (
+                <p className="px-1 py-6 text-center text-[13px] text-[var(--sd-muted)]">Nothing matches these filters.</p>
+              ) : (
+                <AccuracyTable units={units} uom={uom} unitLabel={unitLabel} />
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      <Card>
-        <CardContent className="pt-5">
-          <Tabs defaultValue="samples" className="flex flex-col gap-4">
-            <TabsList className="self-start">
-              <TabsTrigger value="samples">Samples</TabsTrigger>
-              <TabsTrigger value="commitments">Commitments</TabsTrigger>
-            </TabsList>
-            <TabsContent value="samples">
+        <TabsContent value="samples" className="mt-0">
+          <Card>
+            <CardContent className="pt-5">
               <SamplesPanel crop={crop.name} unitLabel={unitLabel} canEdit={canEdit} onSaved={load} />
-            </TabsContent>
-            <TabsContent value="commitments">
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="commitments" className="mt-0">
+          <Card>
+            <CardContent className="pt-5">
               <CommitmentsPanel crop={crop.name} uom={uom} canEdit={canEdit} canSeePay={crop.boot.can_see_pay} onSaved={load} />
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
-    </PageShell>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </PageShell>
+    </Tabs>
   );
 }

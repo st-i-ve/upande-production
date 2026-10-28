@@ -1,3 +1,4 @@
+import { trimQty } from "@/lib/format";
 import { fmt, parseYmd } from "@/lib/utils";
 
 /** A date n days on, by calendar parts (no UTC drift). */
@@ -12,10 +13,7 @@ export function rowDate(s: string | null | undefined): string {
 }
 
 /** Quantity: whole stays whole, else up to 2 decimals. */
-export function q(n: unknown): string {
-  const v = Number(n);
-  return (Number.isFinite(v) ? v : 0).toLocaleString("en-US", { maximumFractionDigits: 2 });
-}
+export const q = trimQty;
 
 /** Money to 2 decimals; null (pay hidden) is a dash. */
 export function money(n: number | null | undefined): string {

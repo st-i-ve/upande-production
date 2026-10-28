@@ -1,15 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ListPlus, Wand2 } from "lucide-react";
-import { Figure, FigureRow } from "@/components/Figure";
+import { ClearFiltersPill } from "@/components/ClearFiltersPill";
+import { KpiCard, KpiGrid } from "@/components/KpiCard";
 import { FilterSelect } from "@/components/FilterSelect";
-import { RowsSkeleton } from "@/components/Loading";
+import { RowsSkeleton, firstLoad } from "@/components/Loading";
 import { PageShell } from "@/components/PageShell";
 import { useToast } from "@/components/Toast";
+import { ToolbarButton } from "@/components/ToolbarButton";
 import { Button } from "@/components/ui/button";
 import { WeekPicker } from "@/components/WeekPicker";
 import { AddTaskDialog, type OperationOption } from "@/components/plan/AddTaskDialog";
-import { AvatarStack, DeviationBadge, StatusPill } from "@/components/plan/badges";
-import { addDays, money, q, rowDate } from "@/components/plan/fmt";
+import { AvatarStack, DeviationBadge, STATUSES, StatusPill } from "@/components/plan/badges";
+import { PendingChip, QtyBar } from "@/components/plan/QtyBar";
+import { addDays, q, rowDate } from "@/components/plan/fmt";
 import { TickOffDialog } from "@/components/plan/TickOffDialog";
 import {
   generatePlanWeek,
@@ -23,19 +26,24 @@ import {
   type ValueAdder,
 } from "@/lib/api";
 import { useCurrentCrop } from "@/lib/crops";
+import { formatUoms, kes, sumByUom } from "@/lib/format";
 import { isError } from "@/lib/frappe";
 import { currentIsoWeek, weekStart, type IsoWeek } from "@/lib/weeks";
 import { cn, ymd } from "@/lib/utils";
 
+const NOT_DONE = ["Open", "In Progress", "Partly Done"];
 const CARD = "rounded-[var(--sd-radius-lg)] bg-[var(--sd-card)] shadow-[var(--sd-shadow-1)]";
 
 /** The week's work, by unit, with a tick-off for each task. */
 export function Plan() {
   const crop = useCurrentCrop();
   const { boot } = crop;
+  const accent = crop.accent_color || "#3f7d3a";
   const toast = useToast();
   const [week, setWeek] = useState<IsoWeek>(currentIsoWeek);
   const [farm, setFarm] = useState(boot.farms[0] ?? "");
+  const [opFilter, setOpFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [plan, setPlan] = useState<PlanData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -88,7 +96,20 @@ export function Plan() {
     };
   }, [crop.name]);
 
-  const tasks = useMemo(() => plan?.tasks ?? [], [plan]);
+  const allTasks = useMemo(() => plan?.tasks ?? [], [plan]);
+  const tasks = useMemo(
+    () =>
+      allTasks.filter(
+        (t) =>
+          (!opFilter || t.operation_name === opFilter) &&
+          (!statusFilter || (statusFilter === "Awaiting approval" ? (t.pending_qty ?? 0) > 0 : t.status === statusFilter)),
+      ),
+    [allTasks, opFilter, statusFilter],
+  );
+  const opOptions = useMemo(() => [...new Set(allTasks.map((t) => t.operation_name))].sort(), [allTasks]);
+  const hasPending = allTasks.some((t) => (t.pending_qty ?? 0) > 0);
+  const statusOptions = hasPending ? [...STATUSES, "Awaiting approval"] : [...STATUSES];
+  const dirty = !!opFilter || !!statusFilter;
   const unitByName = useMemo(() => new Map(units.map((u) => [u.name, u])), [units]);
 
   const groups = useMemo(() => {
@@ -104,7 +125,13 @@ export function Plan() {
   const stats = useMemo(() => {
     const done = tasks.filter((t) => t.status === "Done").length;
     const labour = tasks.reduce((s, t) => s + t.work.reduce((x, w) => x + (w.pay_value ?? 0), 0), 0);
+    // Quantities live in each task's own UOM (Hectare, Tree, Crate...): total them per UOM, never across.
     return {
+      planned: sumByUom(tasks, (t) => ({ uom: t.uom, qty: t.planned_qty })),
+      doneQty: sumByUom(tasks, (t) => ({ uom: t.uom, qty: t.done_qty })),
+      pendingQty: sumByUom(tasks, (t) => ({ uom: t.uom, qty: t.pending_qty })),
+      pendingTasks: tasks.filter((t) => (t.pending_qty ?? 0) > 0).length,
+      overdue: tasks.filter((t) => NOT_DONE.includes(t.status) && t.due_date < ymd(new Date())).length,
       total: tasks.length,
       done,
       pct: tasks.length ? Math.round((done / tasks.length) * 100) : 0,
@@ -155,17 +182,26 @@ export function Plan() {
   const actions = (
     <>
       <WeekPicker value={week} onChange={setWeek} />
-      <FilterSelect value={farm} options={farmOptions} onChange={setFarm} placeholder="Farm" aria-label="Farm" />
+      <FilterSelect label="Farm" value={farm} options={farmOptions} onChange={setFarm} />
+      <FilterSelect label="Operation" value={opFilter} options={opOptions} onChange={setOpFilter} allLabel="All operations" />
+      <FilterSelect label="Status" value={statusFilter} options={statusOptions} onChange={setStatusFilter} allLabel="All statuses" />
+      <ClearFiltersPill
+        active={dirty}
+        onClear={() => {
+          setOpFilter("");
+          setStatusFilter("");
+        }}
+      />
       {boot.can_plan && (
         <>
-          <Button variant="outline" onClick={generate} disabled={generating || !farm}>
+          <ToolbarButton onClick={generate} disabled={generating || !farm}>
             <Wand2 className="h-4 w-4" strokeWidth={1.75} />
             {generating ? "Generating…" : "Generate from protocols"}
-          </Button>
-          <Button onClick={() => setAdding(true)} disabled={!farm}>
+          </ToolbarButton>
+          <ToolbarButton onClick={() => setAdding(true)} disabled={!farm}>
             <ListPlus className="h-4 w-4" strokeWidth={1.75} />
             Add task
-          </Button>
+          </ToolbarButton>
         </>
       )}
     </>
@@ -186,6 +222,14 @@ export function Plan() {
         {error}
         <Button variant="outline" onClick={() => void load()}>
           Try again
+        </Button>
+      </Empty>
+    );
+  } else if (allTasks.length && !tasks.length) {
+    body = (
+      <Empty title="No tasks match these filters">
+        <Button variant="outline" onClick={() => { setOpFilter(""); setStatusFilter(""); }}>
+          Clear filters
         </Button>
       </Empty>
     );
@@ -219,6 +263,15 @@ export function Plan() {
                 <span className="text-[12.5px] tabular-nums text-[var(--sd-muted)]">
                   {done}/{list.length} done
                 </span>
+                <span className="w-24">
+                  {/* Tasks, not quantities: a unit's tasks are in different UOMs. */}
+                  <QtyBar
+                    planned={list.length}
+                    done={done}
+                    pending={list.filter((t) => t.status !== "Done" && (t.pending_qty ?? 0) > 0).length}
+                    color={accent}
+                  />
+                </span>
               </header>
               <ul className="divide-y divide-[var(--sd-line-soft)] px-1.5 pb-1.5">
                 {list.map((t) => (
@@ -231,12 +284,17 @@ export function Plan() {
                       <span className="min-w-[10rem] flex-1 truncate text-[13.5px] font-medium text-[var(--sd-ink)]">
                         {t.operation_name}
                       </span>
-                      <span className="text-[13px] tabular-nums text-[var(--sd-muted)]">
-                        {q(t.planned_qty)} → <span className="text-[var(--sd-ink)]">{q(t.done_qty)}</span> {t.uom}
+                      <span className="flex w-44 flex-col gap-1">
+                        <span className="text-[13px] tabular-nums text-[var(--sd-muted)]">
+                          <span className="text-[var(--sd-ink)]">{q(t.done_qty)}</span>
+                          {(t.pending_qty ?? 0) > 0 && <span className="text-[var(--sd-amber)]"> +{q(t.pending_qty)}</span>} / {q(t.planned_qty)} {t.uom}
+                        </span>
+                        <QtyBar planned={t.planned_qty} done={t.done_qty} pending={t.pending_qty ?? 0} color={accent} className="h-1.5" />
                       </span>
                       <span className="w-24 text-[12.5px] tabular-nums text-[var(--sd-muted)]">{rowDate(t.due_date)}</span>
                       <StatusPill status={t.status} />
                       <DeviationBadge deviation={t.deviation} />
+                      {(t.pending_qty ?? 0) > 0 && <PendingChip>Awaiting approval</PendingChip>}
                       <span className="ml-auto">
                         <AvatarStack names={t.work.map((w) => w.employee_name || w.employee)} />
                       </span>
@@ -251,7 +309,7 @@ export function Plan() {
     );
   }
 
-  const showSummary = !!farm && !loading && !error && tasks.length > 0;
+  const showSummary = !!farm && !error && (loading ? false : allTasks.length > 0);
 
   return (
     <PageShell
@@ -262,13 +320,41 @@ export function Plan() {
         plan?.week_end ?? ymd(addDays(weekStart(week), 6)),
       )}. Tap a task to record the work.`}
     >
-      {showSummary && (
-        <FigureRow>
-          <Figure label="Tasks" value={String(stats.total)} hint={`${stats.done} done`} />
-          <Figure label="Done" value={`${stats.pct}%`} />
-          <Figure label="Deviations" value={String(stats.deviations)} />
-          {boot.can_see_pay && <Figure label="Labour" value={money(stats.labour)} hint="KES" />}
-        </FigureRow>
+      {(showSummary || (loading && !!farm && !plan)) && (
+        <div className="mb-4">
+          <KpiGrid cols={boot.can_see_pay ? 5 : 4}>
+            <KpiCard
+              label="Tasks done"
+              value={`${stats.pct}%`}
+              hint={`${stats.done} of ${stats.total} tasks`}
+              tone={stats.total > 0 && stats.done === stats.total ? "good" : "default"}
+              loading={firstLoad(loading, !!plan)}
+            />
+            <KpiCard
+              label="Quantity done"
+              value={formatUoms(stats.doneQty)}
+              hint={`of ${formatUoms(stats.planned)} planned${stats.pendingQty.some((x) => x.qty > 0) ? ` · ${formatUoms(stats.pendingQty)} awaiting approval` : ""}`}
+              loading={firstLoad(loading, !!plan)}
+            />
+            <KpiCard
+              label={stats.pendingTasks || hasPending ? "Awaiting approval" : "Overdue"}
+              value={stats.pendingTasks || hasPending ? stats.pendingTasks : stats.overdue}
+              hint={stats.pendingTasks || hasPending ? "tasks with unapproved work" : "open tasks past their due date"}
+              tone={(stats.pendingTasks || stats.overdue) > 0 ? "warning" : "good"}
+              loading={firstLoad(loading, !!plan)}
+            />
+            <KpiCard
+              label="Deviations"
+              value={stats.deviations}
+              hint="late, partial or skipped"
+              tone={stats.deviations > 0 ? "warning" : "default"}
+              loading={firstLoad(loading, !!plan)}
+            />
+            {boot.can_see_pay && (
+              <KpiCard label="Labour" value={kes(stats.labour)} hint="approved work" loading={firstLoad(loading, !!plan)} />
+            )}
+          </KpiGrid>
+        </div>
       )}
       {body}
       {selected && plan?.plan && (

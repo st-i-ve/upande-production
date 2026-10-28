@@ -41,6 +41,6 @@ describe("Settings", () => {
     expect(await screen.findByText("Pruning")).toBeInTheDocument();
     expect(screen.getByText(/read these settings but not change/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Add operation/ })).toBeNull();
-    expect(screen.getByText("KES 25")).toBeInTheDocument();
+    expect(screen.getAllByText("KES 25").length).toBeGreaterThan(0);
   });
 });

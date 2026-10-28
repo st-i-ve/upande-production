@@ -42,7 +42,7 @@ describe("saying what happened", () => {
     // Fixed: it is out of flow, so nothing below it moves when it appears.
     const layer = toast.parentElement as HTMLElement;
     expect(layer.className).toContain("fixed");
-    expect(layer.className).toContain("z-50");
+    expect(layer.className).toContain("z-[60]");
   });
 
   it("a confirmation goes on its own", async () => {

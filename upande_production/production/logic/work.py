@@ -13,9 +13,9 @@ def _insert_vaw(entry, work_date, unit, operation, uom, rate, cycle=None, plan=N
 		"doctype": "Value Adder Work", "work_date": work_date, "employee": entry.get("employee"),
 		"plan": plan, "plan_task": plan_task, "unit": unit, "cycle": cycle, "operation": operation,
 		"qty": qty, "uom": uom, "hours": entry.get("hours"), "rate": rate,
+		"approval_status": "Pending", "submitted_by": frappe.session.user,
 	})
-	doc.insert()
-	doc.submit()
+	doc.insert()  # stays a draft: it counts only once a manager approves (submits) it
 	return doc.name
 
 
@@ -27,8 +27,20 @@ def submitted_qty(plan, plan_task) -> float:
 	)
 
 
+def pending_qty(plan, plan_task) -> float:
+	"""Quantity keyed but not yet approved (drafts awaiting review)."""
+	return sum(
+		frappe.get_all(
+			"Value Adder Work",
+			filters={"plan": plan, "plan_task": plan_task, "docstatus": 0, "approval_status": "Pending"},
+			pluck="qty",
+		)
+	)
+
+
 def refresh_task_done(plan, plan_task):
-	"""Re-sum a task's submitted Value Adder Work into done_qty and save the plan (recomputes deviation)."""
+	"""Re-sum a task's approved (submitted) Value Adder Work into done_qty and its pending drafts into
+	pending_qty, then save the plan (recomputes deviation)."""
 	if not plan or not plan_task or not frappe.db.exists("Production Work Plan", plan):
 		return
 	doc = frappe.get_doc("Production Work Plan", plan)
@@ -36,6 +48,7 @@ def refresh_task_done(plan, plan_task):
 	if not row:
 		return
 	row.done_qty = submitted_qty(plan, plan_task)
+	row.pending_qty = pending_qty(plan, plan_task)
 	doc.flags.ignore_permissions = True
 	doc.save()
 
@@ -57,6 +70,7 @@ def record_task_work(plan, task, status, entries, note="", work_date=None) -> di
 		for e in entries
 	]
 	row.done_qty = submitted_qty(plan, row.name)
+	row.pending_qty = pending_qty(plan, row.name)
 	now = now_datetime()
 	if status in ("In Progress", "Done", "Partly Done") and not row.started_at:
 		row.started_at = now

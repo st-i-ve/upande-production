@@ -7,6 +7,7 @@
  "field_order": [
   "company",
   "late_tolerance_days",
+  "approval_stale_days",
   "cost_center_parent"
  ],
  "fields": [
@@ -21,6 +22,13 @@
    "fieldtype": "Int",
    "label": "Late Tolerance Days",
    "default": "1"
+  },
+  {
+   "fieldname": "approval_stale_days",
+   "fieldtype": "Int",
+   "label": "Approval Stale Days",
+   "default": "2",
+   "description": "Pending work older than this many days is flagged stale."
   },
   {
    "fieldname": "cost_center_parent",

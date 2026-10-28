@@ -3,14 +3,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderPage } from "./helpers";
 
 vi.mock("@/lib/api", () => ({ blockCosts: vi.fn() }));
+vi.mock("@/lib/insights-api", () => ({ costTrend: vi.fn() }));
 import { blockCosts } from "@/lib/api";
+import { costTrend } from "@/lib/insights-api";
 import { Costs } from "@/pages/Costs";
 
 const mocked = vi.mocked(blockCosts);
 const base = { unit_type: "Pivot Block", is_group: 0, area_ha: 2, harvest_qty: 100, cost_per_ha: 0 };
 
 describe("Costs", () => {
-  beforeEach(() => mocked.mockReset());
+  beforeEach(() => {
+    mocked.mockReset();
+    vi.mocked(costTrend).mockReset().mockResolvedValue({ weeks: [] });
+  });
 
   it("shows an empty state", async () => {
     mocked.mockResolvedValue({ rows: [] });

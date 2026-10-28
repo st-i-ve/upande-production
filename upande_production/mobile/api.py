@@ -2,12 +2,12 @@
 import frappe
 from frappe.utils import cint, today
 
-from upande_production.production.logic import work
+from upande_production.production.logic import approvals, work
 from upande_production.production.logic.settings import can_see_pay
 from upande_production.production.logic.weeks import iso_of, iso_week_bounds
 
 TASK_FIELDS = [
-	"name", "unit", "cycle", "operation", "operation_name", "planned_qty", "done_qty", "uom",
+	"name", "unit", "cycle", "operation", "operation_name", "planned_qty", "done_qty", "pending_qty", "uom",
 	"rate", "due_date", "supervisor", "status", "deviation", "note",
 ]
 
@@ -146,8 +146,9 @@ def productionUpdateTask():
 		task = res["task"]
 		return {
 			"status": "success", "task": _strip_pay({k: task.get(k) for k in TASK_FIELDS}, "rate"),
-			"work": res["work"],
-			"message": f"{task.get('operation_name') or 'Task'} marked {task.get('status')}.",
+			"work": res["work"], "approval_status": "Pending" if res["work"] else None,
+			"message": f"{task.get('operation_name') or 'Task'} marked {task.get('status')}."
+				+ (" Work awaits manager approval." if res["work"] else ""),
 		}
 
 	_run("productionUpdateTask", go)
@@ -168,9 +169,48 @@ def productionRecordUnplannedWork():
 			_s(data, "work_date") or None, _s(data, "note"),
 		)
 		frappe.db.commit()
-		return {"status": "success", "work": names, "message": f"{len(names)} work record(s) saved."}
+		return {
+			"status": "success", "work": names, "approval_status": "Pending",
+			"message": f"{len(names)} work record(s) saved, awaiting manager approval.",
+		}
 
 	_run("productionRecordUnplannedWork", go)
+
+
+@frappe.whitelist()
+def productionListSentBack():
+	"""Work the manager sent back for correction. Supervisors see their own; managers see all."""
+	if _denied(("Value Adder Work", "read")):
+		return
+	data = _payload()
+
+	def go():
+		me = None if approvals.is_manager() else frappe.session.user
+		res = approvals.list_approvals(
+			crop=_s(data, "crop") or None, status="Sent Back", supervisor=me,
+			from_date=_s(data, "from_date") or None, to_date=_s(data, "to_date") or None,
+		)
+		return {"groups": res["groups"], "count": res["counts"]["Sent Back"]}
+
+	_run("productionListSentBack", go)
+
+
+@frappe.whitelist()
+def productionResubmitWork():
+	if _denied(("Value Adder Work", "write")):
+		return
+	data = _payload()
+	err = _require(data, "names")
+	if err:
+		return _fail(err)
+
+	def go():
+		res = approvals.resubmit(data.get("names"), data.get("entries") or None)
+		frappe.db.commit()
+		return {"status": "success", "approval_status": "Pending", "work": res["resubmitted"],
+			"message": f"{len(res['resubmitted'])} work record(s) resubmitted for approval."}
+
+	_run("productionResubmitWork", go)
 
 
 @frappe.whitelist()

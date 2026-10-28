@@ -19,6 +19,7 @@
   "started_at",
   "completed_at",
   "done_qty",
+  "pending_qty",
   "deviation",
   "protocol_ref",
   "note"
@@ -103,6 +104,12 @@
    "fieldname": "done_qty",
    "fieldtype": "Float",
    "label": "Done Qty",
+   "read_only": 1
+  },
+  {
+   "fieldname": "pending_qty",
+   "fieldtype": "Float",
+   "label": "Pending Approval Qty",
    "read_only": 1
   },
   {

@@ -100,10 +100,14 @@ class TestMobileApi(IntegrationTestCase):
 		})
 		self.assertEqual(res["task"]["status"], "Done")
 		self.assertEqual(len(res["work"]), 1)
-		self.assertEqual(frappe.db.count("Value Adder Work", {"plan": plan.name, "plan_task": task, "docstatus": 1}), 1)
+		self.assertEqual(frappe.db.count("Value Adder Work", {"plan": plan.name, "plan_task": task, "docstatus": 0, "approval_status": "Pending"}), 1)
+		self.assertEqual(res["approval_status"], "Pending")
+		self.assertEqual(res["task"]["pending_qty"], 10)
+		self.assertEqual(res["task"]["done_qty"], 0)
 		wk = self._call(api.productionGetWeekPlan, {"crop": self.crop.name, "farm": self.farm.name})
 		self.assertEqual(wk["plan"], plan.name)
-		self.assertEqual(wk["tasks"][0]["done_qty"], 10)
+		self.assertEqual(wk["tasks"][0]["done_qty"], 0)
+		self.assertEqual(wk["tasks"][0]["pending_qty"], 10)
 
 	def test_bad_status_returns_error(self):
 		res = self._call(api.productionUpdateTask, {"plan": "x", "task": "y", "status": "Bogus"})

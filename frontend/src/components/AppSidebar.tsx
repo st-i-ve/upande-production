@@ -20,7 +20,7 @@ import type { Crop } from "@/lib/api";
 import { navForCrop } from "@/lib/nav";
 import { routeHash, type View } from "@/lib/router";
 import { cn } from "@/lib/utils";
-import upandeLogo from "@/assets/upande_logo.png";
+import { ProductionMark } from "@/components/ProductionMark";
 
 /**
  * One crop at a time, like SCP: the crop is named under the product title and
@@ -30,10 +30,14 @@ export function AppSidebar({
   crop,
   view,
   onNavigate,
+  pendingApprovals = 0,
 }: {
   crop: Crop | null;
   view: View;
   onNavigate: (crop: string, view?: View) => void;
+  /** Entries waiting for the manager; shown as a red count on Approvals, like
+   *  SCP's unread badge on Notifications. */
+  pendingApprovals?: number;
 }) {
   const { state, toggle } = useSidebar();
   const collapsed = state === "collapsed";
@@ -75,17 +79,14 @@ export function AppSidebar({
         {/* Brand — prominent logo, thin divider, product name with an uppercase
             letter-spaced eyebrow beneath it. */}
         <div className="flex items-center gap-2.5 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0">
-          {/* Logo links back to the Frappe desk (/app). */}
+          {/* The animated Production mark (it draws its own disc); links back to
+              the Production workspace on the desk. Hover plays the harvest scene. */}
           <a
-            href="/app"
-            title="Open Frappe Desk"
-            className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-background p-1.5 ring-1 ring-border/60 transition-[box-shadow] hover:ring-2 hover:ring-border group-data-[collapsible=icon]:size-[3rem]"
+            href="/app/production"
+            title="Open the Production workspace"
+            className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full group-data-[collapsible=icon]:size-[3rem]"
           >
-            <img
-              src={upandeLogo}
-              alt="Upande"
-              className="size-full object-contain"
-            />
+            <ProductionMark size={48} title="Upande Production" />
           </a>
           <div className="h-6 w-px shrink-0 bg-border group-data-[collapsible=icon]:hidden" />
           {/* Always rendered, hidden via CSS so the width animation plays around
@@ -157,6 +158,14 @@ export function AppSidebar({
                               >
                                 <Icon className="h-4 w-4" />
                                 <span>{it.label}</span>
+                                {it.view === "approvals" && pendingApprovals > 0 && (
+                                  <span
+                                    aria-label={`${pendingApprovals} pending`}
+                                    className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--sd-data-red)] px-1 text-[0.6rem] font-semibold leading-none text-white group-data-[collapsible=icon]:hidden"
+                                  >
+                                    {pendingApprovals > 99 ? "99+" : pendingApprovals}
+                                  </span>
+                                )}
                               </a>
                             </SidebarMenuButton>
                           </SidebarMenuItem>

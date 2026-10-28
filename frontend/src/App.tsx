@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { AppSidebar } from "@/components/AppSidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,6 +7,8 @@ import { PageSkeleton } from "@/components/Loading";
 import { Page } from "@/components/PageShell";
 import { Button } from "@/components/ui/button";
 import { CropProvider, useCrops } from "@/lib/crops";
+import { approvalCounts, type ApprovalCounts } from "@/lib/approvals-api";
+import { isError } from "@/lib/frappe";
 import { viewAllowed } from "@/lib/nav";
 import { replaceRoute, useRoute, type View } from "@/lib/router";
 
@@ -123,6 +125,20 @@ export function App() {
 
   useEffect(warm, []);
 
+  // Sidebar badge: pending approvals per crop, read once and whenever the page says they moved.
+  const [approvals, setApprovals] = useState<ApprovalCounts | null>(null);
+  const refreshApprovals = useCallback(() => {
+    void approvalCounts().then((r) => {
+      if (r && !isError(r)) setApprovals(r as ApprovalCounts);
+    });
+  }, []);
+  useEffect(() => {
+    refreshApprovals();
+    window.addEventListener("production:approvals-changed", refreshApprovals);
+    return () => window.removeEventListener("production:approvals-changed", refreshApprovals);
+  }, [refreshApprovals]);
+  const pendingApprovals = approvals?.crops.find((c) => c.crop_key === crop?.crop_key)?.pending ?? 0;
+
   // No crop (or an unknown one) in the hash: land on the first crop's overview.
   useEffect(() => {
     if (boot && !crop && boot.crops.length) replaceRoute(boot.crops[0].crop_key, route.view);
@@ -170,6 +186,7 @@ export function App() {
             crop={crop}
             view={route.view}
             onNavigate={navigate}
+            pendingApprovals={pendingApprovals}
           />
           {/* min-w-0 so a wide table inside the workspace scrolls in its own box
               instead of refusing to shrink and pushing the page sideways. */}

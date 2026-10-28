@@ -34,11 +34,28 @@ import { cn } from "@/lib/utils";
  */
 
 export type ToastTone = "ok" | "warn" | "error" | "info";
+/** SCP spells the error tone "err"; both are accepted. */
+export type ToastKindInput = ToastTone | "err";
+
+export interface ToastOpts {
+  /** What to do about it; sits under the statement, quieter. */
+  hint?: string;
+  /** Lifetime override in ms (0 = until dismissed). Errors never time out. */
+  ms?: number;
+}
+
+/** `toast(text, tone?, opts?)`, plus `toast.show` / `toast.dismiss` (SCP shape). */
+export interface ToastApi {
+  (text: string, tone?: ToastKindInput, opts?: ToastOpts): number;
+  show: (text: string, tone?: ToastKindInput, opts?: ToastOpts) => number;
+  dismiss: (id: number) => void;
+}
 
 interface Toast {
   id: number;
   tone: ToastTone;
   text: string;
+  hint?: string;
 }
 
 const LIFETIME: Record<ToastTone, number> = { ok: 5000, info: 7000, warn: 9000, error: 0 };
@@ -67,10 +84,11 @@ const TONES: Record<ToastTone, { accent: string; wash: string }> = {
   info: { accent: "var(--sd-quiet)", wash: "var(--sd-alert-info)" },
 };
 
-const ToastContext = createContext<(text: string, tone?: ToastTone) => void>(() => {});
+const NOOP = Object.assign(() => 0, { show: () => 0, dismiss: () => {} }) as ToastApi;
+const ToastContext = createContext<ToastApi>(NOOP);
 
 /** Say something, from anywhere. */
-export function useToast() {
+export function useToast(): ToastApi {
   return useContext(ToastContext);
 }
 
@@ -87,14 +105,16 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const show = useCallback(
-    (text: string, tone: ToastTone = "ok") => {
+    (text: string, kind: ToastKindInput = "ok", opts?: ToastOpts) => {
       const body = plainText(String(text));
-      if (!body.trim()) return;
+      if (!body.trim()) return 0;
+      const tone: ToastTone = kind === "err" ? "error" : kind;
       const id = next.current++;
       // Three at once is a stack nobody reads; the oldest goes.
-      setToasts((all) => [...all.slice(-2), { id, tone, text: body }]);
-      const ms = LIFETIME[tone];
+      setToasts((all) => [...all.slice(-2), { id, tone, text: body, hint: opts?.hint }]);
+      const ms = tone === "error" ? 0 : (opts?.ms ?? LIFETIME[tone]);
       if (ms) timers.current.set(id, setTimeout(() => dismiss(id), ms));
+      return id;
     },
     [dismiss],
   );
@@ -104,7 +124,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     return () => running.forEach(clearTimeout);
   }, []);
 
-  const value = useMemo(() => show, [show]);
+  const value = useMemo<ToastApi>(() => Object.assign((...a: Parameters<typeof show>) => show(...a), { show, dismiss }), [show, dismiss]);
 
   return (
     <ToastContext.Provider value={value}>
@@ -112,7 +132,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       <div
         // Bottom right on a desktop, across the bottom on a phone — where a
         // thumb already is, and clear of the header dock.
-        className="pointer-events-none fixed inset-x-3 bottom-3 z-50 flex flex-col items-stretch gap-2 sm:inset-x-auto sm:right-5 sm:bottom-5 sm:w-[min(24rem,calc(100vw-2.5rem))]"
+        className="pointer-events-none fixed inset-x-3 bottom-3 z-[60] flex flex-col items-stretch gap-2 sm:inset-x-auto sm:right-5 sm:bottom-5 sm:w-[min(24rem,calc(100vw-2.5rem))]"
       >
         {toasts.map((t) => (
           <ToastCard key={t.id} toast={t} onDismiss={() => dismiss(t.id)} />
@@ -147,7 +167,10 @@ function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
       style={{ background: tone.wash }}
     >
       <Icon className="mt-0.5 h-4 w-4 shrink-0" style={{ color: tone.accent }} />
-      <span className="min-w-0 flex-1">{toast.text}</span>
+      <div className="min-w-0 flex-1">
+        <p>{toast.text}</p>
+        {toast.hint && <p className="mt-0.5 text-xs font-normal text-[var(--sd-quiet)]">{toast.hint}</p>}
+      </div>
       <button
         type="button"
         onClick={onDismiss}

@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CROP, renderPage } from "./helpers";
 
@@ -25,7 +25,9 @@ describe("Forecast", () => {
     fc.mockResolvedValue({ uom: "Kg", weeks: [], units: [], totals: { forecast: 0, forecast_to_date: 0, actual: 0, committed: 0, error_pct: null }, seasons: [] });
     renderPage(<Forecast />);
     expect(await screen.findByText(/No weekly forecast for this period/i)).toBeInTheDocument();
-    expect(screen.getByText(/No forecasts to compare/i)).toBeInTheDocument();
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Accuracy" }));
+    expect(await screen.findByText(/No forecasts to compare/i)).toBeInTheDocument();
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Samples" }));
     expect(await screen.findByText(/No yield samples recorded yet/i)).toBeInTheDocument();
   });
 
@@ -46,16 +48,21 @@ describe("Forecast", () => {
       seasons: [{ year: 2025, actual: 12000 }],
     });
     renderPage(<Forecast />);
+    expect(await screen.findByTestId("today-marker")).toBeInTheDocument();
+    // The error is shown as how far actual is from forecast, in words: never a signed "accuracy".
+    expect(screen.getByText("Actual vs forecast to date")).toBeInTheDocument();
+    expect(screen.getAllByText("20% below forecast").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Accuracy to date")).toBeNull();
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Accuracy" }));
     await waitFor(() => expect(screen.getByTestId("error-Block A")).toBeInTheDocument());
     expect(screen.getByTestId("error-Block A").className).toMatch(/sev-moderate/);
     expect(screen.getByTestId("error-Block B").className).toMatch(/sev-high/);
     expect(screen.getByTestId("error-Block C").className).toMatch(/sev-critical/);
     expect(screen.getByTestId("error-Block D")).toHaveTextContent("—");
-    expect(screen.getByTestId("today-marker")).toBeInTheDocument();
-    expect(screen.getAllByText("1,000").length).toBeGreaterThan(0);
-    expect(screen.getByText("Accuracy to date")).toBeInTheDocument();
-    expect(screen.getAllByText("-20.0%").length).toBeGreaterThan(1);
-    expect(screen.getByRole("button", { name: /New sample/ })).toBeInTheDocument();
+    expect(screen.getByTestId("error-Block A")).toHaveTextContent("5.0% above");
+    expect(screen.getByTestId("error-Block C")).toHaveTextContent("60% below");
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Samples" }));
+    expect(await screen.findByRole("button", { name: /New sample/ })).toBeInTheDocument();
   });
 
   it("never links out to the standalone avocado pages", async () => {

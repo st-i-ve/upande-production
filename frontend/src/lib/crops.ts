@@ -130,7 +130,9 @@ export function CropProvider({
   children: React.ReactNode;
 }) {
   const value = useMemo<CurrentCrop>(() => ({ ...crop, crop, boot }), [crop, boot]);
-  return createElement(CropContext.Provider, { value }, children);
+  // display:contents keeps layout untouched; the variable is the crop's highlight colour.
+  const style = { display: "contents", ...(crop.accent_color ? { "--crop-accent": crop.accent_color } : {}) } as React.CSSProperties;
+  return createElement(CropContext.Provider, { value }, createElement("div", { style }, children));
 }
 
 /** The bootstrap crop object for the route's crop_key (its fields are spread

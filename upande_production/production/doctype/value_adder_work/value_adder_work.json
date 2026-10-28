@@ -23,6 +23,11 @@
   "cost_center",
   "company",
   "unplanned",
+  "approval_status",
+  "review_note",
+  "reviewed_by",
+  "reviewed_at",
+  "submitted_by",
   "amended_from"
  ],
  "fields": [
@@ -134,6 +139,46 @@
    "read_only": 1
   },
   {
+   "fieldname": "approval_status",
+   "fieldtype": "Select",
+   "label": "Approval Status",
+   "options": "Pending\nApproved\nSent Back",
+   "default": "Pending",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "review_note",
+   "fieldtype": "Small Text",
+   "label": "Review Note",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "reviewed_by",
+   "fieldtype": "Link",
+   "label": "Reviewed By",
+   "options": "User",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "reviewed_at",
+   "fieldtype": "Datetime",
+   "label": "Reviewed At",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "submitted_by",
+   "fieldtype": "Link",
+   "label": "Keyed By",
+   "options": "User",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
    "fieldname": "amended_from",
    "fieldtype": "Link",
    "label": "Amended From",
@@ -189,7 +234,7 @@
    "read": 1,
    "write": 1,
    "report": 1,
-   "submit": 1,
+   "submit": 0,
    "cancel": 0,
    "role": "Production Supervisor"
   },

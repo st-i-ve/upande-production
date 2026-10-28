@@ -14,7 +14,7 @@ app_license = "mit"
 add_to_apps_screen = [
 	{
 		"name": "upande_production",
-		"logo": "/assets/upande_production/images/upande_mark.svg",
+		"logo": "/assets/upande_production/images/production_logo.svg",
 		"title": "Production",
 		"route": "/app/production",
 	}
@@ -27,7 +27,10 @@ add_to_apps_screen = [
 # app_include_css = "/assets/upande_production/css/upande_production.css"
 # Same-tab navigation for the /production_app sidebar and launcher links (Frappe
 # forces target="_blank" on URL sidebar items, which production_desk.js overrides).
-app_include_js = "/assets/upande_production/js/production_desk.js"
+app_include_js = [
+	"/assets/upande_production/js/production_desk.js",
+	"/assets/upande_production/js/production_logo_motion.js",
+]
 
 # include js, css files in header of web template
 # web_include_css = "/assets/upande_production/css/upande_production.css"

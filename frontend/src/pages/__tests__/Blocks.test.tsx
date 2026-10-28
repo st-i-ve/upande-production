@@ -8,6 +8,7 @@ vi.mock("@/lib/api", async (orig) => ({
   ...(await orig<typeof api>()),
   listUnits: vi.fn(),
   getUnit: vi.fn(),
+  getOverview: vi.fn().mockResolvedValue({ error: "no" }),
 }));
 const listUnits = vi.mocked(api.listUnits);
 const getUnit = vi.mocked(api.getUnit);

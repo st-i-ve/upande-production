@@ -3,7 +3,7 @@ from frappe.tests import IntegrationTestCase
 from frappe.utils import add_days, getdate, today
 
 from upande_production.api import production as api
-from upande_production.production.logic import plans, work
+from upande_production.production.logic import approvals, plans, work
 from upande_production.production.logic.weeks import iso_of
 
 
@@ -78,7 +78,8 @@ class TestApi(IntegrationTestCase):
 		pivot = self._unit("API Pivot", unit_type="Pivot", is_group=1)
 		b1 = self._unit("API B1", parent_production_unit=pivot.name, area_ha=2)
 		b2 = self._unit("API B2", parent_production_unit=pivot.name, area_ha=2)
-		work.record_unplanned_work(b1.name, self.op.name, [{"employee": self.emp.name, "qty": 2.5}], today())
+		names = work.record_unplanned_work(b1.name, self.op.name, [{"employee": self.emp.name, "qty": 2.5}], today())
+		approvals.approve(names)
 		cc2 = frappe.db.get_value("Production Unit", b2.name, "cost_center")
 		abbr = frappe.db.get_value("Company", self.company, "abbr")
 		expense = frappe.db.get_value(
@@ -117,7 +118,8 @@ class TestApi(IntegrationTestCase):
 			"rate": 40, "due_date": today(), "status": "Open",
 		})
 		plan.save()
-		work.record_task_work(plan.name, plan.tasks[-1].name, "In Progress", [{"employee": self.emp.name, "qty": 4}])
+		res = work.record_task_work(plan.name, plan.tasks[-1].name, "In Progress", [{"employee": self.emp.name, "qty": 4}])
+		approvals.approve(res["work"])
 		email = "api_viewer@example.com"
 		if not frappe.db.exists("User", email):
 			_make("User", email=email, first_name="Viewer", send_welcome_email=0, roles=[{"role": "Production Viewer"}])
@@ -219,3 +221,11 @@ class TestApi(IntegrationTestCase):
 		t = res["totals"]
 		self.assertEqual(t["forecast"] - t["forecast_to_date"], 500)
 		self.assertEqual(t["error_pct"], -20.0)
+
+
+class TestInsights(IntegrationTestCase):
+	def test_cost_trend_empty_crop(self):
+		from upande_production.api import insights
+
+		r = insights.cost_trend("No Such Crop", add_days(today(), -14), today())
+		self.assertEqual(r, {"weeks": []})

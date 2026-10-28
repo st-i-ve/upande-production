@@ -10,6 +10,7 @@
  */
 
 import { call, type Envelope } from "@/lib/frappe";
+import type { UomQty } from "@/lib/format";
 
 const PREFIX = "upande_production.api.production.";
 const rpc = <T>(name: string, args: Record<string, unknown> = {}): Promise<Envelope<T>> =>
@@ -138,6 +139,9 @@ export interface WorkEntry {
   qty: number;
   hours: number;
   pay_value: Money;
+  /** Pending / Sent Back drafts are listed but do not count until a manager approves them. */
+  approval_status?: "Pending" | "Approved" | "Sent Back";
+  review_note?: string | null;
 }
 
 export interface PlanTask {
@@ -148,7 +152,10 @@ export interface PlanTask {
   operation: string;
   operation_name: string;
   planned_qty: number;
+  /** Approved quantity only. */
   done_qty: number;
+  /** Keyed by the supervisor, awaiting manager approval. */
+  pending_qty?: number;
   uom: string | null;
   rate: Money;
   due_date: string;
@@ -224,7 +231,8 @@ export type GroupBy = "employee" | "day" | "unit";
 export interface ValueAdderSummaryRow {
   key: string;
   label: string;
-  qty: number;
+  /** Quantity per unit of measure; never added across UOMs. */
+  qty_by_uom: UomQty[];
   hours: number;
   pay_value: Money;
   entries: number;
@@ -236,7 +244,7 @@ export const valueAdderSummary = (
   toDate: string,
   groupBy: GroupBy,
 ) =>
-  rpc<{ rows: ValueAdderSummaryRow[]; total_pay: Money }>("value_adder_summary", {
+  rpc<{ rows: ValueAdderSummaryRow[]; total_pay: Money; total_qty_by_uom: UomQty[] }>("value_adder_summary", {
     crop,
     from_date: fromDate,
     to_date: toDate,
