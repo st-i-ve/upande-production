@@ -11,16 +11,22 @@ from frappe.utils import flt, getdate
 from upande_production.production.logic import analytics
 
 
-def leaf_units(unit):
-	"""The unit itself when it is a block, else every non-group descendant (by lft/rgt)."""
-	row = frappe.db.get_value("Production Unit", unit, ["name", "is_group", "lft", "rgt"], as_dict=True)
+def leaf_units(unit, crop=None):
+	"""The unit itself when it is a block, else every non-group descendant (by lft/rgt). With a crop,
+	only that crop's blocks."""
+	row = frappe.db.get_value("Production Unit", unit, ["name", "is_group", "lft", "rgt", "crop"], as_dict=True)
 	if not row:
 		frappe.throw(_("Production Unit {0} not found").format(unit), frappe.ValidationError)
 	if not row.is_group:
+		if crop and row.crop != crop:
+			frappe.throw(_("{0} is not a {1} block").format(unit, crop), frappe.ValidationError)
 		return [row.name]
+	filters = {"is_group": 0, "lft": (">", row.lft), "rgt": ("<", row.rgt)}
+	if crop:
+		filters["crop"] = crop
 	return frappe.get_all(
 		"Production Unit",
-		filters={"is_group": 0, "lft": (">", row.lft), "rgt": ("<", row.rgt)},
+		filters=filters,
 		pluck="name",
 		order_by="lft asc",
 	)
@@ -43,11 +49,15 @@ def split(doc):
 	# leaf -> share (Manual only). A group's share is spread over its leaves by area.
 	shares, order = {}, []
 	for r in chosen:
-		leaves = leaf_units(r.unit)
+		leaves = leaf_units(r.unit, doc.crop)
 		if not leaves:
 			frappe.throw(_("{0} has no blocks under it").format(r.unit), frappe.ValidationError)
 		if manual:
 			areas = {u: _area(u) for u in leaves}
+			explicit = {c.unit for c in chosen}
+			for u in leaves:
+				if len(leaves) > 1 and areas[u] <= 0 and u not in explicit:
+					frappe.throw(_("Block {0} has no area; add it with its own share").format(u), frappe.ValidationError)
 			total = sum(areas.values())
 			if len(leaves) > 1 and total <= 0:
 				_no_area(r.unit)

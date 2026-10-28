@@ -2,7 +2,7 @@ from datetime import date
 
 import frappe
 from frappe.tests import IntegrationTestCase
-from frappe.utils import flt
+from frappe.utils import add_days, add_months, flt, today
 
 from upande_production.api import breakeven as api
 from upande_production.production.logic import breakeven as B
@@ -144,3 +144,33 @@ class TestBreakEven(IntegrationTestCase):
 		finally:
 			frappe.set_user("Administrator")
 		self.assertEqual(out, {"error": "Break-even includes pay; ask a manager."})
+
+	# projection
+	def test_projection_ignores_opening_lump_and_establishment(self):
+		u = self._unit("BE Recent")
+		_make("Block Opening Balance", unit=u.name, crop=self.crop.name, as_of_date=add_days(today(), -30),
+			setup_cost=100000, running_costs_to_date=5000, value_recovered_to_date=0)
+		self._cost(u.name, 20000, add_days(today(), -5))
+		self._harvest(u.name, 100, add_days(today(), -10), price=1000)
+		b = B.block(u.name, True)
+		self.assertLess(b["balance"], 0)
+		self.assertIsNotNone(b["projected_date"])
+
+	def test_projection_window_is_exactly_12_months(self):
+		since = add_months(frappe.utils.getdate(today()), -12)
+		inside = [(add_days(since, 1), 1200)]
+		outside = [(add_days(since, -1), 12000)]
+		d, _y, basis = B._projection([], self.crop.name, [], inside, -1000)
+		self.assertEqual(basis, "trailing_12m")
+		self.assertEqual(d, B.project(-1000, 100))
+		self.assertEqual(B._projection([], self.crop.name, [], outside, -1000), (None, None, None))
+
+	def test_forecast_uses_one_forecast_per_unit(self):
+		u = self._unit("BE Forecast")
+		self._harvest(u.name, 1, add_days(today(), -100), price=10)
+		week = add_days(today(), 14)
+		for qty in (100, 300):
+			_make("Production Forecast", unit=u.name, crop=self.crop.name, uom="Kg", source="Manual",
+				weeks=[{"week_start": week, "expected_qty": qty}])
+		# latest forecast (300 kg at 10) is the one that counts, not 400 kg
+		self.assertEqual(B._forecast_value([u.name], self.crop.name), 3000)

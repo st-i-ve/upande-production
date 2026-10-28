@@ -5,7 +5,7 @@ from frappe import _
 
 from upande_production.api.envelope import as_dict, run
 from upande_production.production.logic import establishment as logic
-from upande_production.production.logic.settings import is_manager
+from upande_production.production.logic.settings import can_see_pay, is_manager
 
 
 def _manage():
@@ -38,12 +38,15 @@ def cancel_cost(name):
 @frappe.whitelist(methods=["POST"])
 @run
 def capital_activities(crop):
+	frappe.has_permission("Block Establishment Cost", "read", throw=True)
 	return {"rows": logic.capital_activities(crop)}
 
 
 @frappe.whitelist(methods=["POST"])
 @run
 def list_opening_balances(crop):
+	if not can_see_pay():
+		frappe.throw(_("Opening balances include pay; ask a manager."), frappe.PermissionError)
 	return logic.list_opening_balances(crop)
 
 

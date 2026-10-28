@@ -95,3 +95,44 @@ class TestEstablishment(IntegrationTestCase):
 			"setup_cost": 5, "running_costs_to_date": 1, "value_recovered_to_date": 2})
 		self.assertNotIn("error", ob)
 		self.assertEqual(api.list_opening_balances(self.crop.name)["rows"][0]["setup_cost"], 5)
+
+	def test_leaf_units_only_of_the_costs_crop(self):
+		other = _make("Production Crop", crop_name="EST Other Crop", crop_key="est-other", unit_label="Block", yield_uom="Kg")
+		g = self._unit("EST Mixed G", unit_type="Pivot", is_group=1)
+		mine = self._unit("EST Mixed Mine", parent_production_unit=g.name, area_ha=1)
+		_make("Production Unit", unit_name="EST Mixed Theirs", crop=other.name, farm=self.farm.name,
+			unit_type="Orchard Block", company=self.company, parent_production_unit=g.name, area_ha=1)
+		g.reload()
+		self.assertEqual(establishment.leaf_units(g.name, self.crop.name), [mine.name])
+		doc = self._cost([{"unit": g.name}], submit=False)
+		self.assertEqual([r.unit for r in doc.blocks], [mine.name])
+
+	def test_manual_group_with_zero_area_leaf_refused(self):
+		g = self._unit("EST Zero G", unit_type="Pivot", is_group=1)
+		self._unit("EST Z1", parent_production_unit=g.name, area_ha=2)
+		self._unit("EST Z2", parent_production_unit=g.name, area_ha=0)
+		g.reload()
+		with self.assertRaises(frappe.ValidationError) as cm:
+			self._cost([{"unit": g.name, "share_pct": 100}], method="Manual")
+		self.assertIn("EST Z2", str(cm.exception))
+
+	def test_manual_leaf_rows_with_zero_area_leaf_ok(self):
+		g = self._unit("EST Zero2 G", unit_type="Pivot", is_group=1)
+		z1 = self._unit("EST Y1", parent_production_unit=g.name, area_ha=2)
+		z2 = self._unit("EST Y2", parent_production_unit=g.name, area_ha=0)
+		doc = self._cost([{"unit": z1.name, "share_pct": 70}, {"unit": z2.name, "share_pct": 30}], method="Manual")
+		self.assertEqual({r.unit: r.amount for r in doc.blocks}, {z1.name: 700, z2.name: 300})
+
+	def test_pay_gated_reads_for_viewer(self):
+		email = "est_viewer@example.com"
+		if not frappe.db.exists("User", email):
+			_make("User", email=email, first_name="ESTViewer", send_welcome_email=0, roles=[{"role": "Production Viewer"}])
+		frappe.set_user(email)
+		try:
+			ob = api.list_opening_balances(self.crop.name)
+			acts = api.capital_activities(self.crop.name)
+		finally:
+			frappe.set_user("Administrator")
+		self.assertIn("error", ob)
+		self.assertNotIn("rows", ob)
+		self.assertIn("rows", acts)

@@ -135,7 +135,11 @@ function AddCostDialog({
       paid_to: paidTo || null,
       reference: reference || null,
       split_method: method,
-      blocks: chosen.map((unit) => (method === "Manual" ? { unit, share_pct: num(manual[unit] ?? "") ?? 0 } : { unit })),
+      // Manual shares are typed per leaf block, so send the leaves (a chosen group is expanded here).
+      blocks:
+        method === "Manual"
+          ? leaves.map((u) => ({ unit: u.name, share_pct: num(manual[u.name] ?? "") ?? 0 }))
+          : chosen.map((unit) => ({ unit })),
     });
     setBusy(false);
     if (isError(r)) return setFailure(r.error);

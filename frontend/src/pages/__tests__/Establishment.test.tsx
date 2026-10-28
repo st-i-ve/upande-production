@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderPage } from "./helpers";
 
@@ -65,6 +65,30 @@ describe("Establishment", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save Block A" }));
     await waitFor(() =>
       expect(est.saveOpeningBalance).toHaveBeenCalledWith(expect.objectContaining({ unit: "Block A", crop: "Test Crop", as_of_date: "2026-01-01", setup_cost: 5000 })),
+    );
+  });
+
+  it("manual split with a group sends the leaf rows", async () => {
+    renderPage(<Establishment />);
+    await screen.findByTestId("unit-Block A");
+    fireEvent.click(screen.getByRole("button", { name: /Add cost/ }));
+    fireEvent.change(await screen.findByLabelText("Amount (KES)"), { target: { value: "1000" } });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Pivot 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Split manually" }));
+    fireEvent.change(await screen.findByLabelText("Share Block A"), { target: { value: "60" } });
+    fireEvent.change(screen.getByLabelText("Share Block B"), { target: { value: "40" } });
+    fireEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Activity" }));
+    fireEvent.click(await screen.findByRole("option", { name: /Trellis/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
+    await waitFor(() => expect(est.saveCost).toHaveBeenCalled());
+    expect(vi.mocked(est.saveCost).mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        split_method: "Manual",
+        blocks: [
+          { unit: "Block A", share_pct: 60 },
+          { unit: "Block B", share_pct: 40 },
+        ],
+      }),
     );
   });
 });
