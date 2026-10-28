@@ -8,14 +8,15 @@
   "icon": "agriculture",
   "icon_type": "App",
   "label": "Production",
-  "link": "/app/production",
-  "link_type": "External",
+  "link": null,
+  "link_type": "Workspace Sidebar",
   "logo_url": "/assets/upande_production/images/production_logo.svg",
-  "modified": "2026-10-28 12:00:00.000000",
+  "modified": "2026-10-28 18:00:00.000000",
   "name": "Production",
   "parent_icon": null,
   "restrict_removal": 0,
   "roles": [],
-  "standard": 0
+  "standard": 0,
+  "link_to": "Production"
  }
 ]
