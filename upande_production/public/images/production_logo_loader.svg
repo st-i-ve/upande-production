@@ -8,27 +8,28 @@
     .bar0 { transform-box: view-box; transform-origin: 210px 548px; }
     .bar1 { transform-box: view-box; transform-origin: 320px 548px; }
     .bar2 { transform-box: view-box; transform-origin: 430px 548px; }
-    .head { transform-box: view-box; transform-origin: 434px 278px; }
     .gauge { transform-box: view-box; transform-origin: 344px 500px; }
     .needle { transform-box: view-box; transform-origin: 344px 500px; }
-    .arrow { animation: production-in-0 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .scene { animation: production-in-1 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .checklist { animation: production-round-0 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .tick0 { animation: production-round-1 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .tick1 { animation: production-round-2 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .tick2 { animation: production-round-3 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .line0 { animation: production-round-4 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .line1 { animation: production-round-5 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .line2 { animation: production-round-6 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .bars { animation: production-round-7 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .bar0 { animation: production-round-8 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .bar1 { animation: production-round-9 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .bar2 { animation: production-round-10 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .trend { animation: production-round-11 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .head { animation: production-round-12 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .gauge { animation: production-round-13 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .needle { animation: production-round-14 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .zone { animation: production-round-15 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .arrow { animation: production-in-0 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .scene { animation: production-in-1 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .checklist { animation: production-round-0 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .tick0 { animation: production-round-1 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .tick1 { animation: production-round-2 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .tick2 { animation: production-round-3 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .box0 { animation: production-round-4 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .box1 { animation: production-round-5 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .box2 { animation: production-round-6 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .line0 { animation: production-round-7 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .line1 { animation: production-round-8 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .line2 { animation: production-round-9 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .bars { animation: production-round-10 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .bar0 { animation: production-round-11 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .bar1 { animation: production-round-12 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .bar2 { animation: production-round-13 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .trend { animation: production-round-14 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .head { animation: production-round-15 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .gauge { animation: production-round-16 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .needle { animation: production-round-17 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
     @keyframes production-in-0 {
       0% { transform: translate(0px, 0px) scale(1); opacity: 1; }
       8.1% { transform: translate(0px, 0px) scale(0); opacity: 0; }
@@ -46,14 +47,14 @@
       100% { opacity: 0; }
     }
     @keyframes production-round-0 {
-      0% { transform: scale(.86); opacity: 0; }
-      18% { transform: scale(.86); opacity: 0; }
+      0% { transform: scale(.96); opacity: 0; }
+      18% { transform: scale(.96); opacity: 0; }
       20.56% { transform: scale(1); opacity: 1; }
       39.76% { transform: scale(1); opacity: 1; }
       43.6% { transform: scale(.86); opacity: 0; }
       78.16% { transform: scale(.86); opacity: 0; }
       82% { transform: scale(.86); opacity: 0; }
-      100% { transform: scale(.86); opacity: 0; }
+      100% { transform: scale(.96); opacity: 0; }
     }
     @keyframes production-round-1 {
       0% { stroke-dashoffset: 1; }
@@ -86,36 +87,66 @@
       100% { stroke-dashoffset: 1; }
     }
     @keyframes production-round-4 {
-      0% { stroke: #d6d1c8; }
-      18% { stroke: #d6d1c8; }
-      23.76% { stroke: #d6d1c8; }
-      25.68% { stroke: #45433f; }
-      37.2% { stroke: #45433f; }
-      37.84% { stroke: #d6d1c8; }
-      82% { stroke: #d6d1c8; }
-      100% { stroke: #d6d1c8; }
+      0% { fill: #d6d1c8; }
+      18% { fill: #d6d1c8; }
+      21.84% { fill: #d6d1c8; }
+      23.76% { fill: #3f7d3a; }
+      37.2% { fill: #3f7d3a; }
+      37.84% { fill: #d6d1c8; }
+      82% { fill: #d6d1c8; }
+      100% { fill: #d6d1c8; }
     }
     @keyframes production-round-5 {
-      0% { stroke: #d6d1c8; }
-      18% { stroke: #d6d1c8; }
-      28.88% { stroke: #d6d1c8; }
-      30.8% { stroke: #45433f; }
-      37.2% { stroke: #45433f; }
-      37.84% { stroke: #d6d1c8; }
-      82% { stroke: #d6d1c8; }
-      100% { stroke: #d6d1c8; }
+      0% { fill: #d6d1c8; }
+      18% { fill: #d6d1c8; }
+      26.96% { fill: #d6d1c8; }
+      28.88% { fill: #3f7d3a; }
+      37.2% { fill: #3f7d3a; }
+      37.84% { fill: #d6d1c8; }
+      82% { fill: #d6d1c8; }
+      100% { fill: #d6d1c8; }
     }
     @keyframes production-round-6 {
-      0% { stroke: #d6d1c8; }
-      18% { stroke: #d6d1c8; }
-      34% { stroke: #d6d1c8; }
-      35.92% { stroke: #45433f; }
-      37.2% { stroke: #45433f; }
-      37.84% { stroke: #d6d1c8; }
-      82% { stroke: #d6d1c8; }
-      100% { stroke: #d6d1c8; }
+      0% { fill: #d6d1c8; }
+      18% { fill: #d6d1c8; }
+      32.08% { fill: #d6d1c8; }
+      34% { fill: #3f7d3a; }
+      37.2% { fill: #3f7d3a; }
+      37.84% { fill: #d6d1c8; }
+      82% { fill: #d6d1c8; }
+      100% { fill: #d6d1c8; }
     }
     @keyframes production-round-7 {
+      0% { fill: #d6d1c8; }
+      18% { fill: #d6d1c8; }
+      23.76% { fill: #d6d1c8; }
+      25.68% { fill: #45433f; }
+      37.2% { fill: #45433f; }
+      37.84% { fill: #d6d1c8; }
+      82% { fill: #d6d1c8; }
+      100% { fill: #d6d1c8; }
+    }
+    @keyframes production-round-8 {
+      0% { fill: #d6d1c8; }
+      18% { fill: #d6d1c8; }
+      28.88% { fill: #d6d1c8; }
+      30.8% { fill: #45433f; }
+      37.2% { fill: #45433f; }
+      37.84% { fill: #d6d1c8; }
+      82% { fill: #d6d1c8; }
+      100% { fill: #d6d1c8; }
+    }
+    @keyframes production-round-9 {
+      0% { fill: #d6d1c8; }
+      18% { fill: #d6d1c8; }
+      34% { fill: #d6d1c8; }
+      35.92% { fill: #45433f; }
+      37.2% { fill: #45433f; }
+      37.84% { fill: #d6d1c8; }
+      82% { fill: #d6d1c8; }
+      100% { fill: #d6d1c8; }
+    }
+    @keyframes production-round-10 {
       0% { transform: scale(.86); opacity: 0; }
       18% { transform: scale(.86); opacity: 0; }
       39.76% { transform: scale(.86); opacity: 0; }
@@ -125,40 +156,37 @@
       82% { transform: scale(.86); opacity: 0; }
       100% { transform: scale(.86); opacity: 0; }
     }
-    @keyframes production-round-8 {
+    @keyframes production-round-11 {
       0% { transform: scaleY(0); }
       18% { transform: scaleY(0); }
       42.32% { transform: scaleY(0); }
-      46.8% { transform: scaleY(1.07); }
-      48.4% { transform: scaleY(1); }
+      46.8% { transform: scaleY(1); }
       64.08% { transform: scaleY(1); }
       64.72% { transform: scaleY(0); }
       82% { transform: scaleY(0); }
       100% { transform: scaleY(0); }
     }
-    @keyframes production-round-9 {
+    @keyframes production-round-12 {
       0% { transform: scaleY(0); }
       18% { transform: scaleY(0); }
       46.16% { transform: scaleY(0); }
-      50.64% { transform: scaleY(1.07); }
-      52.24% { transform: scaleY(1); }
+      50.64% { transform: scaleY(1); }
       64.08% { transform: scaleY(1); }
       64.72% { transform: scaleY(0); }
       82% { transform: scaleY(0); }
       100% { transform: scaleY(0); }
     }
-    @keyframes production-round-10 {
+    @keyframes production-round-13 {
       0% { transform: scaleY(0); }
       18% { transform: scaleY(0); }
       50% { transform: scaleY(0); }
-      54.48% { transform: scaleY(1.07); }
-      56.08% { transform: scaleY(1); }
+      54.48% { transform: scaleY(1); }
       64.08% { transform: scaleY(1); }
       64.72% { transform: scaleY(0); }
       82% { transform: scaleY(0); }
       100% { transform: scaleY(0); }
     }
-    @keyframes production-round-11 {
+    @keyframes production-round-14 {
       0% { stroke-dashoffset: 1; }
       18% { stroke-dashoffset: 1; }
       53.2% { stroke-dashoffset: 1; }
@@ -168,18 +196,17 @@
       82% { stroke-dashoffset: 1; }
       100% { stroke-dashoffset: 1; }
     }
-    @keyframes production-round-12 {
-      0% { opacity: 0; transform: scale(.5); }
-      18% { opacity: 0; transform: scale(.5); }
-      57.68% { opacity: 0; transform: scale(.5); }
-      60.24% { opacity: 1; transform: scale(1.15); }
-      62.16% { opacity: 1; transform: scale(1); }
-      64.08% { opacity: 1; transform: scale(1); }
-      64.72% { opacity: 0; transform: scale(.5); }
-      82% { opacity: 0; transform: scale(.5); }
-      100% { opacity: 0; transform: scale(.5); }
+    @keyframes production-round-15 {
+      0% { opacity: 0; }
+      18% { opacity: 0; }
+      57.68% { opacity: 0; }
+      60.24% { opacity: 1; }
+      64.08% { opacity: 1; }
+      64.72% { opacity: 0; }
+      82% { opacity: 0; }
+      100% { opacity: 0; }
     }
-    @keyframes production-round-13 {
+    @keyframes production-round-16 {
       0% { transform: scale(.86); opacity: 0; }
       18% { transform: scale(.86); opacity: 0; }
       64.08% { transform: scale(.86); opacity: 0; }
@@ -189,23 +216,13 @@
       82% { transform: scale(.86); opacity: 0; }
       100% { transform: scale(.86); opacity: 0; }
     }
-    @keyframes production-round-14 {
+    @keyframes production-round-17 {
       0% { transform: rotate(-84deg); }
       18% { transform: rotate(-84deg); }
       66.64% { transform: rotate(-84deg); }
-      71.76% { transform: rotate(78deg); }
       74.32% { transform: rotate(56deg); }
       82% { transform: rotate(56deg); }
       100% { transform: rotate(-84deg); }
-    }
-    @keyframes production-round-15 {
-      0% { stroke-width: 46; }
-      18% { stroke-width: 46; }
-      73.04% { stroke-width: 46; }
-      74.96% { stroke-width: 60; }
-      77.52% { stroke-width: 46; }
-      82% { stroke-width: 46; }
-      100% { stroke-width: 46; }
     }
     @media (prefers-reduced-motion: reduce) {
       .arrow, .scene, .scene * { animation: none !important; }
@@ -219,38 +236,37 @@
   <g class="scene">
   <g transform="translate(344 420) scale(1.14) translate(-344 -420)">
   <g class="checklist">
-    <rect x="160" y="262" width="368" height="288" rx="38" fill="#ffffff" stroke="#45433f" stroke-width="16"/>
-    <rect x="196" y="304" width="52" height="52" rx="12" fill="#ffffff" stroke="#45433f" stroke-width="13"/>
-    <path class="line line0" d="M290 330 H490" stroke="#d6d1c8" stroke-width="26" stroke-linecap="round"/>
-    <path class="tick tick0" d="M204 332 L222 350 L258 304" fill="none" stroke="#3f7d3a" stroke-width="22"
-          stroke-linecap="round" stroke-linejoin="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/>
-    <rect x="196" y="379" width="52" height="52" rx="12" fill="#ffffff" stroke="#45433f" stroke-width="13"/>
-    <path class="line line1" d="M290 405 H490" stroke="#d6d1c8" stroke-width="26" stroke-linecap="round"/>
-    <path class="tick tick1" d="M204 407 L222 425 L258 379" fill="none" stroke="#3f7d3a" stroke-width="22"
-          stroke-linecap="round" stroke-linejoin="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/>
-    <rect x="196" y="454" width="52" height="52" rx="12" fill="#ffffff" stroke="#45433f" stroke-width="13"/>
-    <path class="line line2" d="M290 480 H490" stroke="#d6d1c8" stroke-width="26" stroke-linecap="round"/>
-    <path class="tick tick2" d="M204 482 L222 500 L258 454" fill="none" stroke="#3f7d3a" stroke-width="22"
-          stroke-linecap="round" stroke-linejoin="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/>
+    <rect x="190" y="236" width="312" height="14" fill="#45433f"/>
+    <rect class="box box0" x="190" y="301" width="58" height="58" rx="5" fill="#d6d1c8"/>
+    <path class="tick tick0" d="M202 331 L216 345 L238 316" fill="none" stroke="#ffffff" stroke-width="12"
+          stroke-linejoin="miter" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/>
+    <rect class="line line0" x="282" y="318" width="220" height="24" rx="3" fill="#d6d1c8"/>
+    <rect class="box box1" x="190" y="381" width="58" height="58" rx="5" fill="#d6d1c8"/>
+    <path class="tick tick1" d="M202 411 L216 425 L238 396" fill="none" stroke="#ffffff" stroke-width="12"
+          stroke-linejoin="miter" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/>
+    <rect class="line line1" x="282" y="398" width="190" height="24" rx="3" fill="#d6d1c8"/>
+    <rect class="box box2" x="190" y="461" width="58" height="58" rx="5" fill="#d6d1c8"/>
+    <path class="tick tick2" d="M202 491 L216 505 L238 476" fill="none" stroke="#ffffff" stroke-width="12"
+          stroke-linejoin="miter" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/>
+    <rect class="line line2" x="282" y="478" width="205" height="24" rx="3" fill="#d6d1c8"/>
   </g>
   <g class="bars">
-    <path class="base" d="M150 556 H500" stroke="#45433f" stroke-width="16" stroke-linecap="round"/>
-    <rect class="bar bar0" x="170" y="458" width="80" height="90" rx="10" fill="#45433f"/>
-    <rect class="bar bar1" x="280" y="398" width="80" height="150" rx="10" fill="#45433f"/>
-    <rect class="bar bar2" x="390" y="343" width="80" height="205" rx="10" fill="#45433f"/>
-    <path class="trend" d="M145 425 L240 350 L312 386 L424 282" fill="none" stroke="#3f7d3a" stroke-width="28"
-          stroke-linecap="round" stroke-linejoin="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/>
-    <path class="head" d="M364 278 H434 V338" fill="none" stroke="#3f7d3a" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="150" y="548" width="360" height="6" fill="#45433f"/>
+    <rect class="bar bar0" x="174" y="458" width="72" height="90" fill="#a9a49b"/>
+    <rect class="bar bar1" x="284" y="398" width="72" height="150" fill="#a9a49b"/>
+    <rect class="bar bar2" x="394" y="343" width="72" height="205" fill="#45433f"/>
+    <path class="trend" d="M200 412 L316 352 L384 378 L433.3 305.9" fill="none" stroke="#3f7d3a" stroke-width="13"
+          stroke-linejoin="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/>
+    <path class="head" d="M462 270 L452.0 320.9 L414.5 290.9 Z" fill="#3f7d3a"/>
   </g>
   <g class="gauge">
-    <path d="M164.1 493.7 A180 180 0 0 1 248.6 347.4" fill="none" stroke="#d6d1c8" stroke-width="46"/>
-    <path d="M259.5 341.1 A180 180 0 0 1 428.5 341.1" fill="none" stroke="#a9a49b" stroke-width="46"/>
-    <path class="zone" d="M439.4 347.4 A180 180 0 0 1 523.9 493.7" fill="none" stroke="#3f7d3a" stroke-width="46"/>
+    <path d="M164.0 500.0 A180 180 0 0 1 243.3 350.8" fill="none" stroke="#d6d1c8" stroke-width="44"/>
+    <path d="M254.0 344.1 A180 180 0 0 1 422.9 338.2" fill="none" stroke="#a9a49b" stroke-width="44"/>
+    <path class="zone" d="M434.0 344.1 A180 180 0 0 1 524.0 500.0" fill="none" stroke="#3f7d3a" stroke-width="44"/>
     <g class="needle">
-      <path d="M344 500 V360" stroke="#45433f" stroke-width="22" stroke-linecap="round"/>
+      <path d="M-9 0 L0 -158 L9 0 Z" transform="translate(344 500)" fill="#45433f"/>
     </g>
-    <circle cx="344" cy="500" r="34" fill="#45433f"/>
-    <circle cx="344" cy="500" r="12" fill="#ffffff"/>
+    <circle cx="344" cy="500" r="22" fill="#45433f"/>
   </g>
   </g>
   </g>

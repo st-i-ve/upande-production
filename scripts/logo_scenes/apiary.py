@@ -1,6 +1,6 @@
-"""Apiary: the bees crop scene.
+"""Apiary: the bees crop scene, drawn as flat solid silhouettes (no outlines, no faces).
 
-1. A bee leaves the hive, loops to a flower and flies back in.
+1. A honey bee leaves a Langstroth hive, works a flower and flies back in.
 2. Honeycomb cells fill with honey one by one.
 3. Two drops fall into a jar that fills.
 """
@@ -11,46 +11,58 @@ from .common import HIDE, INK, MID, PALE, SHOW
 
 HONEY = "#c99a1b"
 LABEL = "Apiary"
-SCENE_TRANSFORM = "translate(344 430) scale(1.2) translate(-344 -430)"
-STAGE_ORIGIN = "view-box|344px 410px"
+SCENE_TRANSFORM = "translate(344 380) scale(1.1) translate(-344 -380)"
+STAGE_ORIGIN = "view-box|344px 380px"
 
 # -- 1. hive, flower, bee -------------------------------------------------------
+# Langstroth hive, front view: stacked boxes with hairline gaps, hand-holds and an entrance as
+# negative space, a landing board, resting on the ground band.
+PETALS = "".join(
+    f'<ellipse cx="500" cy="262" rx="13" ry="30" transform="rotate({a} 500 300)" fill="{MID}"/>'
+    for a in range(0, 360, 60))
 HIVE = f"""<g class="hive">
-    <path d="M120 548 H380" stroke="{INK}" stroke-width="16" stroke-linecap="round"/>
-    <rect x="155" y="440" width="190" height="90" rx="10" fill="#ffffff" stroke="{INK}" stroke-width="16"/>
-    <rect x="155" y="355" width="190" height="85" rx="10" fill="{HONEY}" stroke="{INK}" stroke-width="16"/>
-    <path d="M122 355 L148 305 H352 L378 355 Z" fill="{INK}" stroke="{INK}" stroke-width="16" stroke-linejoin="round"/>
-    <rect x="215" y="496" width="70" height="26" rx="8" fill="{INK}"/>
+    <rect x="60" y="494" width="570" height="14" fill="{PALE}"/>
+    <rect x="106" y="474" width="250" height="16" fill="{INK}"/>
+    <rect x="124" y="414" width="214" height="56" fill="{INK}"/>
+    <rect x="124" y="340" width="214" height="70" fill="{HONEY}"/>
+    <rect x="124" y="266" width="214" height="70" fill="{INK}"/>
+    <rect x="108" y="238" width="246" height="24" fill="{INK}"/>
+    <rect x="196" y="452" width="70" height="18" fill="#ffffff"/>
+    <rect x="206" y="296" width="50" height="9" fill="#ffffff"/>
+    <rect x="206" y="370" width="50" height="9" fill="#ffffff"/>
     <g class="flower">
-      <path d="M492 548 V420" stroke="{INK}" stroke-width="16" stroke-linecap="round"/>
-      <path d="M492 500 C455 500 440 475 440 455 C478 455 492 475 492 500Z" fill="{PALE}" stroke="{INK}" stroke-width="10" stroke-linejoin="round"/>
-      {"".join(f'<circle cx="{492 + 40 * math.cos(math.radians(a)):.1f}" cy="{400 + 40 * math.sin(math.radians(a)):.1f}" r="27" fill="#ffffff" stroke="{INK}" stroke-width="12"/>' for a in range(-90, 270, 72))}
-      <circle cx="492" cy="400" r="30" fill="{HONEY}" stroke="{INK}" stroke-width="12"/>
+      <rect x="496" y="300" width="8" height="194" fill="{INK}"/>
+      <path d="M500 450 C462 450 446 426 446 404 C486 404 500 426 500 450Z" fill="{MID}"/>
+      <path d="M500 400 C538 400 554 380 554 358 C514 358 500 380 500 400Z" fill="{MID}"/>
+      {PETALS}
+      <circle cx="500" cy="300" r="17" fill="{HONEY}"/>
     </g>
-    <clipPath id="apiary-bee"><ellipse cx="0" cy="0" rx="42" ry="30"/></clipPath>
+    <clipPath id="apiary-bee"><ellipse cx="-30" cy="4" rx="36" ry="22"/></clipPath>
     <g class="bee">
       <g class="face">
         <g class="wings">
-          <ellipse cx="-10" cy="-38" rx="20" ry="34" transform="rotate(-18 -10 -38)" fill="#ffffff" stroke="{INK}" stroke-width="10"/>
-          <ellipse cx="14" cy="-38" rx="18" ry="30" transform="rotate(14 14 -38)" fill="#ffffff" stroke="{INK}" stroke-width="10"/>
+          <ellipse cx="-6" cy="-30" rx="11" ry="28" transform="rotate(-24 -6 -30)" fill="{PALE}" fill-opacity=".85"/>
+          <ellipse cx="14" cy="-28" rx="10" ry="24" transform="rotate(12 14 -28)" fill="{PALE}" fill-opacity=".85"/>
         </g>
-        <path d="M-40 0 L-62 -6 L-62 6 Z" fill="{INK}" stroke="{INK}" stroke-width="6" stroke-linejoin="round"/>
-        <ellipse cx="0" cy="0" rx="42" ry="30" fill="{HONEY}"/>
+        <path d="M-12 14 L-20 38 M0 16 L2 40 M12 14 L22 36 M44 -10 L62 -30" fill="none" stroke="{INK}" stroke-width="4" stroke-linecap="round"/>
+        <path d="M-64 4 L-76 4 L-64 10Z" fill="{INK}"/>
+        <ellipse cx="-30" cy="4" rx="36" ry="22" fill="{INK}"/>
         <g clip-path="url(#apiary-bee)">
-          <rect x="-24" y="-34" width="14" height="68" fill="{INK}"/>
-          <rect x="4" y="-34" width="14" height="68" fill="{INK}"/>
+          <rect x="-52" y="-20" width="9" height="48" fill="{HONEY}"/>
+          <rect x="-35" y="-20" width="9" height="48" fill="{HONEY}"/>
+          <rect x="-18" y="-20" width="9" height="48" fill="{HONEY}"/>
         </g>
-        <ellipse cx="0" cy="0" rx="42" ry="30" fill="none" stroke="{INK}" stroke-width="10"/>
-        <circle cx="48" cy="-2" r="19" fill="{INK}"/>
-        <circle cx="54" cy="-8" r="5" fill="#ffffff"/>
+        <circle cx="12" cy="0" r="21" fill="{INK}"/>
+        <circle cx="38" cy="-2" r="14" fill="{INK}"/>
       </g>
     </g>
   </g>"""
 
 # -- 2. comb ---------------------------------------------------------------------
+# Pointy-top hexagons, each a solid cell; the hairline gaps between them are the comb walls.
 CR = 60
 CA = CR * math.sqrt(3) / 2
-CC = (344, 420)
+CC = (344, 380)
 CELLS = [(0, 0), (CA, -1.5 * CR), (2 * CA, 0), (CA, 1.5 * CR), (-CA, 1.5 * CR), (-2 * CA, 0), (-CA, -1.5 * CR)]
 
 
@@ -61,21 +73,21 @@ def hexpts(cx, cy, r):
 
 def cell(i):
     cx, cy = CC[0] + CELLS[i][0], CC[1] + CELLS[i][1]
-    return (f'<polygon points="{hexpts(cx, cy, 52)}" fill="#ffffff" stroke="{INK}" stroke-width="14" stroke-linejoin="round"/>'
-            f'<polygon class="h{i}" points="{hexpts(cx, cy, 36)}" fill="{HONEY}" stroke="{HONEY}" stroke-width="8" '
-            f'stroke-linejoin="round"/>')
+    return (f'<polygon points="{hexpts(cx, cy, 55)}" fill="{PALE}"/>'
+            f'<polygon class="h{i}" points="{hexpts(cx, cy, 55)}" fill="{HONEY}"/>')
 
 
 COMB = '<g class="comb">' + "".join(cell(i) for i in range(7)) + "</g>"
 
 # -- 3. jar ------------------------------------------------------------------------
-JAR = "M286 340 H402 V372 Q434 384 434 420 V516 Q434 550 400 550 H288 Q254 550 254 516 V420 Q254 384 286 372 Z"
-DROP = "M0 -36 C18 -8 26 6 26 20 A26 26 0 0 1 -26 20 C-26 6 -18 -8 0 -36Z"
+# A solid glass-toned jar with an ink collar; honey rises inside it.
+JAR = "M292 292 H396 V306 Q436 320 436 360 V478 Q436 504 410 504 H278 Q252 504 252 478 V360 Q252 320 292 306 Z"
+DROP = "M0 -30 C14 -8 20 4 20 16 A20 20 0 0 1 -20 16 C-20 4 -14 -8 0 -30Z"
 JARG = f"""<g class="jar">
     <clipPath id="apiary-jar"><path d="{JAR}"/></clipPath>
-    <path d="{JAR}" fill="#ffffff"/>
-    <g clip-path="url(#apiary-jar)"><rect class="honey" x="240" y="400" width="208" height="160" fill="{HONEY}"/></g>
-    <path d="{JAR}" fill="none" stroke="{INK}" stroke-width="16" stroke-linejoin="round"/>
+    <path d="{JAR}" fill="{PALE}"/>
+    <g clip-path="url(#apiary-jar)"><rect class="honey" x="240" y="330" width="208" height="180" fill="{HONEY}"/></g>
+    <rect x="282" y="276" width="124" height="18" fill="{INK}"/>
     <path class="drop0" d="{DROP}" fill="{HONEY}"/>
     <path class="drop1" d="{DROP}" fill="{HONEY}"/>
   </g>"""
@@ -91,25 +103,25 @@ def T(x, y, s=1):
 
 
 BEE = [
-    (0, {"transform": T(250, 512, .3), "opacity": 0}),
-    (0.02, {"transform": T(250, 512, .3), "opacity": 0}),
-    (0.05, {"transform": T(256, 480, 1.4), "opacity": 1}),
-    (0.10, {"transform": T(290, 370, 1.4)}),
-    (0.15, {"transform": T(385, 345, 1.4)}),
-    (0.20, {"transform": T(485, 340, 1.4)}),
-    (0.23, {"transform": T(492, 350, 1.4)}),
-    (0.25, {"transform": T(488, 340, 1.4)}),
-    (0.27, {"transform": T(496, 348, 1.4)}),
-    (0.285, {"transform": T(425, 345, 1.4)}),
-    (0.31, {"transform": T(330, 330, 1.4)}),
-    (0.33, {"transform": T(262, 478, 1.4), "opacity": 1}),
-    (0.345, {"transform": T(250, 512, .3), "opacity": 0}),
-    (1, {"transform": T(250, 512, .3), "opacity": 0}),
+    (0, {"transform": T(231, 466, .3), "opacity": 0}),
+    (0.02, {"transform": T(231, 466, .3), "opacity": 0}),
+    (0.05, {"transform": T(238, 436, 1.8), "opacity": 1}),
+    (0.10, {"transform": T(300, 352, 1.8)}),
+    (0.15, {"transform": T(375, 305, 1.8)}),
+    (0.20, {"transform": T(415, 282, 1.8)}),
+    (0.23, {"transform": T(424, 290, 1.8)}),
+    (0.25, {"transform": T(420, 282, 1.8)}),
+    (0.27, {"transform": T(424, 288, 1.8)}),
+    (0.285, {"transform": T(425, 288, 1.8)}),
+    (0.31, {"transform": T(340, 330, 1.8)}),
+    (0.33, {"transform": T(256, 428, 1.8), "opacity": 1}),
+    (0.345, {"transform": T(231, 466, .3), "opacity": 0}),
+    (1, {"transform": T(231, 466, .3), "opacity": 0}),
 ]
 
 FLAP = []
 for k in range(0, 36):
-    FLAP.append((round(0.03 + k * 0.0085, 4), {"transform": "scaleY(1)" if k % 2 == 0 else "scaleY(.3)"}))
+    FLAP.append((round(0.03 + k * 0.0085, 4), {"transform": "scaleY(1)" if k % 2 == 0 else "scaleY(.45)"}))
 FLAP = [(0, {"transform": "scaleY(1)"})] + FLAP + [(0.36, {"transform": "scaleY(1)"}), (1, {"transform": "scaleY(1)"})]
 
 
@@ -117,14 +129,14 @@ def pop(lo, hi):
     settle = hi + 0.02
     hold = max(0.64, settle + 0.005)  # the last cell settles late: hold after it, never before
     return [(0, {"transform": "scale(0)"}), (lo, {"transform": "scale(0)"}),
-            (hi, {"transform": "scale(1.12)"}), (settle, {"transform": "scale(1)"}),
+            (hi, {"transform": "scale(1)"}), (settle, {"transform": "scale(1)"}),
             (hold, {"transform": "scale(1)"}), (hold + 0.02, {"transform": "scale(0)"}), (1, {"transform": "scale(0)"})]
 
 
 def drop(t0, t1, y1):
     s = lambda y, sc, op: {"transform": T(344, y, sc), "opacity": op}
-    return [(0, s(190, .3, 0)), (t0, s(190, .3, 0)), (t0 + .02, s(200, 1, 1)), (t1, s(y1, 1, 1)),
-            (t1 + .015, s(y1 + 14, .4, 0)), (1, s(190, .3, 0))]
+    return [(0, s(150, .6, 0)), (t0, s(150, .6, 0)), (t0 + .02, s(165, 1, 1)), (t1, s(y1, 1, 1)),
+            (t1 + .015, s(y1 + 14, .6, 0)), (1, s(150, .6, 0))]
 
 
 LOOP = [
@@ -143,8 +155,8 @@ LOOP = [
         (0.85, {"transform": "scaleY(.45)"}), (0.90, {"transform": "scaleY(1)"}), (0.97, {"transform": "scaleY(1)"}),
         (0.98, {"transform": "scaleY(0)"}), (1, {"transform": "scaleY(0)"}),
     ]),
-    (".drop0", "view-box|0px 0px", drop(0.70, 0.765, 472)),
-    (".drop1", "view-box|0px 0px", drop(0.80, 0.865, 440)),
+    (".drop0", "view-box|0px 0px", drop(0.70, 0.765, 262)),
+    (".drop1", "view-box|0px 0px", drop(0.80, 0.865, 262)),
 ]
 
 LOOP_MS = 5600

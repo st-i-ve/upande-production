@@ -3,31 +3,25 @@
        The splash loader: the scene on a loop (in, the story, out). Pure CSS. -->
   <style>
     .arrow { transform-box: view-box; transform-origin: 348.5px 347px; }
-    .pick0 { transform-box: fill-box; transform-origin: 50% 0%; }
-    .pick1 { transform-box: fill-box; transform-origin: 50% 0%; }
-    .pick2 { transform-box: fill-box; transform-origin: 50% 0%; }
-    .ring0 { transform-box: view-box; transform-origin: 130px 270px; }
-    .ring1 { transform-box: view-box; transform-origin: 256px 274px; }
-    .ring2 { transform-box: view-box; transform-origin: 384px 264px; }
-    .stow0 { transform-box: fill-box; transform-origin: 50% 100%; }
-    .stow1 { transform-box: fill-box; transform-origin: 50% 100%; }
-    .stow2 { transform-box: fill-box; transform-origin: 50% 100%; }
-    .halfin { transform-box: view-box; transform-origin: 300px 340px; }
-    .arrow { animation: production-in-0 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .scene { animation: production-in-1 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .pick0 .body { animation: production-round-0 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .pick1 .body { animation: production-round-1 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .pick2 .body { animation: production-round-2 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .pick0 { animation: production-round-3 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .pick1 { animation: production-round-4 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .pick2 { animation: production-round-5 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .ring0 { animation: production-round-6 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .ring1 { animation: production-round-7 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .ring2 { animation: production-round-8 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .stow0 { animation: production-round-9 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .stow1 { animation: production-round-10 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .stow2 { animation: production-round-11 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .halfin { animation: production-round-12 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .chk0 { transform-box: fill-box; transform-origin: 50% 50%; }
+    .chk1 { transform-box: fill-box; transform-origin: 50% 50%; }
+    .chk2 { transform-box: fill-box; transform-origin: 50% 50%; }
+    .pick0 { transform-box: fill-box; transform-origin: 50% 50%; }
+    .pick1 { transform-box: fill-box; transform-origin: 50% 50%; }
+    .pick2 { transform-box: fill-box; transform-origin: 50% 50%; }
+    .halfin { transform-box: view-box; transform-origin: 344px 360px; }
+    .arrow { animation: production-in-0 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .scene { animation: production-in-1 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .body0 { animation: production-round-0 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .body1 { animation: production-round-1 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .body2 { animation: production-round-2 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .chk0 { animation: production-round-3 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .chk1 { animation: production-round-4 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .chk2 { animation: production-round-5 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .pick0 { animation: production-round-6 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .pick1 { animation: production-round-7 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .pick2 { animation: production-round-8 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .halfin { animation: production-round-9 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
     @keyframes production-in-0 {
       0% { transform: translate(0px, 0px) scale(1); opacity: 1; }
       8.1% { transform: translate(0px, 0px) scale(0); opacity: 0; }
@@ -45,143 +39,107 @@
       100% { opacity: 0; }
     }
     @keyframes production-round-0 {
-      0% { fill: #c9dea0; }
-      18% { fill: #c9dea0; }
-      28.24% { fill: #3a6e36; }
-      76.88% { fill: #3a6e36; }
-      77.52% { fill: #c9dea0; }
-      82% { fill: #c9dea0; }
-      100% { fill: #c9dea0; }
+      0% { fill: #86aa78; }
+      18% { fill: #86aa78; }
+      19.28% { fill: #86aa78; }
+      28.24% { fill: #45433f; }
+      78.8% { fill: #45433f; }
+      78.86% { fill: #86aa78; }
+      82% { fill: #86aa78; }
+      100% { fill: #86aa78; }
     }
     @keyframes production-round-1 {
-      0% { fill: #c9dea0; }
-      18% { fill: #c9dea0; }
-      23.12% { fill: #c9dea0; }
-      35.92% { fill: #3a6e36; }
-      76.88% { fill: #3a6e36; }
-      77.52% { fill: #c9dea0; }
-      82% { fill: #c9dea0; }
-      100% { fill: #c9dea0; }
+      0% { fill: #86aa78; }
+      18% { fill: #86aa78; }
+      23.12% { fill: #86aa78; }
+      33.36% { fill: #45433f; }
+      78.8% { fill: #45433f; }
+      78.86% { fill: #86aa78; }
+      82% { fill: #86aa78; }
+      100% { fill: #86aa78; }
     }
     @keyframes production-round-2 {
-      0% { fill: #c9dea0; }
-      18% { fill: #c9dea0; }
-      29.52% { fill: #c9dea0; }
-      43.6% { fill: #3a6e36; }
-      76.88% { fill: #3a6e36; }
-      77.52% { fill: #c9dea0; }
-      82% { fill: #c9dea0; }
-      100% { fill: #c9dea0; }
+      0% { fill: #86aa78; }
+      18% { fill: #86aa78; }
+      26.96% { fill: #86aa78; }
+      38.48% { fill: #45433f; }
+      78.8% { fill: #45433f; }
+      78.86% { fill: #86aa78; }
+      82% { fill: #86aa78; }
+      100% { fill: #86aa78; }
     }
     @keyframes production-round-3 {
-      0% { transform: translate(0px, 0px) scale(1); opacity: 1; }
-      18% { transform: translate(0px, 0px) scale(1); opacity: 1; }
-      29.52% { transform: translate(0px, 0px) scale(1); opacity: 1; }
-      31.44% { transform: translate(0px, -8px) scale(1); opacity: 1; }
-      34.64% { transform: translate(0px, 240px) scale(.85); opacity: 1; }
-      35.92% { transform: translate(0px, 300px) scale(.8); opacity: 0; }
-      76.88% { transform: translate(0px, 300px) scale(.8); opacity: 0; }
-      76.94% { transform: translate(0px, 0px) scale(0); opacity: 0; }
-      81.36% { transform: translate(0px, 0px) scale(1); opacity: 1; }
-      82% { transform: translate(0px, 0px) scale(1); opacity: 1; }
-      100% { transform: translate(0px, 0px) scale(1); opacity: 1; }
+      0% { transform: scale(0); opacity: 0; }
+      18% { transform: scale(0); opacity: 0; }
+      28.88% { transform: scale(0); opacity: 0; }
+      31.44% { transform: scale(1); opacity: 1; }
+      78.8% { transform: scale(1); opacity: 1; }
+      78.86% { transform: scale(0); opacity: 0; }
+      82% { transform: scale(0); opacity: 0; }
+      100% { transform: scale(0); opacity: 0; }
     }
     @keyframes production-round-4 {
-      0% { transform: translate(0px, 0px) scale(1); opacity: 1; }
-      18% { transform: translate(0px, 0px) scale(1); opacity: 1; }
-      38.48% { transform: translate(0px, 0px) scale(1); opacity: 1; }
-      40.4% { transform: translate(0px, -8px) scale(1); opacity: 1; }
-      43.6% { transform: translate(0px, 240px) scale(.85); opacity: 1; }
-      44.88% { transform: translate(0px, 300px) scale(.8); opacity: 0; }
-      76.88% { transform: translate(0px, 300px) scale(.8); opacity: 0; }
-      76.94% { transform: translate(0px, 0px) scale(0); opacity: 0; }
-      81.36% { transform: translate(0px, 0px) scale(1); opacity: 1; }
-      82% { transform: translate(0px, 0px) scale(1); opacity: 1; }
-      100% { transform: translate(0px, 0px) scale(1); opacity: 1; }
+      0% { transform: scale(0); opacity: 0; }
+      18% { transform: scale(0); opacity: 0; }
+      34% { transform: scale(0); opacity: 0; }
+      36.56% { transform: scale(1); opacity: 1; }
+      78.8% { transform: scale(1); opacity: 1; }
+      78.86% { transform: scale(0); opacity: 0; }
+      82% { transform: scale(0); opacity: 0; }
+      100% { transform: scale(0); opacity: 0; }
     }
     @keyframes production-round-5 {
-      0% { transform: translate(0px, 0px) scale(1); opacity: 1; }
-      18% { transform: translate(0px, 0px) scale(1); opacity: 1; }
-      47.44% { transform: translate(0px, 0px) scale(1); opacity: 1; }
-      49.36% { transform: translate(0px, -8px) scale(1); opacity: 1; }
-      52.56% { transform: translate(0px, 240px) scale(.85); opacity: 1; }
-      53.84% { transform: translate(0px, 300px) scale(.8); opacity: 0; }
-      76.88% { transform: translate(0px, 300px) scale(.8); opacity: 0; }
-      76.94% { transform: translate(0px, 0px) scale(0); opacity: 0; }
-      81.36% { transform: translate(0px, 0px) scale(1); opacity: 1; }
-      82% { transform: translate(0px, 0px) scale(1); opacity: 1; }
-      100% { transform: translate(0px, 0px) scale(1); opacity: 1; }
+      0% { transform: scale(0); opacity: 0; }
+      18% { transform: scale(0); opacity: 0; }
+      39.12% { transform: scale(0); opacity: 0; }
+      41.68% { transform: scale(1); opacity: 1; }
+      78.8% { transform: scale(1); opacity: 1; }
+      78.86% { transform: scale(0); opacity: 0; }
+      82% { transform: scale(0); opacity: 0; }
+      100% { transform: scale(0); opacity: 0; }
     }
     @keyframes production-round-6 {
-      0% { transform: scale(.6); opacity: 0; }
-      18% { transform: scale(.6); opacity: 0; }
-      26.32% { transform: scale(.6); opacity: 0; }
-      28.24% { transform: scale(.85); opacity: 1; }
-      30.8% { transform: scale(1.2); opacity: 0; }
-      82% { transform: scale(1.2); opacity: 0; }
-      100% { transform: scale(.6); opacity: 0; }
+      0% { transform: translate(0px, 0px) rotate(0deg); opacity: 1; }
+      18% { transform: translate(0px, 0px) rotate(0deg); opacity: 1; }
+      32.72% { transform: translate(0px, 0px) rotate(0deg); opacity: 1; }
+      39.12% { transform: translate(40px, 148px) rotate(-9deg); opacity: 1; }
+      75.6% { transform: translate(40px, 148px) rotate(-9deg); opacity: 1; }
+      78.8% { transform: translate(40px, 148px) rotate(-9deg); opacity: 0; }
+      78.86% { transform: translate(0px, 0px) rotate(0deg); opacity: 0; }
+      82% { transform: translate(0px, 0px) rotate(0deg); opacity: 1; }
+      100% { transform: translate(0px, 0px) rotate(0deg); opacity: 1; }
     }
     @keyframes production-round-7 {
-      0% { transform: scale(.6); opacity: 0; }
-      18% { transform: scale(.6); opacity: 0; }
-      35.28% { transform: scale(.6); opacity: 0; }
-      37.2% { transform: scale(.85); opacity: 1; }
-      39.76% { transform: scale(1.2); opacity: 0; }
-      82% { transform: scale(1.2); opacity: 0; }
-      100% { transform: scale(.6); opacity: 0; }
+      0% { transform: translate(0px, 0px) rotate(0deg); opacity: 1; }
+      18% { transform: translate(0px, 0px) rotate(0deg); opacity: 1; }
+      42.32% { transform: translate(0px, 0px) rotate(0deg); opacity: 1; }
+      48.72% { transform: translate(0px, 158px) rotate(3deg); opacity: 1; }
+      75.6% { transform: translate(0px, 158px) rotate(3deg); opacity: 1; }
+      78.8% { transform: translate(0px, 158px) rotate(3deg); opacity: 0; }
+      78.86% { transform: translate(0px, 0px) rotate(0deg); opacity: 0; }
+      82% { transform: translate(0px, 0px) rotate(0deg); opacity: 1; }
+      100% { transform: translate(0px, 0px) rotate(0deg); opacity: 1; }
     }
     @keyframes production-round-8 {
-      0% { transform: scale(.6); opacity: 0; }
-      18% { transform: scale(.6); opacity: 0; }
-      44.24% { transform: scale(.6); opacity: 0; }
-      46.16% { transform: scale(.85); opacity: 1; }
-      48.72% { transform: scale(1.2); opacity: 0; }
-      82% { transform: scale(1.2); opacity: 0; }
-      100% { transform: scale(.6); opacity: 0; }
+      0% { transform: translate(0px, 0px) rotate(0deg); opacity: 1; }
+      18% { transform: translate(0px, 0px) rotate(0deg); opacity: 1; }
+      50% { transform: translate(0px, 0px) rotate(0deg); opacity: 1; }
+      56.4% { transform: translate(-40px, 146px) rotate(9deg); opacity: 1; }
+      75.6% { transform: translate(-40px, 146px) rotate(9deg); opacity: 1; }
+      78.8% { transform: translate(-40px, 146px) rotate(9deg); opacity: 0; }
+      78.86% { transform: translate(0px, 0px) rotate(0deg); opacity: 0; }
+      82% { transform: translate(0px, 0px) rotate(0deg); opacity: 1; }
+      100% { transform: translate(0px, 0px) rotate(0deg); opacity: 1; }
     }
     @keyframes production-round-9 {
-      0% { transform: scale(0); opacity: 0; }
-      18% { transform: scale(0); opacity: 0; }
-      35.28% { transform: scale(0); opacity: 0; }
-      37.2% { transform: scale(1.12); opacity: 1; }
-      39.12% { transform: scale(1); opacity: 1; }
-      74.32% { transform: scale(1); opacity: 1; }
-      78.8% { transform: scale(0); opacity: 0; }
-      82% { transform: scale(0); opacity: 0; }
-      100% { transform: scale(0); opacity: 0; }
-    }
-    @keyframes production-round-10 {
-      0% { transform: scale(0); opacity: 0; }
-      18% { transform: scale(0); opacity: 0; }
-      44.24% { transform: scale(0); opacity: 0; }
-      46.16% { transform: scale(1.12); opacity: 1; }
-      48.08% { transform: scale(1); opacity: 1; }
-      74.32% { transform: scale(1); opacity: 1; }
-      78.8% { transform: scale(0); opacity: 0; }
-      82% { transform: scale(0); opacity: 0; }
-      100% { transform: scale(0); opacity: 0; }
-    }
-    @keyframes production-round-11 {
-      0% { transform: scale(0); opacity: 0; }
-      18% { transform: scale(0); opacity: 0; }
-      53.2% { transform: scale(0); opacity: 0; }
-      55.12% { transform: scale(1.12); opacity: 1; }
-      57.04% { transform: scale(1); opacity: 1; }
-      74.32% { transform: scale(1); opacity: 1; }
-      78.8% { transform: scale(0); opacity: 0; }
-      82% { transform: scale(0); opacity: 0; }
-      100% { transform: scale(0); opacity: 0; }
-    }
-    @keyframes production-round-12 {
-      0% { transform: scale(0) rotate(-12deg); opacity: 0; }
-      18% { transform: scale(0) rotate(-12deg); opacity: 0; }
-      56.4% { transform: scale(0) rotate(-12deg); opacity: 0; }
-      60.88% { transform: scale(1.1) rotate(0deg); opacity: 1; }
-      62.8% { transform: scale(1) rotate(0deg); opacity: 1; }
-      71.76% { transform: scale(1) rotate(0deg); opacity: 1; }
-      75.6% { transform: scale(0) rotate(8deg); opacity: 0; }
-      82% { transform: scale(0) rotate(8deg); opacity: 0; }
-      100% { transform: scale(0) rotate(-12deg); opacity: 0; }
+      0% { transform: translate(0px, 12px); opacity: 0; }
+      18% { transform: translate(0px, 12px); opacity: 0; }
+      58.96% { transform: translate(0px, 12px); opacity: 0; }
+      64.08% { transform: translate(0px, 0px); opacity: 1; }
+      73.04% { transform: translate(0px, 0px); opacity: 1; }
+      76.88% { transform: translate(0px, 0px); opacity: 0; }
+      82% { transform: translate(0px, 12px); opacity: 0; }
+      100% { transform: translate(0px, 12px); opacity: 0; }
     }
     @media (prefers-reduced-motion: reduce) {
       .arrow, .scene, .scene * { animation: none !important; }
@@ -195,78 +153,68 @@
   <g class="scene">
   <g transform="translate(0 0)">
   <g class="branch">
-    <path d="M10 188 C140 150 270 190 440 140" stroke="#45433f" stroke-width="24" stroke-linecap="round" fill="none"/>
-    <path d="M176 170 C194 122 240 112 270 122 C254 160 216 178 176 170 Z" fill="#8dba7a" stroke="#3f7d3a" stroke-width="8" stroke-linejoin="round"/>
-    <path d="M310 164 C328 112 376 100 408 108 C394 148 352 172 310 164 Z" fill="#8dba7a" stroke="#3f7d3a" stroke-width="8" stroke-linejoin="round"/>
-    <path d="M64 184 C64 140 94 118 128 114 C130 152 102 184 64 184 Z" fill="#8dba7a" stroke="#3f7d3a" stroke-width="8" stroke-linejoin="round"/>
+    <path d="M24 206 C150 172 250 186 344 174 C440 162 540 170 668 148" fill="none" stroke="#45433f" stroke-width="16" stroke-linecap="round"/>
+    <path transform="translate(92 192) rotate(-38) scale(1.0)" fill="#3f7d3a" d="M0 0 C22 -32 78 -38 124 0 C78 38 22 32 0 0 Z"/>
+    <path transform="translate(276 180) rotate(-62) scale(0.95)" fill="#3f7d3a" d="M0 0 C22 -32 78 -38 124 0 C78 38 22 32 0 0 Z"/>
+    <path transform="translate(414 170) rotate(-120) scale(0.95)" fill="#3f7d3a" d="M0 0 C22 -32 78 -38 124 0 C78 38 22 32 0 0 Z"/>
+    <path transform="translate(580 162) rotate(-146) scale(1.0)" fill="#3f7d3a" d="M0 0 C22 -32 78 -38 124 0 C78 38 22 32 0 0 Z"/>
+    <path transform="translate(150 190) rotate(28) scale(0.8)" fill="#3f7d3a" d="M0 0 C22 -32 78 -38 124 0 C78 38 22 32 0 0 Z"/>
+    <path transform="translate(545 164) rotate(150) scale(0.8)" fill="#3f7d3a" d="M0 0 C22 -32 78 -38 124 0 C78 38 22 32 0 0 Z"/>
   </g>
-  <g transform="translate(130 172) scale(1.2)">
+  <g transform="translate(196 206)">
       <g class="pick pick0">
-        <path d="M0 -8 L0 10" stroke="#45433f" stroke-width="9" stroke-linecap="round"/>
-        <path class="body" d="M0 0 C-12 0 -19 17 -31 43 C-53 85 -44 128 0 128 C44 128 53 85 31 43 C19 17 12 0 0 0 Z" fill="#c9dea0" stroke="#45433f" stroke-width="7" stroke-linejoin="round"/>
-        <g class="peb"><circle cx="-14" cy="60" r="4.2" fill="#264d23" fill-opacity="0.55"/><circle cx="10" cy="52" r="3.8" fill="#264d23" fill-opacity="0.55"/><circle cx="22" cy="84" r="4.4" fill="#264d23" fill-opacity="0.55"/><circle cx="-27" cy="88" r="4.2" fill="#264d23" fill-opacity="0.55"/><circle cx="-4" cy="82" r="4.6" fill="#264d23" fill-opacity="0.55"/><circle cx="8" cy="108" r="4" fill="#264d23" fill-opacity="0.55"/><circle cx="-18" cy="110" r="3.8" fill="#264d23" fill-opacity="0.55"/><circle cx="-2" cy="36" r="3.4" fill="#264d23" fill-opacity="0.55"/><circle cx="30" cy="66" r="3.6" fill="#264d23" fill-opacity="0.55"/><circle cx="-32" cy="68" r="3.4" fill="#264d23" fill-opacity="0.55"/></g>
-        <path d="M-22 52 C-31 72 -27 92 -17 104" stroke="#ffffff" stroke-opacity=".45" stroke-width="8" stroke-linecap="round" fill="none"/>
+        <rect x="-4" y="-26" width="8" height="30" fill="#45433f"/>
+        <g transform="scale(1.25)">
+          <path class="body body0" d="M0 0 C-13 0 -21 15 -33 40 C-60 86 -46 128 0 128 C46 128 60 86 33 40 C21 15 13 0 0 0 Z" fill="#86aa78"/>
+        </g>
+        <g transform="translate(0 74)">
+        <g class="chk chk0">
+          <circle cx="0" cy="0" r="26" fill="#3f7d3a"/>
+          <path d="M-11 0 L-3 9 L12 -9" fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
+        </g>
       </g>
     </g>
-    <g transform="translate(256 176) scale(1.2)">
+    <g transform="translate(344 200)">
       <g class="pick pick1">
-        <path d="M0 -8 L0 10" stroke="#45433f" stroke-width="9" stroke-linecap="round"/>
-        <path class="body" d="M0 0 C-12 0 -19 17 -31 43 C-53 85 -44 128 0 128 C44 128 53 85 31 43 C19 17 12 0 0 0 Z" fill="#c9dea0" stroke="#45433f" stroke-width="7" stroke-linejoin="round"/>
-        <g class="peb"><circle cx="-14" cy="60" r="4.2" fill="#264d23" fill-opacity="0.55"/><circle cx="10" cy="52" r="3.8" fill="#264d23" fill-opacity="0.55"/><circle cx="22" cy="84" r="4.4" fill="#264d23" fill-opacity="0.55"/><circle cx="-27" cy="88" r="4.2" fill="#264d23" fill-opacity="0.55"/><circle cx="-4" cy="82" r="4.6" fill="#264d23" fill-opacity="0.55"/><circle cx="8" cy="108" r="4" fill="#264d23" fill-opacity="0.55"/><circle cx="-18" cy="110" r="3.8" fill="#264d23" fill-opacity="0.55"/><circle cx="-2" cy="36" r="3.4" fill="#264d23" fill-opacity="0.55"/><circle cx="30" cy="66" r="3.6" fill="#264d23" fill-opacity="0.55"/><circle cx="-32" cy="68" r="3.4" fill="#264d23" fill-opacity="0.55"/></g>
-        <path d="M-22 52 C-31 72 -27 92 -17 104" stroke="#ffffff" stroke-opacity=".45" stroke-width="8" stroke-linecap="round" fill="none"/>
+        <rect x="-4" y="-26" width="8" height="30" fill="#45433f"/>
+        <g transform="scale(1.25)">
+          <path class="body body1" d="M0 0 C-13 0 -21 15 -33 40 C-60 86 -46 128 0 128 C46 128 60 86 33 40 C21 15 13 0 0 0 Z" fill="#86aa78"/>
+        </g>
+        <g transform="translate(0 74)">
+        <g class="chk chk1">
+          <circle cx="0" cy="0" r="26" fill="#3f7d3a"/>
+          <path d="M-11 0 L-3 9 L12 -9" fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
+        </g>
       </g>
     </g>
-    <g transform="translate(384 166) scale(1.2)">
+    <g transform="translate(492 192)">
       <g class="pick pick2">
-        <path d="M0 -8 L0 10" stroke="#45433f" stroke-width="9" stroke-linecap="round"/>
-        <path class="body" d="M0 0 C-12 0 -19 17 -31 43 C-53 85 -44 128 0 128 C44 128 53 85 31 43 C19 17 12 0 0 0 Z" fill="#c9dea0" stroke="#45433f" stroke-width="7" stroke-linejoin="round"/>
-        <g class="peb"><circle cx="-14" cy="60" r="4.2" fill="#264d23" fill-opacity="0.55"/><circle cx="10" cy="52" r="3.8" fill="#264d23" fill-opacity="0.55"/><circle cx="22" cy="84" r="4.4" fill="#264d23" fill-opacity="0.55"/><circle cx="-27" cy="88" r="4.2" fill="#264d23" fill-opacity="0.55"/><circle cx="-4" cy="82" r="4.6" fill="#264d23" fill-opacity="0.55"/><circle cx="8" cy="108" r="4" fill="#264d23" fill-opacity="0.55"/><circle cx="-18" cy="110" r="3.8" fill="#264d23" fill-opacity="0.55"/><circle cx="-2" cy="36" r="3.4" fill="#264d23" fill-opacity="0.55"/><circle cx="30" cy="66" r="3.6" fill="#264d23" fill-opacity="0.55"/><circle cx="-32" cy="68" r="3.4" fill="#264d23" fill-opacity="0.55"/></g>
-        <path d="M-22 52 C-31 72 -27 92 -17 104" stroke="#ffffff" stroke-opacity=".45" stroke-width="8" stroke-linecap="round" fill="none"/>
-      </g>
-    </g>
-  <g class="marks">
-    <circle class="ring ring0" cx="130" cy="270" r="104" fill="none" stroke="#3f7d3a" stroke-width="20"/>
-    <circle class="ring ring1" cx="256" cy="274" r="104" fill="none" stroke="#3f7d3a" stroke-width="20"/>
-    <circle class="ring ring2" cx="384" cy="264" r="104" fill="none" stroke="#3f7d3a" stroke-width="20"/>
-  </g>
-  <g class="crate">
-    <path d="M178 470 L500 470 L488 600 L190 600 Z" fill="#d9d4cb" stroke="#45433f" stroke-width="14" stroke-linejoin="round"/>
-  </g>
-  <g transform="translate(246 462) rotate(-78)">
-      <g class="stow stow0">
-        <g transform="translate(0 -64) scale(1.0)">
-          <path d="M0 0 C-12 0 -19 17 -31 43 C-53 85 -44 128 0 128 C44 128 53 85 31 43 C19 17 12 0 0 0 Z" fill="#3a6e36" stroke="#45433f" stroke-width="8" stroke-linejoin="round"/>
-          <circle cx="-14" cy="60" r="4.2" fill="#264d23" fill-opacity="0.6"/><circle cx="10" cy="52" r="3.8" fill="#264d23" fill-opacity="0.6"/><circle cx="22" cy="84" r="4.4" fill="#264d23" fill-opacity="0.6"/><circle cx="-27" cy="88" r="4.2" fill="#264d23" fill-opacity="0.6"/><circle cx="-4" cy="82" r="4.6" fill="#264d23" fill-opacity="0.6"/><circle cx="8" cy="108" r="4" fill="#264d23" fill-opacity="0.6"/><circle cx="-18" cy="110" r="3.8" fill="#264d23" fill-opacity="0.6"/><circle cx="-2" cy="36" r="3.4" fill="#264d23" fill-opacity="0.6"/><circle cx="30" cy="66" r="3.6" fill="#264d23" fill-opacity="0.6"/><circle cx="-32" cy="68" r="3.4" fill="#264d23" fill-opacity="0.6"/>
+        <rect x="-4" y="-26" width="8" height="30" fill="#45433f"/>
+        <g transform="scale(1.25)">
+          <path class="body body2" d="M0 0 C-13 0 -21 15 -33 40 C-60 86 -46 128 0 128 C46 128 60 86 33 40 C21 15 13 0 0 0 Z" fill="#86aa78"/>
         </g>
-      </g>
-    </g>
-  <g transform="translate(344 440) rotate(0)">
-      <g class="stow stow1">
-        <g transform="translate(0 -64) scale(1.0)">
-          <path d="M0 0 C-12 0 -19 17 -31 43 C-53 85 -44 128 0 128 C44 128 53 85 31 43 C19 17 12 0 0 0 Z" fill="#3a6e36" stroke="#45433f" stroke-width="8" stroke-linejoin="round"/>
-          <circle cx="-14" cy="60" r="4.2" fill="#264d23" fill-opacity="0.6"/><circle cx="10" cy="52" r="3.8" fill="#264d23" fill-opacity="0.6"/><circle cx="22" cy="84" r="4.4" fill="#264d23" fill-opacity="0.6"/><circle cx="-27" cy="88" r="4.2" fill="#264d23" fill-opacity="0.6"/><circle cx="-4" cy="82" r="4.6" fill="#264d23" fill-opacity="0.6"/><circle cx="8" cy="108" r="4" fill="#264d23" fill-opacity="0.6"/><circle cx="-18" cy="110" r="3.8" fill="#264d23" fill-opacity="0.6"/><circle cx="-2" cy="36" r="3.4" fill="#264d23" fill-opacity="0.6"/><circle cx="30" cy="66" r="3.6" fill="#264d23" fill-opacity="0.6"/><circle cx="-32" cy="68" r="3.4" fill="#264d23" fill-opacity="0.6"/>
+        <g transform="translate(0 74)">
+        <g class="chk chk2">
+          <circle cx="0" cy="0" r="26" fill="#3f7d3a"/>
+          <path d="M-11 0 L-3 9 L12 -9" fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
         </g>
-      </g>
-    </g>
-  <g transform="translate(442 462) rotate(78)">
-      <g class="stow stow2">
-        <g transform="translate(0 -64) scale(1.0)">
-          <path d="M0 0 C-12 0 -19 17 -31 43 C-53 85 -44 128 0 128 C44 128 53 85 31 43 C19 17 12 0 0 0 Z" fill="#3a6e36" stroke="#45433f" stroke-width="8" stroke-linejoin="round"/>
-          <circle cx="-14" cy="60" r="4.2" fill="#264d23" fill-opacity="0.6"/><circle cx="10" cy="52" r="3.8" fill="#264d23" fill-opacity="0.6"/><circle cx="22" cy="84" r="4.4" fill="#264d23" fill-opacity="0.6"/><circle cx="-27" cy="88" r="4.2" fill="#264d23" fill-opacity="0.6"/><circle cx="-4" cy="82" r="4.6" fill="#264d23" fill-opacity="0.6"/><circle cx="8" cy="108" r="4" fill="#264d23" fill-opacity="0.6"/><circle cx="-18" cy="110" r="3.8" fill="#264d23" fill-opacity="0.6"/><circle cx="-2" cy="36" r="3.4" fill="#264d23" fill-opacity="0.6"/><circle cx="30" cy="66" r="3.6" fill="#264d23" fill-opacity="0.6"/><circle cx="-32" cy="68" r="3.4" fill="#264d23" fill-opacity="0.6"/>
         </g>
       </g>
     </g>
   <g class="crate-front">
-    <path d="M168 486 H510 L498 604 H180 Z" fill="#ffffff" stroke="#45433f" stroke-width="16" stroke-linejoin="round"/>
-    <path d="M174 530 H504 M177 568 H501" stroke="#45433f" stroke-width="12" stroke-linecap="round"/>
-    <path d="M168 470 H510" stroke="#45433f" stroke-width="22" stroke-linecap="round"/>
+    <path d="M178.0 486 H510.0 L495.8 600 H192.2 Z" fill="#e6e2da"/>
+    <path d="M178.5 490 H509.5 L505.2 524 H182.8 Z" fill="#a9a49b"/>
+    <path d="M184.0 534 H504.0 L500.0 566 H188.0 Z" fill="#a9a49b"/>
+    <path d="M189.2 576 H498.8 L495.8 600 H192.2 Z" fill="#a9a49b"/>
+    <rect x="164" y="462" width="360" height="24" rx="5" fill="#45433f"/>
   </g>
-  <g class="half" transform="translate(300 214) scale(1.5)">
+  <g class="half" transform="translate(344 194) scale(1.12)">
     <g class="halfin">
-      <path d="M0 0 C-12 0 -19 17 -31 43 C-53 85 -44 128 0 128 C44 128 53 85 31 43 C19 17 12 0 0 0 Z" fill="#3a6e36" stroke="#45433f" stroke-width="8" stroke-linejoin="round"/>
-      <path d="M0 0 C-12 0 -19 17 -31 43 C-53 85 -44 128 0 128 C44 128 53 85 31 43 C19 17 12 0 0 0 Z" transform="translate(0 84) scale(.8) translate(0 -84)" fill="#e6efb9"/>
-      <circle cx="0" cy="88" r="25" fill="#45433f"/>
-      <path d="M-11 80 C-8 74 -3 72 1 72" stroke="#ffffff" stroke-opacity=".5" stroke-width="5" stroke-linecap="round" fill="none"/>
+      <path d="M0 0 C-13 0 -21 15 -33 40 C-60 86 -46 128 0 128 C46 128 60 86 33 40 C21 15 13 0 0 0 Z" transform="translate(0 -64) translate(0 64)" fill="#45433f"/>
+      <path d="M0 0 C-13 0 -21 15 -33 40 C-60 86 -46 128 0 128 C46 128 60 86 33 40 C21 15 13 0 0 0 Z" transform="translate(0 88) scale(.86) translate(0 -88)" fill="#cfe0c4"/>
+      <circle cx="0" cy="88" r="24" fill="#625d59"/>
     </g>
   </g>
   </g>

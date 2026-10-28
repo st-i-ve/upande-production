@@ -13,19 +13,19 @@
     .bub2 { transform-box: view-box; transform-origin: 0px 0px; }
     .bub3 { transform-box: view-box; transform-origin: 0px 0px; }
     .net { transform-box: view-box; transform-origin: 0px 0px; }
-    .arrow { animation: production-in-0 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .scene { animation: production-in-1 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .wave { animation: production-round-0 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .pel0 { animation: production-round-1 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .pel1 { animation: production-round-2 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .pel2 { animation: production-round-3 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .fish { animation: production-round-4 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .tail { animation: production-round-5 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .bub0 { animation: production-round-6 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .bub1 { animation: production-round-7 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .bub2 { animation: production-round-8 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .bub3 { animation: production-round-9 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
-    .net { animation: production-round-10 3000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .arrow { animation: production-in-0 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .scene { animation: production-in-1 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .wave { animation: production-round-0 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .pel0 { animation: production-round-1 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .pel1 { animation: production-round-2 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .pel2 { animation: production-round-3 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .fish { animation: production-round-4 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .tail { animation: production-round-5 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .bub0 { animation: production-round-6 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .bub1 { animation: production-round-7 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .bub2 { animation: production-round-8 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .bub3 { animation: production-round-9 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
+    .net { animation: production-round-10 4000ms cubic-bezier(.3,.7,.2,1) infinite both; }
     @keyframes production-in-0 {
       0% { transform: translate(0px, 0px) scale(1); opacity: 1; }
       8.1% { transform: translate(0px, 0px) scale(0); opacity: 0; }

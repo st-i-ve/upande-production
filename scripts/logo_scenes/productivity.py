@@ -1,6 +1,7 @@
 """Productivity: the top-level Production mark (desk tile, splash, app before a crop is open).
 
-A checklist ticks off, bars rise with a green trend arrow, a gauge settles in the green.
+Flat ink: a checklist ticks off, bars rise on a fine baseline with a trend arrow, a gauge of solid
+segments settles in the green. No outlines, no bounces.
 """
 
 import math
@@ -13,48 +14,59 @@ SCENE_TRANSFORM = "translate(344 420) scale(1.14) translate(-344 -420)"
 
 STAGE_ORIGIN = "view-box|344px 410px"
 
-# 1. checklist card with three rows
-ROW_Y = (330, 405, 480)
+# 1. checklist: solid rows, square markers that turn green with a white check
+ROW_Y = (330, 410, 490)
 
 
 def row(i: int) -> str:
     y = ROW_Y[i]
-    return f"""<rect x="196" y="{y - 26}" width="52" height="52" rx="12" fill="#ffffff" stroke="{INK}" stroke-width="13"/>
-    <path class="line line{i}" d="M290 {y} H490" stroke="{PALE}" stroke-width="26" stroke-linecap="round"/>
-    <path class="tick tick{i}" d="M204 {y + 2} L222 {y + 20} L258 {y - 26}" fill="none" stroke="{ACCENT}" stroke-width="22"
-          stroke-linecap="round" stroke-linejoin="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/>"""
+    return f"""<rect class="box box{i}" x="190" y="{y - 29}" width="58" height="58" rx="5" fill="{PALE}"/>
+    <path class="tick tick{i}" d="M202 {y + 1} L216 {y + 15} L238 {y - 14}" fill="none" stroke="#ffffff" stroke-width="12"
+          stroke-linejoin="miter" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/>
+    <rect class="line line{i}" x="282" y="{y - 12}" width="{(220, 190, 205)[i]}" height="24" rx="3" fill="{PALE}"/>"""
 
 
 CHECKLIST = f"""<g class="checklist">
-    <rect x="160" y="262" width="368" height="288" rx="38" fill="#ffffff" stroke="{INK}" stroke-width="16"/>
+    <rect x="190" y="236" width="312" height="14" fill="{INK}"/>
     {row(0)}
     {row(1)}
     {row(2)}
   </g>"""
 
-# 2. bar chart and trend arrow
+# 2. bars on a fine baseline, trend line with a solid arrowhead
 BAR_X = (210, 320, 430)
 BAR_H = (90, 150, 205)
 BASE_Y = 548
 
 
 def bar(i: int) -> str:
-    fill = ACCENT if i == 2 else INK
-    return (f'<rect class="bar bar{i}" x="{BAR_X[i] - 40}" y="{BASE_Y - BAR_H[i]}" width="80" height="{BAR_H[i]}" '
-            f'rx="10" fill="{INK}"/>')
+    fill = INK if i == 2 else MID
+    return (f'<rect class="bar bar{i}" x="{BAR_X[i] - 36}" y="{BASE_Y - BAR_H[i]}" width="72" height="{BAR_H[i]}" '
+            f'fill="{fill}"/>')
 
+
+def _arrow(tip, frm, length=46, half=24):
+    dx, dy = tip[0] - frm[0], tip[1] - frm[1]
+    n = math.hypot(dx, dy)
+    ux, uy = dx / n, dy / n
+    bx, by = tip[0] - ux * length, tip[1] - uy * length
+    return (bx, by), f"M{tip[0]} {tip[1]} L{bx - uy * half:.1f} {by + ux * half:.1f} L{bx + uy * half:.1f} {by - ux * half:.1f} Z"
+
+
+_base, HEAD_D = _arrow((462, 270), (390, 360))
+TREND_D = f"M200 412 L316 352 L384 378 L{_base[0]:.1f} {_base[1]:.1f}"
 
 BARS = f"""<g class="bars">
-    <path class="base" d="M150 {BASE_Y + 8} H500" stroke="{INK}" stroke-width="16" stroke-linecap="round"/>
+    <rect x="150" y="{BASE_Y}" width="360" height="6" fill="{INK}"/>
     {bar(0)}
     {bar(1)}
     {bar(2)}
-    <path class="trend" d="M145 425 L240 350 L312 386 L424 282" fill="none" stroke="{ACCENT}" stroke-width="28"
-          stroke-linecap="round" stroke-linejoin="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/>
-    <path class="head" d="M364 278 H434 V338" fill="none" stroke="{ACCENT}" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+    <path class="trend" d="{TREND_D}" fill="none" stroke="{ACCENT}" stroke-width="13"
+          stroke-linejoin="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/>
+    <path class="head" d="{HEAD_D}" fill="{ACCENT}"/>
   </g>"""
 
-# 3. gauge: a half ring in three zones and a needle
+# 3. gauge: solid arc segments and a slim needle
 GC = (344, 500)
 GR = 180
 
@@ -67,48 +79,51 @@ def arc(a0: float, a1: float) -> str:
 
 
 GAUGE = f"""<g class="gauge">
-    <path d="{arc(178, 122)}" fill="none" stroke="{PALE}" stroke-width="46"/>
-    <path d="{arc(118, 62)}" fill="none" stroke="{MID}" stroke-width="46"/>
-    <path class="zone" d="{arc(58, 2)}" fill="none" stroke="{ACCENT}" stroke-width="46"/>
+    <path d="{arc(180, 124)}" fill="none" stroke="{PALE}" stroke-width="44"/>
+    <path d="{arc(120, 64)}" fill="none" stroke="{MID}" stroke-width="44"/>
+    <path class="zone" d="{arc(60, 0)}" fill="none" stroke="{ACCENT}" stroke-width="44"/>
     <g class="needle">
-      <path d="M{GC[0]} {GC[1]} V{GC[1] - 140}" stroke="{INK}" stroke-width="22" stroke-linecap="round"/>
+      <path d="M-9 0 L0 -158 L9 0 Z" transform="translate({GC[0]} {GC[1]})" fill="{INK}"/>
     </g>
-    <circle cx="{GC[0]}" cy="{GC[1]}" r="34" fill="{INK}"/>
-    <circle cx="{GC[0]}" cy="{GC[1]}" r="12" fill="#ffffff"/>
+    <circle cx="{GC[0]}" cy="{GC[1]}" r="22" fill="{INK}"/>
   </g>"""
 
 SCENE = f"""{CHECKLIST}
   {BARS}
   {GAUGE}"""
 
+
 def _tick(lo, hi):
     return [(0, {"strokeDashoffset": 1}), (lo, {"strokeDashoffset": 1}), (hi, {"strokeDashoffset": 0}),
             (0.30, {"strokeDashoffset": 0}), (0.31, {"strokeDashoffset": 1}), (1, {"strokeDashoffset": 1})]
 
 
-def _line(lo, hi):
-    return [(0, {"stroke": PALE}), (lo, {"stroke": PALE}), (hi, {"stroke": INK}), (0.30, {"stroke": INK}),
-            (0.31, {"stroke": PALE}), (1, {"stroke": PALE})]
+def _fill(lo, hi, off, on):
+    return [(0, {"fill": off}), (lo, {"fill": off}), (hi, {"fill": on}), (0.30, {"fill": on}),
+            (0.31, {"fill": off}), (1, {"fill": off})]
 
 
 def _rise(lo, hi):
     return [(0, {"transform": "scaleY(0)"}), (lo, {"transform": "scaleY(0)"}),
-            (hi, {"transform": "scaleY(1.07)"}), (hi + 0.025, {"transform": "scaleY(1)"}),
+            (hi, {"transform": "scaleY(1)"}),
             (0.72, {"transform": "scaleY(1)"}), (0.73, {"transform": "scaleY(0)"}), (1, {"transform": "scaleY(0)"})]
 
 
 LOOP = [
     # 1. checklist: in at the start, ticks in turn, gone by .36
     (".checklist", STAGE_ORIGIN, [
-        (0, {"transform": "scale(.86)", "opacity": 0}),
+        (0, {"transform": "scale(.96)", "opacity": 0}),
         (0.04, SHOW), (0.34, SHOW), (0.40, HIDE), (0.94, HIDE), (1, {"transform": "scale(.86)", "opacity": 0}),
     ]),
     (".tick0", None, _tick(0.06, 0.11)),
     (".tick1", None, _tick(0.14, 0.19)),
     (".tick2", None, _tick(0.22, 0.27)),
-    (".line0", None, _line(0.09, 0.12)),
-    (".line1", None, _line(0.17, 0.20)),
-    (".line2", None, _line(0.25, 0.28)),
+    (".box0", None, _fill(0.06, 0.09, PALE, ACCENT)),
+    (".box1", None, _fill(0.14, 0.17, PALE, ACCENT)),
+    (".box2", None, _fill(0.22, 0.25, PALE, ACCENT)),
+    (".line0", None, _fill(0.09, 0.12, PALE, INK)),
+    (".line1", None, _fill(0.17, 0.20, PALE, INK)),
+    (".line2", None, _fill(0.25, 0.28, PALE, INK)),
     # 2. bars rise, the trend arrow shoots up
     (".bars", STAGE_ORIGIN, [
         (0, HIDE), (0.34, HIDE), (0.38, SHOW), (0.70, SHOW), (0.76, HIDE), (1, HIDE),
@@ -120,24 +135,17 @@ LOOP = [
         (0, {"strokeDashoffset": 1}), (0.55, {"strokeDashoffset": 1}), (0.64, {"strokeDashoffset": 0}),
         (0.72, {"strokeDashoffset": 0}), (0.73, {"strokeDashoffset": 1}), (1, {"strokeDashoffset": 1}),
     ]),
-    (".head", "view-box|434px 278px", [
-        (0, {"opacity": 0, "transform": "scale(.5)"}), (0.62, {"opacity": 0, "transform": "scale(.5)"}),
-        (0.66, {"opacity": 1, "transform": "scale(1.15)"}), (0.69, {"opacity": 1, "transform": "scale(1)"}),
-        (0.72, {"opacity": 1, "transform": "scale(1)"}), (0.73, {"opacity": 0, "transform": "scale(.5)"}),
-        (1, {"opacity": 0, "transform": "scale(.5)"}),
+    (".head", None, [
+        (0, {"opacity": 0}), (0.62, {"opacity": 0}), (0.66, {"opacity": 1}),
+        (0.72, {"opacity": 1}), (0.73, {"opacity": 0}), (1, {"opacity": 0}),
     ]),
-    # 3. gauge: the needle sweeps right, overshoots, settles in the green
+    # 3. gauge: the needle sweeps right and settles in the green
     (".gauge", f"view-box|{GC[0]}px {GC[1]}px", [
         (0, HIDE), (0.72, HIDE), (0.78, SHOW), (0.92, SHOW), (0.97, HIDE), (1, HIDE),
     ]),
     (".needle", f"view-box|{GC[0]}px {GC[1]}px", [
         (0, {"transform": "rotate(-84deg)"}), (0.76, {"transform": "rotate(-84deg)"}),
-        (0.84, {"transform": "rotate(78deg)"}), (0.88, {"transform": "rotate(56deg)"}),
-        (1, {"transform": "rotate(56deg)"}),
-    ]),
-    (".zone", None, [
-        (0, {"strokeWidth": 46}), (0.86, {"strokeWidth": 46}), (0.89, {"strokeWidth": 60}), (0.93, {"strokeWidth": 46}),
-        (1, {"strokeWidth": 46}),
+        (0.88, {"transform": "rotate(56deg)"}), (1, {"transform": "rotate(56deg)"}),
     ]),
 ]
 
