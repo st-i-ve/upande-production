@@ -224,11 +224,11 @@ class TestRules(IntegrationTestCase):
 			("Warn", "Needed"))
 
 	def test_generation_skips_block_marks_warn(self):
-		proto = _make("Production Protocol", protocol_name="TR Proto", crop=self.crop, version_status="Active", steps=[
-			{"operation": self.spray, "day_offset": 30, "planned_qty": 1},
-			{"operation": self.weed, "day_offset": 30, "planned_qty": 1},
-			{"operation": self.prune, "day_offset": 30, "planned_qty": 1}]).name
-		unit, cy = self._cycle(protocol=proto)
+		proto = _make("Production Protocol", protocol_name="TR Proto", crop=self.crop, version_status="Active", key_activities=[
+			{"operation": self.spray, "week": 5, "planned_qty": 1},
+			{"operation": self.weed, "week": 5, "planned_qty": 1},
+			{"operation": self.prune, "week": 5, "planned_qty": 1}]).name
+		unit, cy = self._cycle(ago=28, protocol=proto)  # today is day 28 = the first day of week 5
 		y, w = iso_of(today())
 		plan = plans.get_or_create_plan(self.crop, self.farm.name, y, w)
 		res = plans.generate_week_detail(plan.name)
@@ -265,20 +265,20 @@ class TestRules(IntegrationTestCase):
 
 	def test_protocol_rule_check(self):
 		proto = _make("Production Protocol", protocol_name="TR Check", crop=self.crop, variety=self.variety,
-			version_status="Active", steps=[
-				{"operation": self.spray, "day_offset": 75, "planned_qty": 1},  # 5 days before harvest (day 80)
-				{"operation": self.spray, "day_offset": 40, "planned_qty": 1},  # fine
-				{"operation": self.weed, "day_offset": 25, "planned_qty": 1},  # Tuber initiation
-				{"operation": self.earth, "day_offset": 50, "planned_qty": 1},  # Bulking, not Vegetative
-				{"operation": self.harvest, "day_offset": 81, "planned_qty": 1}])
+			version_status="Active", key_activities=[
+				{"operation": self.weed, "week": 4, "planned_qty": 1},  # day 21: Tuber initiation
+				{"operation": self.spray, "week": 6, "planned_qty": 1},  # day 35: fine
+				{"operation": self.earth, "week": 8, "planned_qty": 1},  # day 49: Bulking, not Vegetative
+				{"operation": self.spray, "week": 11, "planned_qty": 1},  # day 70: 10 days before harvest (day 80)
+				{"operation": self.harvest, "week": 11, "planned_qty": 1}])  # same day as the spray
 		out = rules.rule_check(proto)
 		by = {(o["operation"], o["day"]): o for o in out}
-		self.assertEqual(by[(self.spray, 75)]["rule_status"], "Block")
-		self.assertNotIn((self.spray, 40), by)
-		self.assertEqual(by[(self.weed, 25)]["stage"], "Tuber initiation")
-		self.assertEqual(by[(self.earth, 50)]["rule_status"], "Warn")
-		self.assertIn((self.harvest, 81), by)  # harvest 6 days after the spray at day 75
-		self.assertIn("day 80", by[(self.spray, 75)]["breaches"][0]["message"])
+		self.assertEqual(by[(self.spray, 70)]["rule_status"], "Block")
+		self.assertNotIn((self.spray, 35), by)
+		self.assertEqual(by[(self.weed, 21)]["stage"], "Tuber initiation")
+		self.assertEqual(by[(self.earth, 49)]["rule_status"], "Warn")
+		self.assertIn((self.harvest, 70), by)  # harvest the same day as the spray
+		self.assertIn("day 80", by[(self.spray, 70)]["breaches"][0]["message"])
 		# the manager sees them with the diff
 		d = protocols.diff(proto.name)
 		self.assertEqual(len(d["rule_check"]), len(out))

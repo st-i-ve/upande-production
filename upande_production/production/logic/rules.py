@@ -352,34 +352,39 @@ def _stage_at(segs, day):
 
 
 def rule_check(protocol) -> list:
-	"""Steps of a protocol version that would land in a forbidden stage or window for its variety:
+	"""Activities of a protocol version that would land in a forbidden stage or window for its variety:
 	[{operation, operation_name, repeat, day, stage, rule_status, breaches}]. Days count from the cycle
-	start (or from the step's anchor stage); the harvest day is the variety's harvest stage start, else the
-	protocol's first harvest step."""
+	start (week N starts on day (N-1)*7); the harvest day is the variety's harvest stage start, else the
+	protocol's first harvest activity."""
 	proto = frappe.get_doc("Production Protocol", protocol) if isinstance(protocol, str) else protocol
 	variety = proto.get("variety") if _has("Production Protocol", "variety") else None
 	segs, harvest_day = _timeline(variety)
 	steps = []
-	for step in proto.steps:
-		anchor = step.get("anchor_stage") if _has("Production Protocol Step", "anchor_stage") else None
-		base = 0
-		if anchor:
-			base = next((a for n, a, b in segs if n == anchor), 0)
-		for k in range(cint(step.repeat_count) or 1):
-			day = base + cint(step.day_offset) + k * cint(step.repeat_every_days)
-			steps.append({"step": step, "k": k, "day": day, "info": op_info(step.operation)})
+	for r in proto.get("key_activities") or []:
+		steps.append({"operation": r.operation, "k": 0, "day": (max(cint(r.week), 1) - 1) * 7,
+			"info": op_info(r.operation)})
+	for r in proto.get("cultural_activities") or []:
+		if r.schedule != "Interval" or cint(r.interval_weeks) < 1:
+			continue
+		first = cint(r.establishment_period_weeks) * 7
+		horizon = max(harvest_day or 0, 182)
+		for k in range(0, 60):
+			day = first + k * cint(r.interval_weeks) * 7
+			if day > horizon:
+				break
+			steps.append({"operation": r.operation, "k": k, "day": day, "info": op_info(r.operation)})
 	if harvest_day is None:
-		hs = [s["day"] for s in steps if frappe.db.get_value("Production Operation", s["step"].operation, "is_harvest")]
+		hs = [s["day"] for s in steps if frappe.db.get_value("Production Operation", s["operation"], "is_harvest")]
 		harvest_day = min(hs) if hs else None
 	harvest_start = _BASE + timedelta(days=harvest_day) if harvest_day is not None else None
 	out = []
 	for s in steps:
-		rules = rules_for(proto.crop, variety, s["step"].operation)
-		rev = _reverse_rules(proto.crop, variety, s["step"].operation)
+		rules = rules_for(proto.crop, variety, s["operation"])
+		rev = _reverse_rules(proto.crop, variety, s["operation"])
 		if not (rules or rev):
 			continue
 		others = [
-			{"operation": o["step"].operation, "date": _BASE + timedelta(days=o["day"]), "label": o["info"]["label"],
+			{"operation": o["operation"], "date": _BASE + timedelta(days=o["day"]), "label": o["info"]["label"],
 				"_info": o["info"]}
 			for o in steps if o is not s
 		]
@@ -390,7 +395,7 @@ def rule_check(protocol) -> list:
 		for b in br:
 			b["message"] = _daywise(b["message"])
 		if br:
-			out.append({"operation": s["step"].operation, "operation_name": s["info"]["label"],
+			out.append({"operation": s["operation"], "operation_name": s["info"]["label"],
 				"repeat": s["k"] + 1, "day": s["day"], "stage": stage, "rule_status": worst(br), "breaches": br})
 	return out
 

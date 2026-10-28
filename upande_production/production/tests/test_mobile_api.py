@@ -210,8 +210,9 @@ class TestMobileApi(IntegrationTestCase):
 
 		proto = _make(
 			"Production Protocol", protocol_name="TM Proto", crop=self.crop.name, version_status="Active",
-			steps=[{"operation": self.op.name, "day_offset": 0, "planned_qty": 10},
-				{"operation": self.op.name, "day_offset": 1, "planned_qty": 5}],
+			key_activities=[{"operation": self.op.name, "week": 1, "planned_qty": 10}],
+			cultural_activities=[{"operation": self.op.name, "schedule": "Interval", "interval_weeks": 1,
+				"planned_qty": 5}],
 		)
 		start = frappe.utils.getdate(today())
 		y, w = iso_of(start)

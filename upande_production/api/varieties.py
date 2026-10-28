@@ -9,10 +9,15 @@ from upande_production.api.envelope import as_dict, run
 from upande_production.api.production import _need, _save
 from upande_production.production.logic import analytics, stages
 
+TEMPLATE_FIELDS = [
+	"lifespan_years", "harvest_pattern", "harvest_interval_weeks", "plants_per_m2", "dry_matter_target_pct",
+	"is_flowering", "weeks_to_first_flowering", "weeks_flowering_to_harvest", "weeks_to_reflower_after_harvest",
+	"weeks_to_first_harvest", "harvest_window_weeks",
+]
 VARIETY_FIELDS = [
 	"name", "variety_name", "crop", "product", "item", "enabled", "stage_anchor", "default_protocol",
 	"days_to_first_harvest", "harvest_window_days", "expected_yield_per_ha", "expected_yield_per_plant",
-	"plants_per_ha", "notes",
+	"plants_per_ha", "notes", *TEMPLATE_FIELDS,
 ]
 RULE_FIELDS = [
 	"name", "crop", "variety", "stage", "operation", "operation_category", "rule_type", "days",

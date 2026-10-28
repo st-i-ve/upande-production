@@ -81,7 +81,7 @@ class TestLogicDomain(IntegrationTestCase):
 		unit = self._unit("TC GenUnit")
 		proto = _make(
 			"Production Protocol", protocol_name="TC Proto", version_status="Active", crop=self.crop.name,
-			steps=[{"operation": self.op.name, "day_offset": 3, "repeat_every_days": 7, "repeat_count": 4}],
+			cultural_activities=[{"operation": self.op.name, "schedule": "Interval", "interval_weeks": 1, "establishment_period_weeks": 1}],
 		)
 		w_monday = _monday(today())
 		start = add_days(w_monday, -7)
@@ -95,7 +95,7 @@ class TestLogicDomain(IntegrationTestCase):
 		self.assertEqual(plans.generate_week(plan.name), 0)
 		plan.reload()
 		gen = next(t for t in plan.tasks if t.protocol_ref)
-		self.assertEqual(str(gen.due_date), str(add_days(w_monday, 3)))
+		self.assertEqual(str(gen.due_date), str(w_monday))
 
 	def test_record_twice_sums_not_duplicates(self):
 		plan, task = self._plan_with_task(today())

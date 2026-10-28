@@ -172,7 +172,7 @@ class TestApi(IntegrationTestCase):
 		unit = self._unit("API MissedUnit")
 		proto = _make(
 			"Production Protocol", protocol_name="API Proto", version_status="Active", crop=self.crop.name,
-			steps=[{"operation": self.op.name, "day_offset": 0, "repeat_count": 1}],
+			key_activities=[{"operation": self.op.name, "week": 1}],
 		)
 		_make(
 			"Production Crop Cycle", unit=unit.name, crop=self.crop.name, start_date=add_days(today(), -3),

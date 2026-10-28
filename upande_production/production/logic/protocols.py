@@ -15,7 +15,14 @@ from upande_production.production.logic.settings import is_manager, is_superviso
 
 DT = "Production Protocol"
 STATUSES = ("Draft", "Pending Approval", "Active", "Superseded", "Rejected")
-STEP_FIELDS = ("operation", "anchor_stage", "day_offset", "repeat_every_days", "repeat_count", "planned_qty", "note")
+KEY_FIELDS = ("operation", "week", "repeats", "planned_qty", "description")
+CULTURAL_FIELDS = ("operation", "schedule", "interval_weeks", "establishment_period_weeks", "pre_harvest_interval_days",
+	"planned_qty", "description")
+CAPITAL_FIELDS = ("operation", "description", "budget_per_ha")
+TABLES = {"key_activities": KEY_FIELDS, "cultural_activities": CULTURAL_FIELDS, "capital_activities": CAPITAL_FIELDS}
+TEMPLATE_FIELDS = ("lifespan_years", "harvest_pattern", "harvest_interval_weeks", "is_flowering",
+	"weeks_to_first_flowering", "weeks_flowering_to_harvest", "weeks_to_reflower_after_harvest", "plants_per_m2")
+TEXT_FIELDS = ("operation", "description", "schedule", "repeats")
 HEAD_FIELDS = ("protocol_name", "item", "variety")
 
 
@@ -41,12 +48,23 @@ def _move(doc, status, **fields):
 	doc.save(ignore_permissions=True)
 
 
-def _steps(doc):
-	return [{k: doc.steps[i].get(k) for k in STEP_FIELDS} for i in range(len(doc.steps))]
+def _rows(doc, table, with_name=True):
+	fields = TABLES[table]
+	return [{**({"name": r.name} if with_name else {}), **{k: r.get(k) for k in fields}} for r in doc.get(table) or []]
+
+
+def _tables(doc, with_name=True):
+	return {t: _rows(doc, t, with_name) for t in TABLES}
+
+
+def _template(doc):
+	vals = frappe.db.get_value("Production Variety", doc.variety, list(TEMPLATE_FIELDS),
+		as_dict=True) if doc.variety else None
+	return {f: (vals.get(f) if vals else None) for f in TEMPLATE_FIELDS}
 
 
 def _norm(field, v):
-	if field in ("operation", "note", "anchor_stage"):
+	if field in TEXT_FIELDS:
 		return v or ""
 	return float(v or 0)
 
@@ -57,7 +75,7 @@ def _row(doc) -> dict:
 		"version": doc.version, "version_status": doc.version_status, "protocol_family": doc.protocol_family,
 		"previous_version": doc.previous_version, "submitted_by": doc.submitted_by,
 		"submitted_at": doc.submitted_at, "approved_by": doc.approved_by, "approved_at": doc.approved_at,
-		"review_note": doc.review_note, "steps": _steps(doc),
+		"review_note": doc.review_note, **_template(doc), **_tables(doc),
 	}
 
 
@@ -97,7 +115,7 @@ def new_version(name) -> dict:
 	doc = frappe.get_doc({
 		"doctype": DT, "protocol_name": f"{base} v{top + 1}", "crop": src.crop, "item": src.item, "variety": src.variety,
 		"version": top + 1, "version_status": "Draft", "protocol_family": fam, "previous_version": src.name,
-		"steps": [{k: s.get(k) for k in STEP_FIELDS} for s in src.steps],
+		**_tables(src, with_name=False),
 	})
 	doc.insert(ignore_permissions=True)
 	return {"name": doc.name, "version": doc.version}
@@ -108,8 +126,8 @@ def submit_for_approval(name) -> dict:
 	doc = _doc(name)
 	if doc.version_status != "Draft":
 		frappe.throw(_("Only a Draft can be submitted for approval."), frappe.ValidationError)
-	if not doc.steps:
-		frappe.throw(_("Add at least one step before submitting."), frappe.ValidationError)
+	if not (doc.key_activities or doc.cultural_activities):
+		frappe.throw(_("Add at least one key or cultural activity before submitting."), frappe.ValidationError)
 	_move(doc, "Pending Approval", submitted_by=frappe.session.user, submitted_at=now_datetime())
 	return {"name": doc.name, "version_status": doc.version_status}
 
@@ -157,15 +175,21 @@ def reject(name, note) -> dict:
 
 
 def diff(name) -> dict:
-	"""Differences of a version against its previous version: head fields and step by step."""
+	"""Differences of a version against its previous version: head fields and activity by activity. The
+	changes of all three tables are in `steps`, each with a `table` field."""
 	doc = _doc(name)
 	prev = frappe.get_doc(DT, doc.previous_version) if doc.previous_version else None
 	op_names = dict(frappe.get_all("Production Operation", fields=["name", "operation_name"], as_list=True))
 	out = {"name": doc.name, "previous": prev.name if prev else None, "fields": [], "steps": [],
 		"rule_check": rules.rule_check(doc)}
+
+	def label(op):
+		return op_names.get(op, op)
+
 	if not prev:
-		out["steps"] = [{"change": "added", "operation": s["operation"],
-			"operation_name": op_names.get(s["operation"], s["operation"]), "after": s} for s in _steps(doc)]
+		for table in TABLES:
+			out["steps"] += [{"table": table, "change": "added", "operation": r["operation"],
+				"operation_name": label(r["operation"]), "after": r} for r in _rows(doc, table, False)]
 		return out
 	for f in HEAD_FIELDS:
 		a, b = prev.get(f), doc.get(f)
@@ -174,25 +198,26 @@ def diff(name) -> dict:
 		if (a or None) != (b or None):
 			out["fields"].append({"field": f, "before": a, "after": b})
 
-	def keyed(p):
+	def keyed(p, table):
 		seen, m = {}, {}
-		for s in _steps(p):
-			n = seen[s["operation"]] = seen.get(s["operation"], 0) + 1
-			m[(s["operation"], n)] = s
+		for r in _rows(p, table, False):
+			n = seen[r["operation"]] = seen.get(r["operation"], 0) + 1
+			m[(r["operation"], n)] = r
 		return m
 
-	old, new = keyed(prev), keyed(doc)
-	for key in list(new) + [k for k in old if k not in new]:
-		a, b = old.get(key), new.get(key)
-		base = {"operation": key[0], "operation_name": op_names.get(key[0], key[0])}
-		if a and not b:
-			out["steps"].append({**base, "change": "removed", "before": a})
-		elif b and not a:
-			out["steps"].append({**base, "change": "added", "after": b})
-		else:
-			ch = [{"field": f, "before": a[f], "after": b[f]} for f in STEP_FIELDS if _norm(f, a[f]) != _norm(f, b[f])]
-			if ch:
-				out["steps"].append({**base, "change": "changed", "changes": ch, "before": a, "after": b})
+	for table, fields in TABLES.items():
+		old, new = keyed(prev, table), keyed(doc, table)
+		for key in list(new) + [k for k in old if k not in new]:
+			a, b = old.get(key), new.get(key)
+			base = {"table": table, "operation": key[0], "operation_name": label(key[0])}
+			if a and not b:
+				out["steps"].append({**base, "change": "removed", "before": a})
+			elif b and not a:
+				out["steps"].append({**base, "change": "added", "after": b})
+			else:
+				ch = [{"field": f, "before": a[f], "after": b[f]} for f in fields if _norm(f, a[f]) != _norm(f, b[f])]
+				if ch:
+					out["steps"].append({**base, "change": "changed", "changes": ch, "before": a, "after": b})
 	return out
 
 
@@ -224,7 +249,8 @@ def pending_counts() -> dict:
 
 
 def save_draft(data) -> dict:
-	"""Edit a Draft's item and steps. Anything not a Draft is refused."""
+	"""Edit a Draft's item and its key, cultural and capital tables (row names are ignored). Anything not a
+	Draft is refused."""
 	import json
 
 	_need_supervisor()
@@ -235,7 +261,8 @@ def save_draft(data) -> dict:
 		frappe.throw(_("Only a Draft can be edited."), frappe.ValidationError)
 	if "item" in data:
 		doc.item = data["item"] or None
-	if "steps" in data:
-		doc.set("steps", [{k: s.get(k) for k in STEP_FIELDS} for s in data["steps"] or []])
+	for table, fields in TABLES.items():
+		if table in data:
+			doc.set(table, [{k: r.get(k) for k in fields} for r in data[table] or []])
 	doc.save(ignore_permissions=True)
 	return {"name": doc.name}

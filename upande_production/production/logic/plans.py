@@ -4,7 +4,7 @@ from frappe.utils import add_days, getdate
 
 from upande_production.production.logic import rules
 from upande_production.production.logic.cycles import crop_uses_cycles
-from upande_production.production.logic.stages import step_due_date
+from upande_production.production.logic import schedule
 from upande_production.production.logic.weeks import iso_week_bounds
 
 
@@ -39,7 +39,7 @@ def generate_week_detail(plan_name: str) -> dict:
 	cycles = frappe.get_all(
 		"Production Crop Cycle",
 		filters={"status": ("in", ["Active", "Harvesting"]), "crop": plan.crop, "protocol": ("is", "set")},
-		fields=["name", "unit", "start_date", "protocol", "variety"],
+		fields=["name", "unit", "start_date", "protocol", "variety", "cycle_no", "expected_harvest_start"],
 	)
 	for cy in cycles:
 		if plan.farm and frappe.db.get_value("Production Unit", cy.unit, "farm") != plan.farm:
@@ -48,33 +48,27 @@ def generate_week_detail(plan_name: str) -> dict:
 		if frappe.db.get_value("Production Protocol", cy.protocol, "version_status") not in ("Active", "Superseded"):
 			continue
 		proto = frappe.get_doc("Production Protocol", cy.protocol)
-		for step in proto.steps:
-			for k in range(int(step.repeat_count or 1)):
-				due = step_due_date(cy, step, k)
-				if not (start <= getdate(due) <= end):
-					continue
-				ref = f"{cy.name}:{step.name}:{k}"
-				if ref in existing:
-					continue
-				op = frappe.db.get_value(
-					"Production Operation", step.operation, ["work_uom", "default_rate"], as_dict=True
-				)
-				breaches = rules.check(cycle=cy.name, unit=cy.unit, operation=step.operation, on_date=due)
-				flag = rules.worst(breaches)
-				if flag == "Block":
-					skipped.append({
-						"protocol_ref": ref, "unit": cy.unit, "cycle": cy.name, "operation": step.operation,
-						"due_date": getdate(due), "message": " ".join(b["message"] for b in breaches),
-					})
-					continue
-				plan.append("tasks", {
-					"unit": cy.unit, "cycle": cy.name, "operation": step.operation,
-					"planned_qty": step.planned_qty, "uom": op.work_uom, "rate": op.default_rate,
-					"due_date": due, "status": "Open", "protocol_ref": ref, "note": step.note,
-					"rule_status": flag, "rule_notes": "\n".join(b["message"] for b in breaches) or None,
+		for item in schedule.due_for_cycle(cy, proto, start, end):
+			ref, due, operation = item["ref"], item["due_date"], item["operation"]
+			if ref in existing:
+				continue
+			op = frappe.db.get_value("Production Operation", operation, ["work_uom", "default_rate"], as_dict=True)
+			breaches = rules.check(cycle=cy.name, unit=cy.unit, operation=operation, on_date=due)
+			flag = rules.worst(breaches)
+			if flag == "Block":
+				skipped.append({
+					"protocol_ref": ref, "unit": cy.unit, "cycle": cy.name, "operation": operation,
+					"due_date": getdate(due), "message": " ".join(b["message"] for b in breaches),
 				})
-				existing.add(ref)
-				count += 1
+				continue
+			plan.append("tasks", {
+				"unit": cy.unit, "cycle": cy.name, "operation": operation,
+				"planned_qty": item["planned_qty"], "uom": op.work_uom, "rate": op.default_rate,
+				"due_date": due, "status": "Open", "protocol_ref": ref, "note": item["note"],
+				"rule_status": flag, "rule_notes": "\n".join(b["message"] for b in breaches) or None,
+			})
+			existing.add(ref)
+			count += 1
 	if count:
 		plan.save()
 	_note_skipped(plan, skipped)

@@ -51,7 +51,7 @@ class TestVarieties(IntegrationTestCase):
 	def _protocol(self, name, variety=None, **kw):
 		return _make("Production Protocol", protocol_name=name, crop=self.crop.name, item=self.items["TV Product"],
 			variety=variety, version_status="Active",
-			steps=[{"operation": self.op.name, "day_offset": 5, "repeat_count": 1, "planned_qty": 1}], **kw)
+			key_activities=[{"operation": self.op.name, "week": 1, "planned_qty": 1}], **kw)
 
 	def _cycle(self, variety=None, start=None, **kw):
 		return _make("Production Crop Cycle", unit=self.unit.name, crop=self.crop.name, variety=variety,
@@ -165,11 +165,10 @@ class TestVarieties(IntegrationTestCase):
 
 	def test_protocol_version_keeps_variety_and_anchor(self):
 		p = _make("Production Protocol", protocol_name="TV Proto Anchor", crop=self.crop.name, variety="TV Alpha",
-			version_status="Active", steps=[{"operation": self.op.name, "anchor_stage": "Vegetative", "day_offset": 3,
-				"repeat_count": 1}])
+			version_status="Active", key_activities=[{"operation": self.op.name, "week": 2}])
 		v2 = frappe.get_doc("Production Protocol", P.new_version(p.name)["name"])
 		self.assertEqual(v2.variety, "TV Alpha")
-		self.assertEqual(v2.steps[0].anchor_stage, "Vegetative")
+		self.assertEqual(v2.key_activities[0].week, 2)
 		self.assertEqual(v2.item, "TV Product - Alpha")  # defaulted from the variety on the original
 
 	# ---------------------------------------------------------------- anchored steps
@@ -186,20 +185,23 @@ class TestVarieties(IntegrationTestCase):
 		# an unknown stage falls back to the cycle start
 		self.assertEqual(stages.step_due_date(c, {"anchor_stage": "Nope", "day_offset": 2}), getdate("2026-01-03"))
 
-	def test_generate_uses_anchor_stage(self):
+	def test_generate_uses_key_and_cultural(self):
 		p = _make("Production Protocol", protocol_name="TV Proto Gen", crop=self.crop.name, variety="TV Alpha",
-			version_status="Active", steps=[{"operation": self.op.name, "anchor_stage": "Vegetative", "day_offset": 33,
-				"repeat_count": 1, "planned_qty": 5}])
-		# Vegetative starts day 7, so +33 is day 40: make that today
-		c = self._cycle("TV Alpha", start=add_days(today(), -40), protocol=p.name)
+			version_status="Active",
+			key_activities=[{"operation": self.op.name, "week": 6, "planned_qty": 5}],
+			cultural_activities=[{"operation": self.op.name, "schedule": "Interval", "interval_weeks": 1,
+				"planned_qty": 2}])
+		# week 6 starts on day 35, and the weekly activity falls on day 35 too: make that today
+		c = self._cycle("TV Alpha", start=add_days(today(), -35), protocol=p.name)
 		monday = add_days(today(), -getdate(today()).weekday())
 		plan = plans.get_or_create_plan(self.crop.name, self.farm.name, *iso_of(monday))
-		self.assertGreaterEqual(plans.generate_week(plan.name), 1)
+		self.assertGreaterEqual(plans.generate_week(plan.name), 2)
 		plan.reload()
-		task = next(t for t in plan.tasks if t.cycle == c.name)
-		self.assertEqual(getdate(task.due_date), getdate(today()))
-
-	# ---------------------------------------------------------------- seed sanity
+		mine = [t for t in plan.tasks if t.cycle == c.name and getdate(t.due_date) == getdate(today())]
+		self.assertEqual(len(mine), 2)
+		refs = {t.protocol_ref for t in mine}
+		self.assertTrue(any(r.endswith(":k") for r in refs))
+		self.assertTrue(any(r.endswith(":5") for r in refs))
 
 	def test_seed_sanity(self):
 		if not frappe.db.exists("Production Variety", "Shangi"):

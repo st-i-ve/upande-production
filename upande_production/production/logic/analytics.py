@@ -8,7 +8,7 @@ from datetime import timedelta
 import frappe
 from frappe.utils import add_days, getdate, today
 
-from upande_production.production.logic import rules
+from upande_production.production.logic import rules, schedule
 from upande_production.production.logic.cycles import crop_uses_cycles
 from upande_production.production.logic.weeks import iso_of
 
@@ -322,7 +322,7 @@ def _missed(crop, frm, to, op_names):
 	cycles = frappe.get_all(
 		"Production Crop Cycle",
 		filters={"crop": crop, "status": ("in", ["Active", "Harvesting"]), "protocol": ("is", "set")},
-		fields=["name", "unit", "start_date", "protocol"],
+		fields=["name", "unit", "start_date", "protocol", "cycle_no"],
 	)
 	if not cycles:
 		return []
@@ -338,17 +338,16 @@ def _missed(crop, frm, to, op_names):
 		proto = protocols.get(cy.protocol) or protocols.setdefault(
 			cy.protocol, frappe.get_doc("Production Protocol", cy.protocol)
 		)
-		for step in proto.steps:
-			for k in range(int(step.repeat_count or 1)):
-				due = getdate(add_days(getdate(cy.start_date), int(step.day_offset or 0) + k * int(step.repeat_every_days or 0)))
-				if not (frm <= due <= last) or f"{cy.name}:{step.name}:{k}" in refs:
-					continue
-				out.append({
-					"kind": "Missed", "unit": cy.unit,
-					"operation_name": op_names.get(step.operation) or frappe.db.get_value("Production Operation", step.operation, "operation_name"),
-					"due_date": due, "plan": None,
-					"detail": f"Protocol {cy.protocol} step due {due} was never planned",
-				})
+		for it in schedule.due_for_cycle(cy, proto, frm, last):
+			if it["ref"] in refs:
+				continue
+			due = it["due_date"]
+			out.append({
+				"kind": "Missed", "unit": cy.unit,
+				"operation_name": op_names.get(it["operation"]) or frappe.db.get_value("Production Operation", it["operation"], "operation_name"),
+				"due_date": due, "plan": None,
+				"detail": f"Protocol {cy.protocol} step due {due} was never planned",
+			})
 	return out
 
 
@@ -392,7 +391,7 @@ def protocol_check(crop, year, week, unit=None):
 	if unit:
 		filters["unit"] = unit
 	cycles = frappe.get_all("Production Crop Cycle", filters=filters,
-		fields=["name", "unit", "start_date", "protocol"], order_by="unit asc")
+		fields=["name", "unit", "start_date", "protocol", "cycle_no"], order_by="unit asc")
 	if not cycles:
 		out["reason"] = "No active cycle with a protocol" + (" on this block." if unit else " for this crop.")
 		return out
@@ -416,32 +415,28 @@ def protocol_check(crop, year, week, unit=None):
 		if proto.version_status not in ("Active", "Superseded"):
 			continue
 		steps = []
-		for step in proto.steps:
-			for k in range(int(step.repeat_count or 1)):
-				due = getdate(add_days(getdate(cy.start_date),
-					int(step.day_offset or 0) + k * int(step.repeat_every_days or 0)))
-				if not (start <= due <= end):
-					continue
-				t = tasks.get(f"{cy.name}:{step.name}:{k}")
-				status = _step_status(t, due, today_d)
-				breaches = rules.check(cycle=cy.name, unit=cy.unit, operation=step.operation, on_date=due,
-					exclude_task=t.name if t else None)
-				uom = t.uom if t else frappe.db.get_value("Production Operation", step.operation, "work_uom")
-				planned = float(t.planned_qty or 0) if t else float(step.planned_qty or 0)
-				done = float(t.done_qty or 0) if t else 0.0
-				steps.append({
-					"protocol_ref": f"{cy.name}:{step.name}:{k}", "operation": step.operation,
-					"operation_name": op_names.get(step.operation) or step.operation, "due_date": due,
-					"status": status, "planned_qty": planned, "done_qty": done,
-					"pending_qty": float(t.pending_qty or 0) if t else 0.0, "uom": uom,
-					"plan": t.parent if t else None, "task": t.name if t else None,
-					"task_status": t.status if t else None, "note": step.note,
-					"rule_status": rules.worst(breaches), "breaches": breaches,
-				})
-				out["totals"][status] += 1
-				out["totals"]["steps"] += 1
-				planned_parts.append((uom, planned))
-				done_parts.append((uom, done))
+		for it in schedule.due_for_cycle(cy, proto, start, end):
+			due, operation, ref = it["due_date"], it["operation"], it["ref"]
+			t = tasks.get(ref)
+			status = _step_status(t, due, today_d)
+			breaches = rules.check(cycle=cy.name, unit=cy.unit, operation=operation, on_date=due,
+				exclude_task=t.name if t else None)
+			uom = t.uom if t else frappe.db.get_value("Production Operation", operation, "work_uom")
+			planned = float(t.planned_qty or 0) if t else float(it["planned_qty"] or 0)
+			done = float(t.done_qty or 0) if t else 0.0
+			steps.append({
+				"protocol_ref": ref, "operation": operation,
+				"operation_name": op_names.get(operation) or operation, "due_date": due,
+				"status": status, "planned_qty": planned, "done_qty": done,
+				"pending_qty": float(t.pending_qty or 0) if t else 0.0, "uom": uom,
+				"plan": t.parent if t else None, "task": t.name if t else None,
+				"task_status": t.status if t else None, "note": it["note"],
+				"rule_status": rules.worst(breaches), "breaches": breaches,
+			})
+			out["totals"][status] += 1
+			out["totals"]["steps"] += 1
+			planned_parts.append((uom, planned))
+			done_parts.append((uom, done))
 		steps.sort(key=lambda r: (str(r["due_date"]), r["operation_name"]))
 		block = {"unit": cy.unit, "unit_name": unit_names.get(cy.unit) or cy.unit, "cycle": cy.name,
 			"protocol": cy.protocol, "protocol_version_status": proto.version_status,
