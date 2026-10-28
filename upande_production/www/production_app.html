@@ -38,7 +38,18 @@
 	<body>
 		<div id="production-root"></div>
 		<div class="pr-splash" id="pr-splash">
-			<img src="/assets/upande_production/images/production_logo_loader.svg" alt="Upande Production" />
+			<img id="pr-splash-mark" src="/assets/upande_production/images/production_logo_loader.svg" alt="Upande Production" />
+			<script>
+				// Entering a crop (#/<crop_key>/...): its own scene, if one is built; else productivity.
+				(function () {
+					var k = (location.hash.match(/^#\/([a-z0-9-]+)/) || [])[1];
+					var img = document.getElementById("pr-splash-mark");
+					if (!k || !img) return;
+					var fallback = img.src;
+					img.onerror = function () { img.onerror = null; img.src = fallback; };
+					img.src = "/assets/upande_production/images/production_logo_" + k + "_loader.svg";
+				})();
+			</script>
 		</div>
 
 		<script type="application/json" id="production-bootstrap">{{ bootstrap_json | safe }}</script>

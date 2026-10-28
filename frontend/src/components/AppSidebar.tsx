@@ -86,7 +86,7 @@ export function AppSidebar({
             title="Open the Production workspace"
             className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full group-data-[collapsible=icon]:size-[3rem]"
           >
-            <ProductionMark size={48} title="Upande Production" />
+            <ProductionMark size={48} title="Upande Production" scene={crop?.crop_key} />
           </a>
           <div className="h-6 w-px shrink-0 bg-border group-data-[collapsible=icon]:hidden" />
           {/* Always rendered, hidden via CSS so the width animation plays around

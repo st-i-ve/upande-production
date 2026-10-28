@@ -12,7 +12,8 @@
 (function () {
 	var ID = "pr-desk-splash";
 
-	function cover() {
+	// Leaving for a crop's page shows that crop's scene; otherwise productivity.
+	function cover(href) {
 		if (document.getElementById(ID)) return;
 		var el = document.createElement("div");
 		el.id = ID;
@@ -22,7 +23,10 @@
 				"justify-content:center;background:#ffffff"
 		);
 		var img = document.createElement("img");
-		img.src = "/assets/upande_production/images/production_logo_loader.svg";
+		var base = "/assets/upande_production/images/production_logo_loader.svg";
+		var k = ((href || "").match(/#\/([a-z0-9-]+)/) || [])[1];
+		img.onerror = function () { img.onerror = null; img.src = base; };
+		img.src = k ? "/assets/upande_production/images/production_logo_" + k + "_loader.svg" : base;
 		img.alt = "Upande Production";
 		img.setAttribute("style", "width:106px;height:auto;display:block");
 		el.appendChild(img);
@@ -33,7 +37,7 @@
 	// in the same tick means the browser never paints what was just appended.
 	function leave(href) {
 		try {
-			cover();
+			cover(href);
 		} catch (_) {}
 		requestAnimationFrame(function () {
 			setTimeout(function () {

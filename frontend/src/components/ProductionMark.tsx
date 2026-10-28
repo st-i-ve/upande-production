@@ -1,7 +1,7 @@
 // The Production mark: the Upande disc and arrow at rest, and on hover the arrow
-// steps aside and Production's harvest scene plays (an avocado branch, the fruit
-// ripen, are ringed, picked and drop into the picking crate). It loops while the
-// pointer or keyboard focus stays and eases back out on leave.
+// steps aside and a scene plays — productivity at the top level, or the open
+// crop's own scene (`scene` = crop_key). It loops while the pointer or keyboard
+// focus stays and eases back out on leave.
 //
 // The artwork and the keyframes come from production_logo.svg (written by
 // scripts/build_production_logo.py, which also copies it to src/assets): the
@@ -9,7 +9,14 @@
 // Hover is taken from the nearest enclosing <a>/<button> when there is one (the
 // sidebar's brand link), otherwise from the mark itself.
 import { useEffect, useMemo, useRef } from "react";
-import markSvg from "@/assets/production_logo.svg?raw";
+
+// Every generated mark: production_logo.svg (productivity, the top-level mark) and
+// production_logo_<crop_key>.svg (that crop's own scene).
+const MARKS = import.meta.glob("@/assets/production_logo*.svg", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+}) as Record<string, string>;
 
 type Frame = Record<string, string | number>;
 interface Track {
@@ -26,7 +33,7 @@ interface Spec {
   loop: Track[];
 }
 
-function parseSpec(): { html: string; spec: Spec | null } {
+function parseSpec(markSvg: string): { html: string; spec: Spec | null } {
   const m = /<metadata id="production-motion">([\s\S]*?)<\/metadata>/.exec(markSvg);
   let spec: Spec | null = null;
   try {
@@ -41,7 +48,16 @@ function parseSpec(): { html: string; spec: Spec | null } {
   return { html, spec };
 }
 
-const PARSED = parseSpec();
+const PARSED: Record<string, ReturnType<typeof parseSpec>> = {};
+for (const [path, svg] of Object.entries(MARKS)) {
+  const m = /production_logo(?:_([a-z0-9-]+))?\.svg$/.exec(path);
+  if (m) PARSED[m[1] ?? "productivity"] = parseSpec(svg);
+}
+
+/** The scene for a crop, or the productivity mark when the crop has none (or none is open). */
+function markFor(scene?: string | null) {
+  return (scene && PARSED[scene]) || PARSED.productivity;
+}
 
 function build(svg: SVGElement, tracks: Track[], timing: KeyframeAnimationOptions) {
   const out: Animation[] = [];
@@ -64,17 +80,21 @@ export function ProductionMark({
   size = 48,
   className,
   title = "Upande Production",
+  scene,
 }: {
+  /** A crop_key: plays that crop's scene. Omitted (or no scene built for it): productivity. */
+  scene?: string | null;
   size?: number;
   className?: string;
   title?: string;
 }) {
   const host = useRef<HTMLSpanElement>(null);
-  const html = useMemo(() => PARSED.html, []);
+  const mark = markFor(scene);
+  const html = useMemo(() => mark.html, [mark]);
 
   useEffect(() => {
     const el = host.current;
-    const spec = PARSED.spec;
+    const spec = mark.spec;
     const svg = el?.querySelector("svg");
     if (!el || !svg || !spec || typeof svg.animate !== "function") return;
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
@@ -132,7 +152,7 @@ export function ProductionMark({
       target.removeEventListener("focusout", off);
       [...enter, ...loop].forEach((a) => a.cancel());
     };
-  }, []);
+  }, [mark]);
 
   return (
     <span
