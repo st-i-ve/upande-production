@@ -18,6 +18,11 @@ def _is_admin():
 	return frappe.session.user == "Administrator"
 
 
+def _can_see_flags():
+	"""Cycle flags are for managers only."""
+	return _is_admin() or bool(MANAGE_ROLES & set(frappe.get_roles()))
+
+
 def _can_see_pay():
 	return can_see_pay()
 
@@ -64,7 +69,7 @@ def _unit_rows(crop):
 		as_dict=True,
 	)
 	cycles = analytics.current_cycles(crop)
-	flag_by_cycle = {x["cycle"]: x["flags"] for x in cycle_chain.flag_rows(crop)}
+	flag_by_cycle = {x["cycle"]: x["flags"] for x in cycle_chain.flag_rows(crop)} if _can_see_flags() else {}
 	for r in rows:
 		cy = cycles.get(r.name)
 		r["current_cycle"] = cy.name if cy else None
@@ -197,9 +202,11 @@ def list_cycles(crop, unit=None, status=None):
 	if status:
 		filters["status"] = status
 	cycles = frappe.get_all("Production Crop Cycle", filters=filters, fields=_CYCLE_FIELDS, order_by="start_date desc")
+	see = _can_see_flags()
 	for c in cycles:
 		c["stage_bands"] = _stage_bands(c)
-		c["flags"] = [f for f in (c.pop("protocol_flags", None) or "").split("\n") if f]
+		fl = c.pop("protocol_flags", None) or ""
+		c["flags"] = [f for f in fl.split("\n") if f] if see else []
 	return {"cycles": cycles}
 
 
@@ -208,7 +215,7 @@ def list_cycles(crop, unit=None, status=None):
 def cycle_flags(crop):
 	"""Open cycles that are off protocol: {"rows": [{cycle, unit, variety, flags: [str]}]}."""
 	_need("Production Crop Cycle")
-	return {"rows": cycle_chain.flag_rows(crop)}
+	return {"rows": cycle_chain.flag_rows(crop) if _can_see_flags() else []}
 
 
 def _stage_bands(c):

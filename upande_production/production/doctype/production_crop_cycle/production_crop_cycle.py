@@ -16,9 +16,8 @@ class ProductionCropCycle(Document):
 			self.crop = frappe.db.get_value("Production Unit", self.unit, "crop")
 		if self.crop and not crop_uses_cycles(self.crop):
 			frappe.throw(f"{self.crop} does not use crop cycles.")
-		if not self.cycle_no:
-			prev = self.previous_cycle and frappe.db.get_value("Production Crop Cycle", self.previous_cycle, "cycle_no")
-			self.cycle_no = (prev or 1) + 1 if self.previous_cycle else 1
+		if self.is_new() or self.has_value_changed("previous_cycle") or not self.cycle_no:
+			self.cycle_no = cycle_chain.cycle_number(self)
 		cycle_chain.sync_actuals(self)
 		apply_variety_defaults(self)
 		if self.protocol and (self.is_new() or self.has_value_changed("protocol")) and not frappe.flags.in_demo_seed:

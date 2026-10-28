@@ -17,7 +17,25 @@ FLAG_STATUSES = ("Active", "Harvesting")
 def _variety(doc):
 	return frappe.db.get_value("Production Variety", doc.get("variety"), [
 		"is_flowering", "harvest_pattern", "lifespan_years", "weeks_flowering_to_harvest",
-		"weeks_to_reflower_after_harvest", "harvest_window_days"], as_dict=True) if doc.get("variety") else None
+		"weeks_to_reflower_after_harvest", "harvest_window_days", "stage_anchor"], as_dict=True) if doc.get("variety") else None
+
+
+def cycle_number(doc) -> int:
+	"""1 without a previous cycle or for a Once variety; otherwise the previous cycle's number + 1."""
+	if not doc.get("previous_cycle"):
+		return 1
+	v = _variety(doc)
+	if not v or (v.harvest_pattern or "Once") == "Once":
+		return 1
+	prev = frappe.db.get_value(CYCLE_DT, doc.get("previous_cycle"), "cycle_no")
+	return cint(prev or 1) + 1
+
+
+def first_pick_date(doc):
+	if not doc.get("name") or doc.is_new():
+		return None
+	return frappe.db.get_all("Production Harvest", filters={"cycle": doc.name, "docstatus": ("<", 2)},
+		fields=[{"MIN": "harvest_date", "as": "d"}])[0].d
 
 
 def _stage_names(doc):
@@ -65,6 +83,11 @@ def sync_actuals(doc) -> None:
 				doc.set(field, have[stage])
 		elif stage in have:
 			doc.set(field, have[stage])
+	if harvest and not doc.get("actual_harvest_start"):
+		first = first_pick_date(doc)
+		if first:
+			doc.actual_harvest_start = first
+			_upsert(doc, harvest, first)
 	v = _variety(doc)
 	if flower:
 		if cint(doc.get("cycle_no")) > 1 and v and cint(v.weeks_to_reflower_after_harvest):
@@ -74,6 +97,26 @@ def sync_actuals(doc) -> None:
 			st = next((s["start"] for s in tl if s["stage"] == flower), None)
 			if st:
 				doc.expected_flowering_date = st
+	_sync_expected_harvest(doc, v)
+
+
+def _sync_expected_harvest(doc, v):
+	"""Expected harvest follows the flowering date (actual wins) for flowering varieties: a hand-made
+	later cycle gets it filled in; a newly recorded actual flowering moves it unless the user set
+	expected_harvest_start in the same save."""
+	if not v or not cint(v.is_flowering) or not cint(v.weeks_flowering_to_harvest):
+		return
+	if doc.is_new():
+		go = not doc.get("expected_harvest_start") and (cint(doc.get("cycle_no")) > 1 or doc.get("actual_flowering_date"))
+	else:
+		go = doc.get("actual_flowering_date") and doc.has_value_changed("actual_flowering_date") \
+			and not doc.has_value_changed("expected_harvest_start")
+	f = doc.get("actual_flowering_date") or doc.get("expected_flowering_date")
+	if not go or not f:
+		return
+	doc.expected_harvest_start = add_days(getdate(f), cint(v.weeks_flowering_to_harvest) * 7)
+	if cint(v.harvest_window_days):
+		doc.expected_harvest_end = add_days(doc.expected_harvest_start, cint(v.harvest_window_days))
 
 
 def _expected_harvest(doc):
@@ -167,7 +210,9 @@ def flags(doc, today_=None) -> list[str]:
 		now, tol, unit = getdate(today_ or today()), _tolerance_weeks(), doc.get("unit")
 		flower, harvest = _stage_names(doc)
 		out = []
-		if flower:
+		v = _variety(doc)
+		anchored = v and v.stage_anchor == "Flowering" and cint(doc.get("cycle_no") or 1) <= 1
+		if flower and not anchored:  # a flowering-anchored first cycle starts at flowering
 			out.append(_compare("flowering", unit, doc.get("expected_flowering_date"), doc.get("actual_flowering_date"),
 				tol, now, "flowered", "flowering due"))
 		if harvest:

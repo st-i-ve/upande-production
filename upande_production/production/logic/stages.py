@@ -67,6 +67,17 @@ def _base_date(doc):
 	return getdate(d) if d else None
 
 
+def _day0(doc):
+	"""Day 0 of the stages: the start date, except for a later cycle (cycle_no > 1) of a Flowering-anchored
+	variety, where the start is the previous harvest end and day 0 is the expected flowering date."""
+	base = _base_date(doc)
+	if _is_stocking(doc) or not base or cint(doc.get("cycle_no")) <= 1 or not doc.get("expected_flowering_date"):
+		return base
+	if frappe.db.get_value("Production Variety", doc.get("variety"), "stage_anchor") == "Flowering":
+		return getdate(doc.get("expected_flowering_date"))
+	return base
+
+
 def _actuals(doc) -> dict:
 	out = {}
 	for r in doc.get("stage_actuals") or []:
@@ -80,7 +91,7 @@ def timeline(cycle) -> list[dict]:
 	start_day, actual}] honouring stage actuals. Empty without a variety or a start date."""
 	doc = _doc(cycle, STOCKING_DT if _is_stocking_obj(cycle) else CYCLE_DT)
 	stages = stages_for(variety_of(doc))
-	base = _base_date(doc)
+	base = _day0(doc)
 	if not stages or not base:
 		return []
 	actuals = _actuals(doc)
@@ -115,7 +126,7 @@ def anchor_date(cycle):
 	"""The date day 0 of the variety's stages falls on: the cycle start (or stocking date), or the
 	recorded date of the first stage when that is an actual (avocado flowering)."""
 	doc = _doc(cycle, STOCKING_DT if _is_stocking_obj(cycle) else CYCLE_DT)
-	base = _base_date(doc)
+	base = _day0(doc)
 	stages = stages_for(variety_of(doc))
 	if stages and stages[0]["start_day"] == 0:
 		a = _actuals(doc).get(stages[0]["stage"])

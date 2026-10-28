@@ -37,6 +37,11 @@ class TestCycleChain(IntegrationTestCase):
 			harvest_window_weeks=8,
 			stages=_stages(("Planting", 0, 56, 0), ("Flowering", 56, 28, 0), ("Fruit set", 84, 182, 0),
 				("Harvest", 266, 56, 1))).name
+		cls.fl = _make("Production Variety", variety_name="CC Fl", crop=cls.crop.name, item=cls.item,
+			is_flowering=1, stage_anchor="Flowering", harvest_pattern="Interval", harvest_interval_weeks=52,
+			lifespan_years=25, weeks_flowering_to_harvest=36, weeks_to_reflower_after_harvest=12,
+			harvest_window_weeks=8,
+			stages=_stages(("Flowering", 0, 28, 0), ("Fruit set", 28, 224, 0), ("Harvest", 252, 56, 1))).name
 		cls.once = _make("Production Variety", variety_name="CC Once", crop=cls.crop.name, item=cls.item,
 			harvest_pattern="Once", weeks_to_first_harvest=10,
 			stages=_stages(("Planting", 0, 7, 0), ("Harvest", 70, 14, 1))).name
@@ -143,3 +148,103 @@ class TestCycleChain(IntegrationTestCase):
 		self.assertTrue(r["proposed_next_cycle"])
 		r2 = api.save_cycle({"name": c.name, "notes": "x"})
 		self.assertIsNone(r2.get("message", r2)["proposed_next_cycle"])
+
+
+	# ---- review fixes
+
+	def _prev_closed(self, variety=None):
+		return self._close(self._cycle(variety=variety, start=add_days(today(), -400)))
+
+	def test_numbering_by_pattern(self):
+		prev = self._prev_closed()
+		c = _make("Production Crop Cycle", unit=self.unit.name, crop=self.crop.name, variety=self.hass,
+			start_date=add_days(today(), -2), status="Planned", previous_cycle=prev.name).reload()
+		self.assertEqual(c.cycle_no, prev.cycle_no + 1)
+		self.assertEqual(c.expected_flowering_date, add_days(c.start_date, 42))
+		self.assertEqual(c.expected_harvest_start, add_days(c.start_date, 42 + 210))
+		prev_once = self._close(self._cycle(variety=self.once, start=add_days(today(), -100)))
+		o = _make("Production Crop Cycle", unit=self.unit.name, crop=self.crop.name, variety=self.once,
+			start_date=add_days(today(), -2), status="Planned", previous_cycle=prev_once.name)
+		self.assertEqual(o.cycle_no, 1)
+
+	def test_renumber_patch(self):
+		from upande_production.patches import renumber_cycles_by_pattern
+
+		prev_once = self._close(self._cycle(variety=self.once, start=add_days(today(), -100)))
+		o = _make("Production Crop Cycle", unit=self.unit.name, crop=self.crop.name, variety=self.once,
+			start_date=add_days(today(), -2), status="Planned", previous_cycle=prev_once.name)
+		prev = self._prev_closed()
+		n = frappe.get_doc("Production Crop Cycle", prev.proposed_next_cycle)
+		frappe.db.set_value("Production Crop Cycle", o.name, "cycle_no", 2)
+		renumber_cycles_by_pattern.execute()
+		self.assertEqual(frappe.db.get_value("Production Crop Cycle", o.name, "cycle_no"), 1)
+		self.assertEqual(frappe.db.get_value("Production Crop Cycle", n.name, "cycle_no"), 2)
+
+	def test_picks_set_actual_harvest_start(self):
+		c = self._cycle(start=add_days(today(), -300))
+		self.assertTrue(any("harvest due" in f for f in cycle_chain.flags(c)))
+		d1, d2 = add_days(today(), -20), add_days(today(), -10)
+		for d in (d2, d1):
+			_make("Production Harvest", harvest_date=d, unit=self.unit.name, crop=self.crop.name, cycle=c.name, qty=5)
+		c.reload()
+		self.assertEqual(c.actual_harvest_start, getdate(d1))
+		self.assertFalse(any("harvest due" in f for f in cycle_chain.flags(c)))
+		c.reload()
+		c.actual_harvest_start = None
+		c.save()
+		self.assertEqual(c.actual_harvest_start, getdate(d1))
+
+	def test_no_flowering_flag_when_flowering_is_anchor(self):
+		c = self._cycle(variety=self.fl, start=add_days(today(), -300))
+		c.actual_flowering_date = add_days(c.start_date, -190)
+		c.save()
+		self.assertFalse(any("flower" in f for f in cycle_chain.flags(c)), cycle_chain.flags(c))
+
+	def test_later_cycle_day0_is_flowering(self):
+		prev = self._prev_closed(self.fl)
+		c = _make("Production Crop Cycle", unit=self.unit.name, crop=self.crop.name, variety=self.fl,
+			start_date=add_days(today(), -2), status="Planned", previous_cycle=prev.name).reload()
+		self.assertEqual(c.cycle_no, 2)
+		ef = add_days(c.start_date, 84)
+		self.assertEqual(c.expected_flowering_date, ef)
+		self.assertEqual(stages.stage_start(c, "Flowering"), ef)
+		self.assertEqual(stages.stage_start(c, "Harvest"), add_days(ef, 252))
+		self.assertEqual(stages.anchor_date(c), ef)
+		self.assertEqual(stages.stage_on(c, ef)["stage"], "Flowering")
+
+	def test_actual_flowering_moves_expected_harvest(self):
+		prev = self._prev_closed(self.fl)
+		c = _make("Production Crop Cycle", unit=self.unit.name, crop=self.crop.name, variety=self.fl,
+			start_date=add_days(today(), -2), status="Planned", previous_cycle=prev.name).reload()
+		c.actual_flowering_date = add_days(c.expected_flowering_date, 21)
+		c.save()
+		c.reload()
+		self.assertEqual(c.expected_harvest_start, add_days(c.actual_flowering_date, 252))
+		self.assertEqual(stages.harvest_start(c), add_days(c.actual_flowering_date, 252))
+		self.assertEqual(c.expected_harvest_end, add_days(c.expected_harvest_start, 56))
+		# an explicit change in the same save wins
+		c.actual_flowering_date = add_days(c.expected_flowering_date, 28)
+		c.expected_harvest_start = add_days(today(), 400)
+		c.save()
+		c.reload()
+		self.assertEqual(c.expected_harvest_start, getdate(add_days(today(), 400)))
+
+	def test_flags_manager_only(self):
+		from upande_production.api import production as api
+
+		c = self._cycle(start=add_days(today(), -200))
+		self.assertTrue(cycle_chain.flags(c))
+		user = "ccflags@example.com"
+		if not frappe.db.exists("User", user):
+			frappe.get_doc({"doctype": "User", "email": user, "first_name": "CCF", "send_welcome_email": 0,
+				"roles": [{"role": "Production Operator"}] if frappe.db.exists("Role", "Production Operator") else []}).insert()
+		try:
+			frappe.set_user(user)
+			self.assertFalse(api._can_see_flags())
+			frappe.set_user("Administrator")
+			self.assertTrue(api._can_see_flags())
+		finally:
+			frappe.set_user("Administrator")
+		rows = api.list_cycles(self.crop.name)
+		rows = rows.get("cycles") or rows["message"]["cycles"]
+		self.assertTrue(any(r["name"] == c.name and r["flags"] for r in rows))

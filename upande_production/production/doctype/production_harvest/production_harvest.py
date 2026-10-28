@@ -3,6 +3,7 @@
 
 import frappe
 from frappe.model.document import Document
+from frappe.utils import getdate
 
 
 class ProductionHarvest(Document):
@@ -18,3 +19,13 @@ class ProductionHarvest(Document):
 				or 0
 			)
 		self.value = (self.qty or 0) * (self.price_per_uom or 0)
+
+	def on_update(self):
+		if not self.cycle:
+			return
+		cur = frappe.db.get_value("Production Crop Cycle", self.cycle, "actual_harvest_start")
+		if not cur or getdate(cur) > getdate(self.harvest_date):
+			cycle = frappe.get_doc("Production Crop Cycle", self.cycle)
+			cycle.actual_harvest_start = self.harvest_date
+			cycle.flags.ignore_permissions = True
+			cycle.save()
