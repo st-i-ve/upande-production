@@ -64,6 +64,12 @@ def record_task_work(plan, task, status, entries, note="", work_date=None) -> di
 	row = next((t for t in doc.tasks if t.name == task), None)
 	if not row:
 		frappe.throw(_("Task not found on plan {0}").format(plan), frappe.ValidationError)
+	if status in ("Done", "Partly Done") and not entries and not frappe.db.exists(
+		"Value Adder Work", {"plan": plan, "plan_task": row.name, "docstatus": ("<", 2)}
+	):
+		# Done with nobody recorded has no quantity and no one to pay (the mobile app asks the same).
+		frappe.throw(_("Record who did the work before marking it {0}.").format(_(status)),
+			frappe.ValidationError)
 	work_date = work_date or today()
 	names = [
 		_insert_vaw(e, work_date, row.unit, row.operation, row.uom, row.rate, row.cycle, plan, row.name)

@@ -86,6 +86,17 @@ class TestApprovals(IntegrationTestCase):
 		row = self._row(plan)
 		self.assertEqual((row.done_qty, row.pending_qty), (0, 10))
 
+	def test_done_needs_crew(self):
+		plan, task = self._task()
+		with self.assertRaises(frappe.ValidationError):
+			work.record_task_work(plan.name, task.name, "Done", [])
+		# once somebody is recorded, closing the task later needs no new entries
+		self._key(plan, task)
+		res = work.record_task_work(plan.name, task.name, "Done", [])
+		self.assertEqual(res["task"]["status"], "Done")
+		# In Progress and Skipped never need a crew
+		self.assertEqual(work.record_task_work(plan.name, task.name, "Skipped", [])["task"]["status"], "Skipped")
+
 	def test_approve_counts(self):
 		plan, task = self._task()
 		names = self._key(plan, task)
