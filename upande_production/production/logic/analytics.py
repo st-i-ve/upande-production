@@ -326,20 +326,20 @@ def _missed(crop, frm, to, op_names):
 	)
 	if not cycles:
 		return []
-	refs = set(
-		frappe.get_all(
-			"Production Plan Task",
-			filters={"parenttype": "Production Work Plan", "cycle": ("in", [c.name for c in cycles]), "protocol_ref": ("is", "set")},
-			pluck="protocol_ref",
-		)
+	task_rows = frappe.get_all(
+		"Production Plan Task",
+		filters={"parenttype": "Production Work Plan", "cycle": ("in", [c.name for c in cycles]), "protocol_ref": ("is", "set")},
+		fields=["protocol_ref", "cycle", "operation", "due_date"],
 	)
+	refs = {t.protocol_ref for t in task_rows}
 	protocols, out = {}, []
 	for cy in cycles:
 		proto = protocols.get(cy.protocol) or protocols.setdefault(
 			cy.protocol, frappe.get_doc("Production Protocol", cy.protocol)
 		)
+		legacy = schedule.legacy_tasks(task_rows, cy.name, proto)
 		for it in schedule.due_for_cycle(cy, proto, frm, last):
-			if it["ref"] in refs:
+			if it["ref"] in refs or schedule.legacy_match(legacy, it["operation"], it["due_date"]):
 				continue
 			due = it["due_date"]
 			out.append({
@@ -401,50 +401,53 @@ def protocol_check(crop, year, week, unit=None):
 			filters={"parenttype": "Production Work Plan", "cycle": ("in", [c.name for c in cycles]),
 				"protocol_ref": ("is", "set")},
 			fields=["name", "parent", "protocol_ref", "status", "deviation", "planned_qty", "done_qty",
-				"pending_qty", "uom", "due_date"],
+				"pending_qty", "uom", "due_date", "cycle", "operation"],
 		)
 	}
 	op_names = dict(frappe.get_all("Production Operation", filters={"crop": crop},
 		fields=["name", "operation_name"], as_list=True))
 	unit_names = dict(frappe.get_all("Production Unit", filters={"crop": crop},
 		fields=["name", "unit_name"], as_list=True))
+	task_rows = list(tasks.values())
 	planned_parts, done_parts, protocols = [], [], {}
-	for cy in cycles:
-		proto = protocols.get(cy.protocol) or protocols.setdefault(
-			cy.protocol, frappe.get_doc("Production Protocol", cy.protocol))
-		if proto.version_status not in ("Active", "Superseded"):
-			continue
-		steps = []
-		for it in schedule.due_for_cycle(cy, proto, start, end):
-			due, operation, ref = it["due_date"], it["operation"], it["ref"]
-			t = tasks.get(ref)
-			status = _step_status(t, due, today_d)
-			breaches = rules.check(cycle=cy.name, unit=cy.unit, operation=operation, on_date=due,
-				exclude_task=t.name if t else None)
-			uom = t.uom if t else frappe.db.get_value("Production Operation", operation, "work_uom")
-			planned = float(t.planned_qty or 0) if t else float(it["planned_qty"] or 0)
-			done = float(t.done_qty or 0) if t else 0.0
-			steps.append({
-				"protocol_ref": ref, "operation": operation,
-				"operation_name": op_names.get(operation) or operation, "due_date": due,
-				"status": status, "planned_qty": planned, "done_qty": done,
-				"pending_qty": float(t.pending_qty or 0) if t else 0.0, "uom": uom,
-				"plan": t.parent if t else None, "task": t.name if t else None,
-				"task_status": t.status if t else None, "note": it["note"],
-				"rule_status": rules.worst(breaches), "breaches": breaches,
-			})
-			out["totals"][status] += 1
-			out["totals"]["steps"] += 1
-			planned_parts.append((uom, planned))
-			done_parts.append((uom, done))
-		steps.sort(key=lambda r: (str(r["due_date"]), r["operation_name"]))
-		block = {"unit": cy.unit, "unit_name": unit_names.get(cy.unit) or cy.unit, "cycle": cy.name,
-			"protocol": cy.protocol, "protocol_version_status": proto.version_status,
-			"steps": steps, "breaches": [
-				{**b, "operation": s["operation"], "operation_name": s["operation_name"], "due_date": s["due_date"]}
-				for s in steps for b in s["breaches"]],
-			"counts": {k: sum(1 for s in steps if s["status"] == k) for k in CHECK_KEYS}}
-		out["blocks"].append(block)
+	with rules.call_cache():
+		for cy in cycles:
+			proto = protocols.get(cy.protocol) or protocols.setdefault(
+				cy.protocol, frappe.get_doc("Production Protocol", cy.protocol))
+			if proto.version_status not in ("Active", "Superseded"):
+				continue
+			steps = []
+			legacy = schedule.legacy_tasks(task_rows, cy.name, proto)
+			for it in schedule.due_for_cycle(cy, proto, start, end):
+				due, operation, ref = it["due_date"], it["operation"], it["ref"]
+				t = tasks.get(ref) or schedule.legacy_match(legacy, operation, due)
+				status = _step_status(t, due, today_d)
+				breaches = rules.check(cycle=cy.name, unit=cy.unit, operation=operation, on_date=due,
+					exclude_task=t.name if t else None)
+				uom = t.uom if t else frappe.db.get_value("Production Operation", operation, "work_uom")
+				planned = float(t.planned_qty or 0) if t else float(it["planned_qty"] or 0)
+				done = float(t.done_qty or 0) if t else 0.0
+				steps.append({
+					"protocol_ref": ref, "operation": operation,
+					"operation_name": op_names.get(operation) or operation, "due_date": due,
+					"status": status, "planned_qty": planned, "done_qty": done,
+					"pending_qty": float(t.pending_qty or 0) if t else 0.0, "uom": uom,
+					"plan": t.parent if t else None, "task": t.name if t else None,
+					"task_status": t.status if t else None, "note": it["note"],
+					"rule_status": rules.worst(breaches), "breaches": breaches,
+				})
+				out["totals"][status] += 1
+				out["totals"]["steps"] += 1
+				planned_parts.append((uom, planned))
+				done_parts.append((uom, done))
+			steps.sort(key=lambda r: (str(r["due_date"]), r["operation_name"]))
+			block = {"unit": cy.unit, "unit_name": unit_names.get(cy.unit) or cy.unit, "cycle": cy.name,
+				"protocol": cy.protocol, "protocol_version_status": proto.version_status,
+				"steps": steps, "breaches": [
+					{**b, "operation": s["operation"], "operation_name": s["operation_name"], "due_date": s["due_date"]}
+					for s in steps for b in s["breaches"]],
+				"counts": {k: sum(1 for s in steps if s["status"] == k) for k in CHECK_KEYS}}
+			out["blocks"].append(block)
 	out["totals"]["planned_qty_by_uom"] = merge_uoms(planned_parts)
 	out["totals"]["done_qty_by_uom"] = merge_uoms(done_parts)
 	if not out["totals"]["steps"]:

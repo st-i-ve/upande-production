@@ -17,7 +17,7 @@ DT = "Production Protocol"
 STATUSES = ("Draft", "Pending Approval", "Active", "Superseded", "Rejected")
 KEY_FIELDS = ("operation", "week", "repeats", "planned_qty", "description")
 CULTURAL_FIELDS = ("operation", "schedule", "interval_weeks", "establishment_period_weeks", "pre_harvest_interval_days",
-	"planned_qty", "description")
+	"occurrences", "planned_qty", "description")
 CAPITAL_FIELDS = ("operation", "description", "budget_per_ha")
 TABLES = {"key_activities": KEY_FIELDS, "cultural_activities": CULTURAL_FIELDS, "capital_activities": CAPITAL_FIELDS}
 TEMPLATE_FIELDS = ("lifespan_years", "harvest_pattern", "harvest_interval_weeks", "is_flowering",

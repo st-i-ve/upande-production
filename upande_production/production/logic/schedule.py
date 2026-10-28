@@ -23,12 +23,16 @@ def week_start(start, week):
 
 
 def next_pick(on, harvest_start, picks=(), harvest_interval_weeks=None):
-	"""The first expected pick on or after `on`; None without a harvest start (or when a single harvest is past)."""
+	"""The first expected pick on or after `on`; None without a harvest start, or once a single (Once) harvest
+	has been picked. While no pick is recorded on/after the harvest start the pick is imminent (`on`), so a
+	late harvest keeps the pre-harvest interval in force."""
 	if not harvest_start:
 		return None
 	on, hs = getdate(on), getdate(harvest_start)
 	if on <= hs:
 		return hs
+	if not any(getdate(p) >= hs for p in picks or []):
+		return on
 	step = cint(harvest_interval_weeks) * 7
 	past = [getdate(p) for p in picks or [] if getdate(p) <= on]
 	last = max(past) if past else hs
@@ -62,8 +66,11 @@ def due_items(cycle_doc, protocol_doc, frm, to, harvest_start=None, picks=(), ha
 			continue
 		first = week_start(start, cint(_g(row, "establishment_period_weeks")) + 1)
 		phi = cint(_g(row, "pre_harvest_interval_days"))
+		occurrences = cint(_g(row, "occurrences"))
 		k = 0
 		while True:
+			if occurrences and k >= occurrences:
+				break
 			due = getdate(add_days(first, k * interval * 7))
 			if due > to:
 				break
@@ -110,3 +117,28 @@ def harvest_context(cycle) -> dict:
 def due_for_cycle(cycle_doc, protocol_doc, frm, to) -> list:
 	"""due_items with the cycle's harvest context filled in from the database."""
 	return due_items(cycle_doc, protocol_doc, frm, to, **harvest_context(cycle_doc))
+
+
+def _week_key(d):
+	return tuple(getdate(d).isocalendar()[:2])
+
+
+def legacy_tasks(tasks, cycle, protocol_doc) -> dict:
+	"""Plan tasks of a cycle whose protocol_ref points at a row the protocol no longer has (refs written
+	before the steps became key / cultural rows): {(operation, iso year, iso week): task}. Matching an item
+	by cycle + operation + ISO week keeps such tasks from being planned twice or reported as never planned."""
+	rows = {_g(r, "name") for t in ("key_activities", "cultural_activities") for r in protocol_doc.get(t) or []}
+	out = {}
+	for t in tasks:
+		ref, due = _g(t, "protocol_ref"), _g(t, "due_date")
+		if _g(t, "cycle") != cycle or not ref or not due:
+			continue
+		parts = ref.rsplit(":", 2)
+		if len(parts) == 3 and parts[1] in rows:
+			continue
+		out.setdefault((_g(t, "operation"), *_week_key(due)), t)
+	return out
+
+
+def legacy_match(legacy, operation, due):
+	return legacy.get((operation, *_week_key(due)))

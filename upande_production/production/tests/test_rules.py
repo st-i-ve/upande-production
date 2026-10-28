@@ -317,6 +317,81 @@ class TestRules(IntegrationTestCase):
 		self.assertEqual(len(br), 2)
 		self.assertEqual(rules.worst(br), "Warn")
 
+	def test_phi_holds_after_expected_harvest_without_pick(self):
+		op, unit, cy = self._buffer_cycle(ago=100, harvest_in=-5)
+		br = rules.check(cycle=cy, operation=op, on_date=today())
+		self.assertIn("Pre-harvest interval", [b["rule_type"] for b in br])
+
+	def test_phi_ends_after_once_crop_pick(self):
+		op, unit, cy = self._buffer_cycle(ago=100, harvest_in=-5)
+		with mock.patch("upande_production.production.logic.schedule.harvest_context", return_value={
+				"harvest_start": add_days(today(), -5), "picks": [add_days(today(), -2)],
+				"harvest_interval_weeks": None}):
+			br = rules.check(cycle=cy, operation=op, on_date=today())
+		self.assertNotIn("Pre-harvest interval", [b["rule_type"] for b in br])
+
+	def test_due_items_phi_holds_after_expected_harvest(self):
+		from upande_production.production.logic import schedule
+		op, unit, cy = self._buffer_cycle(ago=100, harvest_in=-5, establishment_period_weeks=0)
+		doc = frappe.get_doc("Production Crop Cycle", cy)
+		proto = frappe.get_doc("Production Protocol", doc.protocol)
+		items = schedule.due_for_cycle(doc, proto, today(), add_days(today(), 6))
+		self.assertEqual(items, [])
+
+	def _legacy(self):
+		from frappe.utils import getdate
+		op = frappe.db.get_value("Production Operation", {"crop": self.crop, "operation_name": "TR Legacy Op"}) or _make(
+			"Production Operation", crop=self.crop, operation_name="TR Legacy Op", category="Other",
+			work_uom="Kg", default_rate=10).name
+		proto = _make("Production Protocol", protocol_name=frappe.generate_hash(length=6), crop=self.crop,
+			version_status="Active", cultural_activities=[{"operation": op, "schedule": "Interval",
+				"interval_weeks": 1, "establishment_period_weeks": 0}]).name
+		unit, cy = self._cycle(ago=10, harvest_in=200, protocol=proto)
+		due = getdate(add_days(today(), -3))  # start + 7 days
+		y, w = iso_of(due)
+		plan = plans.get_or_create_plan(self.crop, self.farm.name, y, w)
+		plan.append("tasks", {"unit": unit, "cycle": cy, "operation": op, "planned_qty": 5, "uom": "Kg", "rate": 10,
+			"due_date": due, "status": "Open", "protocol_ref": f"{cy}:OLDSTEP01:3"})
+		plan.save()
+		return op, unit, cy, plan, y, w
+
+	def test_legacy_ref_no_duplicate_on_regenerate(self):
+		op, unit, cy, plan, y, w = self._legacy()
+		plans.generate_week_detail(plan.name)
+		plan.reload()
+		self.assertEqual(len([t for t in plan.tasks if t.cycle == cy and t.operation == op]), 1)
+
+	def test_legacy_ref_shows_planned_in_protocol_check(self):
+		op, unit, cy, plan, y, w = self._legacy()
+		res = analytics.protocol_check(self.crop, y, w, unit=unit)
+		steps = [s for b in res["blocks"] for s in b["steps"] if s["operation"] == op]
+		self.assertEqual([s["status"] for s in steps], ["late"])
+
+	def test_legacy_ref_not_missed(self):
+		op, unit, cy, plan, y, w = self._legacy()
+		from upande_production.production.logic.weeks import iso_week_bounds
+		a, b = iso_week_bounds(y, w)
+		out = analytics._missed(self.crop, a, b, {})
+		self.assertEqual([r for r in out if r["unit"] == unit], [])
+
+	def test_remap_patch_rewrites_old_refs(self):
+		from upande_production.patches.remap_protocol_refs import remap
+		op, unit, cy, plan, y, w = self._legacy()
+		self.assertEqual(remap()["remapped"] >= 1, True)
+		plan.reload()
+		row = frappe.get_doc("Production Protocol", frappe.db.get_value("Production Crop Cycle", cy, "protocol")
+			).cultural_activities[0].name
+		self.assertEqual(plan.tasks[-1].protocol_ref, f"{cy}:{row}:1")
+		self.assertEqual(remap()["remapped"], 0)
+
+	def test_check_uses_one_protocol_load_per_cycle(self):
+		op, unit, cy = self._buffer_cycle(ago=30)
+		with mock.patch("frappe.get_doc", wraps=frappe.get_doc) as g, rules.call_cache():
+			for _i in range(4):
+				rules.check(cycle=cy, operation=op, on_date=today())
+		protos = [c for c in g.call_args_list if c.args and c.args[0] == "Production Protocol"]
+		self.assertEqual(len(protos), 1)
+
 	def test_no_harvest_no_phi(self):
 		op, unit, cy = self._buffer_cycle(ago=30)
 		frappe.db.set_value("Production Crop Cycle", cy, "expected_harvest_start", None)

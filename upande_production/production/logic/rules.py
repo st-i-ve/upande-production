@@ -8,6 +8,7 @@ override_reason). The evaluation core is pure over a small context so the protoc
 reuse it for steps that have no cycle yet.
 """
 
+from contextlib import contextmanager
 from datetime import timedelta
 
 import frappe
@@ -27,6 +28,32 @@ class RuleBreach(frappe.ValidationError):
 		super().__init__(message)
 		self.breaches = breaches or []
 		self.rule_status = rule_status
+
+
+# -- per-call cache ---------------------------------------------------------------
+
+
+@contextmanager
+def call_cache():
+	"""Memoise per-cycle lookups (cycle row, harvest context, protocol doc) inside a loop that calls check()
+	many times (plan generation, protocol check). Nested use shares the outer cache."""
+	outer = getattr(frappe.local, "upande_rules_cache", None)
+	if outer is None:
+		frappe.local.upande_rules_cache = {}
+	try:
+		yield
+	finally:
+		if outer is None:
+			frappe.local.upande_rules_cache = None
+
+
+def _memo(key, fn):
+	cache = getattr(frappe.local, "upande_rules_cache", None)
+	if cache is None:
+		return fn()
+	if key not in cache:
+		cache[key] = fn()
+	return cache[key]
 
 
 # -- helpers -------------------------------------------------------------------
@@ -206,7 +233,7 @@ def _context(cycle, unit, on_date) -> dict:
 			["variety"] if _has("Production Crop Cycle", "variety") else [])
 		if _has("Production Crop Cycle", "cycle_no"):
 			cols.append("cycle_no")
-		cy = frappe.db.get_value("Production Crop Cycle", cycle, cols, as_dict=True)
+		cy = _memo(("cycle", cycle), lambda: frappe.db.get_value("Production Crop Cycle", cycle, cols, as_dict=True))
 		ctx["protocol"], ctx["cycle_start"] = cy.get("protocol"), cy.get("start_date")
 		ctx["cycle_no"] = cint(cy.get("cycle_no")) or 1
 		ctx["unit"] = unit = unit or cy.unit
@@ -222,15 +249,11 @@ def _context(cycle, unit, on_date) -> dict:
 					ctx["stage_known"] = bool(info.get("stage"))
 			except Exception:
 				pass
-		if st and hasattr(st, "harvest_start"):
-			try:
-				ctx["harvest_start"] = st.harvest_start(cycle) or ctx["harvest_start"]
-			except Exception:
-				pass
 		try:
 			from upande_production.production.logic import schedule
 
-			hc = schedule.harvest_context(cycle)
+			hc = _memo(("harvest", cycle), lambda: schedule.harvest_context(cycle))
+			ctx["harvest_start"] = hc["harvest_start"] or ctx["harvest_start"]
 			ctx["picks"], ctx["harvest_interval_weeks"] = hc["picks"], hc["harvest_interval_weeks"]
 		except Exception:
 			pass
@@ -313,9 +336,9 @@ def buffer_breaches(ctx, operation, on_date) -> list:
 
 	if not (ctx.get("cycle") and ctx.get("protocol") and ctx.get("cycle_start")):
 		return []
-	if not frappe.db.exists("Production Protocol", ctx["protocol"]):
+	if not _memo(("protocol_exists", ctx["protocol"]), lambda: frappe.db.exists("Production Protocol", ctx["protocol"])):
 		return []
-	proto = frappe.get_doc("Production Protocol", ctx["protocol"])
+	proto = _memo(("protocol", ctx["protocol"]), lambda: frappe.get_doc("Production Protocol", ctx["protocol"]))
 	rows = schedule.rows_for_check(proto, operation)
 	if not rows:
 		return []

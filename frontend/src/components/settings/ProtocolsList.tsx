@@ -53,7 +53,7 @@ export const KEY_HINT = "List key activities in the order of their week.";
 const EMPTY_KEY: KeyActivity = { operation: null, week: null, repeats: "Every cycle", planned_qty: null, description: null };
 const EMPTY_CULTURAL: CulturalActivity = {
   operation: null, schedule: "Interval", interval_weeks: null, establishment_period_weeks: null,
-  pre_harvest_interval_days: null, planned_qty: null, description: null,
+  pre_harvest_interval_days: null, occurrences: null, planned_qty: null, description: null,
 };
 const EMPTY_CAPITAL: CapitalActivity = { operation: null, description: null, budget_per_ha: null };
 
@@ -266,6 +266,7 @@ function Activities({ v, operations, editable, onSave }: {
               <th className={TH}>Interval (weeks)</th>
               <th className={TH} title="weeks after planting / last harvest">Establishment period (weeks)</th>
               <th className={TH} title="days before harvest">Pre-harvest interval, PHI (days)</th>
+              <th className={TH} title="leave empty to repeat until the cycle ends">Occurrences</th>
               <th className={`${TH} text-right`}>Qty</th>
               <th className={TH}>Description</th>{editable && <th />}
             </tr></thead>
@@ -273,10 +274,10 @@ function Activities({ v, operations, editable, onSave }: {
               {t.cultural_activities.map((r, i) => {
                 const op = (r.operation && names[r.operation]) || r.operation || "—";
                 const asNeeded = r.schedule === "As needed";
-                const numCell = (field: "interval_weeks" | "establishment_period_weeks" | "pre_harvest_interval_days", label: string, off = false) =>
+                const numCell = (field: "interval_weeks" | "establishment_period_weeks" | "pre_harvest_interval_days" | "occurrences", label: string, off = false, blank = "—") =>
                   editable
                     ? <Input aria-label={`${label} for ${op}`} className="h-8 w-20" type="number" min="0" disabled={off} value={off ? "" : (r[field] ?? "")} onChange={(e) => patch("cultural_activities", i, { [field]: num(e.target.value) })} />
-                    : <span className="tabular-nums text-[var(--sd-muted)]">{off ? "—" : (r[field] ?? "—")}</span>;
+                    : <span className="tabular-nums text-[var(--sd-muted)]">{off ? "—" : (r[field] ?? blank)}</span>;
                 return (
                   <tr key={i} data-testid={`cultural-row-${i}`}>
                     <td className="py-1 pr-2"><OpCell value={r.operation} options={scheduled} label={`Cultural activity ${i + 1}`} editable={editable} names={names} onChange={(x) => patch("cultural_activities", i, { operation: x })} /></td>
@@ -288,6 +289,7 @@ function Activities({ v, operations, editable, onSave }: {
                     <td className="py-1 pr-2">{numCell("interval_weeks", "Interval weeks", asNeeded)}</td>
                     <td className="py-1 pr-2">{numCell("establishment_period_weeks", "Establishment period weeks")}</td>
                     <td className="py-1 pr-2">{numCell("pre_harvest_interval_days", "PHI days")}</td>
+                    <td className="py-1 pr-2">{numCell("occurrences", "Occurrences", asNeeded, "until cycle end")}</td>
                     <td className="py-1 pr-2 text-right">
                       {editable
                         ? <Input aria-label={`Planned qty for ${op}`} className="ml-auto h-8 w-20 text-right" type="number" value={r.planned_qty ?? ""} onChange={(e) => patch("cultural_activities", i, { planned_qty: num(e.target.value) })} />

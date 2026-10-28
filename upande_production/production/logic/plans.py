@@ -41,38 +41,45 @@ def generate_week_detail(plan_name: str) -> dict:
 		filters={"status": ("in", ["Active", "Harvesting"]), "crop": plan.crop, "protocol": ("is", "set")},
 		fields=["name", "unit", "start_date", "protocol", "variety", "cycle_no", "expected_harvest_start"],
 	)
-	for cy in cycles:
-		if plan.farm and frappe.db.get_value("Production Unit", cy.unit, "farm") != plan.farm:
-			continue
-		# Cycles keep the version they were pinned to (Active or since Superseded); drafts never plan.
-		if frappe.db.get_value("Production Protocol", cy.protocol, "version_status") not in ("Active", "Superseded"):
-			continue
-		proto = frappe.get_doc("Production Protocol", cy.protocol)
-		for item in schedule.due_for_cycle(cy, proto, start, end):
-			ref, due, operation = item["ref"], item["due_date"], item["operation"]
-			if ref in existing:
-				continue
-			op = frappe.db.get_value("Production Operation", operation, ["work_uom", "default_rate"], as_dict=True)
-			breaches = rules.check(cycle=cy.name, unit=cy.unit, operation=operation, on_date=due)
-			flag = rules.worst(breaches)
-			if flag == "Block":
-				skipped.append({
-					"protocol_ref": ref, "unit": cy.unit, "cycle": cy.name, "operation": operation,
-					"due_date": getdate(due), "message": " ".join(b["message"] for b in breaches),
-				})
-				continue
-			plan.append("tasks", {
-				"unit": cy.unit, "cycle": cy.name, "operation": operation,
-				"planned_qty": item["planned_qty"], "uom": op.work_uom, "rate": op.default_rate,
-				"due_date": due, "status": "Open", "protocol_ref": ref, "note": item["note"],
-				"rule_status": flag, "rule_notes": "\n".join(b["message"] for b in breaches) or None,
-			})
-			existing.add(ref)
-			count += 1
+	with rules.call_cache():
+		for cy in cycles:
+			count = _generate_cycle(plan, cy, start, end, existing, skipped, count)
 	if count:
 		plan.save()
 	_note_skipped(plan, skipped)
 	return {"created": count, "skipped": skipped}
+
+
+def _generate_cycle(plan, cy, start, end, existing, skipped, count) -> int:
+	if plan.farm and frappe.db.get_value("Production Unit", cy.unit, "farm") != plan.farm:
+		return count
+	# Cycles keep the version they were pinned to (Active or since Superseded); drafts never plan.
+	if frappe.db.get_value("Production Protocol", cy.protocol, "version_status") not in ("Active", "Superseded"):
+		return count
+	proto = frappe.get_doc("Production Protocol", cy.protocol)
+	legacy = schedule.legacy_tasks(plan.tasks, cy.name, proto)
+	for item in schedule.due_for_cycle(cy, proto, start, end):
+		ref, due, operation = item["ref"], item["due_date"], item["operation"]
+		if ref in existing or schedule.legacy_match(legacy, operation, due):
+			continue
+		op = frappe.db.get_value("Production Operation", operation, ["work_uom", "default_rate"], as_dict=True)
+		breaches = rules.check(cycle=cy.name, unit=cy.unit, operation=operation, on_date=due)
+		flag = rules.worst(breaches)
+		if flag == "Block":
+			skipped.append({
+				"protocol_ref": ref, "unit": cy.unit, "cycle": cy.name, "operation": operation,
+				"due_date": getdate(due), "message": " ".join(b["message"] for b in breaches),
+			})
+			continue
+		plan.append("tasks", {
+			"unit": cy.unit, "cycle": cy.name, "operation": operation,
+			"planned_qty": item["planned_qty"], "uom": op.work_uom, "rate": op.default_rate,
+			"due_date": due, "status": "Open", "protocol_ref": ref, "note": item["note"],
+			"rule_status": flag, "rule_notes": "\n".join(b["message"] for b in breaches) or None,
+		})
+		existing.add(ref)
+		count += 1
+	return count
 
 
 def _note_skipped(plan, skipped):

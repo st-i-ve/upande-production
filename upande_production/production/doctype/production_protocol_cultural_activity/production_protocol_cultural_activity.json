@@ -11,6 +11,7 @@
   "interval_weeks",
   "establishment_period_weeks",
   "pre_harvest_interval_days",
+  "occurrences",
   "planned_qty",
   "description"
  ],
@@ -50,6 +51,12 @@
    "label": "Pre-harvest interval, PHI (days)",
    "description": "days before harvest",
    "in_list_view": 1
+  },
+  {
+   "fieldname": "occurrences",
+   "fieldtype": "Int",
+   "label": "Occurrences",
+   "description": "leave empty to repeat until the cycle ends"
   },
   {
    "fieldname": "planned_qty",

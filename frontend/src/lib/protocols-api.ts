@@ -36,6 +36,8 @@ export interface CulturalActivity {
   establishment_period_weeks: number | null;
   /** Days before harvest. */
   pre_harvest_interval_days: number | null;
+  /** Stop after this many repeats; empty repeats until the cycle ends. */
+  occurrences?: number | null;
   planned_qty: number | null;
   description: string | null;
 }

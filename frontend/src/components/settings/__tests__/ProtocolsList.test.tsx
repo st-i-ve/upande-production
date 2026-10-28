@@ -57,6 +57,15 @@ describe("ProtocolsList", () => {
     expect(screen.getByLabelText("Interval weeks for Spraying")).toHaveValue(null);
   });
 
+  it("occurrences column: empty means until the cycle ends, editable", () => {
+    open();
+    expect(screen.getByText("Occurrences")).toBeInTheDocument();
+    const occ = screen.getByLabelText("Occurrences for Spraying") as HTMLInputElement;
+    expect(occ).toHaveValue(null);
+    fireEvent.change(occ, { target: { value: "4" } });
+    expect(screen.getByLabelText("Occurrences for Spraying")).toHaveValue(4);
+  });
+
   it("out of order week highlighted", () => {
     expect(outOfOrder(version().key_activities)).toEqual(new Set([1]));
     open();

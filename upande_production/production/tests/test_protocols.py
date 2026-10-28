@@ -257,7 +257,7 @@ class TestConvertSteps(IntegrationTestCase):
 		from upande_production.patches.convert_protocol_steps import convert
 
 		doc = self._old("TC Convert")
-		self.assertEqual(convert(doc), {"key": 1, "cultural": 1})
+		self.assertEqual(convert(doc), {"key": 1, "cultural": 1, "capital": 0})
 		doc.reload()
 		c, k = doc.cultural_activities[0], doc.key_activities[0]
 		self.assertEqual((c.schedule, c.interval_weeks, c.establishment_period_weeks, c.description), ("Interval", 2, 2, "spray"))
@@ -269,7 +269,7 @@ class TestConvertSteps(IntegrationTestCase):
 		doc = self._old("TC Idem")
 		convert(doc)
 		doc.reload()
-		self.assertEqual(convert(doc), {"key": 0, "cultural": 0})
+		self.assertEqual(convert(doc), {"key": 0, "cultural": 0, "capital": 0})
 		doc.reload()
 		self.assertEqual((len(doc.key_activities), len(doc.cultural_activities)), (1, 1))
 
@@ -298,3 +298,36 @@ class TestConvertSteps(IntegrationTestCase):
 			self.assertLessEqual(weeks(old), weeks(new, 1), f"{cy.name} {cy.protocol}")
 			checked += 1
 		self.assertGreater(checked, 0)
+
+	def _cap(self):
+		return frappe.db.get_value("Production Operation", {"crop": self.crop, "operation_name": "TC Capex"}) or _make(
+			"Production Operation", crop=self.crop, operation_name="TC Capex", category="Other",
+			work_uom="Kg", default_rate=1, activity_type="Capital").name
+
+	def test_patch_keeps_repeat_count_as_occurrences(self):
+		from upande_production.patches.convert_protocol_steps import convert
+
+		doc = self._old("TC Occ")
+		convert(doc)
+		doc.reload()
+		self.assertEqual(doc.cultural_activities[0].occurrences, 4)
+
+	def test_patch_converts_capital_step(self):
+		from upande_production.patches.convert_protocol_steps import convert
+
+		doc = _make("Production Protocol", protocol_name="TC Cap", crop=self.crop, steps=[
+			{"operation": self._cap(), "day_offset": 0, "repeat_count": 1, "note": "tractor"}])
+		self.assertEqual(convert(doc), {"key": 0, "cultural": 0, "capital": 1})
+		doc.reload()
+		self.assertEqual([(r.operation, r.description) for r in doc.capital_activities], [(self._cap(), "tractor")])
+
+	def test_backfill_occurrences_on_converted_rows(self):
+		from upande_production.patches.convert_protocol_steps import backfill_occurrences, convert
+
+		doc = self._old("TC Backfill")
+		convert(doc)
+		doc.reload()
+		frappe.db.set_value("Production Protocol Cultural Activity", doc.cultural_activities[0].name, "occurrences", 0, update_modified=False)
+		self.assertGreaterEqual(backfill_occurrences(), 1)
+		doc.reload()
+		self.assertEqual(doc.cultural_activities[0].occurrences, 4)

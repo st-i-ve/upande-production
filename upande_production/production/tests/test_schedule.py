@@ -76,3 +76,26 @@ class TestSchedule(IntegrationTestCase):
 		r = S.due_items(cyc(), p, START, date(2026, 12, 1), None)
 		self.assertTrue(r)
 		self.assertEqual(S.next_pick(date(2026, 3, 1), None, [], None), None)
+
+	def test_next_pick_imminent_when_overdue_and_no_pick(self):
+		hs = date(2026, 3, 2)
+		self.assertEqual(S.next_pick(date(2026, 3, 20), hs, [], 0), date(2026, 3, 20))
+		self.assertEqual(S.next_pick(date(2026, 3, 20), hs, [], None), date(2026, 3, 20))
+
+	def test_next_pick_once_after_pick_is_none(self):
+		hs = date(2026, 3, 2)
+		self.assertIsNone(S.next_pick(date(2026, 3, 20), hs, [date(2026, 3, 10)], 0))
+
+	def test_phi_holds_when_harvest_overdue(self):
+		p = proto(cultural=[spray(interval_weeks=1, pre_harvest_interval_days=14)])
+		r = S.due_items(cyc(), p, date(2026, 3, 2), date(2026, 3, 20), date(2026, 2, 20), picks=[])
+		self.assertEqual(r, [])
+		r = S.due_items(cyc(), p, date(2026, 3, 2), date(2026, 3, 20), date(2026, 2, 20), picks=[date(2026, 2, 25)])
+		self.assertTrue(r)
+
+	def test_occurrences_stop_after_n(self):
+		p = proto(cultural=[spray(interval_weeks=1, occurrences=3)])
+		r = S.due_items(cyc(), p, START, date(2026, 12, 31), None)
+		self.assertEqual([i["ref"] for i in r], ["CY:c0:0", "CY:c0:1", "CY:c0:2"])
+		p = proto(cultural=[spray(interval_weeks=1, occurrences=0)])
+		self.assertGreater(len(S.due_items(cyc(), p, START, date(2026, 6, 30), None)), 10)
