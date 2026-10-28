@@ -11,7 +11,9 @@
   "cost_center_parent",
   "harvest_section",
   "harvest_warehouse",
-  "harvest_default_rate"
+  "harvest_default_rate",
+  "cycle_flag_tolerance_weeks",
+  "capital_accounts"
  ],
  "fields": [
   {
@@ -56,11 +58,23 @@
    "fieldtype": "Currency",
    "label": "Fallback Valuation per Kg",
    "description": "Used when an item has no valuation rate or buyer price; 0 books the entry at zero valuation."
+  },
+  {
+   "fieldname": "cycle_flag_tolerance_weeks",
+   "fieldtype": "Int",
+   "label": "Cycle Flag Tolerance (weeks)",
+   "default": "2"
+  },
+  {
+   "fieldname": "capital_accounts",
+   "fieldtype": "Table",
+   "label": "Capital Accounts",
+   "options": "Production Capital Account"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-28 09:00:00.000000",
+ "modified": "2026-10-28 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production Settings",

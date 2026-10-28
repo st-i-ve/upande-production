@@ -23,7 +23,17 @@
   "previous_cycle",
   "notes",
   "stages_section",
-  "stage_actuals"
+  "stage_actuals",
+  "cycle_no",
+  "flowering_section",
+  "expected_flowering_date",
+  "actual_flowering_date",
+  "actual_harvest_start",
+  "actual_harvest_end",
+  "protocol_flags",
+  "flag_count",
+  "due_for_uprooting",
+  "proposed_next_cycle"
  ],
  "fields": [
   {
@@ -134,11 +144,68 @@
    "fieldtype": "Table",
    "label": "Stage Actuals",
    "options": "Production Cycle Stage Actual"
+  },
+  {
+   "fieldname": "cycle_no",
+   "fieldtype": "Int",
+   "label": "Cycle No",
+   "default": "1"
+  },
+  {
+   "fieldname": "flowering_section",
+   "fieldtype": "Section Break",
+   "label": "Flowering and Protocol Flags"
+  },
+  {
+   "fieldname": "expected_flowering_date",
+   "fieldtype": "Date",
+   "label": "Expected Flowering Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "actual_flowering_date",
+   "fieldtype": "Date",
+   "label": "Actual Flowering Date"
+  },
+  {
+   "fieldname": "actual_harvest_start",
+   "fieldtype": "Date",
+   "label": "Actual Harvest Start"
+  },
+  {
+   "fieldname": "actual_harvest_end",
+   "fieldtype": "Date",
+   "label": "Actual Harvest End"
+  },
+  {
+   "fieldname": "protocol_flags",
+   "fieldtype": "Small Text",
+   "label": "Protocol Flags",
+   "read_only": 1
+  },
+  {
+   "fieldname": "flag_count",
+   "fieldtype": "Int",
+   "label": "Flag Count",
+   "read_only": 1
+  },
+  {
+   "fieldname": "due_for_uprooting",
+   "fieldtype": "Check",
+   "label": "Due for Uprooting",
+   "read_only": 1
+  },
+  {
+   "fieldname": "proposed_next_cycle",
+   "fieldtype": "Link",
+   "label": "Proposed Next Cycle",
+   "options": "Production Crop Cycle",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-28 09:00:00.000000",
+ "modified": "2026-10-28 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production Crop Cycle",

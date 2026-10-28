@@ -3,6 +3,7 @@ from frappe.tests import IntegrationTestCase
 from frappe.utils import add_days, today
 
 from upande_production.api import protocols as api
+from upande_production.production.doctype.production_protocol.production_protocol import validate_tables
 from upande_production.production.logic import approvals, plans, protocols as P
 from upande_production.production.logic.weeks import iso_of
 
@@ -167,3 +168,50 @@ class TestProtocols(IntegrationTestCase):
 		for k in ("pending", "stale", "crop_key"):
 			self.assertIn(k, row)
 		self.assertIn("total", res)
+
+
+class TestProtocolTables(IntegrationTestCase):
+	@classmethod
+	def setUpClass(cls):
+		super().setUpClass()
+		if not frappe.db.exists("UOM", "Kg"):
+			_make("UOM", uom_name="Kg")
+		cls.crop = _make("Production Crop", crop_name="TPT Crop", crop_key="tpt-crop", unit_label="Block", yield_uom="Kg")
+		mk = lambda n, t: _make("Production Operation", crop=cls.crop.name, operation_name=n, category="Other",
+			work_uom="Kg", default_rate=1, activity_type=t).name
+		cls.cap, cls.key, cls.cul = mk("TPT Excavate", "Capital"), mk("TPT Prune", "Key activity"), mk("TPT Weed", "Cultural")
+
+	def _doc(self, **kw):
+		return frappe._dict({"key_activities": [], "cultural_activities": [], "capital_activities": [], **kw})
+
+	def test_key_activities_out_of_week_order_refused(self):
+		d = self._doc(key_activities=[{"operation": self.key, "week": 7}, {"operation": self.key, "week": 3}])
+		with self.assertRaises(frappe.ValidationError) as cm:
+			validate_tables(d)
+		self.assertIn("Row 2 (week 3) comes after row 1 (week 7)", str(cm.exception))
+		validate_tables(self._doc(key_activities=[{"operation": self.key, "week": 3}, {"operation": self.key, "week": 3}]))
+		with self.assertRaises(frappe.ValidationError):
+			validate_tables(self._doc(key_activities=[{"operation": self.key, "week": 0}]))
+
+	def test_cultural_interval_rules(self):
+		row = lambda **k: self._doc(cultural_activities=[{"operation": self.cul, **k}])
+		with self.assertRaises(frappe.ValidationError):
+			validate_tables(row(schedule="Interval"))
+		with self.assertRaises(frappe.ValidationError):
+			validate_tables(row(schedule="As needed", interval_weeks=2))
+		validate_tables(row(schedule="As needed"))
+		validate_tables(row(schedule="Interval", interval_weeks=2))
+
+	def test_cycle_protocol_operations_types(self):
+		with self.assertRaises(frappe.ValidationError):
+			validate_tables(self._doc(key_activities=[{"operation": self.cap, "week": 1}]))
+		with self.assertRaises(frappe.ValidationError):
+			validate_tables(self._doc(cultural_activities=[{"operation": self.cap, "schedule": "As needed"}]))
+		with self.assertRaises(frappe.ValidationError):
+			validate_tables(self._doc(capital_activities=[{"operation": self.cul}]))
+		validate_tables(self._doc(capital_activities=[{"operation": self.cap}]))
+
+	def test_old_steps_only_protocol_still_saves(self):
+		p = _make("Production Protocol", protocol_name="TPT Old", crop=self.crop.name, version_status="Active",
+			steps=[{"operation": self.cul, "day_offset": 3, "repeat_count": 1}])
+		self.assertEqual(len(p.steps), 1)

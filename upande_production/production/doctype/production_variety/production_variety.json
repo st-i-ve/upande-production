@@ -19,6 +19,19 @@
   "expected_yield_per_ha",
   "expected_yield_per_plant",
   "plants_per_ha",
+  "template_section",
+  "lifespan_years",
+  "harvest_pattern",
+  "harvest_interval_weeks",
+  "plants_per_m2",
+  "dry_matter_target_pct",
+  "col_flower",
+  "is_flowering",
+  "weeks_to_first_flowering",
+  "weeks_flowering_to_harvest",
+  "weeks_to_reflower_after_harvest",
+  "weeks_to_first_harvest",
+  "harvest_window_weeks",
   "stages_section",
   "stages",
   "notes"
@@ -81,12 +94,14 @@
   {
    "fieldname": "days_to_first_harvest",
    "fieldtype": "Int",
-   "label": "Days to First Harvest"
+   "label": "Days to First Harvest",
+   "read_only": 1
   },
   {
    "fieldname": "harvest_window_days",
    "fieldtype": "Int",
-   "label": "Harvest Window (days)"
+   "label": "Harvest Window (days)",
+   "read_only": 1
   },
   {
    "fieldname": "expected_yield_per_ha",
@@ -101,7 +116,8 @@
   {
    "fieldname": "plants_per_ha",
    "fieldtype": "Float",
-   "label": "Plants per Ha"
+   "label": "Plants per Ha",
+   "read_only": 1
   },
   {
    "fieldname": "stages_section",
@@ -118,11 +134,84 @@
    "fieldname": "notes",
    "fieldtype": "Small Text",
    "label": "Notes"
+  },
+  {
+   "fieldname": "template_section",
+   "fieldtype": "Section Break",
+   "label": "Protocol Template"
+  },
+  {
+   "fieldname": "lifespan_years",
+   "fieldtype": "Float",
+   "label": "Lifespan (years)"
+  },
+  {
+   "fieldname": "harvest_pattern",
+   "fieldtype": "Select",
+   "label": "Harvest Pattern",
+   "options": "Once\nContinuous\nInterval",
+   "default": "Once"
+  },
+  {
+   "fieldname": "harvest_interval_weeks",
+   "fieldtype": "Int",
+   "label": "Harvest Interval (weeks)",
+   "depends_on": "eval:doc.harvest_pattern!='Once'"
+  },
+  {
+   "fieldname": "plants_per_m2",
+   "fieldtype": "Float",
+   "label": "Plants per m2",
+   "precision": "6"
+  },
+  {
+   "fieldname": "dry_matter_target_pct",
+   "fieldtype": "Float",
+   "label": "Dry Matter Target %"
+  },
+  {
+   "fieldname": "col_flower",
+   "fieldtype": "Column Break",
+   "label": "Flowering"
+  },
+  {
+   "fieldname": "is_flowering",
+   "fieldtype": "Check",
+   "label": "Flowering Crop"
+  },
+  {
+   "fieldname": "weeks_to_first_flowering",
+   "fieldtype": "Int",
+   "label": "Weeks to First Flowering",
+   "depends_on": "is_flowering"
+  },
+  {
+   "fieldname": "weeks_flowering_to_harvest",
+   "fieldtype": "Int",
+   "label": "Weeks Flowering to Harvest",
+   "depends_on": "is_flowering"
+  },
+  {
+   "fieldname": "weeks_to_reflower_after_harvest",
+   "fieldtype": "Int",
+   "label": "Weeks to Reflower after Harvest",
+   "depends_on": "eval:doc.is_flowering && doc.harvest_pattern!='Once'"
+  },
+  {
+   "fieldname": "weeks_to_first_harvest",
+   "fieldtype": "Int",
+   "label": "Weeks to First Harvest",
+   "read_only_depends_on": "is_flowering"
+  },
+  {
+   "fieldname": "harvest_window_weeks",
+   "fieldtype": "Int",
+   "label": "Harvest Window (weeks)"
   }
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-10-29 09:00:00.000000",
+ "modified": "2026-10-28 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production Variety",

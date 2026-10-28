@@ -1,0 +1,38 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-10-28 12:00:00.000000",
+ "custom": 0,
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "sample_no",
+  "dry_matter_pct"
+ ],
+ "fields": [
+  {
+   "fieldname": "sample_no",
+   "fieldtype": "Int",
+   "label": "Sample No",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "dry_matter_pct",
+   "fieldtype": "Float",
+   "label": "Dry Matter %",
+   "in_list_view": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-28 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Dry Matter Sample",
+ "owner": "Administrator",
+ "states": [],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "istable": 1,
+ "editable_grid": 1
+}

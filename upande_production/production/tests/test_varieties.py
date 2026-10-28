@@ -2,6 +2,7 @@ import frappe
 from frappe.tests import IntegrationTestCase
 from frappe.utils import add_days, getdate, today
 
+from upande_production.production.doctype.production_variety.production_variety import derive
 from upande_production.production.logic import plans, protocols as P, stages
 from upande_production.production.logic.weeks import iso_of
 
@@ -258,3 +259,41 @@ class TestVarieties(IntegrationTestCase):
 		self.assertEqual(out["current_stage"], "Plant")
 		self.assertTrue(next(b for b in out["stage_bands"] if b["stage"] == "Pick")["actual"])
 		self.assertIn("error", api.set_stage_actual(cy.name, "Nope", str(today())))
+
+	# ---------------------------------------------------------------- template derivation
+
+	def test_variety_derives_weeks_and_density(self):
+		d = frappe._dict(plants_per_m2=0.0156, is_flowering=1, weeks_to_first_flowering=104,
+			weeks_flowering_to_harvest=36, harvest_window_weeks=12)
+		derive(d)
+		self.assertEqual(d.weeks_to_first_harvest, 140)
+		self.assertEqual(d.days_to_first_harvest, 980)
+		self.assertEqual(d.harvest_window_days, 84)
+		self.assertEqual(d.plants_per_ha, 156)
+
+	def test_variety_derives_m2_from_ha_and_typed_weeks(self):
+		d = frappe._dict(plants_per_ha=20000, weeks_to_first_harvest=10)
+		derive(d)
+		self.assertEqual(d.plants_per_m2, 2)
+		self.assertEqual(d.days_to_first_harvest, 70)
+
+	def test_variety_clears_hidden_fields(self):
+		d = frappe._dict(harvest_pattern="Once", is_flowering=1, weeks_to_first_flowering=10,
+			weeks_flowering_to_harvest=5, weeks_to_reflower_after_harvest=10, harvest_interval_weeks=4)
+		derive(d)
+		self.assertFalse(d.weeks_to_reflower_after_harvest)
+		self.assertFalse(d.harvest_interval_weeks)
+		self.assertEqual(d.weeks_to_first_harvest, 15)
+		n = frappe._dict(harvest_pattern="Interval", is_flowering=0, weeks_to_first_flowering=10,
+			weeks_flowering_to_harvest=5, weeks_to_reflower_after_harvest=3, weeks_to_first_harvest=30)
+		derive(n)
+		self.assertFalse(n.weeks_to_first_flowering or n.weeks_flowering_to_harvest or n.weeks_to_reflower_after_harvest)
+		self.assertEqual(n.weeks_to_first_harvest, 30)
+		self.assertEqual(n.days_to_first_harvest, 210)
+
+	def test_variety_saves_derived_values(self):
+		v = _make("Production Variety", variety_name="TV Derived", crop=self.crop.name, item="TV Product - Alpha",
+			plants_per_m2=0.0156, is_flowering=1, weeks_to_first_flowering=104, weeks_flowering_to_harvest=36)
+		v.reload()
+		self.assertEqual(v.weeks_to_first_harvest, 140)
+		self.assertEqual(v.days_to_first_harvest, 980)

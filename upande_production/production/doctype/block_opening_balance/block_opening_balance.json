@@ -1,0 +1,112 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-10-28 12:00:00.000000",
+ "custom": 0,
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "unit",
+  "crop",
+  "as_of_date",
+  "planted_on",
+  "col_a",
+  "setup_cost",
+  "running_costs_to_date",
+  "value_recovered_to_date",
+  "note"
+ ],
+ "fields": [
+  {
+   "fieldname": "unit",
+   "fieldtype": "Link",
+   "label": "Unit",
+   "options": "Production Unit",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "crop",
+   "fieldtype": "Link",
+   "label": "Crop",
+   "options": "Production Crop",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "as_of_date",
+   "fieldtype": "Date",
+   "label": "As of Date",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "planted_on",
+   "fieldtype": "Date",
+   "label": "Planted On"
+  },
+  {
+   "fieldname": "col_a",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "setup_cost",
+   "fieldtype": "Currency",
+   "label": "Setup Cost"
+  },
+  {
+   "fieldname": "running_costs_to_date",
+   "fieldtype": "Currency",
+   "label": "Running Costs to Date"
+  },
+  {
+   "fieldname": "value_recovered_to_date",
+   "fieldtype": "Currency",
+   "label": "Value Recovered to Date"
+  },
+  {
+   "fieldname": "note",
+   "fieldtype": "Small Text",
+   "label": "Note"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-28 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Block Opening Balance",
+ "owner": "Administrator",
+ "states": [],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "write": 1,
+   "role": "System Manager"
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "write": 1,
+   "role": "Production Manager"
+  }
+ ],
+ "track_changes": 1,
+ "autoname": "field:unit",
+ "naming_rule": "By fieldname"
+}

@@ -10,6 +10,21 @@
   "crop",
   "item",
   "variety",
+  "template_section",
+  "lifespan_years",
+  "harvest_pattern",
+  "harvest_interval_weeks",
+  "is_flowering",
+  "weeks_to_first_flowering",
+  "weeks_flowering_to_harvest",
+  "weeks_to_reflower_after_harvest",
+  "plants_per_m2",
+  "capital_section",
+  "capital_activities",
+  "key_section",
+  "key_activities",
+  "cultural_section",
+  "cultural_activities",
   "steps",
   "version_section",
   "version",
@@ -48,7 +63,8 @@
    "fieldname": "steps",
    "fieldtype": "Table",
    "label": "Steps",
-   "options": "Production Protocol Step"
+   "options": "Production Protocol Step",
+   "hidden": 1
   },
   {
    "fieldname": "version_section",
@@ -128,11 +144,106 @@
    "fieldtype": "Link",
    "label": "Variety",
    "options": "Production Variety"
+  },
+  {
+   "fieldname": "template_section",
+   "fieldtype": "Section Break",
+   "label": "Variety Template"
+  },
+  {
+   "fieldname": "lifespan_years",
+   "fieldtype": "Float",
+   "label": "Lifespan (years)",
+   "read_only": 1,
+   "fetch_from": "variety.lifespan_years"
+  },
+  {
+   "fieldname": "harvest_pattern",
+   "fieldtype": "Data",
+   "label": "Harvest Pattern",
+   "read_only": 1,
+   "fetch_from": "variety.harvest_pattern"
+  },
+  {
+   "fieldname": "harvest_interval_weeks",
+   "fieldtype": "Int",
+   "label": "Harvest Interval (weeks)",
+   "read_only": 1,
+   "fetch_from": "variety.harvest_interval_weeks"
+  },
+  {
+   "fieldname": "is_flowering",
+   "fieldtype": "Check",
+   "label": "Flowering Crop",
+   "read_only": 1,
+   "fetch_from": "variety.is_flowering"
+  },
+  {
+   "fieldname": "weeks_to_first_flowering",
+   "fieldtype": "Int",
+   "label": "Weeks to First Flowering",
+   "read_only": 1,
+   "fetch_from": "variety.weeks_to_first_flowering"
+  },
+  {
+   "fieldname": "weeks_flowering_to_harvest",
+   "fieldtype": "Int",
+   "label": "Weeks Flowering to Harvest",
+   "read_only": 1,
+   "fetch_from": "variety.weeks_flowering_to_harvest"
+  },
+  {
+   "fieldname": "weeks_to_reflower_after_harvest",
+   "fieldtype": "Int",
+   "label": "Weeks to Reflower after Harvest",
+   "read_only": 1,
+   "fetch_from": "variety.weeks_to_reflower_after_harvest"
+  },
+  {
+   "fieldname": "plants_per_m2",
+   "fieldtype": "Float",
+   "label": "Plants per m2",
+   "read_only": 1,
+   "fetch_from": "variety.plants_per_m2"
+  },
+  {
+   "fieldname": "capital_section",
+   "fieldtype": "Section Break",
+   "label": "Capital Activities"
+  },
+  {
+   "fieldname": "capital_activities",
+   "fieldtype": "Table",
+   "label": "Capital Activities",
+   "options": "Production Protocol Capital Activity"
+  },
+  {
+   "fieldname": "key_section",
+   "fieldtype": "Section Break",
+   "label": "Key Activities"
+  },
+  {
+   "fieldname": "key_activities",
+   "fieldtype": "Table",
+   "label": "Key Activities",
+   "options": "Production Protocol Key Activity",
+   "description": "List key activities in the order of their week."
+  },
+  {
+   "fieldname": "cultural_section",
+   "fieldtype": "Section Break",
+   "label": "Cultural Activities"
+  },
+  {
+   "fieldname": "cultural_activities",
+   "fieldtype": "Table",
+   "label": "Cultural Activities",
+   "options": "Production Protocol Cultural Activity"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-28 09:00:00.000000",
+ "modified": "2026-10-28 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production Protocol",
