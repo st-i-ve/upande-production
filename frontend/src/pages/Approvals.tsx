@@ -10,6 +10,7 @@ import { RefreshButton } from "@/components/RefreshButton";
 import { useToast } from "@/components/Toast";
 import { ActionPill } from "@/components/approvals/ActionPill";
 import { ApprovalCard } from "@/components/approvals/ApprovalCard";
+import { ProtocolReview } from "@/components/approvals/ProtocolReview";
 import { SendBackDialog } from "@/components/approvals/SendBackDialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -22,16 +23,23 @@ import {
   type ApprovalStatus,
   type ResubmitEdit,
 } from "@/lib/approvals-api";
+import {
+  approveProtocol,
+  pendingProtocols,
+  sendBackProtocol,
+  type PendingProtocol,
+} from "@/lib/protocols-api";
 import { useCurrentCrop } from "@/lib/crops";
 import { isError, type Envelope } from "@/lib/frappe";
 import { formatUoms, kes, qty } from "@/lib/format";
 
-type Tab = "pending" | "stale" | "sent" | "approved";
+type Tab = "pending" | "stale" | "sent" | "approved" | "protocols";
 const STATUS: Record<Tab, ApprovalStatus> = {
   pending: "Pending",
   stale: "Pending",
   sent: "Sent Back",
   approved: "Approved",
+  protocols: "Pending",
 };
 const EMPTY_RANGE: DateRange = { from: "", to: "" };
 
@@ -43,6 +51,7 @@ const EMPTY: Record<Tab, { title: string; hint: string }> = {
   pending: { title: "Nothing waiting for approval", hint: "When supervisors key in work, it lands here for you to approve." },
   stale: { title: "Nothing is stale", hint: "Every submission has been looked at recently." },
   sent: { title: "Nothing sent back", hint: "Submissions you send back for fixing will wait here for the supervisor." },
+  protocols: { title: "No protocol versions waiting", hint: "Submitted protocol versions land here." },
   approved: { title: "No approved work in this period", hint: "Widen the date range to see earlier approvals." },
 };
 
@@ -64,6 +73,8 @@ export function Approvals() {
   const [dialog, setDialog] = useState<ApprovalGroup[] | null>(null);
   const [sending, setSending] = useState(false);
   const [opts, setOpts] = useState({ units: new Map<string, string>(), ops: new Map<string, string>(), sups: new Map<string, string>() });
+  const [protos, setProtos] = useState<PendingProtocol[] | null>(null);
+  const [protoBusy, setProtoBusy] = useState<Set<string>>(new Set());
   const seq = useRef(0);
 
   const filters = useMemo(
@@ -76,15 +87,18 @@ export function Approvals() {
   const load = useCallback(async () => {
     const mine = ++seq.current;
     setLoading(true);
-    const [p, o] = await Promise.all([
+    const [p, o, pr] = await Promise.all([
       listApprovals(crop.name, { ...filters, status: "Pending" }),
       needsOther ? listApprovals(crop.name, { ...filters, status: STATUS[tab] }) : Promise.resolve(null),
+      pendingProtocols(crop.name),
     ]);
     if (mine !== seq.current) return;
     setLoading(false);
     for (const r of [p, o]) {
       if (r && isError(r)) toast(r.error, "error");
     }
+    if (isError(pr)) toast(pr.error, "error");
+    else setProtos(pr.rows);
     if (!isError(p)) setPending(p as ApprovalList);
     if (o && !isError(o)) setOther(o as ApprovalList);
     const lists = [p, o].filter((r): r is ApprovalList => !!r && !isError(r));
@@ -150,6 +164,26 @@ export function Approvals() {
     return true;
   };
 
+  const actProtocol = async (p: PendingProtocol, run: () => Promise<Envelope<unknown>>, done: string) => {
+    const snap = protos;
+    setProtoBusy((b) => new Set([...b, p.name]));
+    setProtos((rows) => (rows ?? []).filter((r) => r.name !== p.name));
+    const r = await run();
+    setProtoBusy((b) => new Set([...b].filter((k) => k !== p.name)));
+    if (isError(r)) {
+      setProtos(snap);
+      toast(r.error, "error");
+      return;
+    }
+    toast(done);
+    announce();
+    void load();
+  };
+  const doApproveProtocol = (p: PendingProtocol) =>
+    actProtocol(p, () => approveProtocol(p.name), `${p.protocol_name} is now the active protocol.`);
+  const doSendBackProtocol = (p: PendingProtocol, note: string) =>
+    actProtocol(p, () => sendBackProtocol(p.name, note), `Sent ${p.protocol_name} back to the supervisor.`);
+
   const plural = (n: number) => `${n} ${n === 1 ? "submission" : "submissions"}`;
   const names = (gs: ApprovalGroup[]) => gs.flatMap((g) => g.names);
   const doApprove = (gs: ApprovalGroup[]) => act(gs, () => approve(names(gs)), `Approved ${plural(gs.length)}. It now counts toward done work.`);
@@ -187,6 +221,7 @@ export function Approvals() {
                 ["stale", "Stale", c?.stale],
                 ["sent", "Sent back", c?.["Sent Back"]],
                 ["approved", "Approved", c?.Approved],
+                ["protocols", "Protocols", protos?.length],
               ] as const
             ).map(([id, label, n]) => (
               <TabsTrigger key={id} value={id}>
@@ -228,6 +263,16 @@ export function Approvals() {
         {showPay && <KpiCard label="Pay awaiting" value={kes(payAwaiting)} hint="not yet in costs" loading={!pending} />}
       </KpiGrid>
 
+      {tab === "protocols" ? (
+        <ProtocolReview
+          rows={protos}
+          busy={protoBusy}
+          canReview={crop.boot.can_manage}
+          loading={loading}
+          onApprove={(p) => void doApproveProtocol(p)}
+          onSendBack={(p, n) => void doSendBackProtocol(p, n)}
+        />
+      ) : (
       <div className="flex flex-col gap-4" data-testid="approval-list">
         {waiting ? (
           [0, 1, 2].map((i) => (
@@ -267,6 +312,7 @@ export function Approvals() {
           ))
         )}
       </div>
+      )}
 
       <ActionPill
         count={chosen.length}

@@ -127,11 +127,15 @@ export interface ApprovalCropCount {
   /** Pending cards. */
   pending: number;
   stale: number;
+  /** Protocol versions awaiting approval for this crop. */
+  protocols_pending?: number;
 }
 
 export interface ApprovalCounts {
   crops: ApprovalCropCount[];
   total: number;
+  /** All crops. */
+  protocols_pending?: number;
   stale: number;
   stale_days: number;
 }

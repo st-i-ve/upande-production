@@ -263,13 +263,20 @@ def approval_counts() -> dict:
 			"Production Crop", fields=["name", "crop_key", "sort_order"], order_by="sort_order asc, name asc"
 		)
 	}
+	from upande_production.production.logic import protocols as _protocols
+
+	proto = _protocols.pending_counts() if frappe.has_permission("Production Protocol", "read") else {}
+	for k in proto:
+		per.setdefault(k, {"pending": 0, "stale": 0})
 	crops = [
-		{"crop": k, "crop_key": meta[k].crop_key if k in meta else None, **per[k]}
+		{"crop": k, "crop_key": meta[k].crop_key if k in meta else None, **per[k],
+			"protocols_pending": proto.get(k, 0)}
 		for k in sorted(per, key=lambda k: list(meta).index(k) if k in meta else 999)
 	]
 	return {
 		"crops": crops,
 		"total": sum(c["pending"] for c in crops),
+		"protocols_pending": sum(c["protocols_pending"] for c in crops),
 		"stale": sum(c["stale"] for c in crops),
 		"stale_days": stale_days,
 	}

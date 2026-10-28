@@ -25,6 +25,7 @@ export interface OperationOption {
 /** Plan one more task in the chosen week. */
 export function AddTaskDialog({
   crop,
+  usesCycles = true,
   farm,
   year,
   week,
@@ -37,6 +38,7 @@ export function AddTaskDialog({
   onAdded,
 }: {
   crop: string;
+  usesCycles?: boolean;
   farm: string;
   year: number;
   week: number;
@@ -79,7 +81,7 @@ export function AddTaskDialog({
     const r = await savePlanTasks(crop, farm, year, week, [
       {
         unit,
-        cycle: u?.current_cycle ?? null,
+        cycle: usesCycles ? (u?.current_cycle ?? null) : null,
         operation,
         planned_qty: num(planned),
         uom: op?.work_uom ?? null,

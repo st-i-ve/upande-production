@@ -103,3 +103,29 @@ describe("SCP primitives", () => {
     expect(screen.getByRole("link").getAttribute("href")).toBe("#/avocado/approvals");
   });
 });
+
+describe("flagRunningPeriod", () => {
+  it("treats the running week as unfinished so no delta compares against it", async () => {
+    const { flagRunningPeriod, seriesDelta } = await import("@/components/Sparkline");
+    const now = new Date(2026, 9, 28); // Wed, week of Mon 26 Oct
+    const pts = [
+      { week: "2026-10-12", value: 10 },
+      { week: "2026-10-19", value: 12 },
+      { week: "2026-10-26", value: 1 },
+    ];
+    const flagged = flagRunningPeriod(pts, now)!;
+    expect(flagged[2].partial).toBe(true);
+    expect(seriesDelta(flagged)!.dir).toBe("up");
+  });
+
+  it("flags only today on a daily series", async () => {
+    const { flagRunningPeriod } = await import("@/components/Sparkline");
+    const now = new Date(2026, 9, 28);
+    const pts = [
+      { week: "2026-10-26", value: 5 },
+      { week: "2026-10-27", value: 6 },
+      { week: "2026-10-28", value: 1 },
+    ];
+    expect(flagRunningPeriod(pts, now)!.map((p) => !!p.partial)).toEqual([false, false, true]);
+  });
+});

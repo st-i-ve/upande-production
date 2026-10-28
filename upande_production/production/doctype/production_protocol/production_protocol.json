@@ -9,14 +9,26 @@
   "protocol_name",
   "crop",
   "item",
-  "steps"
+  "steps",
+  "version_section",
+  "version",
+  "version_status",
+  "protocol_family",
+  "previous_version",
+  "column_break_ver",
+  "submitted_by",
+  "submitted_at",
+  "approved_by",
+  "approved_at",
+  "review_note"
  ],
  "fields": [
   {
    "fieldname": "protocol_name",
    "fieldtype": "Data",
    "label": "Protocol Name",
-   "reqd": 1
+   "reqd": 1,
+   "in_list_view": 1
   },
   {
    "fieldname": "crop",
@@ -36,6 +48,79 @@
    "fieldtype": "Table",
    "label": "Steps",
    "options": "Production Protocol Step"
+  },
+  {
+   "fieldname": "version_section",
+   "fieldtype": "Section Break",
+   "label": "Version"
+  },
+  {
+   "fieldname": "version",
+   "fieldtype": "Int",
+   "label": "Version",
+   "default": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "version_status",
+   "fieldtype": "Select",
+   "label": "Version Status",
+   "options": "Draft\nPending Approval\nActive\nSuperseded\nRejected",
+   "default": "Draft",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "protocol_family",
+   "fieldtype": "Data",
+   "label": "Protocol Family",
+   "read_only": 1,
+   "search_index": 1,
+   "description": "Shared by every version of one protocol"
+  },
+  {
+   "fieldname": "previous_version",
+   "fieldtype": "Link",
+   "label": "Previous Version",
+   "options": "Production Protocol",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_ver",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "submitted_by",
+   "fieldtype": "Link",
+   "label": "Submitted By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "submitted_at",
+   "fieldtype": "Datetime",
+   "label": "Submitted At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approved_by",
+   "fieldtype": "Link",
+   "label": "Approved By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approved_at",
+   "fieldtype": "Datetime",
+   "label": "Approved At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "review_note",
+   "fieldtype": "Small Text",
+   "label": "Review Note",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,

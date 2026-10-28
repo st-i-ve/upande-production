@@ -14,6 +14,7 @@
   "unit_label",
   "sub_unit_label",
   "yield_uom",
+  "uses_crop_cycles",
   "default_cycle_type",
   "enabled",
   "sort_order"
@@ -67,6 +68,13 @@
    "options": "UOM"
   },
   {
+   "fieldname": "uses_crop_cycles",
+   "fieldtype": "Check",
+   "label": "Uses Crop Cycles",
+   "default": "1",
+   "description": "Off for bees and fish: they run in hives and ponds, not crop cycles."
+  },
+  {
    "fieldname": "default_cycle_type",
    "fieldtype": "Select",
    "label": "Default Cycle Type",
@@ -86,7 +94,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-28 09:00:00.000000",
+ "modified": "2026-10-28 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production Crop",

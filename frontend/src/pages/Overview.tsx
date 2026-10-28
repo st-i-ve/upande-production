@@ -17,7 +17,7 @@ import {
   UpcomingList,
 } from "@/components/overview/Panels";
 import { getOverview, type Overview as OverviewData } from "@/lib/api";
-import { pluralise, useCurrentCrop, viewLabel } from "@/lib/crops";
+import { cropUsesCycles, pluralise, useCurrentCrop, viewLabel } from "@/lib/crops";
 import { isError } from "@/lib/frappe";
 import { kes, qty } from "@/lib/format";
 import { getOverviewExtras, type BlockExtra, type OverviewExtras } from "@/lib/overview-api";
@@ -69,6 +69,7 @@ export function Overview() {
   const t = data?.tiles;
   const units = pluralise(crop.unit_label).toLowerCase();
   const uom = crop.yield_uom;
+  const usesCycles = cropUsesCycles(crop);
 
   const trend = extras?.trend;
   const series = (pick: (w: NonNullable<typeof trend>[number]) => number) =>
@@ -86,9 +87,9 @@ export function Overview() {
       (data?.blocks ?? []).filter(
         (b) =>
           (!parent || b.parent === parent) &&
-          matchesQuery(`${b.unit} ${b.parent ?? ""} ${b.item ?? ""} ${b.cycle ?? ""}`, query),
+          matchesQuery(`${b.unit} ${b.parent ?? ""} ${b.item ?? ""} ${usesCycles ? b.cycle ?? "" : ""}`, query),
       ),
-    [data, parent, query],
+    [data, parent, query, usesCycles],
   );
 
   return (
@@ -172,7 +173,7 @@ export function Overview() {
       <Panel
         className="mt-4"
         title={pluralise(crop.unit_label)}
-        hint={`Current cycle, stage, open tasks, crew and season totals for each ${crop.unit_label.toLowerCase()}.`}
+        hint={`${usesCycles ? "Current cycle, stage, open tasks" : "Open tasks"}, crew and season totals for each ${crop.unit_label.toLowerCase()}.`}
         tools={
           <div className="flex flex-wrap items-center gap-2">
             {parents.length > 1 && (
@@ -204,6 +205,7 @@ export function Overview() {
               canSeePay={boot.can_see_pay}
               uom={uom}
               unitLabel={crop.unit_label}
+              usesCycles={usesCycles}
             />
           )
         )}

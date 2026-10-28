@@ -1,0 +1,155 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "WQR-.YYYY.-.#####",
+ "naming_rule": "Expression (old style)",
+ "creation": "2026-10-28 12:00:00.000000",
+ "custom": 0,
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "pond",
+  "reading_datetime",
+  "dissolved_oxygen_mg_l",
+  "ph",
+  "temperature_c",
+  "ammonia_mg_l",
+  "nitrite_mg_l",
+  "secchi_cm",
+  "reader",
+  "out_of_band",
+  "flag_notes",
+  "notes",
+  "measured"
+ ],
+ "fields": [
+  {
+   "fieldname": "pond",
+   "fieldtype": "Link",
+   "label": "Pond",
+   "options": "Production Unit",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "reading_datetime",
+   "fieldtype": "Datetime",
+   "label": "Reading Datetime",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "dissolved_oxygen_mg_l",
+   "fieldtype": "Float",
+   "label": "Dissolved Oxygen (mg/L)",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "ph",
+   "fieldtype": "Float",
+   "label": "pH"
+  },
+  {
+   "fieldname": "temperature_c",
+   "fieldtype": "Float",
+   "label": "Temperature (C)"
+  },
+  {
+   "fieldname": "ammonia_mg_l",
+   "fieldtype": "Float",
+   "label": "Ammonia (mg/L)"
+  },
+  {
+   "fieldname": "nitrite_mg_l",
+   "fieldtype": "Float",
+   "label": "Nitrite (mg/L)"
+  },
+  {
+   "fieldname": "secchi_cm",
+   "fieldtype": "Float",
+   "label": "Turbidity / Secchi (cm)"
+  },
+  {
+   "fieldname": "reader",
+   "fieldtype": "Link",
+   "label": "Reader",
+   "options": "User"
+  },
+  {
+   "fieldname": "out_of_band",
+   "fieldtype": "Check",
+   "label": "Out Of Band",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "flag_notes",
+   "fieldtype": "Small Text",
+   "label": "Flag Notes",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "measured",
+   "fieldtype": "Data",
+   "label": "Measured",
+   "read_only": 1,
+   "hidden": 1,
+   "description": "Which measurements were taken (blank numbers are stored as 0)."
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-10-28 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Water Quality Reading",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "write": 1,
+   "role": "System Manager"
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "write": 1,
+   "role": "Production Manager"
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "write": 1,
+   "report": 1,
+   "role": "Production Supervisor"
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "Production Viewer"
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

@@ -12,7 +12,7 @@ import frappe
 from frappe.utils import add_days, getdate, now_datetime, today
 
 from upande_production.production.demo.config import DEMO
-from upande_production.production.logic import plans, work
+from upande_production.production.logic import cycles as cycles_logic, plans, work
 from upande_production.production.logic.weeks import iso_of
 
 C = Counter()
@@ -69,7 +69,9 @@ def seed_masters():
 		_ensure("Production Crop", {"crop_name": crop["name"]}, {
 			"crop_key": crop["key"], "accent_color": crop["accent"], "icon_key": crop["icon"],
 			"parent_unit_label": crop["parent"], "unit_label": crop["unit"], "sub_unit_label": crop["sub"],
-			"yield_uom": crop["uom"], "default_cycle_type": crop["cycle_type"], "enabled": 1, "sort_order": crop["sort"]})
+			"yield_uom": crop["uom"], "default_cycle_type": crop["cycle_type"], "enabled": 1, "sort_order": crop["sort"],
+			"uses_crop_cycles": crop.get("cycles", 1)})
+		frappe.db.set_value("Production Crop", {"crop_name": crop["name"]}, "uses_crop_cycles", crop.get("cycles", 1))
 	for crop, ops in DEMO["operations"].items():
 		for name, uom, rate, cat, harvest in ops:
 			if not frappe.db.exists("Production Operation", {"crop": crop, "operation_name": name}):
@@ -182,12 +184,12 @@ def seed_units_and_cycles():
 	frappe.db.commit()
 
 	for pond, ago, status in DEMO["ponds"]:
-		u = unit(pond, "Aquaculture", "Pond", area_ha=0.1)
-		cycle(u, "Aquaculture", "Pond Cycle", "Tilapia", ago, status, "Pond Cycle", harvest_off=180)
+		unit(pond, "Aquaculture", "Pond", area_ha=0.1)
+		# ponds and hives run without crop cycles
 	for grp, ago, status in DEMO["hives"]:
-		u = unit(grp, "Apiary", "Hive Group", plant_count=400)
-		cycle(u, "Apiary", "Hive Season", "Honey", ago, status, "Hive Season", harvest_off=90)
+		unit(grp, "Apiary", "Hive Group", plant_count=400)
 	frappe.db.commit()
+	cycles_logic.remove_cycles_for_cycleless_crops()
 
 
 def _weeks(crop=None):
@@ -503,6 +505,13 @@ def seed_production_data():
 	prices = DEMO["prices"]
 	harvest_status = frappe.get_all("Production Crop Cycle", filters={"status": "Harvesting"},
 		fields=["name", "unit", "item", "crop"])
+	# Ponds and hives have no cycles: their output hangs off the unit alone.
+	for unit_name, item in (
+		[(p[0], "Tilapia") for p in DEMO["ponds"] if p[2] == "Harvesting"]
+		+ [(h[0], "Honey") for h in DEMO["hives"] if h[2] == "Harvesting"]
+	):
+		if frappe.db.exists("Production Unit", unit_name):
+			harvest_status.append(frappe._dict(name=None, unit=unit_name, item=item, crop=None))
 	for cy in harvest_status:
 		if cy.crop == "Avocado":
 			# One source of truth: avocado_seed mirrors the Avocado Harvest Log / forecast into
@@ -512,7 +521,8 @@ def seed_production_data():
 		y = DEMO["weekly_yield"][cy.item]
 		base = (u.plant_count or 0) * y if cy.item in ("Hass Avocado", "Fuerte Avocado") else (
 			y if cy.item in ("Tilapia", "Honey") else (u.area_ha or 1) * y)
-		weeks_back = 6
+		# Honey and fish harvests are owned by apiary_seed / aquaculture_seed (from their own logs).
+		weeks_back = 0 if cy.item in ("Tilapia", "Honey") else 6
 		for k in range(weeks_back):
 			d = mon - timedelta(weeks=k) + timedelta(days=2)
 			if d > td:
@@ -617,12 +627,66 @@ def seed_journals():
 	frappe.db.commit()
 
 
+def seed_protocol_versions():
+	"""Base protocols are Active v1; Avocado gets a pending v2, Fruits & Vegetables a sent-back draft."""
+	frappe.db.sql(
+		"""update `tabProduction Protocol` set version = 1, version_status = 'Active', protocol_family = name
+		where ifnull(protocol_family, '') = ''"""
+	)
+	from upande_production.production.logic import protocols as P
+
+	manager = "Administrator"
+
+	def draft_of(crop, tweak):
+		base = frappe.db.get_value(
+			"Production Protocol", {"crop": crop, "version_status": "Active", "version": 1}, "name", order_by="name asc"
+		)
+		if not base:
+			return None
+		fam = frappe.db.get_value("Production Protocol", base, "protocol_family")
+		if frappe.db.exists("Production Protocol", {"protocol_family": fam, "version": 2}):
+			return None
+		frappe.set_user(manager)
+		name = P.new_version(base)["name"]
+		doc = frappe.get_doc("Production Protocol", name)
+		tweak(doc)
+		doc.save(ignore_permissions=True)
+		return name
+
+	def bump_rate(doc):
+		for s in doc.steps:
+			if "fert" in (frappe.db.get_value("Production Operation", s.operation, "operation_name") or "").lower():
+				s.planned_qty = (s.planned_qty or 1) * 1.2
+				s.note = "Fertiliser rate +20% after the leaf analysis"
+				return
+		if doc.steps:
+			doc.steps[0].planned_qty = (doc.steps[0].planned_qty or 1) * 1.2
+			doc.steps[0].note = "Rate +20% after the leaf analysis"
+
+	def trim(doc):
+		if doc.steps:
+			doc.steps[-1].repeat_count = max(int(doc.steps[-1].repeat_count or 1) - 1, 1)
+			doc.steps[-1].note = "One pass fewer"
+
+	avo = frappe.db.get_value("Production Crop", {"crop_key": "avocado"}) or "Avocado"
+	fv = frappe.db.get_value("Production Crop", {"crop_key": "fruits-vegetables"}) or "Fruits & Vegetables"
+	n = draft_of(avo, bump_rate)
+	if n:
+		P.submit_for_approval(n)
+	n = draft_of(fv, trim)
+	if n:
+		P.submit_for_approval(n)
+		P.send_back(n, "Keep the last pass: grading showed late-season quality drops without it.")
+	frappe.set_user("Administrator")
+	frappe.db.commit()
+
+
 def run(reset: bool = False) -> dict:
 	if reset:
 		frappe.throw("reset is not supported by the demo seed")
 	C.clear()
 	frappe.flags.in_demo_seed = True
-	for step in (seed_masters, seed_people, seed_units_and_cycles, seed_plans, seed_avocado_history, seed_approvals, seed_production_data, seed_journals):
+	for step in (seed_masters, seed_people, seed_units_and_cycles, seed_plans, seed_avocado_history, seed_approvals, seed_production_data, seed_journals, seed_protocol_versions):
 		step()
 		print(f"[seed] {step.__name__} done")
 	frappe.db.commit()

@@ -30,6 +30,8 @@ export interface Crop {
   parent_unit_label: string;
   sub_unit_label: string;
   yield_uom: string;
+  /** 0 for bees and fish: they run in hives and ponds, not crop cycles. */
+  uses_crop_cycles?: number | boolean;
 }
 
 export interface Boot {

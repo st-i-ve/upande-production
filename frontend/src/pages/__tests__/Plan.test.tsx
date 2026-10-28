@@ -176,3 +176,17 @@ describe("Plan", () => {
     expect((within(dialog).getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(false);
   });
 });
+
+describe("Plan for a crop without cycles", () => {
+  it("offers no protocol generation and adds tasks without a cycle", async () => {
+    mocked.getPlan.mockResolvedValue({ plan: null, week_start: "2026-10-26", week_end: "2026-11-01", tasks: [] });
+    const aqua: Crop = { ...crop, name: "Aquaculture", crop_key: "aquaculture", unit_label: "Pond", uses_crop_cycles: 0 };
+    render(
+      <CropProvider crop={aqua} boot={boot({ crops: [aqua] })}>
+        <Plan />
+      </CropProvider>,
+    );
+    expect(await screen.findByText(/Nothing planned for/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Generate from protocols/ })).toBeNull();
+  });
+});

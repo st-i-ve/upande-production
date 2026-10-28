@@ -13,12 +13,14 @@ export function BlockTable({
   canSeePay,
   uom,
   unitLabel,
+  usesCycles = true,
 }: {
   blocks: OverviewBlock[];
   extras?: Map<string, BlockExtra>;
   canSeePay: boolean;
   uom: string;
   unitLabel: string;
+  usesCycles?: boolean;
 }) {
   return (
     <ScrollTable tall>
@@ -27,8 +29,8 @@ export function BlockTable({
           <tr className={cn(THEAD_ROW, STICKY_HEAD)}>
             <th className={TH}>{unitLabel}</th>
             <th className={THR}>Area (ha)</th>
-            <th className={TH}>Cycle</th>
-            <th className={TH}>Stage</th>
+            {usesCycles && <th className={TH}>Cycle</th>}
+            {usesCycles && <th className={TH}>Stage</th>}
             <th className={THR}>Open tasks</th>
             <th className={THR}>Crew (30d)</th>
             {canSeePay && <th className={THR}>Labour this season</th>}
@@ -48,6 +50,7 @@ export function BlockTable({
                   </div>
                 </td>
                 <td className={TDR}>{ha(b.area_ha)}</td>
+                {usesCycles && (
                 <td className={TD}>
                   {b.cycle ? (
                     <>
@@ -61,9 +64,12 @@ export function BlockTable({
                     <span className="text-[var(--sd-quiet)]">No active cycle</span>
                   )}
                 </td>
+                )}
+                {usesCycles && (
                 <td className={TD}>
                   <StatusPill status={x?.stage} />
                 </td>
+                )}
                 <td className={cn(TDR, b.tasks_open ? "text-[var(--sd-ink)]" : "text-[var(--sd-quiet)]")}>
                   {qty(b.tasks_open)}
                 </td>

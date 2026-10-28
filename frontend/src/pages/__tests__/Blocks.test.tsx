@@ -2,7 +2,7 @@ import { fireEvent, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Blocks } from "@/pages/Blocks";
 import * as api from "@/lib/api";
-import { renderPage } from "./testkit";
+import { AQUA, renderPage } from "./testkit";
 
 vi.mock("@/lib/api", async (orig) => ({
   ...(await orig<typeof api>()),
@@ -74,5 +74,21 @@ describe("Blocks", () => {
     expect(await screen.findByText("Rotation history")).toBeTruthy();
     expect(screen.getByText("5 Jan 2026")).toBeTruthy();
     expect(getUnit).toHaveBeenCalledWith("Block B2");
+  });
+
+  it("shows no cycle UI for a crop without cycles", async () => {
+    listUnits.mockResolvedValue({ units: [unit({ name: "Pond 1", unit_type: "Pond", area_ha: 0.1 })] });
+    getUnit.mockResolvedValue({
+      unit: { ...unit({ name: "Pond 1", unit_type: "Pond" }), geojson: null },
+      cycles: [],
+      recent_work: [],
+    });
+    renderPage(<Blocks />, true, AQUA);
+    expect(await screen.findByText("Pond 1")).toBeTruthy();
+    expect(screen.queryByText("Current cycle")).toBeNull();
+    expect(screen.queryByText(/With active cycle/i)).toBeNull();
+    fireEvent.click(screen.getByText("Pond 1"));
+    await screen.findByRole("dialog");
+    expect(screen.queryByText("Rotation history")).toBeNull();
   });
 });

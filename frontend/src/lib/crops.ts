@@ -29,6 +29,17 @@ export function cropIcon(iconKey: string | null | undefined): IconType {
 }
 
 
+/** Crops that never have crop cycles, used only when the bootstrap lacks the flag. */
+const NO_CYCLE_KEYS = ["apiary", "aquaculture"];
+
+/** Does this crop run in crop cycles? Bees and fish do not. Reads the Production Crop
+ *  flag `uses_crop_cycles`, falling back to the crop key. */
+export function cropUsesCycles(crop?: Pick<Crop, "crop_key" | "uses_crop_cycles"> | null): boolean {
+  if (!crop) return true;
+  if (crop.uses_crop_cycles != null) return !!crop.uses_crop_cycles;
+  return !NO_CYCLE_KEYS.includes(crop.crop_key);
+}
+
 export function pluralise(word: string): string {
   if (!word) return word;
   if (/s$/i.test(word)) return word;

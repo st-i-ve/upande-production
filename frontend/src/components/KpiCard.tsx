@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { KpiValueSkeleton, TextSkeleton } from "@/components/Loading";
 import { cn } from "@/lib/utils";
-import { Sparkline, seriesDelta, type SeriesPoint } from "@/components/Sparkline";
+import { Sparkline, flagRunningPeriod, seriesDelta, type SeriesPoint } from "@/components/Sparkline";
 
 export interface KpiCardProps {
   label: string;
@@ -34,7 +34,7 @@ const TONE: Record<NonNullable<KpiCardProps["tone"]>, string> = {
 };
 
 export function KpiCard({ label, value, hint, tone = "default", className, loading = false, series, goodDirection, deltaLabel, href, showDelta = true }: KpiCardProps) {
-  const delta = loading || !showDelta ? null : seriesDelta(series);
+  const delta = loading || !showDelta ? null : seriesDelta(flagRunningPeriod(series));
   // Thousands separators for large counts (e.g. 648361 → 648,361).
   const display =
     typeof value === "number" ? value.toLocaleString("en-US") : String(value);

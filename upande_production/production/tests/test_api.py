@@ -171,7 +171,7 @@ class TestApi(IntegrationTestCase):
 	def test_missed_protocol_deviation(self):
 		unit = self._unit("API MissedUnit")
 		proto = _make(
-			"Production Protocol", protocol_name="API Proto", crop=self.crop.name,
+			"Production Protocol", protocol_name="API Proto", version_status="Active", crop=self.crop.name,
 			steps=[{"operation": self.op.name, "day_offset": 0, "repeat_count": 1}],
 		)
 		_make(

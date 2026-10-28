@@ -1,0 +1,158 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "PST-.YYYY.-.####",
+ "naming_rule": "Expression (old style)",
+ "creation": "2026-10-28 12:00:00.000000",
+ "custom": 0,
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "pond",
+  "species",
+  "stocking_date",
+  "status",
+  "fingerlings_count",
+  "avg_weight_g",
+  "source",
+  "target_harvest_weight_g",
+  "target_harvest_date",
+  "harvest_section",
+  "harvest_date",
+  "harvested_count",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "pond",
+   "fieldtype": "Link",
+   "label": "Pond",
+   "options": "Production Unit",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "species",
+   "fieldtype": "Select",
+   "label": "Species",
+   "options": "Tilapia\nCatfish",
+   "reqd": 1,
+   "in_list_view": 1,
+   "default": "Tilapia"
+  },
+  {
+   "fieldname": "stocking_date",
+   "fieldtype": "Date",
+   "label": "Stocking Date",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Growing\nHarvested\nClosed",
+   "default": "Growing",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "fingerlings_count",
+   "fieldtype": "Int",
+   "label": "Fingerlings Count",
+   "reqd": 1
+  },
+  {
+   "fieldname": "avg_weight_g",
+   "fieldtype": "Float",
+   "label": "Avg Weight At Stocking (g)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "source",
+   "fieldtype": "Data",
+   "label": "Source / Hatchery"
+  },
+  {
+   "fieldname": "target_harvest_weight_g",
+   "fieldtype": "Float",
+   "label": "Target Harvest Weight (g)"
+  },
+  {
+   "fieldname": "target_harvest_date",
+   "fieldtype": "Date",
+   "label": "Target Harvest Date"
+  },
+  {
+   "fieldname": "harvest_section",
+   "fieldtype": "Section Break",
+   "label": "Harvest"
+  },
+  {
+   "fieldname": "harvest_date",
+   "fieldtype": "Date",
+   "label": "Harvest Date"
+  },
+  {
+   "fieldname": "harvested_count",
+   "fieldtype": "Int",
+   "label": "Harvested Count",
+   "default": "0"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-10-28 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Pond Stocking",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "write": 1,
+   "role": "System Manager"
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "write": 1,
+   "role": "Production Manager"
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "write": 1,
+   "report": 1,
+   "role": "Production Supervisor"
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "Production Viewer"
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

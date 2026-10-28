@@ -56,6 +56,20 @@ export function flagCurrentWeek(points: SeriesPoint[] | undefined, now = new Dat
   });
 }
 
+/** Flag the still-running period on any series, weekly or daily, unless the caller already did.
+ *  A series is daily when two of its points fall in the same week; then only today's point is
+ *  partial. KpiCard applies this to every series so no page can show a delta against a period
+ *  that has not finished. */
+export function flagRunningPeriod(points: SeriesPoint[] | undefined, now = new Date()): SeriesPoint[] | undefined {
+  if (!points || points.some((p) => p.partial)) return points;
+  const starts = points.map((p) => weekStart(p.week)?.getTime());
+  const daily = starts.some((t, i) => i > 0 && t != null && t === starts[i - 1]);
+  if (!daily) return flagCurrentWeek(points, now);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  return points.map((p) => ((p.date ?? p.week).slice(0, 10) === today ? { ...p, partial: true } : p));
+}
+
 /** A line worth drawing: two or more points that are not all the same value. */
 export function hasTrend(points?: SeriesPoint[]): points is SeriesPoint[] {
   return !!points && points.length >= 2 && points.some((p) => p.value !== points[0].value);

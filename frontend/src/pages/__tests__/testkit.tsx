@@ -15,6 +15,17 @@ export const CROP: Crop = {
   yield_uom: "Kg",
 };
 
+export const AQUA: Crop = {
+  ...CROP,
+  name: "Aquaculture",
+  crop_key: "aquaculture",
+  icon_key: "fish",
+  unit_label: "Pond",
+  parent_unit_label: "Farm",
+  sub_unit_label: "",
+  uses_crop_cycles: 0,
+};
+
 export const bootFor = (canSeePay = true): Boot => ({
   crops: [CROP],
   farms: ["Mutara"],
@@ -23,11 +34,11 @@ export const bootFor = (canSeePay = true): Boot => ({
   can_manage: true,
 });
 
-export function renderPage(ui: React.ReactElement, canSeePay = true) {
+export function renderPage(ui: React.ReactElement, canSeePay = true, crop: Crop = CROP) {
   return render(
     <TooltipProvider>
       <ToastProvider>
-        <CropProvider crop={CROP} boot={bootFor(canSeePay)}>
+        <CropProvider crop={crop} boot={{ ...bootFor(canSeePay), crops: [crop] }}>
           {ui}
         </CropProvider>
       </ToastProvider>

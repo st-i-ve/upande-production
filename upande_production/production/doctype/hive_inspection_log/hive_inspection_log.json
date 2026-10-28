@@ -1,0 +1,212 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "HIL-.YYYY.-.#####",
+ "naming_rule": "Expression (old style)",
+ "creation": "2026-10-28 12:00:00.000000",
+ "custom": 0,
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "unit",
+  "inspection_date",
+  "inspector",
+  "crop",
+  "col1",
+  "colonies_inspected",
+  "colonies_queenright",
+  "queen_seen",
+  "eggs_seen",
+  "sec1",
+  "brood_pattern",
+  "temperament",
+  "varroa_per_100",
+  "disease_signs",
+  "col2",
+  "frames_brood",
+  "frames_honey",
+  "frames_stores",
+  "feeding_kg",
+  "sec2",
+  "actions"
+ ],
+ "fields": [
+  {
+   "fieldname": "unit",
+   "fieldtype": "Link",
+   "label": "Hive Group",
+   "options": "Production Unit",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "inspection_date",
+   "fieldtype": "Date",
+   "label": "Inspection Date",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "inspector",
+   "fieldtype": "Link",
+   "label": "Inspector",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "crop",
+   "fieldtype": "Link",
+   "label": "Crop",
+   "options": "Production Crop",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "colonies_inspected",
+   "fieldtype": "Int",
+   "label": "Colonies Inspected",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "colonies_queenright",
+   "fieldtype": "Int",
+   "label": "Colonies Queenright",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "queen_seen",
+   "fieldtype": "Check",
+   "label": "Queen Seen"
+  },
+  {
+   "fieldname": "eggs_seen",
+   "fieldtype": "Check",
+   "label": "Eggs Seen"
+  },
+  {
+   "fieldname": "sec1",
+   "fieldtype": "Section Break",
+   "label": "Colony Condition"
+  },
+  {
+   "fieldname": "brood_pattern",
+   "fieldtype": "Select",
+   "label": "Brood Pattern",
+   "options": "\nSolid\nPatchy\nNone"
+  },
+  {
+   "fieldname": "temperament",
+   "fieldtype": "Select",
+   "label": "Temperament",
+   "options": "\nCalm\nNervous\nAggressive"
+  },
+  {
+   "fieldname": "varroa_per_100",
+   "fieldtype": "Float",
+   "label": "Varroa Mites per 100 Bees",
+   "precision": "1"
+  },
+  {
+   "fieldname": "disease_signs",
+   "fieldtype": "Select",
+   "label": "Disease Signs",
+   "options": "None\nChalkbrood\nAFB/EFB suspect\nSmall hive beetle\nWax moth",
+   "default": "None"
+  },
+  {
+   "fieldname": "col2",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "frames_brood",
+   "fieldtype": "Float",
+   "label": "Frames of Brood",
+   "precision": "1"
+  },
+  {
+   "fieldname": "frames_honey",
+   "fieldtype": "Float",
+   "label": "Frames of Honey",
+   "precision": "1"
+  },
+  {
+   "fieldname": "frames_stores",
+   "fieldtype": "Float",
+   "label": "Frames of Stores",
+   "precision": "1"
+  },
+  {
+   "fieldname": "feeding_kg",
+   "fieldtype": "Float",
+   "label": "Feeding Given (sugar syrup kg)",
+   "precision": "1"
+  },
+  {
+   "fieldname": "sec2",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "actions",
+   "fieldtype": "Small Text",
+   "label": "Actions / Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-10-28 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Hive Inspection Log",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "write": 1,
+   "role": "System Manager"
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "write": 1,
+   "role": "Production Manager"
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "write": 1,
+   "report": 1,
+   "role": "Production Supervisor"
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "Production Viewer"
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "title_field": "unit"
+}

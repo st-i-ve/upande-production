@@ -80,7 +80,7 @@ class TestLogicDomain(IntegrationTestCase):
 	def test_generate_week_idempotent(self):
 		unit = self._unit("TC GenUnit")
 		proto = _make(
-			"Production Protocol", protocol_name="TC Proto", crop=self.crop.name,
+			"Production Protocol", protocol_name="TC Proto", version_status="Active", crop=self.crop.name,
 			steps=[{"operation": self.op.name, "day_offset": 3, "repeat_every_days": 7, "repeat_count": 4}],
 		)
 		w_monday = _monday(today())

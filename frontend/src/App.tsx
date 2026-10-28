@@ -151,7 +151,8 @@ export function App() {
     window.addEventListener("production:approvals-changed", refreshApprovals);
     return () => window.removeEventListener("production:approvals-changed", refreshApprovals);
   }, [refreshApprovals]);
-  const pendingApprovals = approvals?.crops.find((c) => c.crop_key === crop?.crop_key)?.pending ?? 0;
+  const cropCounts = approvals?.crops.find((c) => c.crop_key === crop?.crop_key);
+  const pendingApprovals = (cropCounts?.pending ?? 0) + (cropCounts?.protocols_pending ?? 0);
 
   // No crop (or an unknown one) in the hash: land on the first crop's overview.
   useEffect(() => {

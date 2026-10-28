@@ -2,6 +2,7 @@ import frappe
 from frappe import _
 from frappe.utils import add_days, getdate
 
+from upande_production.production.logic.cycles import crop_uses_cycles
 from upande_production.production.logic.weeks import iso_week_bounds
 
 
@@ -24,6 +25,8 @@ def generate_week(plan_name: str) -> int:
 	start, end = iso_week_bounds(plan.plan_year, plan.plan_week)
 	existing = {t.protocol_ref for t in plan.tasks if t.protocol_ref}
 	count = 0
+	if not crop_uses_cycles(plan.crop):
+		return 0
 	cycles = frappe.get_all(
 		"Production Crop Cycle",
 		filters={"status": ("in", ["Active", "Harvesting"]), "crop": plan.crop, "protocol": ("is", "set")},
@@ -31,6 +34,9 @@ def generate_week(plan_name: str) -> int:
 	)
 	for cy in cycles:
 		if plan.farm and frappe.db.get_value("Production Unit", cy.unit, "farm") != plan.farm:
+			continue
+		# Cycles keep the version they were pinned to (Active or since Superseded); drafts never plan.
+		if frappe.db.get_value("Production Protocol", cy.protocol, "version_status") not in ("Active", "Superseded"):
 			continue
 		proto = frappe.get_doc("Production Protocol", cy.protocol)
 		for step in proto.steps:

@@ -84,7 +84,7 @@ def get_bootstrap():
 		filters={"enabled": 1},
 		fields=[
 			"name", "crop_key", "accent_color", "icon_key", "unit_label", "parent_unit_label",
-			"sub_unit_label", "yield_uom",
+			"sub_unit_label", "yield_uom", "uses_crop_cycles",
 		],
 		order_by="sort_order asc, name asc",
 	)
@@ -399,7 +399,7 @@ def save_operation(data):
 @run
 def list_protocols(crop):
 	_need("Production Protocol")
-	rows = frappe.get_all("Production Protocol", filters={"crop": crop}, fields=["*"], order_by="protocol_name asc")
+	rows = frappe.get_all("Production Protocol", filters={"crop": crop, "version_status": "Active"}, fields=["*"], order_by="protocol_name asc")
 	for r in rows:
 		r["steps"] = frappe.get_all(
 			"Production Protocol Step",

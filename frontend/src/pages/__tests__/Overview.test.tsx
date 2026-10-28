@@ -2,7 +2,7 @@ import { screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Overview } from "@/pages/Overview";
 import * as api from "@/lib/api";
-import { renderPage } from "./testkit";
+import { AQUA, renderPage } from "./testkit";
 
 vi.mock("@/lib/api", async (orig) => ({ ...(await orig<typeof api>()), getOverview: vi.fn() }));
 vi.mock("@/lib/overview-api", () => ({ getOverviewExtras: vi.fn().mockResolvedValue({ error: "no extras" }) }));
@@ -81,5 +81,20 @@ describe("Overview", () => {
     getOverview.mockResolvedValue({ error: "You may not see this crop." });
     renderPage(<Overview />);
     expect(await screen.findByText("You may not see this crop.")).toBeTruthy();
+  });
+
+  it("shows no cycle or stage columns for a crop without cycles", async () => {
+    getOverview.mockResolvedValue({
+      tiles,
+      blocks: [
+        { unit: "Pond 1", unit_type: "Pond", parent: null, area_ha: 0.1, cycle: null, item: null, tasks_open: 2, labour_cost_season: 0, harvest_qty_season: 10 },
+      ],
+    });
+    renderPage(<Overview />, true, AQUA);
+    expect(await screen.findByText("Pond 1")).toBeTruthy();
+    expect(screen.queryByText("Cycle")).toBeNull();
+    expect(screen.queryByText("Stage")).toBeNull();
+    expect(screen.queryByText(/No active cycle/i)).toBeNull();
+    expect(screen.queryByText(/active cycles/i)).toBeNull();
   });
 });

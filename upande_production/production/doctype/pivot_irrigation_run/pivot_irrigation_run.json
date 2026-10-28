@@ -1,0 +1,182 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-10-28 14:00:00.000000",
+ "custom": 0,
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "unit",
+  "crop",
+  "start_time",
+  "end_time",
+  "hours",
+  "col1",
+  "direction",
+  "percent_timer",
+  "depth_mm",
+  "water_source",
+  "operator",
+  "sec1",
+  "slices",
+  "sec2",
+  "fault",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "unit",
+   "fieldtype": "Link",
+   "label": "Pivot",
+   "options": "Production Unit",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "crop",
+   "fieldtype": "Link",
+   "label": "Crop",
+   "options": "Production Crop",
+   "read_only": 1
+  },
+  {
+   "fieldname": "start_time",
+   "fieldtype": "Datetime",
+   "label": "Start",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "end_time",
+   "fieldtype": "Datetime",
+   "label": "End",
+   "reqd": 1
+  },
+  {
+   "fieldname": "hours",
+   "fieldtype": "Float",
+   "label": "Hours",
+   "read_only": 1,
+   "in_list_view": 1,
+   "precision": "2"
+  },
+  {
+   "fieldname": "col1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "direction",
+   "fieldtype": "Select",
+   "label": "Direction",
+   "options": "\nForward\nReverse",
+   "default": "Forward"
+  },
+  {
+   "fieldname": "percent_timer",
+   "fieldtype": "Percent",
+   "label": "Percent Timer",
+   "description": "Pivot speed setting: percent timer (100 = fastest, shallowest)."
+  },
+  {
+   "fieldname": "depth_mm",
+   "fieldtype": "Float",
+   "label": "Depth Applied (mm)",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "water_source",
+   "fieldtype": "Data",
+   "label": "Water Source"
+  },
+  {
+   "fieldname": "operator",
+   "fieldtype": "Link",
+   "label": "Operator",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "sec1",
+   "fieldtype": "Section Break",
+   "label": "Coverage"
+  },
+  {
+   "fieldname": "slices",
+   "fieldtype": "Table",
+   "label": "Slices Covered",
+   "options": "Pivot Irrigation Slice"
+  },
+  {
+   "fieldname": "sec2",
+   "fieldtype": "Section Break",
+   "label": "Fault"
+  },
+  {
+   "fieldname": "fault",
+   "fieldtype": "Select",
+   "label": "Fault",
+   "options": "None\nTower misalignment\nPressure drop\nPower\nStuck",
+   "default": "None",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-10-28 14:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Pivot Irrigation Run",
+ "owner": "Administrator",
+ "states": [],
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "write": 1,
+   "role": "System Manager"
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "write": 1,
+   "role": "Production Manager"
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "write": 1,
+   "report": 1,
+   "role": "Production Supervisor"
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "Production Viewer"
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "track_changes": 1,
+ "autoname": "PIR-.YYYY.-.#####",
+ "naming_rule": "Expression (old style)"
+}

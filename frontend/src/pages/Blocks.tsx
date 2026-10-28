@@ -15,7 +15,7 @@ import { UnitDrawer } from "@/components/blocks/UnitDrawer";
 import { BODY_ROW, TD, TDR, TH, THEAD_ROW, THR } from "@/components/blocks/tableStyles";
 import { EmptyNote, Panel } from "@/components/overview/Panel";
 import { getOverview, listUnits, type OverviewBlock, type UnitRow } from "@/lib/api";
-import { pluralise, useCurrentCrop, viewLabel } from "@/lib/crops";
+import { cropUsesCycles, pluralise, useCurrentCrop, viewLabel } from "@/lib/crops";
 import { isError } from "@/lib/frappe";
 import { ha, qty } from "@/lib/format";
 import { cn, matchesQuery } from "@/lib/utils";
@@ -106,10 +106,10 @@ export function Blocks() {
     if (!dirty) return flatten(all, collapsed, null);
     const hits = all.filter(
       (u) =>
-        matchesQuery(`${u.name} ${u.item ?? ""} ${u.current_cycle ?? ""}`, query) &&
+        matchesQuery(`${u.name} ${u.item ?? ""} ${usesCycles ? u.current_cycle ?? "" : ""}`, query) &&
         (!status || u.status === status) &&
         (!type || u.unit_type === type) &&
-        (!cycleOnly || !!u.current_cycle),
+        (!usesCycles || !cycleOnly || !!u.current_cycle),
     );
     return flatten(all, collapsed, withAncestors(all, hits));
   }, [units, collapsed, dirty, query, status, type, cycleOnly]);
@@ -122,6 +122,7 @@ export function Blocks() {
   // Groups hold the area of their children already; count leaves only.
   const leaves = useMemo(() => (units ?? []).filter((u) => !u.is_group), [units]);
   const totalArea = leaves.reduce((s, u) => s + (u.area_ha || 0), 0);
+  const usesCycles = cropUsesCycles(crop);
   const withCycle = leaves.filter((u) => u.current_cycle).length;
   const maxArea = Math.max(1, ...(units ?? []).map((u) => u.area_ha || 0));
   const plants = leaves.reduce((s, u) => s + (u.plant_count || 0), 0);
@@ -138,9 +139,11 @@ export function Blocks() {
       <SearchInput size="md" value={query} onChange={setQuery} placeholder={`Search ${plural.toLowerCase()}`} className="w-52" />
       <FilterSelect label="Status" value={status} options={statuses} onChange={setStatus} allLabel="All statuses" />
       {types.length > 1 && <FilterSelect label="Type" value={type} options={types} onChange={setType} allLabel="All types" />}
-      <TogglePill pressed={cycleOnly} onPressedChange={setCycleOnly}>
-        With active cycle
-      </TogglePill>
+      {usesCycles && (
+        <TogglePill pressed={cycleOnly} onPressedChange={setCycleOnly}>
+          With active cycle
+        </TogglePill>
+      )}
       <ClearFiltersPill
         active={dirty}
         onClear={() => {
@@ -159,11 +162,16 @@ export function Blocks() {
       title={viewLabel("blocks", crop)}
       eyebrow={crop.name}
       actions={actions}
-      description={`Every ${crop.unit_label.toLowerCase()} under ${crop.parent_unit_label.toLowerCase()}, with its current cycle. Open one for its rotation history and recent work.`}
+      description={
+        usesCycles
+          ? `Every ${crop.unit_label.toLowerCase()} under ${crop.parent_unit_label.toLowerCase()}, with its current cycle. Open one for its rotation history and recent work.`
+          : `Every ${crop.unit_label.toLowerCase()}, with its area, status and recent work. Open one for its latest activity.`
+      }
     >
-      <KpiGrid cols={4}>
+      <KpiGrid cols={usesCycles ? 4 : 3}>
         <KpiCard label={plural} value={units ? leaves.length : "—"} hint={units ? `${qty(units.length - leaves.length)} groups` : undefined} loading={waiting} />
         <KpiCard label="Total area" value={units ? `${ha(totalArea)} ha` : "—"} hint="across all units" loading={waiting} />
+        {usesCycles && (
         <KpiCard
           label="With active cycle"
           value={units ? withCycle : "—"}
@@ -171,6 +179,7 @@ export function Blocks() {
           tone={units && withCycle < leaves.length ? "warning" : "good"}
           loading={waiting}
         />
+        )}
         <KpiCard label="Plants" value={units ? qty(plants) : "—"} hint="recorded plant count" loading={waiting} />
       </KpiGrid>
 
@@ -192,7 +201,7 @@ export function Blocks() {
                   <th className={TH}>{crop.unit_label}</th>
                   <th className={TH}>Type</th>
                   <th className={THR}>Area (ha)</th>
-                  <th className={TH}>Current cycle</th>
+                  {usesCycles && <th className={TH}>Current cycle</th>}
                   <th className={TH}>Status</th>
                   <th className={THR}>Open tasks</th>
                   <th className={THR}>Harvest{crop.yield_uom ? ` (${crop.yield_uom})` : ""}</th>
@@ -201,10 +210,10 @@ export function Blocks() {
               </thead>
               <tbody>
                 {waiting ? (
-                  <TableRowsSkeleton cols={8} rows={7} />
+                  <TableRowsSkeleton cols={usesCycles ? 8 : 7} rows={7} />
                 ) : rows.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-3 py-6 text-center text-[13px] text-[var(--sd-muted)]">
+                    <td colSpan={usesCycles ? 8 : 7} className="px-3 py-6 text-center text-[13px] text-[var(--sd-muted)]">
                       Nothing matches these filters.
                     </td>
                   </tr>
@@ -250,6 +259,7 @@ export function Blocks() {
                             </span>
                           </div>
                         </td>
+                        {usesCycles && (
                         <td className={TD}>
                           {u.current_cycle ? (
                             <>
@@ -260,6 +270,7 @@ export function Blocks() {
                             <span className="text-[var(--sd-quiet)]">—</span>
                           )}
                         </td>
+                        )}
                         <td className={TD}>
                           <StatusPill status={u.status} />
                         </td>
@@ -285,6 +296,7 @@ export function Blocks() {
           canSeePay={crop.boot.can_see_pay}
           stats={stats.get(open)}
           uom={crop.yield_uom}
+          usesCycles={usesCycles}
           onClose={() => setOpen(null)}
         />
       )}

@@ -19,6 +19,7 @@ export function UnitDrawer({
   canSeePay,
   stats,
   uom,
+  usesCycles = true,
   onClose,
 }: {
   name: string;
@@ -27,6 +28,7 @@ export function UnitDrawer({
   /** Season totals for this unit from the overview, when they have arrived. */
   stats?: OverviewBlock;
   uom?: string;
+  usesCycles?: boolean;
   onClose: () => void;
 }) {
   const toast = useToast();
@@ -99,6 +101,7 @@ export function UnitDrawer({
               </p>
             )}
 
+            {usesCycles && (
             <section className="flex flex-col gap-2">
               <h3 className="text-[13px] font-semibold text-[var(--sd-ink)]">Rotation history</h3>
               {data.cycles.length === 0 ? (
@@ -137,6 +140,7 @@ export function UnitDrawer({
                 </div>
               )}
             </section>
+            )}
 
             <section className="flex flex-col gap-2">
               <h3 className="text-[13px] font-semibold text-[var(--sd-ink)]">Recent work</h3>

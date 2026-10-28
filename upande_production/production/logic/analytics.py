@@ -8,6 +8,7 @@ from datetime import timedelta
 import frappe
 from frappe.utils import add_days, getdate, today
 
+from upande_production.production.logic.cycles import crop_uses_cycles
 from upande_production.production.logic.weeks import iso_of
 
 
@@ -55,7 +56,9 @@ def _rollup(units, direct):
 
 
 def current_cycles(crop):
-	"""unit -> latest Active/Harvesting cycle row."""
+	"""unit -> latest Active/Harvesting cycle row. Empty for crops without cycles."""
+	if not crop_uses_cycles(crop):
+		return {}
 	rows = frappe.get_all(
 		"Production Crop Cycle",
 		filters={"crop": crop, "status": ("in", ["Active", "Harvesting"])},

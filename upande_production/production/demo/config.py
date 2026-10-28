@@ -8,8 +8,8 @@ DEMO = {
 	"crops": [
 		{"name": "Avocado", "key": "avocado", "accent": "#3f7d3a", "icon": "avocado", "parent": "", "unit": "Block", "sub": "Row", "uom": "Kg", "sort": 1, "cycle_type": "Season"},
 		{"name": "Fruits & Vegetables", "key": "fruits-vegetables", "accent": "#c0662b", "icon": "vegetables", "parent": "Pivot", "unit": "Block", "sub": "Bed", "uom": "Kg", "sort": 2, "cycle_type": "Planting"},
-		{"name": "Aquaculture", "key": "aquaculture", "accent": "#2b6f9e", "icon": "fish", "parent": "", "unit": "Pond", "sub": "", "uom": "Kg", "sort": 3, "cycle_type": "Pond Cycle"},
-		{"name": "Apiary", "key": "apiary", "accent": "#c99a1b", "icon": "hive", "parent": "", "unit": "Hive Group", "sub": "Hive", "uom": "Kg", "sort": 4, "cycle_type": "Hive Season"},
+		{"name": "Aquaculture", "key": "aquaculture", "accent": "#2b6f9e", "icon": "fish", "parent": "", "unit": "Pond", "sub": "", "uom": "Kg", "sort": 3, "cycle_type": "Pond Cycle", "cycles": 0},
+		{"name": "Apiary", "key": "apiary", "accent": "#c99a1b", "icon": "hive", "parent": "", "unit": "Hive Group", "sub": "Hive", "uom": "Kg", "sort": 4, "cycle_type": "Hive Season", "cycles": 0},
 	],
 	"uoms": ["Kg", "Hectare", "Tree", "Crate", "Bed", "Plant", "Pond", "Hive", "Fingerlings (x1000)"],
 	"items": ["Hass Avocado", "Fuerte Avocado", "Potatoes", "Cabbage", "Onion", "Passion Fruit", "Tilapia", "Honey"],

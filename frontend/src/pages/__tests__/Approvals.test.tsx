@@ -9,6 +9,12 @@ vi.mock("@/lib/approvals-api", () => ({
   resubmit: vi.fn(),
   approvalCounts: vi.fn(),
 }));
+vi.mock("@/lib/protocols-api", () => ({
+  pendingProtocols: vi.fn(),
+  approveProtocol: vi.fn(),
+  sendBackProtocol: vi.fn(),
+}));
+import { approveProtocol, pendingProtocols, sendBackProtocol, type PendingProtocol } from "@/lib/protocols-api";
 import { approve, listApprovals, resubmit, sendBack, type ApprovalGroup } from "@/lib/approvals-api";
 import { Approvals } from "@/pages/Approvals";
 
@@ -35,7 +41,24 @@ const drop = (names: string[]) => {
   lists.Pending = lists.Pending.filter((g) => !g.names.some((n) => names.includes(n)));
 };
 
+const pv: PendingProtocol = {
+  name: "Season v2", protocol_name: "Season v2", crop: "Test Crop", item: null, version: 2,
+  version_status: "Pending Approval", protocol_family: "Season", previous_version: "Season",
+  submitted_by: "sup@x.com", submitted_at: "2026-10-27 09:00:00", approved_by: null, approved_at: null,
+  review_note: null, steps: [], submitted_by_name: "Sam Supervisor",
+  diff: {
+    name: "Season v2", previous: "Season", fields: [],
+    steps: [{
+      change: "changed", operation: "OP-1", operation_name: "Fertilise",
+      changes: [{ field: "planned_qty", before: 10, after: 12 }],
+    }],
+  },
+};
+
 beforeEach(() => {
+  vi.mocked(pendingProtocols).mockReset().mockResolvedValue({ rows: [pv] });
+  vi.mocked(approveProtocol).mockReset().mockResolvedValue({ name: "Season v2" });
+  vi.mocked(sendBackProtocol).mockReset().mockResolvedValue({ name: "Season v2" });
   lists = fresh();
   vi.mocked(listApprovals).mockReset().mockImplementation(async (_c, f) => ({
     groups: lists[f?.status ?? "Pending"], counts, stale_days: 2,
@@ -149,5 +172,31 @@ describe("Approvals", () => {
     vi.mocked(listApprovals).mockImplementation(async () => ({ groups: [], counts: { Pending: 0, Approved: 0, "Sent Back": 0, stale: 0 }, stale_days: 2 }));
     renderPage(<Approvals />);
     expect(await screen.findByText(/Nothing waiting for approval/)).toBeInTheDocument();
+  });
+
+  it("Protocols tab shows the diff and approves", async () => {
+    vi.mocked(approveProtocol).mockImplementation(async () => {
+      vi.mocked(pendingProtocols).mockResolvedValue({ rows: [] });
+      return { name: "Season v2" };
+    });
+    renderPage(<Approvals />);
+    fireEvent.mouseDown(await screen.findByRole("tab", { name: /Protocols/ }), { button: 0 });
+    const card = within(await screen.findByTestId("protocol-card-Season v2"));
+    expect(card.getByText("Fertilise")).toBeInTheDocument();
+    expect(within(card.getByTestId("diff-step-changed")).getByText("12")).toBeInTheDocument();
+    fireEvent.click(card.getByRole("button", { name: "Approve" }));
+    await waitFor(() => expect(approveProtocol).toHaveBeenCalledWith("Season v2"));
+    await waitFor(() => expect(screen.queryByTestId("protocol-card-Season v2")).toBeNull());
+  });
+
+  it("Protocols tab sends back with a required note", async () => {
+    renderPage(<Approvals />);
+    fireEvent.mouseDown(await screen.findByRole("tab", { name: /Protocols/ }), { button: 0 });
+    fireEvent.click(await screen.findByRole("button", { name: "Send back" }));
+    const send = (await screen.findAllByRole("button", { name: "Send back" })).pop()!;
+    expect(send).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Note for the supervisor"), { target: { value: "Rate too high" } });
+    fireEvent.click(send);
+    await waitFor(() => expect(sendBackProtocol).toHaveBeenCalledWith("Season v2", "Rate too high"));
   });
 });

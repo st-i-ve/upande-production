@@ -25,7 +25,7 @@ import {
   type UnitRow,
   type ValueAdder,
 } from "@/lib/api";
-import { useCurrentCrop } from "@/lib/crops";
+import { cropUsesCycles, useCurrentCrop } from "@/lib/crops";
 import { formatUoms, kes, sumByUom } from "@/lib/format";
 import { isError } from "@/lib/frappe";
 import { currentIsoWeek, weekStart, type IsoWeek } from "@/lib/weeks";
@@ -194,10 +194,12 @@ export function Plan() {
       />
       {boot.can_plan && (
         <>
-          <ToolbarButton onClick={generate} disabled={generating || !farm}>
-            <Wand2 className="h-4 w-4" strokeWidth={1.75} />
-            {generating ? "Generating…" : "Generate from protocols"}
-          </ToolbarButton>
+          {cropUsesCycles(crop) && (
+            <ToolbarButton onClick={generate} disabled={generating || !farm}>
+              <Wand2 className="h-4 w-4" strokeWidth={1.75} />
+              {generating ? "Generating…" : "Generate from protocols"}
+            </ToolbarButton>
+          )}
           <ToolbarButton onClick={() => setAdding(true)} disabled={!farm}>
             <ListPlus className="h-4 w-4" strokeWidth={1.75} />
             Add task
@@ -237,9 +239,11 @@ export function Plan() {
     body = (
       <Empty title={`Nothing planned for ${weekLabel}`}>
         {boot.can_plan
-          ? "Generate the week from the crop's protocols, or add a task by hand."
+          ? cropUsesCycles(crop)
+            ? "Generate the week from the crop's protocols, or add a task by hand."
+            : "Add a task by hand."
           : "No tasks have been planned for this week yet."}
-        {boot.can_plan && (
+        {boot.can_plan && cropUsesCycles(crop) && (
           <Button onClick={generate} disabled={generating}>
             <Wand2 className="h-4 w-4" strokeWidth={1.75} />
             {generating ? "Generating…" : "Generate from protocols"}
@@ -371,6 +375,7 @@ export function Plan() {
       {adding && (
         <AddTaskDialog
           crop={crop.name}
+          usesCycles={cropUsesCycles(crop)}
           farm={farm}
           year={week.year}
           week={week.week}

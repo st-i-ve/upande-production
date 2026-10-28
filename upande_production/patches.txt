@@ -5,3 +5,5 @@
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
 upande_production.patches.backfill_work_approval
+upande_production.patches.backfill_protocol_versions
+upande_production.patches.drop_cycles_for_bees_and_fish

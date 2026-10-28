@@ -9,10 +9,20 @@ import { RefreshButton } from "@/components/RefreshButton";
 import { SearchInput } from "@/components/SearchInput";
 import { useToast } from "@/components/Toast";
 import { CATEGORIES, OperationsTable } from "@/components/settings/OperationsTable";
-import { ProtocolsList } from "@/components/settings/ProtocolsList";
+import { ProtocolsList, type ProtocolActions } from "@/components/settings/ProtocolsList";
 import { Card, CardContent, CardDescription, CardHeaderRow, CardHeading, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { listOperations, listProtocols, type Row } from "@/lib/api";
+import { listOperations, type Row } from "@/lib/api";
+import {
+  approveProtocol,
+  listProtocolFamilies,
+  newVersion,
+  saveProtocolDraft,
+  sendBackProtocol,
+  submitForApproval,
+  type ProtocolFamily,
+} from "@/lib/protocols-api";
+import { APPROVALS_CHANGED } from "@/pages/Approvals";
 import { useCurrentCrop, viewLabel } from "@/lib/crops";
 import { isError } from "@/lib/frappe";
 import { kes } from "@/lib/format";
@@ -33,17 +43,17 @@ export function Settings() {
   const [q, setQ] = useState("");
   const [category, setCategory] = useState("");
   const [ops, setOps] = useState<Row[] | null>(null);
-  const [protocols, setProtocols] = useState<Row[] | null>(null);
+  const [protocols, setProtocols] = useState<ProtocolFamily[] | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [o, p] = await Promise.all([listOperations(crop.name), listProtocols(crop.name)]);
+    const [o, p] = await Promise.all([listOperations(crop.name), listProtocolFamilies(crop.name)]);
     setLoading(false);
     if (isError(o)) toast(o.error, "error");
     if (isError(p)) toast(p.error, "error");
     setOps(isError(o) ? [] : (o.rows ?? []));
-    setProtocols(isError(p) ? [] : (p.rows ?? []));
+    setProtocols(isError(p) ? [] : (p.families ?? []));
   }, [crop.name, toast]);
 
   useEffect(() => {
@@ -60,7 +70,7 @@ export function Settings() {
   const visibleProtocols = useMemo(
     () =>
       (protocols ?? []).filter(
-        (p) => !q || matchesQuery(`${p.protocol_name ?? p.name} ${p.item ?? ""}`, q),
+        (p) => !q || matchesQuery(`${p.label} ${p.item ?? ""}`, q),
       ),
     [protocols, q],
   );
@@ -68,7 +78,10 @@ export function Settings() {
   const stats = useMemo(() => {
     const list = ops ?? [];
     const rates = list.map((o) => Number(o.default_rate)).filter((n) => Number.isFinite(n) && n > 0);
-    const steps = (protocols ?? []).reduce((t, p) => t + ((p.steps as unknown[] | undefined)?.length ?? 0), 0);
+    const steps = (protocols ?? []).reduce(
+      (t, p) => t + ((p.versions.find((v) => v.name === p.active) ?? p.versions[0])?.steps.length ?? 0),
+      0,
+    );
     return {
       ops: list.length,
       harvest: list.filter((o) => !!Number(o.is_harvest ?? 0)).length,
@@ -76,6 +89,30 @@ export function Settings() {
       steps,
     };
   }, [ops, protocols]);
+
+  const run = useCallback(
+    async (r: Promise<{ error: string } | object>, done: string) => {
+      const res = await r;
+      if (isError(res as never)) {
+        toast((res as { error: string }).error, "error");
+        return;
+      }
+      toast(done);
+      window.dispatchEvent(new Event(APPROVALS_CHANGED));
+      await load();
+    },
+    [load, toast],
+  );
+  const actions = useMemo<ProtocolActions>(
+    () => ({
+      newVersion: (v) => void run(newVersion(v.name), "New draft version created."),
+      submit: (v) => void run(submitForApproval(v.name), "Submitted for approval."),
+      approve: (v) => void run(approveProtocol(v.name), "Approved. This version is now active."),
+      sendBack: (v, note) => void run(sendBackProtocol(v.name, note), "Sent back to draft."),
+      saveDraft: (v, steps) => void run(saveProtocolDraft({ name: v.name, steps }), "Draft saved."),
+    }),
+    [run],
+  );
 
   const first = firstLoad(loading, !!ops && !!protocols);
   const dirty = !!q || !!category;
@@ -160,11 +197,11 @@ export function Settings() {
             <CardHeaderRow>
               <CardHeading>
                 <CardTitle>Protocols</CardTitle>
-                <CardDescription>Repeating work schedules. Open one to see its steps.</CardDescription>
+                <CardDescription>Repeating work schedules, versioned. Only the active version plans work; changes need a manager's approval.</CardDescription>
               </CardHeading>
             </CardHeaderRow>
             <CardContent>
-              {!protocols ? <RowsSkeleton rows={4} /> : <ProtocolsList protocols={visibleProtocols} opNames={opNames} />}
+              {!protocols ? <RowsSkeleton rows={4} /> : <ProtocolsList families={visibleProtocols} opNames={opNames} canPlan={crop.boot.can_plan} canManage={canManage} actions={actions} />}
             </CardContent>
           </Card>
         </TabsContent>
