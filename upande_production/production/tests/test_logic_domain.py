@@ -94,7 +94,8 @@ class TestLogicDomain(IntegrationTestCase):
 		self.assertEqual(plans.generate_week(plan.name), 1)
 		self.assertEqual(plans.generate_week(plan.name), 0)
 		plan.reload()
-		self.assertEqual(str(plan.tasks[0].due_date), str(add_days(w_monday, 3)))
+		gen = next(t for t in plan.tasks if t.protocol_ref)
+		self.assertEqual(str(gen.due_date), str(add_days(w_monday, 3)))
 
 	def test_record_twice_sums_not_duplicates(self):
 		plan, task = self._plan_with_task(today())
@@ -109,6 +110,15 @@ class TestLogicDomain(IntegrationTestCase):
 		self.assertEqual(len(vaws), 2)
 		for v in vaws:
 			self.assertEqual(v.pay_value, v.qty * v.rate)
+
+	def test_cancel_recounts_done_qty(self):
+		plan, task = self._plan_with_task(today())
+		work.record_task_work(plan.name, task.name, "In Progress", [{"employee": self.emps[0].name, "qty": 6}])
+		res = work.record_task_work(plan.name, task.name, "Done", [{"employee": self.emps[1].name, "qty": 4}])
+		self.assertEqual(res["task"]["done_qty"], 10)
+		frappe.get_doc("Value Adder Work", res["work"][0]).cancel()
+		plan.reload()
+		self.assertEqual(plan.tasks[0].done_qty, 6)
 
 	def test_status_only_creates_no_work(self):
 		plan, task = self._plan_with_task(today())

@@ -5,9 +5,9 @@ from frappe import _
 
 from upande_production.api.envelope import as_dict, run
 from upande_production.production.logic import analytics, plans, work
+from upande_production.production.logic.settings import PAY_ROLES, can_see_pay
 from upande_production.production.logic.weeks import iso_week_bounds
 
-PAY_ROLES = {"Production Manager", "Production Supervisor", "System Manager"}
 MANAGE_ROLES = {"Production Manager", "System Manager"}
 
 
@@ -19,7 +19,7 @@ def _is_admin():
 
 
 def _can_see_pay():
-	return _is_admin() or bool(PAY_ROLES & set(frappe.get_roles()))
+	return can_see_pay()
 
 
 def _need(doctype, ptype="read"):
@@ -176,19 +176,19 @@ _TASK_EDITABLE = ("unit", "cycle", "operation", "planned_qty", "uom", "rate", "d
 @frappe.whitelist(methods=["POST"])
 @run
 def get_plan(crop, farm, year, week):
-	_need("Production Plan")
+	_need("Production Work Plan")
 	year, week = int(year), int(week)
 	start, end = iso_week_bounds(year, week)
 	filters = {"crop": crop, "plan_year": year, "plan_week": week}
 	filters["farm"] = farm if farm else ("in", ["", None])
-	name = frappe.db.get_value("Production Plan", filters)
+	name = frappe.db.get_value("Production Work Plan", filters)
 	out = {"plan": name, "week_start": start, "week_end": end, "tasks": []}
 	if not name:
 		return out
 	pay = _can_see_pay()
 	tasks = frappe.get_all(
 		"Production Plan Task",
-		filters={"parent": name, "parenttype": "Production Plan"},
+		filters={"parent": name, "parenttype": "Production Work Plan"},
 		fields=[
 			"name", "unit", "cycle", "operation", "operation_name", "planned_qty", "done_qty", "uom",
 			"rate", "due_date", "supervisor", "status", "deviation", "protocol_ref", "note",
@@ -222,7 +222,7 @@ def get_plan(crop, farm, year, week):
 @frappe.whitelist(methods=["POST"])
 @run
 def save_plan_tasks(crop, farm, year, week, tasks):
-	_need("Production Plan", "write")
+	_need("Production Work Plan", "write")
 	tasks = as_dict(tasks) or []
 	plan = plans.get_or_create_plan(crop, _farm(farm), int(year), int(week))
 	for t in tasks:
@@ -254,7 +254,7 @@ def save_plan_tasks(crop, farm, year, week, tasks):
 @frappe.whitelist(methods=["POST"])
 @run
 def generate_plan_week(crop, farm, year, week):
-	_need("Production Plan", "create")
+	_need("Production Work Plan", "create")
 	plan = plans.get_or_create_plan(crop, _farm(farm), int(year), int(week))
 	return {"name": plan.name, "created": plans.generate_week(plan.name)}
 
@@ -262,7 +262,7 @@ def generate_plan_week(crop, farm, year, week):
 @frappe.whitelist(methods=["POST"])
 @run
 def record_task_work(plan, task, status, entries=None, note="", work_date=None):
-	_need("Production Plan", "write")
+	_need("Production Work Plan", "write")
 	entries = as_dict(entries) or []
 	if entries:
 		_need("Value Adder Work", "create")
@@ -308,7 +308,7 @@ def block_costs(crop, from_date=None, to_date=None):
 @frappe.whitelist(methods=["POST"])
 @run
 def deviations(crop, from_date=None, to_date=None):
-	_need("Production Plan")
+	_need("Production Work Plan")
 	return analytics.deviations(crop, from_date, to_date)
 
 

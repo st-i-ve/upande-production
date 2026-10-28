@@ -51,7 +51,7 @@
    "fieldname": "plan",
    "fieldtype": "Link",
    "label": "Plan",
-   "options": "Production Plan"
+   "options": "Production Work Plan"
   },
   {
    "fieldname": "plan_task",
@@ -105,13 +105,15 @@
   {
    "fieldname": "rate",
    "fieldtype": "Currency",
-   "label": "Rate"
+   "label": "Rate",
+   "permlevel": 1
   },
   {
    "fieldname": "pay_value",
    "fieldtype": "Currency",
    "label": "Pay Value",
-   "read_only": 1
+   "read_only": 1,
+   "permlevel": 1
   },
   {
    "fieldname": "cost_center",
@@ -195,6 +197,24 @@
    "read": 1,
    "report": 1,
    "role": "Production Viewer"
+  },
+  {
+   "read": 1,
+   "role": "System Manager",
+   "permlevel": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Production Manager",
+   "permlevel": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Production Supervisor",
+   "permlevel": 1,
+   "write": 1
   }
  ],
  "sort_field": "creation",

@@ -3,6 +3,7 @@ import frappe
 from frappe.utils import cint, today
 
 from upande_production.production.logic import work
+from upande_production.production.logic.settings import can_see_pay
 from upande_production.production.logic.weeks import iso_of, iso_week_bounds
 
 TASK_FIELDS = [
@@ -28,6 +29,25 @@ def _fail(msg: str, exc: Exception | None = None):
 		frappe.response["data"] = {"error": msg}
 
 
+def _denied(*checks) -> bool:
+	"""checks are (doctype, ptype) pairs. On refusal sets the error response and returns True."""
+	for doctype, ptype in checks:
+		if not frappe.has_permission(doctype, ptype):
+			_fail("You do not have permission to do this.")
+			return True
+	return False
+
+
+def _strip_pay(rows, *keys):
+	if can_see_pay():
+		return rows
+	for r in rows if isinstance(rows, list) else [rows]:
+		for k in keys:
+			if k in r:
+				r[k] = None
+	return rows
+
+
 def _require(data, *keys) -> str | None:
 	for k in keys:
 		if not data.get(k) or (isinstance(data.get(k), str) and not data[k].strip()):
@@ -47,6 +67,8 @@ def _run(name, fn):
 
 @frappe.whitelist()
 def productionListCrops():
+	if _denied(("Production Crop", "read")):
+		return
 	_run("productionListCrops", lambda: frappe.get_all(
 		"Production Crop", filters={"enabled": 1},
 		fields=["name", "crop_name", "crop_key", "accent_color", "icon_key", "unit_label",
@@ -57,6 +79,8 @@ def productionListCrops():
 
 @frappe.whitelist()
 def productionListUnits():
+	if _denied(("Production Unit", "read")):
+		return
 	data = _payload()
 	err = _require(data, "crop")
 	if err:
@@ -71,6 +95,8 @@ def productionListUnits():
 
 @frappe.whitelist()
 def productionGetWeekPlan():
+	if _denied(("Production Work Plan", "read")):
+		return
 	data = _payload()
 	err = _require(data, "crop")
 	if err:
@@ -84,13 +110,14 @@ def productionGetWeekPlan():
 		start, end = iso_week_bounds(year, week)
 		filters = {"crop": crop, "plan_year": year, "plan_week": week}
 		filters["farm"] = farm if farm else ("in", ["", None])
-		name = frappe.db.get_value("Production Plan", filters)
+		name = frappe.db.get_value("Production Work Plan", filters)
 		tasks = []
 		if name:
 			tasks = frappe.get_all(
-				"Production Plan Task", filters={"parent": name, "parenttype": "Production Plan"},
+				"Production Plan Task", filters={"parent": name, "parenttype": "Production Work Plan"},
 				fields=TASK_FIELDS, order_by="due_date asc, idx asc",
 			)
+			_strip_pay(tasks, "rate")
 		return {
 			"plan": name, "farm": farm or None, "crop": crop, "year": year, "week": week,
 			"week_start": str(start), "week_end": str(end), "tasks": tasks,
@@ -101,6 +128,8 @@ def productionGetWeekPlan():
 
 @frappe.whitelist()
 def productionUpdateTask():
+	if _denied(("Production Work Plan", "write")):
+		return
 	data = _payload()
 	err = _require(data, "plan", "task", "status")
 	if err:
@@ -116,7 +145,7 @@ def productionUpdateTask():
 		frappe.db.commit()
 		task = res["task"]
 		return {
-			"status": "success", "task": {k: task.get(k) for k in TASK_FIELDS},
+			"status": "success", "task": _strip_pay({k: task.get(k) for k in TASK_FIELDS}, "rate"),
 			"work": res["work"],
 			"message": f"{task.get('operation_name') or 'Task'} marked {task.get('status')}.",
 		}
@@ -126,6 +155,8 @@ def productionUpdateTask():
 
 @frappe.whitelist()
 def productionRecordUnplannedWork():
+	if _denied(("Value Adder Work", "create")):
+		return
 	data = _payload()
 	err = _require(data, "unit", "operation", "entries")
 	if err:
@@ -144,6 +175,8 @@ def productionRecordUnplannedWork():
 
 @frappe.whitelist()
 def productionRecordHarvest():
+	if _denied(("Production Harvest", "create")):
+		return
 	data = _payload()
 	err = _require(data, "unit", "qty")
 	if err:
@@ -170,6 +203,8 @@ def productionRecordHarvest():
 
 @frappe.whitelist()
 def productionRecordSample():
+	if _denied(("Yield Sample", "create")):
+		return
 	data = _payload()
 	err = _require(data, "unit", "sample_basis", "sample_size", "sampled_yield")
 	if err:
@@ -198,6 +233,8 @@ def productionRecordSample():
 
 @frappe.whitelist()
 def productionListValueAdders():
+	if _denied(("Value Adder Work", "create")):
+		return
 	def go():
 		filters = {"status": "Active", "designation": "Value Adder"}
 		return frappe.get_all(
@@ -209,12 +246,14 @@ def productionListValueAdders():
 
 @frappe.whitelist()
 def productionListOperations():
+	if _denied(("Production Operation", "read")):
+		return
 	data = _payload()
 	err = _require(data, "crop")
 	if err:
 		return _fail(err)
-	_run("productionListOperations", lambda: frappe.get_all(
+	_run("productionListOperations", lambda: _strip_pay(frappe.get_all(
 		"Production Operation", filters={"crop": _s(data, "crop")},
 		fields=["name", "operation_name", "category", "work_uom", "default_rate", "is_harvest"],
 		order_by="operation_name asc",
-	))
+	), "default_rate"))

@@ -19,6 +19,27 @@ def _insert_vaw(entry, work_date, unit, operation, uom, rate, cycle=None, plan=N
 	return doc.name
 
 
+def submitted_qty(plan, plan_task) -> float:
+	return sum(
+		frappe.get_all(
+			"Value Adder Work", filters={"plan": plan, "plan_task": plan_task, "docstatus": 1}, pluck="qty"
+		)
+	)
+
+
+def refresh_task_done(plan, plan_task):
+	"""Re-sum a task's submitted Value Adder Work into done_qty and save the plan (recomputes deviation)."""
+	if not plan or not plan_task or not frappe.db.exists("Production Work Plan", plan):
+		return
+	doc = frappe.get_doc("Production Work Plan", plan)
+	row = next((t for t in doc.tasks if t.name == plan_task), None)
+	if not row:
+		return
+	row.done_qty = submitted_qty(plan, plan_task)
+	doc.flags.ignore_permissions = True
+	doc.save()
+
+
 def record_task_work(plan, task, status, entries, note="", work_date=None) -> dict:
 	if status not in STATUSES:
 		frappe.throw(_("Invalid status {0}").format(status), frappe.ValidationError)
@@ -26,7 +47,7 @@ def record_task_work(plan, task, status, entries, note="", work_date=None) -> di
 	for e in entries:
 		if float(e.get("qty") or 0) <= 0:
 			frappe.throw(_("Quantity must be greater than zero"), frappe.ValidationError)
-	doc = frappe.get_doc("Production Plan", plan)
+	doc = frappe.get_doc("Production Work Plan", plan)
 	row = next((t for t in doc.tasks if t.name == task), None)
 	if not row:
 		frappe.throw(_("Task not found on plan {0}").format(plan), frappe.ValidationError)
@@ -35,11 +56,7 @@ def record_task_work(plan, task, status, entries, note="", work_date=None) -> di
 		_insert_vaw(e, work_date, row.unit, row.operation, row.uom, row.rate, row.cycle, plan, row.name)
 		for e in entries
 	]
-	row.done_qty = sum(
-		frappe.get_all(
-			"Value Adder Work", filters={"plan": plan, "plan_task": row.name, "docstatus": 1}, pluck="qty"
-		)
-	)
+	row.done_qty = submitted_qty(plan, row.name)
 	now = now_datetime()
 	if status in ("In Progress", "Done", "Partly Done") and not row.started_at:
 		row.started_at = now

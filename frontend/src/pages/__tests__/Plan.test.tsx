@@ -128,4 +128,20 @@ describe("Plan", () => {
     expect(await screen.findByText("Done", { selector: "span" })).toBeTruthy();
     expect(mocked.getPlan.mock.calls.length).toBeGreaterThan(1); // quiet refetch
   });
+
+  it("tick-off disables Save and hints when a row has no quantity", async () => {
+    const t1 = task({ name: "T1" });
+    mocked.getPlan.mockResolvedValue({ plan: "PLAN-1", week_start: "2026-10-26", week_end: "2026-11-01", tasks: [t1] });
+    renderPlan();
+    fireEvent.click(await screen.findByText("Pruning"));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: /Add value adder/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Value adder" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Jane Wanjiru" }));
+    fireEvent.change(within(dialog).getByLabelText("Hours"), { target: { value: "4" } });
+    expect(within(dialog).getByText("Give each person the quantity they did.")).toBeTruthy();
+    expect((within(dialog).getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(within(dialog).getByLabelText(/Quantity/), { target: { value: "3" } });
+    expect((within(dialog).getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(false);
+  });
 });

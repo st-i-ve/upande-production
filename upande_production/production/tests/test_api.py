@@ -137,6 +137,35 @@ class TestApi(IntegrationTestCase):
 		# writes are refused through the envelope
 		self.assertIn("error", api.save_commitment({"crop": self.crop.name}))
 
+	def _role_user(self, email, role):
+		if not frappe.db.exists("User", email):
+			_make("User", email=email, first_name=role.split()[-1], send_welcome_email=0, roles=[{"role": role}])
+
+	def test_supervisor_saves_rate_manager_saves_default_rate(self):
+		unit = self._unit("API PermUnit")
+		iso_y, iso_w = iso_of(today())
+		self._role_user("api_sup@example.com", "Production Supervisor")
+		self._role_user("api_mgr@example.com", "Production Manager")
+		frappe.set_user("api_sup@example.com")
+		res = api.save_plan_tasks(self.crop.name, self.farm.name, iso_y, iso_w, [{
+			"unit": unit.name, "operation": self.op.name, "planned_qty": 5, "uom": "Kg",
+			"rate": 55, "due_date": today(),
+		}])
+		self.assertNotIn("error", res)
+		rate = frappe.db.get_value(
+			"Production Plan Task", {"parent": res["name"], "unit": unit.name}, "rate"
+		)
+		self.assertEqual(rate, 55)
+		# a supervisor cannot change an operation default rate
+		api.save_operation({"name": self.op.name, "default_rate": 99})
+		self.assertEqual(frappe.db.get_value("Production Operation", self.op.name, "default_rate"), 40)
+		frappe.set_user("api_mgr@example.com")
+		res = api.save_operation({"name": self.op.name, "default_rate": 45})
+		self.assertNotIn("error", res)
+		self.assertEqual(frappe.db.get_value("Production Operation", self.op.name, "default_rate"), 45)
+		frappe.set_user("Administrator")
+		frappe.db.set_value("Production Operation", self.op.name, "default_rate", 40)
+
 	def test_missed_protocol_deviation(self):
 		unit = self._unit("API MissedUnit")
 		proto = _make(

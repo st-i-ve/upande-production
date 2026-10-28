@@ -6,6 +6,7 @@ from frappe.model.document import Document
 
 from upande_production.production.logic.pay import pay_value
 from upande_production.production.logic.settings import get_company
+from upande_production.production.logic.work import refresh_task_done
 from upande_production.production.logic.units import ensure_unit_cost_center
 
 
@@ -19,3 +20,6 @@ class ValueAdderWork(Document):
 			self.cost_center = ensure_unit_cost_center(self.unit)
 		self.company = self.company or get_company()
 		self.unplanned = 0 if self.plan_task else 1
+
+	def on_cancel(self):
+		refresh_task_done(self.plan, self.plan_task)

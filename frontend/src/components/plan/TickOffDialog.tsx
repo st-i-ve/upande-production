@@ -63,9 +63,9 @@ export function TickOffDialog({
   const patch = (key: number, p: Partial<EntryRow>) =>
     setRows((all) => all.map((r) => (r.key === key ? { ...r, ...p } : r)));
 
-  // A row is saved when it names a person and carries quantity or hours.
+  // A row is saved when it names a person; it must carry a quantity (hours are optional).
   const filled = rows.filter((r) => r.employee);
-  const bad = filled.some((r) => num(r.qty) <= 0 && num(r.hours) <= 0);
+  const bad = filled.some((r) => num(r.qty) <= 0);
   const preview = rate == null ? null : filled.reduce((s, r) => s + num(r.qty) * rate, 0);
 
   async function save() {
@@ -195,7 +195,7 @@ export function TickOffDialog({
               </span>
             )}
           </div>
-          {bad && <p className="text-[12px] text-[var(--sd-amber)]">Give each person a quantity or hours.</p>}
+          {bad && <p className="text-[12px] text-[var(--sd-amber)]">Give each person the quantity they did.</p>}
         </div>
 
         <div className="flex flex-col gap-1.5">

@@ -44,7 +44,8 @@
   {
    "fieldname": "default_rate",
    "fieldtype": "Currency",
-   "label": "Default Rate"
+   "label": "Default Rate",
+   "permlevel": 1
   },
   {
    "fieldname": "is_harvest",
@@ -98,6 +99,23 @@
    "read": 1,
    "report": 1,
    "role": "Production Viewer"
+  },
+  {
+   "read": 1,
+   "role": "System Manager",
+   "permlevel": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Production Manager",
+   "permlevel": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Production Supervisor",
+   "permlevel": 1
   }
  ],
  "sort_field": "creation",

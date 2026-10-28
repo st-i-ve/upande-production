@@ -45,6 +45,40 @@ class TestMobileApi(IntegrationTestCase):
 			unit_type="Orchard Block", company=cls.company,
 		)
 
+	@classmethod
+	def tearDownClass(cls):
+		# these tests commit (the endpoints commit), so remove every fixture explicitly
+		frappe.set_user("Administrator")
+		frappe.db.rollback()
+		crop = cls.crop.name
+		unit = cls.unit.name
+		ccs = [c for c in [frappe.db.get_value("Production Unit", unit, "cost_center")] if c]
+		ccs += frappe.get_all("Cost Center", filters={"cost_center_name": ("like", f"{crop}%")}, pluck="name")
+		for dt in ("Value Adder Work", "Production Harvest", "Yield Sample"):
+			for n in frappe.get_all(dt, filters={"unit": unit}, pluck="name"):
+				d = frappe.get_doc(dt, n)
+				if d.docstatus == 1:
+					d.flags.ignore_permissions = True
+					d.cancel()
+				frappe.delete_doc(dt, n, force=True, ignore_permissions=True)
+		for n in frappe.get_all("Production Work Plan", filters={"crop": crop}, pluck="name"):
+			frappe.delete_doc("Production Work Plan", n, force=True, ignore_permissions=True)
+		for dt, filt in (
+			("Production Crop Cycle", {"unit": unit}),
+			("Production Unit", {"name": unit}),
+			("Production Operation", {"crop": crop}),
+			("Production Crop", {"name": crop}),
+			("Employee", {"name": cls.emp.name}),
+			("Farm", {"name": cls.farm.name}),
+		):
+			for n in frappe.get_all(dt, filters=filt, pluck="name"):
+				frappe.delete_doc(dt, n, force=True, ignore_permissions=True)
+		for n in ccs:
+			if frappe.db.exists("Cost Center", n) and not frappe.db.exists("Cost Center", {"parent_cost_center": n}):
+				frappe.delete_doc("Cost Center", n, force=True, ignore_permissions=True)
+		frappe.db.commit()
+		super().tearDownClass()
+
 	def _call(self, fn, payload):
 		frappe.response.pop("data", None)
 		with patch.object(frappe.local, "request", SimpleNamespace(get_json=lambda: payload), create=True):
