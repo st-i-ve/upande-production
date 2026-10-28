@@ -1,4 +1,4 @@
-### Upande Avocado
+### Upande Production
 
 Avocado orchard operations: forecast, maturity, harvest scheduling and labour
 
@@ -9,7 +9,7 @@ You can install this app using the [bench](https://github.com/frappe/bench) CLI:
 ```bash
 cd $PATH_TO_YOUR_BENCH
 bench get-app $URL_OF_THIS_REPO --branch HEAD
-bench install-app upande_avocado
+bench install-app upande_production
 ```
 
 ### Contributing
@@ -17,7 +17,7 @@ bench install-app upande_avocado
 This app uses `pre-commit` for code formatting and linting. Please [install pre-commit](https://pre-commit.com/#installation) and enable it for this repository:
 
 ```bash
-cd apps/upande_avocado
+cd apps/upande_production
 pre-commit install
 ```
 

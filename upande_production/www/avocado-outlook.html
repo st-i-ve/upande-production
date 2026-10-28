@@ -958,14 +958,14 @@ function render() {
 
 function load() {
   Promise.all([
-    api("upande_avocado.api.avocadoapi.overview", { price_per_kg: val("price") }),
-    api("upande_avocado.www.avocado_outlook.get_years", {}),
-    api("upande_avocado.api.avocadolabour.get_labour_plan",
+    api("upande_production.api.avocadoapi.overview", { price_per_kg: val("price") }),
+    api("upande_production.www.avocado_outlook.get_years", {}),
+    api("upande_production.api.avocadolabour.get_labour_plan",
         { crew_available: val("crew"), days_per_week: 5, pay_per_day: 0 }),
     // The block master is the only place the surveyed boundaries live. It is
     // asked for them here rather than folded into the forecast, so the map can
     // be empty without the forecast noticing.
-    api("upande_avocado.api.avocadoapi.get_blocks", {})
+    api("upande_production.api.avocadoapi.get_blocks", {})
   ]).then(function (r) {
     D = r[0] || {}; YEARS = r[1] || {}; LAB = r[2] || {}; BLK = r[3] || [];
     put("err", "");

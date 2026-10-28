@@ -50,7 +50,7 @@ def get_form():
 	"""Everything the entry screen needs to draw itself."""
 	blocks, source = [], None
 	try:
-		from upande_avocado.api.avocadoapi import _read_blocks
+		from upande_production.api.avocadoapi import _read_blocks
 
 		rows, source = _read_blocks()
 		blocks = sorted(
@@ -100,7 +100,7 @@ def save_readings(readings, orchard_block=None, planting_area=None, week_number=
 	planting_year = None
 	if orchard_block:
 		try:
-			from upande_avocado.api.avocadoapi import _block_source
+			from upande_production.api.avocadoapi import _block_source
 
 			planting_year = frappe.db.get_value(_block_source(), orchard_block, "planting_year")
 		except Exception:

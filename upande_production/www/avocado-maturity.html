@@ -60,7 +60,7 @@ var CSRF = "{{ csrf_token }}";
 var FORM = null, VALUES = {};
 
 function mapi(fn, args) {
-  return api("upande_avocado.api.avocadomaturity." + fn, args);
+  return api("upande_production.api.avocadomaturity." + fn, args);
 }
 
 // Same rule the server uses: a fraction, a percentage of moisture, or a figure that

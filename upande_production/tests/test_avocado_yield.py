@@ -5,7 +5,7 @@
 # 2022 block that was harvested, a 2023 block part-way into bearing, a 2024 block
 # bearing nothing, and the Saboti blocks whose tree counts are missing).
 #
-# Run: env/bin/python -m upande_avocado.tests.test_avocado_yield
+# Run: env/bin/python -m upande_production.tests.test_avocado_yield
 #      (no site needed — the arithmetic takes plain rows, and the spreadsheet parse is
 #       run against a miniature of the estate's own sheet written into a temp dir)
 
@@ -13,7 +13,7 @@ import os
 import tempfile
 from datetime import date
 
-from upande_avocado.api.avocadoapi import (
+from upande_production.api.avocadoapi import (
 	BIENNIAL_OFF_FACTOR, DEFAULT_DROP_PCT, LATE_CROP_SHARE, MIN_RIPENING_TRIALS,
 	STALE_SAMPLE_WEEKS, biennial_factor, data_quality, delivered_this_season, dm_projection,
 	dry_matter_from_moisture, estimate, grade_split, kg_per_tree, late_crop_estimate,
@@ -472,7 +472,7 @@ def _write_summary(folder):
 	foot which is the mean of the sections above it.
 	"""
 	import openpyxl
-	from upande_avocado.avocado_yield.import_history import SUMMARY, SUMMARY_SHEET
+	from upande_production.avocado_yield.import_history import SUMMARY, SUMMARY_SHEET
 
 	wb = openpyxl.Workbook()
 	ws = wb.active
@@ -502,7 +502,7 @@ def _write_summary(folder):
 
 def summary():
 	"""The dry matter summary parse, and the pick dates it does or does not produce."""
-	from upande_avocado.avocado_yield.import_history import (
+	from upande_production.avocado_yield.import_history import (
 		MAX_MOISTURE, MIN_MOISTURE, _plausible_moisture, read_summary_maturity,
 	)
 

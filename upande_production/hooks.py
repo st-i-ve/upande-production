@@ -1,7 +1,7 @@
-app_name = "upande_avocado"
-app_title = "Upande Avocado"
+app_name = "upande_production"
+app_title = "Upande Production"
 app_publisher = "Upande"
-app_description = "Avocado orchard operations: forecast, maturity, harvest scheduling and labour"
+app_description = "Multi-crop production planning, field tracking, block costing and forecasting"
 app_email = "teddy@upande.com"
 app_license = "mit"
 
@@ -13,11 +13,11 @@ app_license = "mit"
 # Each item in the list will be shown as an app in the apps page
 # add_to_apps_screen = [
 # 	{
-# 		"name": "upande_avocado",
-# 		"logo": "/assets/upande_avocado/logo.png",
-# 		"title": "Upande Avocado",
-# 		"route": "/upande_avocado",
-# 		"has_permission": "upande_avocado.api.permission.has_app_permission"
+# 		"name": "upande_production",
+# 		"logo": "/assets/upande_production/logo.png",
+# 		"title": "Upande Production",
+# 		"route": "/upande_production",
+# 		"has_permission": "upande_production.api.permission.has_app_permission"
 # 	}
 # ]
 
@@ -25,15 +25,15 @@ app_license = "mit"
 # ------------------
 
 # include js, css files in header of desk.html
-# app_include_css = "/assets/upande_avocado/css/upande_avocado.css"
-# app_include_js = "/assets/upande_avocado/js/upande_avocado.js"
+# app_include_css = "/assets/upande_production/css/upande_production.css"
+# app_include_js = "/assets/upande_production/js/upande_production.js"
 
 # include js, css files in header of web template
-# web_include_css = "/assets/upande_avocado/css/upande_avocado.css"
-# web_include_js = "/assets/upande_avocado/js/upande_avocado.js"
+# web_include_css = "/assets/upande_production/css/upande_production.css"
+# web_include_js = "/assets/upande_production/js/upande_production.js"
 
 # include custom scss in every website theme (without file extension ".scss")
-# website_theme_scss = "upande_avocado/public/scss/website"
+# website_theme_scss = "upande_production/public/scss/website"
 
 # include js, css files in header of web form
 # webform_include_js = {"doctype": "public/js/doctype.js"}
@@ -51,7 +51,7 @@ app_license = "mit"
 # Svg Icons
 # ------------------
 # include app icons in desk
-# app_include_icons = "upande_avocado/public/icons.svg"
+# app_include_icons = "upande_production/public/icons.svg"
 
 # Home Pages
 # ----------
@@ -78,49 +78,49 @@ app_license = "mit"
 
 # add methods and filters to jinja environment
 # jinja = {
-# 	"methods": "upande_avocado.utils.jinja_methods",
-# 	"filters": "upande_avocado.utils.jinja_filters"
+# 	"methods": "upande_production.utils.jinja_methods",
+# 	"filters": "upande_production.utils.jinja_filters"
 # }
 
 # Installation
 # ------------
 
-# before_install = "upande_avocado.install.before_install"
-# after_install = "upande_avocado.install.after_install"
+# before_install = "upande_production.install.before_install"
+# after_install = "upande_production.install.after_install"
 
 # Uninstallation
 # ------------
 
-# before_uninstall = "upande_avocado.uninstall.before_uninstall"
-# after_uninstall = "upande_avocado.uninstall.after_uninstall"
+# before_uninstall = "upande_production.uninstall.before_uninstall"
+# after_uninstall = "upande_production.uninstall.after_uninstall"
 
 # Integration Setup
 # ------------------
 # To set up dependencies/integrations with other apps
 # Name of the app being installed is passed as an argument
 
-# before_app_install = "upande_avocado.utils.before_app_install"
-# after_app_install = "upande_avocado.utils.after_app_install"
+# before_app_install = "upande_production.utils.before_app_install"
+# after_app_install = "upande_production.utils.after_app_install"
 
 # Integration Cleanup
 # -------------------
 # To clean up dependencies/integrations with other apps
 # Name of the app being uninstalled is passed as an argument
 
-# before_app_uninstall = "upande_avocado.utils.before_app_uninstall"
-# after_app_uninstall = "upande_avocado.utils.after_app_uninstall"
+# before_app_uninstall = "upande_production.utils.before_app_uninstall"
+# after_app_uninstall = "upande_production.utils.after_app_uninstall"
 
 # Build
 # ------------------
 # To hook into the build process
 
-# after_build = "upande_avocado.build.after_build"
+# after_build = "upande_production.build.after_build"
 
 # Desk Notifications
 # ------------------
 # See frappe.core.notifications.get_notification_config
 
-# notification_config = "upande_avocado.notifications.get_notification_config"
+# notification_config = "upande_production.notifications.get_notification_config"
 
 # Permissions
 # -----------
@@ -140,7 +140,7 @@ app_license = "mit"
 
 doc_events = {
 	"Avocado Fruit Count": {
-		"after_insert": "upande_avocado.api.avocadoapi.notify_new_fruit_count",
+		"after_insert": "upande_production.api.avocadoapi.notify_new_fruit_count",
 	},
 }
 
@@ -161,47 +161,47 @@ fixtures = [
 
 # scheduler_events = {
 # 	"all": [
-# 		"upande_avocado.tasks.all"
+# 		"upande_production.tasks.all"
 # 	],
 # 	"daily": [
-# 		"upande_avocado.tasks.daily"
+# 		"upande_production.tasks.daily"
 # 	],
 # 	"hourly": [
-# 		"upande_avocado.tasks.hourly"
+# 		"upande_production.tasks.hourly"
 # 	],
 # 	"weekly": [
-# 		"upande_avocado.tasks.weekly"
+# 		"upande_production.tasks.weekly"
 # 	],
 # 	"monthly": [
-# 		"upande_avocado.tasks.monthly"
+# 		"upande_production.tasks.monthly"
 # 	],
 # }
 
 # Testing
 # -------
 
-# before_tests = "upande_avocado.install.before_tests"
+# before_tests = "upande_production.install.before_tests"
 
 # Extend DocType Class
 # ------------------------------
 #
 # Specify custom mixins to extend the standard doctype controller.
 # extend_doctype_class = {
-# 	"Task": "upande_avocado.custom.task.CustomTaskMixin"
+# 	"Task": "upande_production.custom.task.CustomTaskMixin"
 # }
 
 # Overriding Methods
 # ------------------------------
 #
 # override_whitelisted_methods = {
-# 	"frappe.desk.doctype.event.event.get_events": "upande_avocado.event.get_events"
+# 	"frappe.desk.doctype.event.event.get_events": "upande_production.event.get_events"
 # }
 #
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,
 # along with any modifications made in other Frappe apps
 # override_doctype_dashboards = {
-# 	"Task": "upande_avocado.task.get_dashboard_data"
+# 	"Task": "upande_production.task.get_dashboard_data"
 # }
 
 # exempt linked doctypes from being automatically cancelled
@@ -215,13 +215,13 @@ fixtures = [
 
 # Request Events
 # ----------------
-# before_request = ["upande_avocado.utils.before_request"]
-# after_request = ["upande_avocado.utils.after_request"]
+# before_request = ["upande_production.utils.before_request"]
+# after_request = ["upande_production.utils.after_request"]
 
 # Job Events
 # ----------
-# before_job = ["upande_avocado.utils.before_job"]
-# after_job = ["upande_avocado.utils.after_job"]
+# before_job = ["upande_production.utils.before_job"]
+# after_job = ["upande_production.utils.after_job"]
 
 # User Data Protection
 # --------------------
@@ -251,7 +251,7 @@ fixtures = [
 # --------------------------------
 
 # auth_hooks = [
-# 	"upande_avocado.auth.validate"
+# 	"upande_production.auth.validate"
 # ]
 
 # Automatically update python controller files with type annotations for this app.

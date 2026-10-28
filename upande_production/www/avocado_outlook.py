@@ -1,6 +1,6 @@
 import frappe
 
-from upande_avocado.api.avocadoapi import biennial_factor
+from upande_production.api.avocadoapi import biennial_factor
 
 
 def get_context(context):

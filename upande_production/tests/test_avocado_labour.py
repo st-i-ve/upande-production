@@ -5,9 +5,9 @@
 # whole point — booking a crew on an assumed rate is how a block ripens past its
 # window with nobody in it.
 #
-# Run: env/bin/python -m upande_avocado.tests.test_avocado_labour   (no site needed)
+# Run: env/bin/python -m upande_production.tests.test_avocado_labour   (no site needed)
 
-from upande_avocado.api.avocadolabour import (
+from upande_production.api.avocadolabour import (
 	DEFAULT_KG_PER_PICKER_DAY, KG_PER_CRATE, labour_plan, picker_rates, rate_for, summarise,
 )
 

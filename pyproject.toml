@@ -1,9 +1,9 @@
 [project]
-name = "upande_avocado"
+name = "upande_production"
 authors = [
     { name = "Upande", email = "teddy@upande.com"}
 ]
-description = "Avocado orchard operations: forecast, maturity, harvest scheduling and labour"
+description = "Multi-crop production planning, field tracking, block costing and forecasting (avocado, fruit & vegetables, aquaculture, apiary)"
 requires-python = ">=3.14"
 readme = "README.md"
 dynamic = ["version"]

@@ -562,9 +562,9 @@ function load() {
   var price = Number(document.getElementById("price").value) || 0;
   document.getElementById("err").innerHTML = "";
   Promise.all([
-    api("upande_avocado.api.avocadoapi.overview", { price_per_kg: price }),
-    api("upande_avocado.api.avocadoapi.get_manual_forecast", { price_per_kg: price }),
-    api("upande_avocado.api.avocadoapi.get_manual_budget", {})
+    api("upande_production.api.avocadoapi.overview", { price_per_kg: price }),
+    api("upande_production.api.avocadoapi.get_manual_forecast", { price_per_kg: price }),
+    api("upande_production.api.avocadoapi.get_manual_budget", {})
   ]).then(function (res) {
     LAST_AUTO = res[0]; LAST_MANUAL = res[1]; LAST_BUDGET = res[2];
     renderMode();

@@ -12,14 +12,14 @@
 # block+season+crop / season+crop uniqueness) instead of raising a duplicate error
 # or piling up copies.
 #
-# Run:  bench --site <site> execute upande_avocado.avocado_yield.seed_manual_data.run
+# Run:  bench --site <site> execute upande_production.avocado_yield.seed_manual_data.run
 
 import random
 
 import frappe
 from frappe.utils import add_days, flt, nowdate
 
-from upande_avocado.api.avocadoapi import get_late_forecast
+from upande_production.api.avocadoapi import get_late_forecast
 
 FORECAST_DOCTYPE = "Avocado Production Forecast"
 BUDGET_DOCTYPE = "Avocado Production Budget"

@@ -171,7 +171,7 @@ def summarise(rows):
 def get_labour_plan(crew_available=0, days_per_week=DEFAULT_PICKING_DAYS_PER_WEEK,
 					pay_per_day=0, price_per_kg=0):
 	"""The picking plan, built on the forecast the outlook page already shows."""
-	from upande_avocado.api import avocadoapi
+	from upande_production.api import avocadoapi
 
 	forecast = avocadoapi.get_forecast(price_per_kg=price_per_kg)
 	projection = avocadoapi.dm_projection(avocadoapi._samples())

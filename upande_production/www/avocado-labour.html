@@ -192,7 +192,7 @@ function render(d) {
 }
 
 function load() {
-  api("upande_avocado.api.avocadolabour.get_labour_plan", { crew_available: val("crew"), days_per_week: val("days"),
+  api("upande_production.api.avocadolabour.get_labour_plan", { crew_available: val("crew"), days_per_week: val("days"),
                            pay_per_day: val("pay") })
     .then(render)
     .catch(function (e) {

@@ -165,7 +165,7 @@ tfoot td.peak{background:var(--acc-100);color:var(--acc-700)}
 var CSRF = "{{ csrf_token }}";
 
 function api(fn, args) {
-  return fetch("/api/method/upande_avocado.api.avocadoapi." + fn, {
+  return fetch("/api/method/upande_production.api.avocadoapi." + fn, {
     method: "POST", credentials: "same-origin",
     headers: { "Content-Type": "application/json", "Accept": "application/json",
                "X-Frappe-CSRF-Token": CSRF },

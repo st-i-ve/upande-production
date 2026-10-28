@@ -11,7 +11,7 @@
 # matched is reported rather than guessed at.
 #
 # Run:  bench --site <site> execute \
-#         upande_avocado.avocado_yield.import_history.run --kwargs "{'folder': '/mnt/c/Users/teddy/Downloads'}"
+#         upande_production.avocado_yield.import_history.run --kwargs "{'folder': '/mnt/c/Users/teddy/Downloads'}"
 
 import os
 import re
@@ -775,7 +775,7 @@ def import_maturity(folder="/mnt/c/Users/teddy/Downloads", commit=True):
 
 	# Dry matter itself is derived on the record, not here — the doctype owns that
 	# conversion so a hand-entered test and an imported one cannot disagree.
-	from upande_avocado.api.avocadoapi import MIN_DRY_MATTER_PCT
+	from upande_production.api.avocadoapi import MIN_DRY_MATTER_PCT
 
 	frappe.db.delete(MATURITY_DOCTYPE)
 	refused = []
@@ -992,7 +992,7 @@ def block_dry_matter():
 	picked once. `sizes` is how many went into the average — one size is a hint,
 	five is a measurement.
 	"""
-	from upande_avocado.api.avocadoapi import MIN_DRY_MATTER_PCT
+	from upande_production.api.avocadoapi import MIN_DRY_MATTER_PCT
 
 	tests = frappe.get_all(
 		MATURITY_DOCTYPE, filters={"planting_year": [">", 0]},
@@ -1047,7 +1047,7 @@ def demo():
 	"""Runnable check on the two things here that are easy to get wrong: the
 	placeholders must not be read as tests, and moisture must invert to dry matter.
 	"""
-	from upande_avocado.api.avocadoapi import dry_matter_from_moisture
+	from upande_production.api.avocadoapi import dry_matter_from_moisture
 
 	rows = read_summary_maturity("/mnt/c/Users/teddy/Downloads")
 	assert rows, "no maturity readings found at all"

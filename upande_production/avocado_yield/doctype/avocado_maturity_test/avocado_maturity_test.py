@@ -21,7 +21,7 @@ import frappe
 from frappe.model.document import Document
 from frappe.utils import flt
 
-from upande_avocado.api.avocadoapi import MIN_DRY_MATTER_PCT, dry_matter_from_moisture
+from upande_production.api.avocadoapi import MIN_DRY_MATTER_PCT, dry_matter_from_moisture
 
 
 class AvocadoMaturityTest(Document):
