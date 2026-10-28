@@ -108,9 +108,10 @@ def _free_crates(n: int) -> list[str]:
 
 
 def seed_batches(teams: dict) -> int:
-	"""Scan crates picker by picker, then close each batch. Skipped once today's seeded batches exist."""
+	"""Scan crates picker by picker, then close each batch. Skipped once the seeded batches exist (on
+	any day: the batch date is today, so a date key would add a new set of batches every day)."""
 	made = 0
-	if frappe.db.exists("Harvest Batch", {"harvest_date": today(), "team": ("in", list(teams.values())), "docstatus": 1}):
+	if frappe.db.exists("Harvest Batch", {"team": ("in", list(teams.values())), "docstatus": 1}):
 		return 0
 	for number, unit, crates, close in BATCHES:
 		team = teams.get(number)

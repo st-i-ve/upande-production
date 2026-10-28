@@ -91,6 +91,33 @@ def seed_masters():
 	frappe.db.commit()
 
 
+def seed_activities():
+	"""Capital and field activities per crop with an activity type and a distinct colour each.
+	Idempotent: an existing activity keeps its colour (the type is set when it differs)."""
+	wanted = {}
+	for crop in DEMO["activity_crops"]:
+		wanted[crop] = DEMO["capital_avocado"] + DEMO["field_activities"]
+	wanted.update(DEMO["capital_other"])
+	palette = DEMO["activity_palette"]
+	for crop, acts in wanted.items():
+		if not frappe.db.exists("Production Crop", crop):
+			continue
+		used = {c for c in frappe.get_all("Production Operation", filters={"crop": crop}, pluck="color") if c}
+		free = [c for c in palette if c not in used]
+		for name, typ, cat, uom in acts:
+			existing = frappe.db.get_value("Production Operation", {"crop": crop, "operation_name": name},
+				["name", "activity_type"], as_dict=True)
+			if existing:
+				if existing.activity_type != typ and existing.activity_type in (None, "", "Cultural"):
+					frappe.db.set_value("Production Operation", existing.name, "activity_type", typ, update_modified=False)
+				continue
+			color = free.pop(0) if free else palette[C["Production Operation"] % len(palette)]
+			_insert({"doctype": "Production Operation", "crop": crop, "operation_name": name, "category": cat,
+				"work_uom": uom if frappe.db.exists("UOM", uom) else None, "default_rate": 0,
+				"is_harvest": 0, "activity_type": typ, "color": color})
+	frappe.db.commit()
+
+
 def seed_people():
 	company = DEMO["company"]
 	for g in ("Male", "Female"):
@@ -148,7 +175,10 @@ def seed_units_and_cycles():
 
 	def cycle(u, crop, ctype, item, start_ago, status, protocol, harvest_off=None, plant_count=None, prev=None):
 		start = add_days(td, -start_ago)
-		name = frappe.db.get_value("Production Crop Cycle", {"unit": u, "start_date": start})
+		# keyed on the unit and the kind of cycle, not the start date: the date is relative to today,
+		# so a date key would add a second, shifted cycle on every later day
+		name = frappe.db.get_value("Production Crop Cycle", {"unit": u, "status": "Closed"} if status == "Closed"
+			else {"unit": u, "status": ("in", ["Active", "Harvesting"])})
 		if name:
 			return name
 		vals = {"doctype": "Production Crop Cycle", "unit": u, "cycle_type": ctype, "item": item, "start_date": start,
@@ -559,8 +589,8 @@ def seed_production_data():
 		n = 2 if prod in ("Hass Avocado", "Fuerte Avocado") else 3
 		for i in range(n):
 			d = td - timedelta(days=7 * (i + 1) + 2)
-			if frappe.db.exists("Yield Sample", {"unit": cy.unit, "sample_date": d}):
-				continue
+			if frappe.db.count("Yield Sample", {"unit": cy.unit, "cycle": cy.name}) >= n:  # dates move daily
+				break
 			r = _rng(f"ys:{cy.unit}:{i}")
 			_insert({"doctype": "Yield Sample", "sample_date": d, "unit": cy.unit, "cycle": cy.name,
 				"growth_stage": "Fruit bulking" if i == 0 else "Maturing", "sample_basis": basis,
@@ -588,8 +618,9 @@ def seed_production_data():
 		code = b["code"]
 		for i in range(2):
 			d = td - timedelta(days=14 * (i + 1))
-			if frappe.db.exists("Avocado Fruit Count", {"orchard_block": code, "count_date": d}):
-				continue
+			# dates move daily: count this seed's own (no client_ref; avocado_seed's counts have one)
+			if frappe.db.count("Avocado Fruit Count", {"orchard_block": code, "client_ref": ("is", "not set")}) >= 2:
+				break
 			r = _rng(f"afc:{code}:{i}")
 			fpt, wt = round(r.uniform(65, 95), 1), round(r.uniform(190, 240))
 			_insert({"doctype": "Avocado Fruit Count", "naming_series": "AFC-.YYYY.-.####", "orchard_block": code,
@@ -694,7 +725,7 @@ def run(reset: bool = False) -> dict:
 		frappe.throw("reset is not supported by the demo seed")
 	C.clear()
 	frappe.flags.in_demo_seed = True
-	for step in (seed_masters, seed_people, seed_units_and_cycles, seed_plans, seed_avocado_history, seed_approvals, seed_production_data, seed_journals, seed_protocol_versions):
+	for step in (seed_masters, seed_activities, seed_people, seed_units_and_cycles, seed_plans, seed_avocado_history, seed_approvals, seed_production_data, seed_journals, seed_protocol_versions):
 		step()
 		print(f"[seed] {step.__name__} done")
 	frappe.db.commit()

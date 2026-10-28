@@ -53,8 +53,19 @@ def _unit(name):
 	return frappe.db.get_value("Production Unit", {"unit_name": name, "crop": "Apiary"}, "name")
 
 
+def _clear_demo_rows():
+	"""Dates are relative to today (in the site time zone), so a key of unit + date matches
+	nothing after midnight and a second run would add a second, shifted set. The demo
+	groups hold only seeded rows, so the seed removes its own and re-inserts for today."""
+	units = [u for u in map(_unit, DEMO["groups"]) if u]
+	for dt in (INSPECTION, HARVEST):
+		for n in frappe.get_all(dt, filters={"unit": ["in", units]}, pluck="name", limit_page_length=0):
+			frappe.delete_doc(dt, n, force=True, ignore_permissions=True)
+
+
 def run(commit=True):
 	frappe.flags.in_demo_seed = True
+	_clear_demo_rows()
 	inspector = DEMO["inspector"] or frappe.db.get_value("Employee", {"status": "Active"}, "name")
 	made = {"inspections": 0, "harvests": 0}
 	steps = DEMO["inspection_weeks"] * 7 // DEMO["inspection_every_days"] + 1

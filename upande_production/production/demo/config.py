@@ -119,4 +119,36 @@ DEMO = {
 		"Wrong people listed for this block. Fix the names, then resubmit.",
 	],
 	"supervisors": [("Grace", "Wairimu", "Female"), ("Peter", "Kiplagat", "Male"), ("Mary", "Anyango", "Female")],
+	# Activity lists per crop: (name, activity_type, category, work_uom). Existing operations keep their
+	# colour and only get the type; new ones are made with a distinct colour from `activity_palette`.
+	"capital_avocado": [
+		("Bush clearing", "Capital", "Other", "Hectare"), ("Single ripping", "Capital", "Other", "Hectare"),
+		("Cross ripping", "Capital", "Other", "Hectare"), ("Disc harrowing", "Capital", "Other", "Hectare"),
+		("Marking of ridges", "Capital", "Other", "Hectare"), ("Ridge-line ripping", "Capital", "Other", "Hectare"),
+		("Ridging", "Capital", "Other", "Hectare"), ("Fertiliser application (basal)", "Capital", "Fertilising", "Hectare"),
+		("Irrigation system installation", "Capital", "Irrigation", "Hectare"),
+		("Windbreak planting", "Capital", "Other", "Hectare"), ("Planting material", "Capital", "Other", "Hectare"),
+	],
+	"field_activities": [
+		("Planting", "Planting", "Other", "Tree"), ("Uprooting / clearing", "Uprooting", "Other", "Hectare"),
+		("Mulching", "Cultural", "Other", "Hectare"), ("Seedling support (staking)", "Key activity", "Other", "Plant"),
+		("Irrigating", "Cultural", "Irrigation", "Hectare"), ("Fertigating", "Cultural", "Fertilising", "Hectare"),
+		("Fertiliser Application", "Cultural", "Fertilising", "Hectare"), ("Drenching", "Cultural", "Other", "Hectare"),
+		("Weeding", "Cultural", "Weeding", "Hectare"), ("Soil management", "Cultural", "Other", "Hectare"),
+		("Pest management", "Cultural", "Other", "Hectare"), ("Dry matter testing", "Key activity", "Other", "Hectare"),
+		("Gap filling", "Key activity", "Other", "Plant"), ("Bending", "Key activity", "Other", "Tree"),
+		("Earthing Up", "Key activity", "Other", "Bed"), ("Fruit Count", "Key activity", "Other", "Tree"),
+	],
+	"capital_other": {
+		"Apiary": [("Hive stands", "Capital", "Other", "Hive"), ("Hives", "Capital", "Other", "Hive"),
+			("Apiary fencing", "Capital", "Other", "Hive")],
+		"Aquaculture": [("Pond excavation", "Capital", "Other", "Pond"), ("Pond liner", "Capital", "Other", "Pond"),
+			("Inlet and outlet works", "Capital", "Other", "Pond"), ("Aerator installation", "Capital", "Other", "Pond")],
+	},
+	# crops that get the field activities and the capital list above (apiary / aquaculture only get theirs)
+	"activity_crops": ["Avocado", "Fruits & Vegetables"],
+	"activity_palette": ["#2F7D5B", "#C2410C", "#2563EB", "#9333EA", "#CA8A04", "#0E7490", "#BE185D", "#65A30D",
+		"#B45309", "#4F46E5", "#0F766E", "#DC2626", "#7C3AED", "#059669", "#D97706", "#0284C7", "#DB2777", "#84CC16",
+		"#92400E", "#1D4ED8", "#A21CAF", "#15803D", "#EA580C", "#0891B2", "#E11D48", "#4D7C0F", "#6D28D9", "#B91C1C",
+		"#155E75", "#854D0E", "#475569", "#BE123C"],
 }

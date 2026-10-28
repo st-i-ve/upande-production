@@ -161,6 +161,10 @@ def _maturity_test(block, date, size, dm, planting_year, weeks_note=None):
 
 
 def seed_dry_matter():
+	# test dates are relative to today, so re-runs on another day must not stack a second
+	# set: drop the seed's own tests (source = avocado_seed) and write them again.
+	for n in frappe.get_all(MATURITY_DT, filters={"source": "avocado_seed"}, pluck="name", limit_page_length=0):
+		frappe.delete_doc(MATURITY_DT, n, force=True, ignore_permissions=True)
 	today = getdate(nowdate())
 	made = 0
 	n = DEMO["dm_visits"]

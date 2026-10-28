@@ -6,7 +6,7 @@ bench --site mutara.local execute upande_production.production.demo.all.run
 import frappe
 
 from upande_production.production.demo import (
-	apiary_seed, aquaculture_seed, avocado_seed, fv_seed, geo, harvest_seed, rules_seed, seed, varieties_seed,
+	apiary_seed, aquaculture_seed, avocado_seed, establishment_seed, fv_seed, geo, harvest_seed, rules_seed, seed, varieties_seed,
 )
 
 
@@ -21,6 +21,11 @@ def run():
 			print(f"[demo] {mod.__name__} done")
 	finally:
 		frappe.flags.skip_activity_rules = False
+	# the pond seed re-creates its stockings; they take their strain from the variety seed's map
+	varieties_seed._fix_ponds()
 	# activity rules last: they need the varieties (and their stages) of the crop seeds
 	rules_seed.run()
 	print(f"[demo] {rules_seed.__name__} done")
+	# establishment costs, opening balances, protocol buffers, dry matter tests, cycle flags
+	establishment_seed.run()
+	print(f"[demo] {establishment_seed.__name__} done")

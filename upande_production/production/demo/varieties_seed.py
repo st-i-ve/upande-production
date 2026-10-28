@@ -134,6 +134,28 @@ DEMO = {
 	"previous_variety": {"Potatoes": "Markies", "Cabbage": "Gloria F1", "Onion": "Red Pinoy F1"},
 	# avocado flowering actuals: days before the cycle record the flowering was observed
 	"flowering_days_before_start": {"Hass": 190, "Fuerte": 130},
+	# Template fields per variety (weeks; plants per m2). `is_flowering` ones derive weeks to first harvest.
+	# Avocado dry matter stays on the Avocado Maturity Test, whose minimum is 24%, so Hass uses 24.
+	"templates": {
+		"Hass": {"is_flowering": 1, "harvest_pattern": "Interval", "harvest_interval_weeks": 52,
+			"weeks_to_first_flowering": 104, "weeks_flowering_to_harvest": 36, "weeks_to_reflower_after_harvest": 12,
+			"plants_per_m2": 0.0156, "lifespan_years": 30, "dry_matter_target_pct": 24},
+		"Fuerte": {"is_flowering": 1, "harvest_pattern": "Interval", "harvest_interval_weeks": 52,
+			"weeks_to_first_flowering": 104, "weeks_flowering_to_harvest": 36, "weeks_to_reflower_after_harvest": 12,
+			"plants_per_m2": 0.0156, "lifespan_years": 30, "dry_matter_target_pct": 21},
+		**{n: {"is_flowering": 1, "harvest_pattern": "Continuous", "harvest_interval_weeks": 1,
+			"weeks_to_first_flowering": 20, "weeks_flowering_to_harvest": 10, "weeks_to_reflower_after_harvest": 2,
+			"plants_per_m2": 0.1667, "lifespan_years": 3} for n in ("Purple", "Sweet Yellow")},
+		**{n: {"is_flowering": 0, "harvest_pattern": "Once", "weeks_to_first_harvest": 14, "plants_per_m2": 4.0}
+			for n in ("Shangi", "Dutch Robjin", "Markies")},
+		**{n: {"is_flowering": 0, "harvest_pattern": "Once", "weeks_to_first_harvest": 12, "plants_per_m2": 3.7}
+			for n in ("Gloria F1", "Copenhagen Market")},
+		**{n: {"is_flowering": 0, "harvest_pattern": "Once", "weeks_to_first_harvest": 16, "plants_per_m2": 40}
+			for n in ("Red Creole", "Red Pinoy F1")},
+		**{n: {"is_flowering": 0, "harvest_pattern": "Once", "weeks_to_first_harvest": 26} for n in ("GIFT", "Nile (local)")},
+	},
+	# crop-level dry matter testing (avocado keeps its own maturity test page; the figure is its minimum)
+	"crop_dry_matter": {"Avocado": ("Fruit", 24), "Fruits & Vegetables": ("Tuber", 20)},
 	"ponds": {"Pond 1": "GIFT", "Pond 2": "Nile (local)", "Pond 3": "GIFT", "Pond 4": "Nile (local)"},
 }
 
@@ -170,6 +192,10 @@ def _ensure_variety(v):
 		"days_to_first_harvest": v["first_harvest"], "harvest_window_days": v["window"],
 		"expected_yield_per_ha": v["yield_ha"], "expected_yield_per_plant": v["yield_plant"],
 		"plants_per_ha": v["plants_ha"], "notes": v.get("notes")}
+	tpl = DEMO["templates"].get(v["name"], {})
+	vals.update(tpl)
+	if "plants_per_m2" in tpl:
+		vals.pop("plants_per_ha")  # derived from plants_per_m2 on save
 	if frappe.db.exists("Production Variety", v["name"]):
 		doc = frappe.get_doc("Production Variety", v["name"])
 		doc.update(vals)
@@ -243,6 +269,25 @@ def _variety_for_cycle(cy):
 	return vmap.get(cy.unit)
 
 
+def _expected_from_stages(doc, vname):
+	"""Expected harvest from the variety's stage timeline (its harvest stage), not from the template's
+	weeks, which are for new planting and would push a mature block's harvest years away."""
+	v = next((x for x in DEMO["varieties"] if x["name"] == vname), None)
+	hs = next((st for st in (v or {}).get("stages", []) if len(st) > 3 and st[3]), None)
+	if not hs:
+		return
+	anchor = stages.anchor_date(doc) or getdate(doc.start_date)
+	doc.expected_harvest_start = add_days(anchor, hs[1])
+	doc.expected_harvest_end = add_days(doc.expected_harvest_start, hs[2])
+
+
+def _set_crop_dry_matter():
+	for crop, (on, target) in DEMO["crop_dry_matter"].items():
+		if frappe.db.exists("Production Crop", crop):
+			frappe.db.set_value("Production Crop", crop, {"dry_matter_testing": 1, "dry_matter_on": on,
+				"dry_matter_target_pct": target}, update_modified=False)
+
+
 def _fix_cycles():
 	frappe.flags.in_demo_seed = True
 	fixed = 0
@@ -261,6 +306,7 @@ def _fix_cycles():
 			if flower and not any(r.stage == "Flowering" for r in doc.stage_actuals):
 				doc.append("stage_actuals", {"stage": "Flowering", "actual_date": add_days(doc.start_date, -flower),
 					"note": "Flowering observed before this season record was opened"})
+			_expected_from_stages(doc, vname)
 			doc.save(ignore_permissions=True)
 			fixed += 1
 	finally:
@@ -305,6 +351,7 @@ def run():
 		proto = _protocol_for(v)
 		frappe.db.set_value("Production Variety", v["name"], "default_protocol", proto)
 	frappe.db.commit()
+	_set_crop_dry_matter()
 	made["operation_categories"] = _set_categories()
 	made["cycles_fixed"] = _fix_cycles()
 	made["ponds_with_strain"] = _fix_ponds()
