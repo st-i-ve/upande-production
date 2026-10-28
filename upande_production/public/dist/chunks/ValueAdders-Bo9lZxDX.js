@@ -1,0 +1,1 @@
+import{u as r,j as s,P as a,R as d,v as o}from"../production-DhYr-85A.js";function n(){const e=r();return s.jsx(a,{title:o("value-adders",e),eyebrow:e.name,children:s.jsx("div",{className:"rounded-[var(--sd-radius-lg)] bg-[var(--sd-card)] px-4 py-4 shadow-[var(--sd-shadow-1)]",children:s.jsx(d,{rows:5})})})}export{n as ValueAdders};

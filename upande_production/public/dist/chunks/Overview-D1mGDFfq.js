@@ -1,0 +1,1 @@
+import{u as s,j as e,P as a,R as o,v as d}from"../production-DhYr-85A.js";function n(){const r=s();return e.jsx(a,{title:d("overview",r),eyebrow:r.name,children:e.jsx("div",{className:"rounded-[var(--sd-radius-lg)] bg-[var(--sd-card)] px-4 py-4 shadow-[var(--sd-shadow-1)]",children:e.jsx(o,{rows:5})})})}export{n as Overview};

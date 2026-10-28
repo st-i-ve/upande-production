@@ -1,0 +1,327 @@
+/**
+ * Typed wrappers for every endpoint in `upande_production.api.production`.
+ *
+ * The shapes below are the contract written in the plan (Task 4). Every
+ * function resolves to an `Envelope<T>`: the data, or `{error}` written for a
+ * farm user. Nothing here throws; check `isError(r)` first.
+ *
+ * Money fields (`rate`, `pay_value`, `labour…`) are `null` when the caller
+ * lacks pay visibility (`boot.can_see_pay`), so they are typed nullable.
+ */
+
+import { call, type Envelope } from "@/lib/frappe";
+
+const PREFIX = "upande_production.api.production.";
+const rpc = <T>(name: string, args: Record<string, unknown> = {}): Promise<Envelope<T>> =>
+  call<T>(PREFIX + name, args);
+
+export type Money = number | null;
+export type Row = Record<string, unknown>;
+
+// -- Bootstrap ---------------------------------------------------------------
+
+export interface Crop {
+  name: string;
+  crop_key: string;
+  accent_color: string;
+  icon_key: string;
+  unit_label: string;
+  parent_unit_label: string;
+  sub_unit_label: string;
+  yield_uom: string;
+}
+
+export interface Boot {
+  crops: Crop[];
+  farms: string[];
+  can_see_pay: boolean;
+  can_plan: boolean;
+  can_manage: boolean;
+}
+
+export const getBootstrap = () => rpc<Boot>("get_bootstrap");
+
+// -- Overview ----------------------------------------------------------------
+
+export interface OverviewTiles {
+  active_cycles: number;
+  tasks_total: number;
+  tasks_done: number;
+  done_pct: number;
+  deviations: number;
+  labour_cost_mtd: Money;
+  forecast_next4: number;
+  committed_next4: number;
+  harvest_qty_season: number;
+}
+
+export interface OverviewBlock {
+  unit: string;
+  unit_type: string;
+  parent: string | null;
+  area_ha: number;
+  cycle: string | null;
+  item: string | null;
+  tasks_open: number;
+  labour_cost_season: Money;
+  harvest_qty_season: number;
+}
+
+export interface Overview {
+  tiles: OverviewTiles;
+  blocks: OverviewBlock[];
+}
+
+export const getOverview = (crop: string) => rpc<Overview>("get_overview", { crop });
+
+// -- Units -------------------------------------------------------------------
+
+export interface UnitRow {
+  name: string;
+  unit_type: string;
+  parent: string | null;
+  is_group: 0 | 1 | boolean;
+  area_ha: number;
+  plant_count: number;
+  cost_center: string | null;
+  status: string;
+  current_cycle: string | null;
+  item: string | null;
+  has_geojson: 0 | 1 | boolean;
+}
+
+export const listUnits = (crop: string) => rpc<{ units: UnitRow[] }>("list_units", { crop });
+
+export interface UnitDetail extends Omit<UnitRow, "has_geojson"> {
+  geojson: string | null;
+  [field: string]: unknown;
+}
+
+export interface Unit {
+  unit: UnitDetail;
+  cycles: Cycle[];
+  /** At most 20 entries. */
+  recent_work: Row[];
+}
+
+export const getUnit = (name: string) => rpc<Unit>("get_unit", { name });
+
+// -- Cycles ------------------------------------------------------------------
+
+export interface Cycle {
+  name: string;
+  title: string;
+  unit: string;
+  item: string | null;
+  cycle_type: string;
+  start_date: string;
+  expected_harvest_start: string | null;
+  expected_harvest_end: string | null;
+  protocol: string | null;
+  status: string;
+  area_ha: number;
+  previous_cycle: string | null;
+}
+
+export const listCycles = (crop: string, unit?: string | null, status?: string | null) =>
+  rpc<{ cycles: Cycle[] }>("list_cycles", { crop, unit: unit ?? null, status: status ?? null });
+
+/** Inserts, or updates when `data.name` is set. */
+export const saveCycle = (data: Partial<Cycle> & Row) => rpc<{ name: string }>("save_cycle", { data });
+
+// -- Weekly plan -------------------------------------------------------------
+
+export interface WorkEntry {
+  name: string;
+  employee: string;
+  employee_name: string;
+  qty: number;
+  hours: number;
+  pay_value: Money;
+}
+
+export interface PlanTask {
+  /** Absent on a row that has not been saved yet. */
+  name?: string;
+  unit: string;
+  cycle: string | null;
+  operation: string;
+  operation_name: string;
+  planned_qty: number;
+  done_qty: number;
+  uom: string | null;
+  rate: Money;
+  due_date: string;
+  supervisor: string | null;
+  supervisor_name: string | null;
+  status: string;
+  deviation: string | null;
+  protocol_ref: string | null;
+  note: string | null;
+  work: WorkEntry[];
+  /** Set to 1 on a row passed to `savePlanTasks` to delete it. */
+  _delete?: 1;
+}
+
+export interface Plan {
+  plan: string | null;
+  week_start: string;
+  week_end: string;
+  tasks: PlanTask[];
+}
+
+export const getPlan = (crop: string, farm: string, year: number, week: number) =>
+  rpc<Plan>("get_plan", { crop, farm, year, week });
+
+/** Upserts rows by `name`; rows without a name are appended; only rows with `_delete: 1` are removed. */
+export const savePlanTasks = (
+  crop: string,
+  farm: string,
+  year: number,
+  week: number,
+  tasks: Array<Partial<PlanTask> & Row>,
+) => rpc<{ name: string }>("save_plan_tasks", { crop, farm, year, week, tasks });
+
+export const generatePlanWeek = (crop: string, farm: string, year: number, week: number) =>
+  rpc<{ name: string; created: number }>("generate_plan_week", { crop, farm, year, week });
+
+export interface WorkInput {
+  employee: string;
+  qty?: number;
+  hours?: number;
+  [field: string]: unknown;
+}
+
+export const recordTaskWork = (
+  plan: string,
+  task: string,
+  status: string,
+  entries: WorkInput[],
+  note = "",
+  workDate: string | null = null,
+) =>
+  rpc<{ task: PlanTask; work: WorkEntry[] }>("record_task_work", {
+    plan,
+    task,
+    status,
+    entries,
+    note,
+    work_date: workDate,
+  });
+
+// -- Value Adders ------------------------------------------------------------
+
+export interface ValueAdder {
+  name: string;
+  employee_name: string;
+  image: string | null;
+}
+
+export const listValueAdders = () => rpc<{ people: ValueAdder[] }>("list_value_adders");
+
+export type GroupBy = "employee" | "day" | "unit";
+
+export interface ValueAdderSummaryRow {
+  key: string;
+  label: string;
+  qty: number;
+  hours: number;
+  pay_value: Money;
+  entries: number;
+}
+
+export const valueAdderSummary = (
+  crop: string,
+  fromDate: string,
+  toDate: string,
+  groupBy: GroupBy,
+) =>
+  rpc<{ rows: ValueAdderSummaryRow[]; total_pay: Money }>("value_adder_summary", {
+    crop,
+    from_date: fromDate,
+    to_date: toDate,
+    group_by: groupBy,
+  });
+
+// -- Costs, deviations, forecast ---------------------------------------------
+
+export interface BlockCostRow {
+  unit: string;
+  unit_type: string;
+  parent: string | null;
+  is_group: 0 | 1 | boolean;
+  area_ha: number;
+  labour: Money;
+  inputs: number;
+  total_cost: Money;
+  cost_per_ha: Money;
+  harvest_qty: number;
+  revenue: number;
+  margin: Money;
+}
+
+export const blockCosts = (crop: string, fromDate: string, toDate: string) =>
+  rpc<{ rows: BlockCostRow[] }>("block_costs", { crop, from_date: fromDate, to_date: toDate });
+
+export type DeviationKind = "Late" | "Partial" | "Skipped" | "Unplanned" | "Missed";
+
+export interface DeviationRow {
+  kind: DeviationKind;
+  unit: string;
+  operation_name: string;
+  due_date: string;
+  plan: string | null;
+  detail: string;
+}
+
+export const deviations = (crop: string, fromDate: string, toDate: string) =>
+  rpc<{ rows: DeviationRow[] }>("deviations", { crop, from_date: fromDate, to_date: toDate });
+
+export interface ForecastWeek {
+  iso_year: number;
+  iso_week: number;
+  week_start: string;
+  forecast: number;
+  actual: number;
+  committed: number;
+  /** (actual - forecast) / forecast * 100; null when forecast is 0. */
+  error_pct: number | null;
+}
+
+export interface ForecastUnit {
+  unit: string;
+  forecast: number;
+  actual: number;
+  error_pct: number | null;
+}
+
+export interface ForecastSummary {
+  uom: string;
+  weeks: ForecastWeek[];
+  units: ForecastUnit[];
+  seasons: Array<{ year: number; actual: number }>;
+}
+
+export const forecastSummary = (crop: string, fromDate: string, toDate: string) =>
+  rpc<ForecastSummary>("forecast_summary", { crop, from_date: fromDate, to_date: toDate });
+
+// -- Records: each returns {rows} or {name} ----------------------------------
+
+export type Rows<T = Row> = { rows: T[] };
+export type Saved = { name: string };
+
+export const listSamples = (crop: string, unit?: string | null) =>
+  rpc<Rows>("list_samples", { crop, unit: unit ?? null });
+export const saveSample = (data: Row) => rpc<Saved>("save_sample", { data });
+
+export const saveHarvest = (data: Row) => rpc<Saved>("save_harvest", { data });
+export const listHarvests = (crop: string, fromDate: string, toDate: string) =>
+  rpc<Rows>("list_harvests", { crop, from_date: fromDate, to_date: toDate });
+
+export const listCommitments = (crop: string) => rpc<Rows>("list_commitments", { crop });
+export const saveCommitment = (data: Row) => rpc<Saved>("save_commitment", { data });
+
+export const listOperations = (crop: string) => rpc<Rows>("list_operations", { crop });
+export const saveOperation = (data: Row) => rpc<Saved>("save_operation", { data });
+
+export const listProtocols = (crop: string) => rpc<Rows>("list_protocols", { crop });

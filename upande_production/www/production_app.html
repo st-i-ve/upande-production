@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Upande Production</title>
+		<link rel="icon" type="image/png" href="/assets/upande_production/images/upande_logo.png" />
+		<link rel="apple-touch-icon" href="/assets/upande_production/images/upande_logo.png" />
+		<!-- Poppins is self-hosted via @font-face in the bundled production_css. -->
+		<link rel="stylesheet" href="{{ production_css }}" />
+
+		<style>
+			.navbar.navbar-light { display: none !important; }
+			.web-footer { display: none !important; }
+			html, body { height: 100%; margin: 0; padding: 0; background: #fbfaf6; }
+			body { overflow: hidden; }
+			#production-root { height: 100vh; width: 100%; overflow: auto;
+				font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+			.page-content, .container, main.container { max-width: none !important; padding: 0 !important; margin: 0 !important; }
+
+			/* The cover that holds the screen while the bundle loads.
+			   Inline, and before the stylesheet link resolves, because its whole
+			   job is to be on screen in the first frame — a splash that arrives
+			   with the CSS arrives after the thing it was meant to hide. */
+			.pr-splash {
+				position: fixed; inset: 0; z-index: 2147483000;
+				display: flex; align-items: center; justify-content: center;
+				/* White, like Frappe's own splash — the cover belongs to the
+				   crossing between the two apps, not to either one's paper. */
+				background: #ffffff;
+				transition: opacity 280ms ease;
+			}
+			/* The Upande mark on nothing, no box. */
+			.pr-splash img { width: 106px; height: auto; display: block; }
+			.pr-splash.pr-leaving { opacity: 0; pointer-events: none; }
+		</style>
+	</head>
+	<body>
+		<div id="production-root"></div>
+		<div class="pr-splash" id="pr-splash">
+			<img src="/assets/upande_production/images/upande_mark.svg" alt="Upande Production" />
+		</div>
+
+		<script type="application/json" id="production-bootstrap">{{ bootstrap_json | safe }}</script>
+		<script>
+			(function () {
+				var bootEl = document.getElementById("production-bootstrap");
+				var boot = {};
+				try { boot = JSON.parse(bootEl.textContent || "{}"); } catch (_) {}
+				window.PRODUCTION = {
+					csrf_token: boot.csrf_token || window.csrf_token || "",
+					bootstrap: boot
+				};
+			})();
+		</script>
+		<script type="module" src="{{ production_js }}"></script>
+	</body>
+</html>

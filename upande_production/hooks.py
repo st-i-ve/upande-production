@@ -11,15 +11,14 @@ app_license = "mit"
 # required_apps = []
 
 # Each item in the list will be shown as an app in the apps page
-# add_to_apps_screen = [
-# 	{
-# 		"name": "upande_production",
-# 		"logo": "/assets/upande_production/logo.png",
-# 		"title": "Upande Production",
-# 		"route": "/upande_production",
-# 		"has_permission": "upande_production.api.permission.has_app_permission"
-# 	}
-# ]
+add_to_apps_screen = [
+	{
+		"name": "upande_production",
+		"logo": "/assets/upande_production/images/upande_mark.svg",
+		"title": "Production",
+		"route": "/production_app",
+	}
+]
 
 # Includes in <head>
 # ------------------

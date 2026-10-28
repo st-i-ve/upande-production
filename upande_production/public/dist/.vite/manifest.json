@@ -1,0 +1,121 @@
+{
+  "index.html": {
+    "file": "production-DhYr-85A.js",
+    "name": "index",
+    "src": "index.html",
+    "isEntry": true,
+    "dynamicImports": [
+      "src/pages/Overview.tsx",
+      "src/pages/Blocks.tsx",
+      "src/pages/Cycles.tsx",
+      "src/pages/Plan.tsx",
+      "src/pages/ValueAdders.tsx",
+      "src/pages/Costs.tsx",
+      "src/pages/Forecast.tsx",
+      "src/pages/Settings.tsx"
+    ],
+    "assets": [
+      "assets/upande_logo-SmfHA3MK.png",
+      "assets/poppins-400-cpxAROuN.woff2",
+      "assets/poppins-500-C8OXljZJ.woff2",
+      "assets/poppins-600-zEkxB9Mr.woff2",
+      "assets/poppins-700-Qrb0O0WB.woff2"
+    ]
+  },
+  "src/assets/fonts/poppins-400.woff2": {
+    "file": "assets/poppins-400-cpxAROuN.woff2",
+    "src": "src/assets/fonts/poppins-400.woff2"
+  },
+  "src/assets/fonts/poppins-500.woff2": {
+    "file": "assets/poppins-500-C8OXljZJ.woff2",
+    "src": "src/assets/fonts/poppins-500.woff2"
+  },
+  "src/assets/fonts/poppins-600.woff2": {
+    "file": "assets/poppins-600-zEkxB9Mr.woff2",
+    "src": "src/assets/fonts/poppins-600.woff2"
+  },
+  "src/assets/fonts/poppins-700.woff2": {
+    "file": "assets/poppins-700-Qrb0O0WB.woff2",
+    "src": "src/assets/fonts/poppins-700.woff2"
+  },
+  "src/assets/upande_logo.png": {
+    "file": "assets/upande_logo-SmfHA3MK.png",
+    "src": "src/assets/upande_logo.png"
+  },
+  "src/pages/Blocks.tsx": {
+    "file": "chunks/Blocks-C6IjnUxC.js",
+    "name": "Blocks",
+    "src": "src/pages/Blocks.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html"
+    ]
+  },
+  "src/pages/Costs.tsx": {
+    "file": "chunks/Costs-DovDyD-P.js",
+    "name": "Costs",
+    "src": "src/pages/Costs.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html"
+    ]
+  },
+  "src/pages/Cycles.tsx": {
+    "file": "chunks/Cycles-CXPCOCUJ.js",
+    "name": "Cycles",
+    "src": "src/pages/Cycles.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html"
+    ]
+  },
+  "src/pages/Forecast.tsx": {
+    "file": "chunks/Forecast-BkHwEAb_.js",
+    "name": "Forecast",
+    "src": "src/pages/Forecast.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html"
+    ]
+  },
+  "src/pages/Overview.tsx": {
+    "file": "chunks/Overview-D1mGDFfq.js",
+    "name": "Overview",
+    "src": "src/pages/Overview.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html"
+    ]
+  },
+  "src/pages/Plan.tsx": {
+    "file": "chunks/Plan-BbVIA_u5.js",
+    "name": "Plan",
+    "src": "src/pages/Plan.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html"
+    ]
+  },
+  "src/pages/Settings.tsx": {
+    "file": "chunks/Settings-ZOWSazV5.js",
+    "name": "Settings",
+    "src": "src/pages/Settings.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html"
+    ]
+  },
+  "src/pages/ValueAdders.tsx": {
+    "file": "chunks/ValueAdders-Bo9lZxDX.js",
+    "name": "ValueAdders",
+    "src": "src/pages/ValueAdders.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html"
+    ]
+  },
+  "style.css": {
+    "file": "production-BJc_xgB9.css",
+    "src": "style.css"
+  }
+}

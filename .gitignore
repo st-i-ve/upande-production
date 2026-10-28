@@ -57,3 +57,6 @@ jspm_packages/
 # Agent tooling artifacts
 .claude-flow/
 graphify-out/
+
+# The built React bundle is committed (like upande_livestock)
+!upande_production/public/dist/

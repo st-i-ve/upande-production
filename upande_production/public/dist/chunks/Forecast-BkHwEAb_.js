@@ -1,0 +1,1 @@
+import{u as e,j as s,P as a,R as o,v as t}from"../production-DhYr-85A.js";function n(){const r=e();return s.jsx(a,{title:t("forecast",r),eyebrow:r.name,children:s.jsx("div",{className:"rounded-[var(--sd-radius-lg)] bg-[var(--sd-card)] px-4 py-4 shadow-[var(--sd-shadow-1)]",children:s.jsx(o,{rows:5})})})}export{n as Forecast};
