@@ -14,21 +14,27 @@ Same pattern as Upande SCP and Livestock (scripts/build_scp_logo.py):
 * ``frontend/src/assets/production_logo.svg`` - a copy of the desk tile, imported
   raw by ``ProductionMark.tsx`` for the app sidebar.
 
-THE SCENE (Production's own): the arrow steps aside to the top right and an
-avocado branch slides in with three fruit on it. The harvest round: the fruit
-ripen from pale to the avocado green, a ring marks each one that is ready (the
-dry-matter check), it is picked and drops into the picking crate, and the crate
-fills. Then the crate empties and the branch fruits regrow for the next round.
-On the desk the branch eases in on hover, the round loops while the pointer
-stays, and on leave it all eases back out to the plain mark.
+THE SCENE: Production is about output, whatever the crop, so the mark is about
+productivity and no crop. The arrow steps aside to the top right and, in the
+mono ink of the other marks with one green accent, a short story plays in the
+middle of the disc:
 
-Keyframes are written once (``ENTER`` and ``LOOP``) and emitted both as CSS for
-the loader and as JSON for the desk script and the React mark.
+  1. a checklist: three tasks tick off, one after another (the plan is done);
+  2. it gives way to a bar chart: three bars rise, then a green trend arrow
+     shoots up over them (echoing the Upande arrow);
+  3. that gives way to a gauge: the needle sweeps across, overshoots and settles
+     in the green zone (output on target).
+
+Then it eases out and the loop starts again. On the desk it eases in on hover, the
+round loops while the pointer stays, and on leave everything eases back out to the
+plain mark. Keyframes are written once (``ENTER`` and ``LOOP``) and emitted both as
+CSS for the loader and as JSON for the desk script and the React mark.
 """
 
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 APP = Path(__file__).resolve().parents[1]
@@ -37,7 +43,8 @@ FRONTEND_ASSETS = APP / "frontend" / "src" / "assets"
 
 INK = "#45433f"
 ACCENT = "#3f7d3a"
-RIPE_FROM = "#c6dc9c"
+PALE = "#d6d1c8"
+MID = "#a9a49b"
 
 # -- artwork (689 x 689, the PNG's own canvas) --------------------------------
 
@@ -50,63 +57,71 @@ ARROW = """<g class="arrow">
     </g>
   </g>"""
 
-# A hanging avocado, drawn with its stalk end at 0,0, about 105 wide and 128 tall.
-PEAR = "M0 0 C-12 0 -19 17 -31 43 C-53 85 -44 128 0 128 C44 128 53 85 31 43 C19 17 12 0 0 0 Z"
+STAGE_ORIGIN = "view-box|344px 410px"
 
-FRUIT_X = (96, 232, 368)
-BRANCH_Y = (178, 182, 172)  # the branch's height where each fruit hangs
-
-
-def fruit(i: int) -> str:
-    x, y = FRUIT_X[i], BRANCH_Y[i] + 8
-    return f"""<g transform="translate({x} {y}) scale(1.3)">
-      <g class="hang"><g class="pick pick{i}">
-        <path d="M0 -10 L0 8" stroke="{INK}" stroke-width="9" stroke-linecap="round"/>
-        <path class="body" d="{PEAR}" fill="{RIPE_FROM}" stroke="{INK}" stroke-width="7" stroke-linejoin="round"/>
-        <path d="M-20 52 C-30 72 -26 92 -16 104" stroke="#ffffff" stroke-opacity=".55" stroke-width="9" stroke-linecap="round" fill="none"/>
-      </g></g>
-    </g>"""
+# 1. checklist card with three rows
+ROW_Y = (330, 405, 480)
 
 
-# Fruit already in the crate: smaller, tucked behind the crate's front.
-CRATE_FRUIT_AT = ((236, 468), (344, 456), (452, 468))
+def row(i: int) -> str:
+    y = ROW_Y[i]
+    return f"""<rect x="196" y="{y - 26}" width="52" height="52" rx="12" fill="#ffffff" stroke="{INK}" stroke-width="13"/>
+    <path class="line line{i}" d="M290 {y} H490" stroke="{PALE}" stroke-width="26" stroke-linecap="round"/>
+    <path class="tick tick{i}" d="M204 {y + 2} L222 {y + 20} L258 {y - 26}" fill="none" stroke="{ACCENT}" stroke-width="22"
+          stroke-linecap="round" stroke-linejoin="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/>"""
 
 
-def crate_fruit(i: int) -> str:
-    x, y = CRATE_FRUIT_AT[i]
-    rot = (-74, 8, 70)[i]
-    return f"""<g transform="translate({x} {y}) rotate({rot})">
-      <g class="stow stow{i}">
-        <path d="{PEAR}" transform="translate(0 -72) scale(1.1)" fill="{ACCENT}" stroke="{INK}" stroke-width="8" stroke-linejoin="round"/>
-        <path d="M-20 -26 C-30 -8 -26 12 -16 24" stroke="#ffffff" stroke-opacity=".5" stroke-width="8" stroke-linecap="round" fill="none"/>
-      </g>
-    </g>"""
-
-
-BRANCH = f"""<g class="branch">
-    <path d="M10 196 C140 156 270 196 424 146" stroke="{INK}" stroke-width="24" stroke-linecap="round" fill="none"/>
-    <path d="M168 176 C186 128 232 118 262 128 C246 166 208 184 168 176 Z" fill="#8dba7a" stroke="{ACCENT}" stroke-width="8" stroke-linejoin="round"/>
-    <path d="M300 168 C318 116 366 104 398 112 C384 152 342 176 300 168 Z" fill="#8dba7a" stroke="{ACCENT}" stroke-width="8" stroke-linejoin="round"/>
-    <path d="M60 192 C60 148 90 126 124 122 C126 160 98 192 60 192 Z" fill="#8dba7a" stroke="{ACCENT}" stroke-width="8" stroke-linejoin="round"/>
+CHECKLIST = f"""<g class="checklist">
+    <rect x="160" y="262" width="368" height="288" rx="38" fill="#ffffff" stroke="{INK}" stroke-width="16"/>
+    {row(0)}
+    {row(1)}
+    {row(2)}
   </g>"""
 
-FRUITS = "\n    ".join(fruit(i) for i in range(3))
+# 2. bar chart and trend arrow
+BAR_X = (210, 320, 430)
+BAR_H = (90, 150, 205)
+BASE_Y = 548
 
-# The picking crate: back wall, then the stowed fruit, then the slatted front.
-CRATE_BACK = f"""<g class="crate">
-    <path d="M178 470 L500 470 L488 600 L190 600 Z" fill="#d9d4cb" stroke="{INK}" stroke-width="14" stroke-linejoin="round"/>
-  </g>"""
-CRATE_FRONT = f"""<g class="crate-front">
-    <path d="M168 486 H510 L498 604 H180 Z" fill="#ffffff" stroke="{INK}" stroke-width="16" stroke-linejoin="round"/>
-    <path d="M174 530 H504 M177 568 H501" stroke="{INK}" stroke-width="12" stroke-linecap="round"/>
-    <path d="M168 470 H510" stroke="{INK}" stroke-width="22" stroke-linecap="round"/>
+
+def bar(i: int) -> str:
+    fill = ACCENT if i == 2 else INK
+    return (f'<rect class="bar bar{i}" x="{BAR_X[i] - 40}" y="{BASE_Y - BAR_H[i]}" width="80" height="{BAR_H[i]}" '
+            f'rx="10" fill="{INK}"/>')
+
+
+BARS = f"""<g class="bars">
+    <path class="base" d="M150 {BASE_Y + 8} H500" stroke="{INK}" stroke-width="16" stroke-linecap="round"/>
+    {bar(0)}
+    {bar(1)}
+    {bar(2)}
+    <path class="trend" d="M145 425 L240 350 L312 386 L424 282" fill="none" stroke="{ACCENT}" stroke-width="28"
+          stroke-linecap="round" stroke-linejoin="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/>
+    <path class="head" d="M364 278 H434 V338" fill="none" stroke="{ACCENT}" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
   </g>"""
 
-RINGS = "\n    ".join(
-    f'<circle class="ring ring{i}" cx="{FRUIT_X[i]}" cy="{BRANCH_Y[i] + 100}" r="104" fill="none" stroke="{ACCENT}" stroke-width="20"/>'
-    for i in range(3)
-)
-STOW = "\n  ".join(crate_fruit(i) for i in range(3))
+# 3. gauge: a half ring in three zones and a needle
+GC = (344, 500)
+GR = 180
+
+
+def arc(a0: float, a1: float) -> str:
+    """Arc from angle a0 to a1 (degrees, 180 = left, 0 = right, over the top)."""
+    p = lambda a: (GC[0] + GR * math.cos(math.radians(a)), GC[1] - GR * math.sin(math.radians(a)))
+    (x0, y0), (x1, y1) = p(a0), p(a1)
+    return f"M{x0:.1f} {y0:.1f} A{GR} {GR} 0 0 1 {x1:.1f} {y1:.1f}"
+
+
+GAUGE = f"""<g class="gauge">
+    <path d="{arc(178, 122)}" fill="none" stroke="{PALE}" stroke-width="46"/>
+    <path d="{arc(118, 62)}" fill="none" stroke="{MID}" stroke-width="46"/>
+    <path class="zone" d="{arc(58, 2)}" fill="none" stroke="{ACCENT}" stroke-width="46"/>
+    <g class="needle">
+      <path d="M{GC[0]} {GC[1]} V{GC[1] - 140}" stroke="{INK}" stroke-width="22" stroke-linecap="round"/>
+    </g>
+    <circle cx="{GC[0]}" cy="{GC[1]}" r="34" fill="{INK}"/>
+    <circle cx="{GC[0]}" cy="{GC[1]}" r="12" fill="#ffffff"/>
+  </g>"""
 
 
 def body(rest_hidden: bool) -> str:
@@ -116,23 +131,20 @@ def body(rest_hidden: bool) -> str:
   <circle cx="344.5" cy="344.5" r="340" fill="#ffffff" stroke="#1c1b19" stroke-opacity=".3" stroke-width="7"/>
   <g clip-path="url(#production-disc)">
   <g class="scene"{hide}>
-  {BRANCH}
-  {FRUITS}
-  <g class="marks">
-    {RINGS}
+  <g transform="translate(344 420) scale(1.14) translate(-344 -420)">
+  {CHECKLIST}
+  {BARS}
+  {GAUGE}
   </g>
-  {CRATE_BACK}
-  {STOW}
-  {CRATE_FRONT}
+  </g>
   </g>
   {ARROW}
-  </g>
 """
 
 
 # -- motion -------------------------------------------------------------------
 # Each entry: selector, transform-origin (view-box px), keyframes [offset, props].
-# ENTER runs 0 -> 1 on hover (and back on leave). LOOP is the harvest round.
+# ENTER runs 0 -> 1 on hover (and back on leave). LOOP is the productivity story.
 
 ARROW_HOME = "translate(0px, 0px) scale(1)"
 ARROW_ASIDE = "translate(186px, -190px) scale(.3)"
@@ -145,102 +157,82 @@ ENTER = [
     ]),
     (".scene", None, [
         (0, {"opacity": 0}),
-        (0.12, {"opacity": 1}),
+        (0.2, {"opacity": 1}),
         (1, {"opacity": 1}),
     ]),
-    # the branch slides in from the left edge; the crate rises from below
-    (".branch", None, [
-        (0, {"transform": "translate(-160px, 0px)"}),
-        (0.15, {"transform": "translate(-160px, 0px)"}),
-        (0.75, {"transform": "translate(0px, 0px)"}),
-        (1, {"transform": "translate(0px, 0px)"}),
-    ]),
-    (".crate, .crate-front", None, [
-        (0, {"transform": "translate(0px, 190px)"}),
-        (0.3, {"transform": "translate(0px, 190px)"}),
-        (0.9, {"transform": "translate(0px, 0px)"}),
-        (1, {"transform": "translate(0px, 0px)"}),
-    ]),
-    (".hang", "fill-box|50% 0%", [
-        (0, {"transform": "scale(0)"}),
-        (0.45, {"transform": "scale(0)"}),
-        (0.85, {"transform": "scale(1.06)"}),
-        (1, {"transform": "scale(1)"}),
-    ]),
 ]
 
-FALL = "translate(0px, 300px) scale(.8)"
-HOME = "translate(0px, 0px) scale(1)"
-GONE = "translate(0px, 0px) scale(0)"
+SHOW = {"transform": "scale(1)", "opacity": 1}
+HIDE = {"transform": "scale(.86)", "opacity": 0}
 
 
-def _pick(lo, hi):
-    """Hang, get picked at ``lo``, drop to the crate by ``hi``, regrow at the end."""
-    return [
-        (0, {"transform": HOME, "opacity": 1}),
-        (lo, {"transform": HOME, "opacity": 1}),
-        (lo + 0.03, {"transform": "translate(0px, -8px) scale(1)", "opacity": 1}),
-        (hi - 0.02, {"transform": "translate(0px, 230px) scale(.85)", "opacity": 1}),
-        (hi, {"transform": FALL, "opacity": 0}),
-        (0.93, {"transform": FALL, "opacity": 0}),
-        (0.931, {"transform": GONE, "opacity": 0}),
-        (0.99, {"transform": HOME, "opacity": 1}),
-        (1, {"transform": HOME, "opacity": 1}),
-    ]
+def _stage(*pts):
+    """A stage group: (offset, 'show'|'hide') pairs, starting from the first."""
+    return [(o, SHOW if s else HIDE) for o, s in pts]
 
 
-def _ring(lo, hi):
-    return [
-        (0, {"transform": "scale(.6)", "opacity": 0}),
-        (lo, {"transform": "scale(.6)", "opacity": 0}),
-        (lo + 0.03, {"transform": "scale(.8)", "opacity": 1}),
-        (hi, {"transform": "scale(1.2)", "opacity": 0}),
-        (1, {"transform": "scale(1.2)", "opacity": 0}),
-    ]
+def _tick(lo, hi):
+    return [(0, {"strokeDashoffset": 1}), (lo, {"strokeDashoffset": 1}), (hi, {"strokeDashoffset": 0}),
+            (0.30, {"strokeDashoffset": 0}), (0.31, {"strokeDashoffset": 1}), (1, {"strokeDashoffset": 1})]
 
 
-def _stow(at):
-    return [
-        (0, {"transform": "scale(0)", "opacity": 0}),
-        (at, {"transform": "scale(0)", "opacity": 0}),
-        (at + 0.04, {"transform": "scale(1.12)", "opacity": 1}),
-        (at + 0.08, {"transform": "scale(1)", "opacity": 1}),
-        (0.9, {"transform": "scale(1)", "opacity": 1}),
-        (0.97, {"transform": "scale(0)", "opacity": 0}),
-        (1, {"transform": "scale(0)", "opacity": 0}),
-    ]
+def _line(lo, hi):
+    return [(0, {"stroke": PALE}), (lo, {"stroke": PALE}), (hi, {"stroke": INK}), (0.30, {"stroke": INK}),
+            (0.31, {"stroke": PALE}), (1, {"stroke": PALE})]
 
 
-def _ripen(lo, hi):
-    return [
-        (0, {"fill": RIPE_FROM}),
-        (lo, {"fill": RIPE_FROM}),
-        (hi, {"fill": ACCENT}),
-        (0.93, {"fill": ACCENT}),
-        (0.95, {"fill": RIPE_FROM}),
-        (1, {"fill": RIPE_FROM}),
-    ]
+def _rise(lo, hi):
+    return [(0, {"transform": "scaleY(0)"}), (lo, {"transform": "scaleY(0)"}),
+            (hi, {"transform": "scaleY(1.07)"}), (hi + 0.025, {"transform": "scaleY(1)"}),
+            (0.72, {"transform": "scaleY(1)"}), (0.73, {"transform": "scaleY(0)"}), (1, {"transform": "scaleY(0)"})]
 
 
-# The round: the fruit ripen in turn, each is ringed (the dry-matter check),
-# picked and dropped into the crate, which fills up; then it all resets.
 LOOP = [
-    (".pick0 .body", None, _ripen(0.0, 0.22)),
-    (".pick1 .body", None, _ripen(0.12, 0.40)),
-    (".pick2 .body", None, _ripen(0.26, 0.56)),
-    (".pick0", "fill-box|50% 0%", _pick(0.24, 0.36)),
-    (".pick1", "fill-box|50% 0%", _pick(0.42, 0.54)),
-    (".pick2", "fill-box|50% 0%", _pick(0.58, 0.70)),
-    (".ring0", f"view-box|{FRUIT_X[0]}px {BRANCH_Y[0] + 100}px", _ring(0.18, 0.26)),
-    (".ring1", f"view-box|{FRUIT_X[1]}px {BRANCH_Y[1] + 100}px", _ring(0.36, 0.44)),
-    (".ring2", f"view-box|{FRUIT_X[2]}px {BRANCH_Y[2] + 100}px", _ring(0.52, 0.60)),
-    (".stow0", "fill-box|50% 100%", _stow(0.34)),
-    (".stow1", "fill-box|50% 100%", _stow(0.52)),
-    (".stow2", "fill-box|50% 100%", _stow(0.68)),
+    # 1. checklist: in at the start, ticks in turn, gone by .36
+    (".checklist", STAGE_ORIGIN, [
+        (0, {"transform": "scale(.86)", "opacity": 0}),
+        (0.04, SHOW), (0.34, SHOW), (0.40, HIDE), (0.94, HIDE), (1, {"transform": "scale(.86)", "opacity": 0}),
+    ]),
+    (".tick0", None, _tick(0.06, 0.11)),
+    (".tick1", None, _tick(0.14, 0.19)),
+    (".tick2", None, _tick(0.22, 0.27)),
+    (".line0", None, _line(0.09, 0.12)),
+    (".line1", None, _line(0.17, 0.20)),
+    (".line2", None, _line(0.25, 0.28)),
+    # 2. bars rise, the trend arrow shoots up
+    (".bars", STAGE_ORIGIN, [
+        (0, HIDE), (0.34, HIDE), (0.38, SHOW), (0.70, SHOW), (0.76, HIDE), (1, HIDE),
+    ]),
+    (".bar0", f"view-box|{BAR_X[0]}px {BASE_Y}px", _rise(0.38, 0.45)),
+    (".bar1", f"view-box|{BAR_X[1]}px {BASE_Y}px", _rise(0.44, 0.51)),
+    (".bar2", f"view-box|{BAR_X[2]}px {BASE_Y}px", _rise(0.50, 0.57)),
+    (".trend", None, [
+        (0, {"strokeDashoffset": 1}), (0.55, {"strokeDashoffset": 1}), (0.64, {"strokeDashoffset": 0}),
+        (0.72, {"strokeDashoffset": 0}), (0.73, {"strokeDashoffset": 1}), (1, {"strokeDashoffset": 1}),
+    ]),
+    (".head", "view-box|434px 278px", [
+        (0, {"opacity": 0, "transform": "scale(.5)"}), (0.62, {"opacity": 0, "transform": "scale(.5)"}),
+        (0.66, {"opacity": 1, "transform": "scale(1.15)"}), (0.69, {"opacity": 1, "transform": "scale(1)"}),
+        (0.72, {"opacity": 1, "transform": "scale(1)"}), (0.73, {"opacity": 0, "transform": "scale(.5)"}),
+        (1, {"opacity": 0, "transform": "scale(.5)"}),
+    ]),
+    # 3. gauge: the needle sweeps right, overshoots, settles in the green
+    (".gauge", f"view-box|{GC[0]}px {GC[1]}px", [
+        (0, HIDE), (0.72, HIDE), (0.78, SHOW), (0.92, SHOW), (0.97, HIDE), (1, HIDE),
+    ]),
+    (".needle", f"view-box|{GC[0]}px {GC[1]}px", [
+        (0, {"transform": "rotate(-84deg)"}), (0.76, {"transform": "rotate(-84deg)"}),
+        (0.84, {"transform": "rotate(78deg)"}), (0.88, {"transform": "rotate(56deg)"}),
+        (1, {"transform": "rotate(56deg)"}),
+    ]),
+    (".zone", None, [
+        (0, {"strokeWidth": 46}), (0.86, {"strokeWidth": 46}), (0.89, {"strokeWidth": 60}), (0.93, {"strokeWidth": 46}),
+        (1, {"strokeWidth": 46}),
+    ]),
 ]
 
-ENTER_MS = 1100
-LOOP_MS = 3600
+ENTER_MS = 1000
+LOOP_MS = 5600
 EASE = "cubic-bezier(.3,.7,.2,1)"
 
 
@@ -250,7 +242,7 @@ EASE = "cubic-bezier(.3,.7,.2,1)"
 def _css_props(props: dict) -> str:
     out = []
     for k, v in props.items():
-        name = {"strokeDashoffset": "stroke-dashoffset"}.get(k, k)
+        name = {"strokeDashoffset": "stroke-dashoffset", "strokeWidth": "stroke-width"}.get(k, k)
         out.append(f"{name}: {v}")
     return "; ".join(out)
 
@@ -344,7 +336,7 @@ def main():
     loader = "\n".join([
         HEAD.format(label="Upande Production"),
         "  <!-- Generated by scripts/build_production_logo.py — edit there. The splash loader:",
-        "       the Production scene on a loop (in, the harvest round, out). Pure CSS. -->",
+        "       the Production scene on a loop (in, the story, out). Pure CSS. -->",
         loader_css(),
         body(rest_hidden=False) + "</svg>",
         "",
