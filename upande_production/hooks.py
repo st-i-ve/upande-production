@@ -174,6 +174,7 @@ fixtures = [
 scheduler_events = {
 	"daily": [
 		"upande_production.production.logic.stages.refresh_all_open",
+		"upande_production.production.logic.cycle_chain.refresh_flags_all",
 	],
 }
 

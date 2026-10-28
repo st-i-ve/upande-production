@@ -9,3 +9,4 @@ upande_production.patches.backfill_protocol_versions
 upande_production.patches.drop_cycles_for_bees_and_fish
 upande_production.patches.enable_crate_harvest_crops
 upande_production.patches.unify_operation_categories
+upande_production.patches.number_cycles
