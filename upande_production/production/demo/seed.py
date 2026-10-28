@@ -504,11 +504,15 @@ def seed_production_data():
 	harvest_status = frappe.get_all("Production Crop Cycle", filters={"status": "Harvesting"},
 		fields=["name", "unit", "item", "crop"])
 	for cy in harvest_status:
+		if cy.crop == "Avocado":
+			# One source of truth: avocado_seed mirrors the Avocado Harvest Log / forecast into
+			# Production Harvest / Production Forecast. Nothing invented here.
+			continue
 		u = frappe.db.get_value("Production Unit", cy.unit, ["area_ha", "plant_count"], as_dict=True)
 		y = DEMO["weekly_yield"][cy.item]
 		base = (u.plant_count or 0) * y if cy.item in ("Hass Avocado", "Fuerte Avocado") else (
 			y if cy.item in ("Tilapia", "Honey") else (u.area_ha or 1) * y)
-		weeks_back = DEMO["avocado_history"]["weeks"] if cy.crop == "Avocado" else 6
+		weeks_back = 6
 		for k in range(weeks_back):
 			d = mon - timedelta(weeks=k) + timedelta(days=2)
 			if d > td:
@@ -549,8 +553,9 @@ def seed_production_data():
 	frappe.db.commit()
 
 	# buyer commitments
-	offers = [("Twiga Foods", "Potatoes", 45, 4000), ("Kakuzi Export", "Hass Avocado", 120, 2500), ("Twiga Foods", "Passion Fruit", 110, 900)]
-	crop_of = {"Potatoes": "Fruits & Vegetables", "Hass Avocado": "Avocado", "Passion Fruit": "Fruits & Vegetables"}
+	# Avocado commitments are made by avocado_seed, scaled to the mirrored forecast.
+	offers = [("Twiga Foods", "Potatoes", 45, 4000), ("Twiga Foods", "Passion Fruit", 110, 900)]
+	crop_of = {"Potatoes": "Fruits & Vegetables", "Passion Fruit": "Fruits & Vegetables"}
 	for k in range(1, 7):
 		ws = mon + timedelta(weeks=k)
 		for cust, item, price, qty in offers:

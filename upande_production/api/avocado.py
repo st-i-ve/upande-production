@@ -556,7 +556,8 @@ def _cohorts(ctx, minimum):
 def _picked_by_week(ctx, season):
 	by = {}
 	for h in ctx.harvests:
-		if h.harvest_date and getdate(h.harvest_date).year == cint(season):
+		# mis-keyed logs (several days in one row) are not picks: same rule as the labour plan
+		if h.harvest_date and getdate(h.harvest_date).year == cint(season) and avocadolabour.is_plausible(h):
 			w = str(_monday(h.harvest_date))
 			by[w] = by.get(w, 0.0) + flt(h.total_kg)
 	return by

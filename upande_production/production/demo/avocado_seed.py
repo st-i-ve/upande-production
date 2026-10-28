@@ -18,7 +18,7 @@ fixed to May-June of the season.
 import random
 
 import frappe
-from frappe.utils import add_days, getdate, nowdate
+from frappe.utils import add_days, flt, getdate, nowdate
 
 DEMO = {
 	"seed": 20261028,
@@ -291,6 +291,149 @@ def seed_manual():
 	return made + (0 if name else 1)
 
 
+# -- one source of truth: mirror into the generic Production Harvest / Forecast -----------
+
+GENERIC_ITEM = {"A": "Hass Avocado", "B": "Fuerte Avocado"}
+BUYER = "Kakuzi Export"
+COVER = (0.70, 0.90)  # buyer commitments cover this share of the forecast week
+
+
+def _plausible(h):
+	from upande_production.api.avocadolabour import is_plausible
+	return is_plausible(h)
+
+
+def _unit_cycle(unit):
+	return frappe.db.get_value("Production Crop Cycle", {"unit": unit, "status": ("in", ["Harvesting", "Active"])}, "name")
+
+
+def mirror_harvests():
+	"""Every valid Avocado Harvest Log becomes a Production Harvest on its block's unit."""
+	price = DEMO["price_per_kg"]
+	logs = frappe.get_all(HARVEST_DT, fields=["name", "orchard_block", "harvest_date", "total_kg",
+		"pickers_count", "grade_1_kg", "grade_2_kg"], limit_page_length=0)
+	keep, made = set(), 0
+	for h in logs:
+		unit = f"Avocado Block {h.orchard_block}"
+		if not h.harvest_date or not frappe.db.exists("Production Unit", unit) or not _plausible(h):
+			continue
+		g1, g2 = flt(h.grade_1_kg), flt(h.grade_2_kg)
+		grade = "Class 1" if g1 >= g2 and g1 else ("Class 2" if g2 else "Class 1")
+		item = GENERIC_ITEM.get(h.orchard_block)
+		vals = {"harvest_date": h.harvest_date, "unit": unit, "crop": "Avocado", "cycle": _unit_cycle(unit),
+				"item": item, "qty": flt(h.total_kg), "uom": "Kg", "grade": grade, "price_per_uom": price}
+		# the log's own name is the identity: unit + date + qty (a log is one dated event)
+		name = frappe.db.exists("Production Harvest", {"unit": unit, "harvest_date": h.harvest_date, "qty": flt(h.total_kg)})
+		if name:
+			doc = frappe.get_doc("Production Harvest", name)
+			doc.update(vals)
+			doc.save(ignore_permissions=True)
+		else:
+			doc = frappe.get_doc({"doctype": "Production Harvest", **vals})
+			doc.insert(ignore_permissions=True)
+			made += 1
+		keep.add(doc.name)
+	stale = [n for n in frappe.get_all("Production Harvest", filters={"crop": "Avocado"}, pluck="name", limit_page_length=0)
+			 if n not in keep]
+	for n in stale:
+		frappe.delete_doc("Production Harvest", n, force=True, ignore_permissions=True)
+	return made, len(stale)
+
+
+def _early_weeks():
+	"""Early-crop estimate per block spread over its pick weeks the way the picks were weighted."""
+	out = {}
+	for block, est in DEMO["early_estimates"].items():
+		parts = DEMO["history"][block][(DEMO["season"], "Early")]
+		d0, d1 = getdate(parts[1]), getdate(parts[2])
+		n = DEMO["harvest"]["picks"]
+		span = (d1 - d0).days
+		weights = [1 + 0.6 * (1 - abs(i - (n - 1) / 2) / ((n - 1) / 2)) for i in range(n)]
+		tot = sum(weights)
+		wk = {}
+		for i in range(n):
+			day = add_days(d0, round(span * i / (n - 1)))
+			ws = str(add_days(day, -getdate(day).weekday()))
+			wk[ws] = wk.get(ws, 0.0) + est * weights[i] / tot
+		out[block] = wk
+	return out
+
+
+def _late_weeks(f):
+	"""The Season Outlook timeline's forecast, split per block (same spread as weekly_spread)."""
+	from upande_production.api import avocadoapi
+	out = {}
+	for s in f["schedule"]["scheduled"]:
+		weights = avocadoapi._pick_weights(s["weeks"])
+		tot = sum(weights)
+		wk = out.setdefault(s["block"], {})
+		for i, w in enumerate(weights):
+			ws = str(add_days(getdate(s["start"]), i * 7))
+			wk[ws] = wk.get(ws, 0.0) + s["expected_kg"] * w / tot
+	return out
+
+
+def mirror_forecast():
+	"""Weekly Avocado forecast (early estimate in its pick weeks, late crop from the outlook
+	schedule) into one Production Forecast per block for the season. Returns {week: kg}."""
+	from upande_production.api import avocadoapi
+	f = avocadoapi.overview(price_per_kg=DEMO["price_per_kg"])
+	early, late = _early_weeks(), _late_weeks(f)
+	total = {}
+	for block in DEMO["blocks"]:
+		unit = f"Avocado Block {block}"
+		if not frappe.db.exists("Production Unit", unit):
+			continue
+		weeks = {}
+		for src in (early.get(block, {}), late.get(block, {})):
+			for ws, kg in src.items():
+				weeks[ws] = weeks.get(ws, 0.0) + kg
+		name = frappe.db.exists("Production Forecast", {"unit": unit, "season": DEMO["season"]})
+		doc = frappe.get_doc("Production Forecast", name) if name else frappe.new_doc("Production Forecast")
+		doc.update({"unit": unit, "crop": "Avocado", "cycle": _unit_cycle(unit), "season": DEMO["season"],
+					"source": "Manual", "uom": "Kg"})
+		doc.set("weeks", [])
+		for ws in sorted(weeks):
+			doc.append("weeks", {"week_start": ws, "expected_qty": round(weeks[ws], 1)})
+			total[ws] = total.get(ws, 0.0) + round(weeks[ws], 1)
+		doc.save(ignore_permissions=True)
+	return total
+
+
+def mirror_commitments(week_totals):
+	"""Kakuzi Export commits 70-90% of each coming forecast week; replaces older avocado offers."""
+	cust = frappe.db.get_value("Customer", {"customer_name": BUYER})
+	if not cust:
+		return 0
+	monday = add_days(getdate(nowdate()), -getdate(nowdate()).weekday())
+	keep, made = set(), 0
+	for i, ws in enumerate(sorted(w for w in week_totals if getdate(w) > monday)[:6]):
+		kg = week_totals[ws]
+		cover = _rng(f"commit:{ws}").uniform(*COVER)
+		vals = {"customer": cust, "crop": "Avocado", "item": "Hass Avocado", "week_start": ws,
+				"committed_qty": round(kg * cover, -1), "uom": "Kg", "price_per_uom": DEMO["price_per_kg"],
+				"status": "Confirmed" if i < 3 else "Open"}
+		name = frappe.db.exists("Buyer Commitment", {"customer": cust, "item": "Hass Avocado", "week_start": ws})
+		if name:
+			frappe.db.set_value("Buyer Commitment", name, vals)
+		else:
+			name = frappe.get_doc({"doctype": "Buyer Commitment", **vals}).insert(ignore_permissions=True).name
+			made += 1
+		keep.add(name)
+	for n in frappe.get_all("Buyer Commitment", filters={"crop": "Avocado"}, pluck="name"):
+		if n not in keep:
+			frappe.delete_doc("Buyer Commitment", n, force=True, ignore_permissions=True)
+	return made
+
+
+def seed_generic_mirror():
+	harvests, dropped = mirror_harvests()
+	totals = mirror_forecast()
+	commitments = mirror_commitments(totals)
+	return {"harvests_mirrored_new": harvests, "stale_avocado_harvests_removed": dropped,
+			"forecast_weeks": len(totals), "commitments_new": commitments}
+
+
 def seed_prefs():
 	frappe.defaults.set_user_default("avocado_price_per_kg", DEMO["price_per_kg"], user="Administrator")
 	frappe.defaults.set_user_default("avocado_crew_available", DEMO["crew_available"], user="Administrator")
@@ -307,6 +450,7 @@ def run(commit=True):
 	out["history_rows_created"] = seed_history()
 	out["harvest_logs_created"] = seed_harvest_logs()
 	out["manual_or_budget_created"] = seed_manual()
+	out.update(seed_generic_mirror())
 	seed_prefs()
 	if commit:
 		frappe.db.commit()

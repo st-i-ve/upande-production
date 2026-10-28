@@ -106,3 +106,33 @@ class TestOverviewExtras(IntegrationTestCase):
 		self.assertEqual(r["by_day"], [])
 		self.assertEqual(r["recent"], [])
 		self.assertEqual(r["pending_entries"], 0)
+
+	def test_deviations_count_plan_tasks_once_not_unplanned_work(self):
+		"""Approved unplanned work (one VAW row per person) is output, not a deviation: the Overview
+		tile, the recent list and the deviations endpoint count the same plan-task deviations."""
+		from datetime import timedelta
+
+		from frappe.utils import getdate
+
+		from upande_production.api import production as prod
+		from upande_production.production.logic import analytics
+
+		# a crop of its own so the shared empty-crop tests above never see this unit
+		self.crop = _make("Production Crop", crop_name="OV Dev Crop", crop_key="ov-dev", unit_label="Block", yield_uom="Kg")
+		unit, emps, ops, work = self._keyed_unit(["Kg"])
+		t = getdate(today())
+		window = (t - timedelta(days=28), t)
+		before = len(analytics.deviations(self.crop.name, *window)["rows"])
+		names = work.record_unplanned_work(
+			unit.name, ops[0].name, [{"employee": e.name, "qty": 2.1} for e in emps], today()
+		)
+		names = names["work"] if isinstance(names, dict) else names
+		for n in names:  # approved and submitted, so they would show up as "Unplanned" rows
+			frappe.db.set_value("Value Adder Work", n, {"docstatus": 1, "approval_status": "Approved"})
+		self.assertGreaterEqual(len(names), 3)
+
+		rows = analytics.deviations(self.crop.name, *window)["rows"]
+		self.assertEqual(len(rows), before)
+		self.assertNotIn("Unplanned", {r["kind"] for r in rows})
+		self.assertEqual(prod.deviations(self.crop.name, *window)["rows"], rows)
+		self.assertEqual(analytics.overview(self.crop.name, False)["tiles"]["deviations"], len(rows))

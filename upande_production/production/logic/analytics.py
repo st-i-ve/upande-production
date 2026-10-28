@@ -302,20 +302,10 @@ def deviations(crop, from_date, to_date):
 				"due_date": k.due_date, "plan": k.parent, "detail": detail,
 			})
 
-	unplanned = frappe.get_all(
-		"Value Adder Work",
-		filters={"docstatus": 1, "crop": crop, "unplanned": 1, "work_date": ("between", [frm, to])},
-		fields=["unit", "operation", "work_date", "employee_name", "qty", "uom"],
-		order_by="work_date asc",
-	)
+	# Deviations are plan tasks that ran late/partial/skipped plus protocol steps never planned.
+	# Unplanned work (one Value Adder Work row each) is extra output, not a deviation, so it is
+	# never counted here; Overview tile, recent list and the deviations endpoint all share this.
 	op_names = dict(frappe.get_all("Production Operation", filters={"crop": crop}, fields=["name", "operation_name"], as_list=True))
-	for w in unplanned:
-		rows.append({
-			"kind": "Unplanned", "unit": w.unit, "operation_name": op_names.get(w.operation, w.operation),
-			"due_date": w.work_date, "plan": None,
-			"detail": f"{w.employee_name or ''}: {w.qty:g} {w.uom or ''}".strip(),
-		})
-
 	rows.extend(_missed(crop, frm, to, op_names))
 	rows.sort(key=lambda r: (str(r["due_date"]), r["kind"]))
 	return {"rows": rows}

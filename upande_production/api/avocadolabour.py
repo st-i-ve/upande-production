@@ -41,6 +41,12 @@ PLAUSIBLE_RATE = (150.0, 1200.0)
 DEFAULT_PICKING_DAYS_PER_WEEK = 5
 
 
+def is_plausible(h):
+	"""True when a harvest log is one day's picking (kg per picker-day inside PLAUSIBLE_RATE)."""
+	kg, pickers = flt(h.get("total_kg")), flt(h.get("pickers_count"))
+	return bool(kg > 0 and pickers > 0 and PLAUSIBLE_RATE[0] <= kg / pickers <= PLAUSIBLE_RATE[1])
+
+
 def picker_rates(harvests):
 	"""{block: {kg_per_picker_day, basis, events}} plus an "" estate fallback.
 
