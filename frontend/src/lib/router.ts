@@ -29,6 +29,14 @@ export const VIEWS = [
   "harvest-calendar",
   "picking-plan",
   "dry-matter",
+  // Crop-specific field logs.
+  "hive-inspections",
+  "honey-harvest",
+  "pond-batches",
+  "water-quality",
+  "feeding",
+  "irrigation",
+  "grading",
 ] as const;
 
 export type View = (typeof VIEWS)[number];

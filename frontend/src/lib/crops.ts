@@ -69,6 +69,20 @@ export function viewLabel(view: View, crop?: Pick<Crop, "unit_label"> | null): s
       return "Picking Plan";
     case "dry-matter":
       return "Dry Matter";
+    case "hive-inspections":
+      return "Hive Inspections";
+    case "honey-harvest":
+      return "Honey Harvest";
+    case "pond-batches":
+      return "Pond Batches";
+    case "water-quality":
+      return "Water Quality";
+    case "feeding":
+      return "Feeding & Mortality";
+    case "irrigation":
+      return "Pivot Irrigation";
+    case "grading":
+      return "Harvest Grading";
   }
 }
 

@@ -83,6 +83,13 @@ const HarvestCalendar = page(() =>
 const PickingPlan = page(() =>
   import("@/pages/avocado/PickingPlan").then((m) => ({ default: m.PickingPlan })),
 );
+const HiveInspections = page(() => import("@/pages/apiary/HiveInspections").then((m) => ({ default: m.HiveInspections })));
+const HoneyHarvest = page(() => import("@/pages/apiary/HoneyHarvest").then((m) => ({ default: m.HoneyHarvest })));
+const PondBatches = page(() => import("@/pages/aquaculture/PondBatches").then((m) => ({ default: m.PondBatches })));
+const WaterQuality = page(() => import("@/pages/aquaculture/WaterQuality").then((m) => ({ default: m.WaterQuality })));
+const Feeding = page(() => import("@/pages/aquaculture/Feeding").then((m) => ({ default: m.Feeding })));
+const Irrigation = page(() => import("@/pages/fruits-vegetables/Irrigation").then((m) => ({ default: m.Irrigation })));
+const Grading = page(() => import("@/pages/fruits-vegetables/Grading").then((m) => ({ default: m.Grading })));
 const DryMatter = page(() =>
   import("@/pages/avocado/DryMatter").then((m) => ({ default: m.DryMatter })),
 );
@@ -103,6 +110,13 @@ const PAGES: Record<View, React.ComponentType> = {
   "harvest-calendar": HarvestCalendar,
   "picking-plan": PickingPlan,
   "dry-matter": DryMatter,
+  "hive-inspections": HiveInspections,
+  "honey-harvest": HoneyHarvest,
+  "pond-batches": PondBatches,
+  "water-quality": WaterQuality,
+  "feeding": Feeding,
+  "irrigation": Irrigation,
+  "grading": Grading,
 };
 
 /** Says why the workspace is empty, and what to do, in place of a blank page. */

@@ -4,6 +4,13 @@ import {
   ClipboardCheck,
   Coins,
   Droplets,
+  Fish,
+  FlaskConical,
+  Hexagon,
+  Scale,
+  Waves,
+  Stethoscope,
+  Utensils,
   LayoutDashboard,
   LayoutGrid,
   LineChart,
@@ -48,6 +55,13 @@ const ICONS: Record<View, IconType> = {
   "picking-plan": UserRoundCheck,
   "dry-matter": Droplets,
   settings: SlidersHorizontal,
+  "hive-inspections": Stethoscope,
+  "honey-harvest": Hexagon,
+  "pond-batches": Fish,
+  "water-quality": FlaskConical,
+  feeding: Utensils,
+  irrigation: Waves,
+  grading: Scale,
 };
 
 /** Views only some crops have, keyed by view. Everything else is every crop's. */
@@ -57,11 +71,27 @@ const ONLY_FOR: Partial<Record<View, string[]>> = {
   "harvest-calendar": ["avocado"],
   "picking-plan": ["avocado"],
   "dry-matter": ["avocado"],
+  "hive-inspections": ["apiary"],
+  "honey-harvest": ["apiary"],
+  "pond-batches": ["aquaculture"],
+  "water-quality": ["aquaculture"],
+  "feeding": ["aquaculture"],
+  "irrigation": ["fruits-vegetables"],
+  "grading": ["fruits-vegetables"],
+};
+
+/** Views some crops do not have: bees and fish run in colonies and batches, not crop cycles. */
+const NOT_FOR: Partial<Record<View, string[]>> = {
+  cycles: ["apiary", "aquaculture"],
 };
 
 const GROUPS: { label: string; views: View[] }[] = [
   { label: "Overview", views: ["overview", "approvals"] },
   { label: "Field work", views: ["plan", "map", "value-adders"] },
+  {
+    label: "Field logs",
+    views: ["hive-inspections", "honey-harvest", "pond-batches", "water-quality", "feeding", "irrigation", "grading"],
+  },
   { label: "Blocks", views: ["blocks", "cycles", "costs"] },
   {
     label: "Forecast",
@@ -72,7 +102,8 @@ const GROUPS: { label: string; views: View[] }[] = [
 
 export function viewAllowed(view: View, cropKey: string): boolean {
   const only = ONLY_FOR[view];
-  return !only || only.includes(cropKey);
+  if (only && !only.includes(cropKey)) return false;
+  return !(NOT_FOR[view] ?? []).includes(cropKey);
 }
 
 /** The sidebar for one crop: the app is scoped to a single crop at a time. */
