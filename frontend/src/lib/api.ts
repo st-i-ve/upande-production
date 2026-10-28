@@ -284,14 +284,26 @@ export interface ForecastWeek {
   forecast: number;
   actual: number;
   committed: number;
-  /** (actual - forecast) / forecast * 100; null when forecast is 0. */
+  /** (actual - forecast) / forecast * 100; null when forecast is 0 or the week is still ahead. */
   error_pct: number | null;
 }
 
 export interface ForecastUnit {
   unit: string;
+  /** Forecast for weeks up to and including the current one. */
   forecast: number;
+  forecast_to_date: number;
   actual: number;
+  /** Judged on forecast_to_date only. */
+  error_pct: number | null;
+}
+
+export interface ForecastTotals {
+  /** Every week in the range, future ones included. */
+  forecast: number;
+  forecast_to_date: number;
+  actual: number;
+  committed: number;
   error_pct: number | null;
 }
 
@@ -299,6 +311,7 @@ export interface ForecastSummary {
   uom: string;
   weeks: ForecastWeek[];
   units: ForecastUnit[];
+  totals: ForecastTotals;
   seasons: Array<{ year: number; actual: number }>;
 }
 

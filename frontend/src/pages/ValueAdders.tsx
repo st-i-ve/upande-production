@@ -4,8 +4,8 @@ import { DatePicker } from "@/components/DatePicker";
 import { FilterSelect } from "@/components/FilterSelect";
 import { RowsSkeleton } from "@/components/Loading";
 import { PageShell } from "@/components/PageShell";
-import { money, q } from "@/components/plan/fmt";
-import { ScrollTable, STICKY_HEAD } from "@/components/ScrollTable";
+import { q } from "@/components/plan/fmt";
+import { kes } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { valueAdderSummary, type GroupBy, type ValueAdderSummaryRow } from "@/lib/api";
 import { useCurrentCrop } from "@/lib/crops";
@@ -64,7 +64,6 @@ export function ValueAdders() {
 
   const totals = useMemo(
     () => ({
-      qty: rows.reduce((s, r) => s + r.qty, 0),
       hours: rows.reduce((s, r) => s + r.hours, 0),
       entries: rows.reduce((s, r) => s + r.entries, 0),
     }),
@@ -72,9 +71,9 @@ export function ValueAdders() {
   );
 
   function exportCsv() {
-    const head = [keyHeader, "Qty", "Hours", ...(canPay ? ["Pay"] : []), "Entries"];
-    const lines = [head, ...rows.map((r) => [r.label, r.qty, r.hours, ...(canPay ? [r.pay_value ?? ""] : []), r.entries])];
-    if (rows.length) lines.push(["Total", totals.qty, totals.hours, ...(canPay ? [totalPay ?? ""] : []), totals.entries]);
+    const head = [keyHeader, "Hours", ...(canPay ? ["Pay"] : []), "Entries"];
+    const lines = [head, ...rows.map((r) => [r.label, r.hours, ...(canPay ? [r.pay_value ?? ""] : []), r.entries])];
+    if (rows.length) lines.push(["Total", totals.hours, ...(canPay ? [totalPay ?? ""] : []), totals.entries]);
     const blob = new Blob([lines.map((l) => l.map(csvCell).join(",")).join("\n")], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -113,7 +112,12 @@ export function ValueAdders() {
   );
 
   return (
-    <PageShell title="Value Adders" eyebrow={crop.name} actions={actions}>
+    <PageShell
+      title="Value Adders"
+      eyebrow={crop.name}
+      actions={actions}
+      description="Work done and pay figures for casual value adders."
+    >
       <div className={cn(CARD, "overflow-hidden")}>
         {loading ? (
           <div className="px-4 py-4">
@@ -131,12 +135,11 @@ export function ValueAdders() {
             No value adder work was recorded between these dates.
           </p>
         ) : (
-          <ScrollTable tall>
+          <div className="overflow-x-auto">
             <table className="w-full text-[13px]">
               <thead>
-                <tr className={cn(STICKY_HEAD, "text-[10.5px] font-medium uppercase tracking-[0.12em] text-[var(--sd-quiet)]")}>
+                <tr className={cn("border-b border-[var(--sd-line)] text-[10.5px] font-medium uppercase tracking-[0.12em] text-[var(--sd-quiet)]")}>
                   <th className="px-4 py-2.5 text-left font-medium">{keyHeader}</th>
-                  <th className={cn(num, "font-medium")}>Qty</th>
                   <th className={cn(num, "font-medium")}>Hours</th>
                   {canPay && <th className={cn(num, "font-medium")}>Pay</th>}
                   <th className={cn(num, "font-medium")}>Entries</th>
@@ -146,9 +149,8 @@ export function ValueAdders() {
                 {rows.map((r) => (
                   <tr key={r.key}>
                     <td className="px-4 py-2.5 text-[var(--sd-ink)]">{r.label}</td>
-                    <td className={num}>{q(r.qty)}</td>
                     <td className={num}>{q(r.hours)}</td>
-                    {canPay && <td className={num}>{money(r.pay_value)}</td>}
+                    {canPay && <td className={num}>{kes(r.pay_value)}</td>}
                     <td className={num}>{r.entries}</td>
                   </tr>
                 ))}
@@ -156,14 +158,13 @@ export function ValueAdders() {
               <tfoot>
                 <tr className="border-t border-[var(--sd-line)] font-semibold text-[var(--sd-ink)]">
                   <td className="px-4 py-3">Total</td>
-                  <td className={num}>{q(totals.qty)}</td>
                   <td className={num}>{q(totals.hours)}</td>
-                  {canPay && <td className={num}>{money(totalPay)}</td>}
+                  {canPay && <td className={num}>{kes(totalPay)}</td>}
                   <td className={num}>{totals.entries}</td>
                 </tr>
               </tfoot>
             </table>
-          </ScrollTable>
+          </div>
         )}
       </div>
     </PageShell>

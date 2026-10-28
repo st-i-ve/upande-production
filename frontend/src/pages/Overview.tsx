@@ -76,7 +76,7 @@ export function Overview() {
         <Figure
           label="Deviations"
           value={dash(t && qty(t.deviations))}
-          hint="late, partial, skipped or missed"
+          hint="late, partial, skipped or missed · last 4 weeks"
           loading={waiting}
         />
         {boot.can_see_pay && (

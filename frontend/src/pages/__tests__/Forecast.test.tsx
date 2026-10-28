@@ -22,7 +22,7 @@ describe("Forecast", () => {
   });
 
   it("shows empty states", async () => {
-    fc.mockResolvedValue({ uom: "Kg", weeks: [], units: [], seasons: [] });
+    fc.mockResolvedValue({ uom: "Kg", weeks: [], units: [], totals: { forecast: 0, forecast_to_date: 0, actual: 0, committed: 0, error_pct: null }, seasons: [] });
     renderPage(<Forecast />);
     expect(await screen.findByText(/No weekly forecast for this period/i)).toBeInTheDocument();
     expect(screen.getByText(/No forecasts to compare/i)).toBeInTheDocument();
@@ -37,11 +37,12 @@ describe("Forecast", () => {
       uom: "Kg",
       weeks: [{ iso_year: 2026, iso_week: 1, week_start: today, forecast: 1000, actual: 800, committed: 500, error_pct: -20 }],
       units: [
-        { unit: "Block A", forecast: 100, actual: 105, error_pct: 5 },
-        { unit: "Block B", forecast: 100, actual: 80, error_pct: -20 },
-        { unit: "Block C", forecast: 100, actual: 40, error_pct: -60 },
-        { unit: "Block D", forecast: 0, actual: 10, error_pct: null },
+        { unit: "Block A", forecast: 100, forecast_to_date: 100, actual: 105, error_pct: 5 },
+        { unit: "Block B", forecast: 100, forecast_to_date: 100, actual: 80, error_pct: -20 },
+        { unit: "Block C", forecast: 100, forecast_to_date: 100, actual: 40, error_pct: -60 },
+        { unit: "Block D", forecast: 0, forecast_to_date: 0, actual: 10, error_pct: null },
       ],
+      totals: { forecast: 1000, forecast_to_date: 1000, actual: 800, committed: 500, error_pct: -20 },
       seasons: [{ year: 2025, actual: 12000 }],
     });
     renderPage(<Forecast />);
@@ -52,11 +53,13 @@ describe("Forecast", () => {
     expect(screen.getByTestId("error-Block D")).toHaveTextContent("—");
     expect(screen.getByTestId("today-marker")).toBeInTheDocument();
     expect(screen.getAllByText("1,000").length).toBeGreaterThan(0);
+    expect(screen.getByText("Accuracy to date")).toBeInTheDocument();
+    expect(screen.getAllByText("-20.0%").length).toBeGreaterThan(1);
     expect(screen.getByRole("button", { name: /New sample/ })).toBeInTheDocument();
   });
 
   it("shows external links only for crops that list them", async () => {
-    fc.mockResolvedValue({ uom: "Kg", weeks: [], units: [], seasons: [] });
+    fc.mockResolvedValue({ uom: "Kg", weeks: [], units: [], totals: { forecast: 0, forecast_to_date: 0, actual: 0, committed: 0, error_pct: null }, seasons: [] });
     const { unmount } = renderPage(<Forecast />);
     await screen.findByText(/No weekly forecast/i);
     expect(screen.queryByText("Outlook")).toBeNull();

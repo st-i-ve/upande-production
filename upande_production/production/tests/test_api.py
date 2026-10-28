@@ -168,3 +168,25 @@ class TestApi(IntegrationTestCase):
 		self.assertEqual(wk["error_pct"], -20.0)
 		u = next(x for x in res["units"] if x["unit"] == unit.name)
 		self.assertEqual(u["error_pct"], -20.0)
+		self.assertEqual(u["forecast_to_date"], 100)
+		self.assertEqual(res["totals"]["error_pct"], -20.0)
+
+	def test_forecast_future_week_ignored_in_error(self):
+		unit = self._unit("API FcUnit2")
+		monday = _monday(add_days(today(), -14))
+		future = _monday(add_days(today(), 14))
+		_make(
+			"Production Forecast", unit=unit.name, crop=self.crop.name, uom="Kg", source="Manual",
+			weeks=[{"week_start": monday, "expected_qty": 100}, {"week_start": future, "expected_qty": 500}],
+		)
+		_make("Production Harvest", harvest_date=add_days(monday, 2), unit=unit.name, crop=self.crop.name, qty=80, uom="Kg")
+		res = api.forecast_summary(self.crop.name, monday, add_days(today(), 21))
+		u = next(x for x in res["units"] if x["unit"] == unit.name)
+		self.assertEqual(u["forecast"], 100)
+		self.assertEqual(u["error_pct"], -20.0)
+		fw = next(w for w in res["weeks"] if str(w["week_start"]) == str(future))
+		self.assertEqual(fw["forecast"], 500)
+		self.assertIsNone(fw["error_pct"])
+		t = res["totals"]
+		self.assertEqual(t["forecast"] - t["forecast_to_date"], 500)
+		self.assertEqual(t["error_pct"], -20.0)

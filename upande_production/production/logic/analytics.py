@@ -155,13 +155,16 @@ def overview(crop, can_see_pay):
 
 	total = len(tasks)
 	done = sum(1 for k in tasks if k.status == "Done")
+	# Deviations look back over the last 4 ISO weeks, this one included.
+	dev_from = w_start - timedelta(days=21)
+	n_deviations = len(deviations(crop, dev_from, t)["rows"])
 	return {
 		"tiles": {
 			"active_cycles": len(cycles),
 			"tasks_total": total,
 			"tasks_done": done,
 			"done_pct": round(done / total * 100, 1) if total else 0,
-			"deviations": sum(1 for k in tasks if k.deviation),
+			"deviations": n_deviations,
 			"labour_cost_mtd": _pay(round(labour_mtd, 2), can_see_pay),
 			"forecast_next4": float(forecast_next4 or 0),
 			"committed_next4": float(committed_next4 or 0),
@@ -362,10 +365,13 @@ def forecast_summary(crop, from_date, to_date):
 		where crop = %s and status != 'Cancelled' and week_start between %s and %s group by week_start""",
 		(crop, frm, to),
 	)
+	this_monday = _monday(today())
 	wf, wa, wc, uf, ua = {}, {}, {}, {}, {}
 	for ws, unit, q in fc:
 		wf[getdate(ws)] = wf.get(getdate(ws), 0) + float(q or 0)
-		uf[unit] = uf.get(unit, 0) + float(q or 0)
+		# Only weeks up to the current one have actuals to compare with.
+		if getdate(ws) <= this_monday:
+			uf[unit] = uf.get(unit, 0) + float(q or 0)
 	for ws, unit, q in ac:
 		wa[getdate(ws)] = wa.get(getdate(ws), 0) + float(q or 0)
 		ua[unit] = ua.get(unit, 0) + float(q or 0)
@@ -378,17 +384,26 @@ def forecast_summary(crop, from_date, to_date):
 		f, a = wf.get(ws, 0), wa.get(ws, 0)
 		weeks.append({
 			"iso_year": iso_y, "iso_week": iso_w, "week_start": ws, "forecast": f, "actual": a,
-			"committed": wc.get(ws, 0), "error_pct": _pct(a, f),
+			"committed": wc.get(ws, 0), "error_pct": _pct(a, f) if ws <= this_monday else None,
 		})
 	units = [
-		{"unit": u, "forecast": uf.get(u, 0), "actual": ua.get(u, 0), "error_pct": _pct(ua.get(u, 0), uf.get(u, 0))}
+		{
+			"unit": u, "forecast": uf.get(u, 0), "forecast_to_date": uf.get(u, 0),
+			"actual": ua.get(u, 0), "error_pct": _pct(ua.get(u, 0), uf.get(u, 0)),
+		}
 		for u in sorted(set(uf) | set(ua))
 	]
+	fc_to_date = sum(uf.values())
+	actual_total = sum(wa.values())
+	totals = {
+		"forecast": sum(wf.values()), "forecast_to_date": fc_to_date, "actual": actual_total,
+		"committed": sum(wc.values()), "error_pct": _pct(actual_total, fc_to_date),
+	}
 	seasons = frappe.db.sql(
 		"select year(harvest_date), sum(qty) from `tabProduction Harvest` where crop = %s group by 1 order by 1",
 		(crop,),
 	)
 	return {
-		"uom": uom, "weeks": weeks, "units": units,
+		"uom": uom, "weeks": weeks, "units": units, "totals": totals,
 		"seasons": [{"year": int(y), "actual": float(q or 0)} for y, q in seasons],
 	}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ExternalLink } from "lucide-react";
 import { ChartSkeleton, RowsSkeleton } from "@/components/Loading";
 import { Figure, FigureRow } from "@/components/Figure";
@@ -13,11 +13,13 @@ import { SamplesPanel } from "@/components/forecast/SamplesPanel";
 import { SEASONS_CHART_HEIGHT, SeasonsChart } from "@/components/forecast/SeasonsChart";
 import { Card, CardContent, CardDescription, CardHeaderRow, CardHeading, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { forecastSummary, type ForecastSummary } from "@/lib/api";
+import { forecastSummary, type ForecastSummary, type ForecastTotals } from "@/lib/api";
 import { EXTERNAL_LINKS, useCurrentCrop, viewLabel } from "@/lib/crops";
 import { isError } from "@/lib/frappe";
 import { qty } from "@/lib/format";
 import { todayISO, ymd } from "@/lib/utils";
+
+const EMPTY_TOTALS: ForecastTotals = { forecast: 0, forecast_to_date: 0, actual: 0, committed: 0, error_pct: null };
 
 function offsetDays(n: number): string {
   const d = new Date();
@@ -47,11 +49,11 @@ export function Forecast() {
     if (isError(r)) {
       setFailure(r.error);
       toast(r.error, "error");
-      setData((cur) => cur ?? { uom: crop.yield_uom || "", weeks: [], units: [], seasons: [] });
+      setData((cur) => cur ?? { uom: crop.yield_uom || "", weeks: [], units: [], totals: EMPTY_TOTALS, seasons: [] });
       return;
     }
     setFailure(null);
-    setData({ ...r, weeks: r.weeks ?? [], units: r.units ?? [], seasons: r.seasons ?? [] });
+    setData({ ...r, weeks: r.weeks ?? [], units: r.units ?? [], totals: r.totals ?? EMPTY_TOTALS, seasons: r.seasons ?? [] });
   }, [crop.name, crop.yield_uom, from, to, toast]);
 
   useEffect(() => {
@@ -64,13 +66,7 @@ export function Forecast() {
   const links = EXTERNAL_LINKS[crop.crop_key] ?? [];
   const canEdit = crop.boot.can_plan || crop.boot.can_manage;
 
-  const totals = useMemo(() => {
-    const w = data?.weeks ?? [];
-    const forecast = w.reduce((t, x) => t + x.forecast, 0);
-    const actual = w.reduce((t, x) => t + x.actual, 0);
-    const committed = w.reduce((t, x) => t + x.committed, 0);
-    return { forecast, actual, committed, error: forecast > 0 ? ((actual - forecast) / forecast) * 100 : null };
-  }, [data]);
+  const totals = data?.totals ?? EMPTY_TOTALS;
 
 
   return (
@@ -112,9 +108,9 @@ export function Forecast() {
         <Figure loading={!data} label="Committed" value={data ? qty(totals.committed) : "—"} unit={uom} hint="to buyers" />
         <Figure
           loading={!data}
-          label="Accuracy"
-          value={data && totals.error != null ? `${totals.error > 0 ? "+" : ""}${totals.error.toFixed(1)}%` : "—"}
-          hint="actual vs forecast"
+          label="Accuracy to date"
+          value={data && totals.error_pct != null ? `${totals.error_pct > 0 ? "+" : ""}${totals.error_pct.toFixed(1)}%` : "—"}
+          hint="actual vs forecast so far"
         />
       </FigureRow>
 

@@ -40,14 +40,17 @@ describe("ValueAdders", () => {
   it("shows rows and the total pay", async () => {
     renderIt(true);
     expect(await screen.findByText("Jane Wanjiru")).toBeTruthy();
-    expect(screen.getByText("2,500.00")).toBeTruthy();
+    expect(screen.getAllByText("KES 2,500").length).toBeTruthy();
     expect(screen.getByText("Pay")).toBeTruthy();
+    expect(screen.getByText("Total")).toBeTruthy();
+    expect(screen.queryByText("Qty")).toBeNull();
+    expect(screen.getByText("Work done and pay figures for casual value adders.")).toBeTruthy();
   });
 
   it("hides pay when the user cannot see it", async () => {
     renderIt(false);
     expect(await screen.findByText("Jane Wanjiru")).toBeTruthy();
-    expect(screen.queryByText("2,500.00")).toBeNull();
+    expect(screen.queryByText("KES 2,500")).toBeNull();
     expect(screen.queryByText("Pay")).toBeNull();
   });
 });

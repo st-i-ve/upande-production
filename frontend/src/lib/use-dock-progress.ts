@@ -54,6 +54,9 @@ export function useDockProgress(ref: React.RefObject<HTMLElement | null>): numbe
   const [progress, setProgress] = useState(0);
   const frame = useRef<number | undefined>(undefined);
   const last = useRef(0);
+  // Nothing has been handed over until the reader has actually scrolled: a
+  // short heading (no description yet, say) already sits above the dock line.
+  const scrolled = useRef(false);
 
   useEffect(() => {
     const el = ref.current;
@@ -63,7 +66,7 @@ export function useDockProgress(ref: React.RefObject<HTMLElement | null>): numbe
       frame.current = undefined;
       const bottom = el.getBoundingClientRect().bottom;
       const raw = (DOCK_LINE + RAMP - bottom) / RAMP;
-      const next = Math.max(0, Math.min(1, raw));
+      const next = scrolled.current ? Math.max(0, Math.min(1, raw)) : 0;
       // Only re-render when it would show. Sub-pixel churn on a fast scroll is
       // a render per frame for a transform nobody can see move.
       if (Math.abs(next - last.current) > 0.004 || next === 0 || next === 1) {
@@ -72,7 +75,12 @@ export function useDockProgress(ref: React.RefObject<HTMLElement | null>): numbe
       }
     };
 
-    const schedule = () => {
+    const schedule = (e?: Event) => {
+      if (e && e.type === "scroll") {
+        const t = e.target;
+        const top = t instanceof Element ? t.scrollTop : window.scrollY;
+        scrolled.current = top > 0;
+      }
       if (frame.current === undefined) frame.current = window.requestAnimationFrame(measure);
     };
 

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { WeekPicker } from "@/components/WeekPicker";
 import { AddTaskDialog, type OperationOption } from "@/components/plan/AddTaskDialog";
 import { AvatarStack, DeviationBadge, StatusPill } from "@/components/plan/badges";
-import { money, q, rowDate } from "@/components/plan/fmt";
+import { addDays, money, q, rowDate } from "@/components/plan/fmt";
 import { TickOffDialog } from "@/components/plan/TickOffDialog";
 import {
   generatePlanWeek,
@@ -25,7 +25,7 @@ import {
 import { useCurrentCrop } from "@/lib/crops";
 import { isError } from "@/lib/frappe";
 import { currentIsoWeek, weekStart, type IsoWeek } from "@/lib/weeks";
-import { cn } from "@/lib/utils";
+import { cn, ymd } from "@/lib/utils";
 
 const CARD = "rounded-[var(--sd-radius-lg)] bg-[var(--sd-card)] shadow-[var(--sd-shadow-1)]";
 
@@ -258,9 +258,9 @@ export function Plan() {
       title="Weekly Plan"
       eyebrow={crop.name}
       actions={actions}
-      description={
-        plan ? `${rowDate(plan.week_start)} to ${rowDate(plan.week_end)}. Tap a task to record the work.` : undefined
-      }
+      description={`${rowDate(plan?.week_start ?? ymd(weekStart(week)))} to ${rowDate(
+        plan?.week_end ?? ymd(addDays(weekStart(week), 6)),
+      )}. Tap a task to record the work.`}
     >
       {showSummary && (
         <FigureRow>

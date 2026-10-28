@@ -28,7 +28,7 @@ export function AccuracyTable({ units, uom, unitLabel }: { units: ForecastUnit[]
         <thead>
           <tr className="border-b border-[var(--sd-line)] text-left text-[11px] uppercase tracking-[0.1em] text-[var(--sd-quiet)]">
             <th className="px-3 py-2.5 font-medium">{unitLabel}</th>
-            <th className="px-3 py-2.5 text-right font-medium">Forecast ({uom})</th>
+            <th className="px-3 py-2.5 text-right font-medium">Forecast to date ({uom})</th>
             <th className="px-3 py-2.5 text-right font-medium">Actual ({uom})</th>
             <th className="px-3 py-2.5 text-right font-medium">Error</th>
           </tr>
@@ -39,7 +39,7 @@ export function AccuracyTable({ units, uom, unitLabel }: { units: ForecastUnit[]
             return (
               <tr key={u.unit} className="border-b border-[var(--sd-line-soft)] last:border-0">
                 <td className="px-3 py-2.5 font-medium text-[var(--sd-ink)]">{u.unit}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums">{qty(u.forecast)}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums">{qty(u.forecast_to_date ?? u.forecast)}</td>
                 <td className="px-3 py-2.5 text-right tabular-nums">{qty(u.actual)}</td>
                 <td
                   data-testid={`error-${u.unit}`}
@@ -54,7 +54,7 @@ export function AccuracyTable({ units, uom, unitLabel }: { units: ForecastUnit[]
         </tbody>
       </table>
       <p className="border-t border-[var(--sd-line-soft)] px-3 py-2 text-[11.5px] text-[var(--sd-quiet)]">
-        Error is (actual - forecast) / forecast. Green within 10%, amber within 25%, red beyond.
+        Only weeks up to the current one count. Error is (actual - forecast) / forecast. Green within 10%, amber within 25%, red beyond.
       </p>
     </div>
   );
