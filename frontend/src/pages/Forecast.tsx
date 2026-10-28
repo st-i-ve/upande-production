@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { ExternalLink } from "lucide-react";
 import { ChartSkeleton, RowsSkeleton } from "@/components/Loading";
 import { Figure, FigureRow } from "@/components/Figure";
 import { PageShell } from "@/components/PageShell";
@@ -14,7 +13,7 @@ import { SEASONS_CHART_HEIGHT, SeasonsChart } from "@/components/forecast/Season
 import { Card, CardContent, CardDescription, CardHeaderRow, CardHeading, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { forecastSummary, type ForecastSummary, type ForecastTotals } from "@/lib/api";
-import { EXTERNAL_LINKS, useCurrentCrop, viewLabel } from "@/lib/crops";
+import { useCurrentCrop, viewLabel } from "@/lib/crops";
 import { isError } from "@/lib/frappe";
 import { qty } from "@/lib/format";
 import { todayISO, ymd } from "@/lib/utils";
@@ -63,7 +62,6 @@ export function Forecast() {
 
   const uom = data?.uom || crop.yield_uom || "";
   const unitLabel = crop.unit_label || "Unit";
-  const links = EXTERNAL_LINKS[crop.crop_key] ?? [];
   const canEdit = crop.boot.can_plan || crop.boot.can_manage;
 
   const totals = data?.totals ?? EMPTY_TOTALS;
@@ -81,21 +79,6 @@ export function Forecast() {
         </>
       }
     >
-      {links.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2" aria-label="Related pages">
-          {links.map((l) => (
-            <a
-              key={l.href}
-              href={l.href}
-              className="inline-flex h-8 items-center gap-1.5 rounded-full bg-[var(--sd-card)] px-3.5 text-[12.5px] font-medium text-[var(--sd-ink)] shadow-[var(--sd-shadow-1)] ring-1 ring-border/60 transition-shadow hover:ring-2 hover:ring-border"
-            >
-              {l.label}
-              <ExternalLink className="h-3 w-3 text-[var(--sd-quiet)]" />
-            </a>
-          ))}
-        </div>
-      )}
-
       {failure && (
         <div role="alert" className="rounded-[var(--sd-radius-toast)] bg-[var(--sd-alert-error)] px-4 py-3 text-[13px] font-medium text-[var(--sd-ink)]">
           {failure}

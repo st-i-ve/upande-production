@@ -19,6 +19,16 @@ export const VIEWS = [
   "costs",
   "forecast",
   "settings",
+  // Approvals: the manager signs off supervisor-keyed work before it counts.
+  "approvals",
+  // Coverage map: blocks coloured by this week's work done / remaining.
+  "map",
+  // Avocado forecast pages (ported from the standalone /avocado-* pages).
+  "outlook",
+  "block-forecast",
+  "harvest-calendar",
+  "picking-plan",
+  "dry-matter",
 ] as const;
 
 export type View = (typeof VIEWS)[number];

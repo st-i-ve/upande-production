@@ -58,13 +58,10 @@ describe("Forecast", () => {
     expect(screen.getByRole("button", { name: /New sample/ })).toBeInTheDocument();
   });
 
-  it("shows external links only for crops that list them", async () => {
+  it("never links out to the standalone avocado pages", async () => {
     fc.mockResolvedValue({ uom: "Kg", weeks: [], units: [], totals: { forecast: 0, forecast_to_date: 0, actual: 0, committed: 0, error_pct: null }, seasons: [] });
-    const { unmount } = renderPage(<Forecast />);
-    await screen.findByText(/No weekly forecast/i);
-    expect(screen.queryByText("Outlook")).toBeNull();
-    unmount();
     renderPage(<Forecast />, {}, { ...CROP, crop_key: "avocado" });
-    expect(await screen.findByRole("link", { name: /Outlook/ })).toHaveAttribute("href", "/avocado-outlook");
+    await screen.findByText(/No weekly forecast/i);
+    expect(document.querySelector('a[href^="/avocado-"]')).toBeNull();
   });
 });

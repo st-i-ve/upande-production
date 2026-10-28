@@ -1,18 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  ExternalLink,
-  Home,
-  LayoutGrid,
-  PanelLeftClose,
-  PanelLeftOpen,
-  CalendarCheck,
-  Coins,
-  LineChart,
-  Repeat,
-  SlidersHorizontal,
-  Users,
-  LayoutDashboard,
-} from "lucide-react";
+import { Home, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -30,37 +17,24 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SidebarUser } from "@/components/SidebarUser";
 import type { Crop } from "@/lib/api";
-import { cropIcon, EXTERNAL_LINKS, viewLabel } from "@/lib/crops";
-import { routeHash, VIEWS, type View } from "@/lib/router";
+import { navForCrop } from "@/lib/nav";
+import { routeHash, type View } from "@/lib/router";
 import { cn } from "@/lib/utils";
 import upandeLogo from "@/assets/upande_logo.png";
 
-type IconType = React.ComponentType<{ className?: string }>;
-
-const VIEW_ICONS: Record<View, IconType> = {
-  overview: LayoutDashboard,
-  blocks: LayoutGrid,
-  cycles: Repeat,
-  plan: CalendarCheck,
-  "value-adders": Users,
-  costs: Coins,
-  forecast: LineChart,
-  settings: SlidersHorizontal,
-};
-
+/**
+ * One crop at a time, like SCP: the crop is named under the product title and
+ * there is no crop switcher here — crops are entered from the desk workspace.
+ */
 export function AppSidebar({
-  crops,
-  cropKey,
+  crop,
   view,
   onNavigate,
 }: {
-  crops: Crop[];
-  cropKey: string | null;
+  crop: Crop | null;
   view: View;
   onNavigate: (crop: string, view?: View) => void;
 }) {
-  const current = crops.find((c) => c.crop_key === cropKey) ?? null;
-  const externals = (cropKey && EXTERNAL_LINKS[cropKey]) || [];
   const { state, toggle } = useSidebar();
   const collapsed = state === "collapsed";
 
@@ -132,7 +106,7 @@ export function AppSidebar({
               Upande Production
             </span>
             <span className="mt-0.5 truncate text-[10px] font-medium uppercase tracking-[0.16em] text-[var(--sd-quiet)]">
-              Farm Operations
+              {crop?.name ?? "Farm Operations"}
             </span>
           </div>
         </div>
@@ -163,80 +137,35 @@ export function AppSidebar({
               "group-data-[collapsible=icon]:p-[0.8rem]",
             )}
           >
-            <SidebarGroup>
-              <SidebarGroupLabel>Crop</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {crops.map((c) => {
-                    const Icon = cropIcon(c.icon_key);
-                    return (
-                      <SidebarMenuItem key={c.crop_key}>
-                        <SidebarMenuButton
-                          asChild
-                          isActive={c.crop_key === cropKey}
-                          title={c.name}
-                        >
-                          <a
-                            href={routeHash(c.crop_key, view)}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              onNavigate(c.crop_key, view);
-                            }}
-                          >
-                            <Icon className="h-4 w-4" style={{ color: c.accent_color || undefined }} />
-                            <span>{c.name}</span>
-                          </a>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    );
-                  })}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-            {current && (
-              <SidebarGroup>
-                <SidebarGroupLabel>{current.name}</SidebarGroupLabel>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {VIEWS.map((v) => {
-                      const Icon = VIEW_ICONS[v];
-                      const label = viewLabel(v, current);
-                      return (
-                        <SidebarMenuItem key={v}>
-                          <SidebarMenuButton asChild isActive={view === v} title={label}>
-                            <a
-                              href={routeHash(current.crop_key, v)}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                onNavigate(current.crop_key, v);
-                              }}
-                            >
-                              <Icon className="h-4 w-4" />
-                              <span>{label}</span>
-                            </a>
-                          </SidebarMenuButton>
-                          {v === "forecast" && externals.length > 0 && (
-                            <ul className="ml-6 mt-0.5 flex flex-col gap-0.5 border-l border-sidebar-border pl-3 group-data-[collapsible=icon]:hidden">
-                              {externals.map((l) => (
-                                <li key={l.href}>
-                                  <a
-                                    href={l.href}
-                                    className="flex items-center gap-1.5 py-1 text-[12px] text-[var(--sd-muted)] hover:text-[var(--sd-ink)]"
-                                  >
-                                    <span>{l.label}</span>
-                                    <ExternalLink className="h-3 w-3" />
-                                  </a>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </SidebarMenuItem>
-                      );
-                    })}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            )}
+            {crop &&
+              navForCrop(crop).map((g) => (
+                <SidebarGroup key={g.label}>
+                  <SidebarGroupLabel>{g.label}</SidebarGroupLabel>
+                  <SidebarGroupContent>
+                    <SidebarMenu>
+                      {g.items.map((it) => {
+                        const Icon = it.icon;
+                        return (
+                          <SidebarMenuItem key={it.view}>
+                            <SidebarMenuButton asChild isActive={view === it.view} title={it.label}>
+                              <a
+                                href={routeHash(crop.crop_key, it.view)}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  onNavigate(crop.crop_key, it.view);
+                                }}
+                              >
+                                <Icon className="h-4 w-4" />
+                                <span>{it.label}</span>
+                              </a>
+                            </SidebarMenuButton>
+                          </SidebarMenuItem>
+                        );
+                      })}
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </SidebarGroup>
+              ))}
           </div>
         </ScrollArea>
       </SidebarContent>

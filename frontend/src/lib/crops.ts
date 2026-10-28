@@ -28,16 +28,6 @@ export function cropIcon(iconKey: string | null | undefined): IconType {
   return (iconKey && CROP_ICONS[iconKey]) || FALLBACK_ICON;
 }
 
-/** Links to the standalone avocado pages, shown under Forecast for the crops
- *  listed here. Keyed by crop_key: this is the only place a crop is named. */
-export const EXTERNAL_LINKS: Record<string, { label: string; href: string }[]> = {
-  avocado: [
-    { label: "Production", href: "/avocado-production" },
-    { label: "Outlook", href: "/avocado-outlook" },
-    { label: "Calendar", href: "/avocado-calendar" },
-    { label: "Maturity", href: "/avocado-maturity" },
-  ],
-};
 
 export function pluralise(word: string): string {
   if (!word) return word;
@@ -65,6 +55,20 @@ export function viewLabel(view: View, crop?: Pick<Crop, "unit_label"> | null): s
       return "Forecast";
     case "settings":
       return "Settings";
+    case "approvals":
+      return "Approvals";
+    case "map":
+      return "Coverage Map";
+    case "outlook":
+      return "Season Outlook";
+    case "block-forecast":
+      return "Block Forecast";
+    case "harvest-calendar":
+      return "Harvest Calendar";
+    case "picking-plan":
+      return "Picking Plan";
+    case "dry-matter":
+      return "Dry Matter";
   }
 }
 

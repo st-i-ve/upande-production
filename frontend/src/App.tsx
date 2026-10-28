@@ -7,6 +7,7 @@ import { PageSkeleton } from "@/components/Loading";
 import { Page } from "@/components/PageShell";
 import { Button } from "@/components/ui/button";
 import { CropProvider, useCrops } from "@/lib/crops";
+import { viewAllowed } from "@/lib/nav";
 import { replaceRoute, useRoute, type View } from "@/lib/router";
 
 /**
@@ -66,6 +67,23 @@ const ValueAdders = page(() =>
 const Costs = page(() => import("@/pages/Costs").then((m) => ({ default: m.Costs })));
 const Forecast = page(() => import("@/pages/Forecast").then((m) => ({ default: m.Forecast })));
 const Settings = page(() => import("@/pages/Settings").then((m) => ({ default: m.Settings })));
+const Approvals = page(() => import("@/pages/Approvals").then((m) => ({ default: m.Approvals })));
+const CoverageMap = page(() =>
+  import("@/pages/CoverageMap").then((m) => ({ default: m.CoverageMap })),
+);
+const Outlook = page(() => import("@/pages/avocado/Outlook").then((m) => ({ default: m.Outlook })));
+const BlockForecast = page(() =>
+  import("@/pages/avocado/BlockForecast").then((m) => ({ default: m.BlockForecast })),
+);
+const HarvestCalendar = page(() =>
+  import("@/pages/avocado/HarvestCalendar").then((m) => ({ default: m.HarvestCalendar })),
+);
+const PickingPlan = page(() =>
+  import("@/pages/avocado/PickingPlan").then((m) => ({ default: m.PickingPlan })),
+);
+const DryMatter = page(() =>
+  import("@/pages/avocado/DryMatter").then((m) => ({ default: m.DryMatter })),
+);
 
 const PAGES: Record<View, React.ComponentType> = {
   overview: Overview,
@@ -76,6 +94,13 @@ const PAGES: Record<View, React.ComponentType> = {
   costs: Costs,
   forecast: Forecast,
   settings: Settings,
+  approvals: Approvals,
+  map: CoverageMap,
+  outlook: Outlook,
+  "block-forecast": BlockForecast,
+  "harvest-calendar": HarvestCalendar,
+  "picking-plan": PickingPlan,
+  "dry-matter": DryMatter,
 };
 
 /** Says why the workspace is empty, and what to do, in place of a blank page. */
@@ -102,6 +127,10 @@ export function App() {
   useEffect(() => {
     if (boot && !crop && boot.crops.length) replaceRoute(boot.crops[0].crop_key, route.view);
   }, [boot, crop, route.view]);
+
+  useEffect(() => {
+    if (crop && !viewAllowed(route.view, crop.crop_key)) replaceRoute(crop.crop_key, "overview");
+  }, [crop, route.view]);
 
   const Built = PAGES[route.view];
 
@@ -138,8 +167,7 @@ export function App() {
       <ToastProvider>
         <SidebarProvider>
           <AppSidebar
-            crops={boot?.crops ?? []}
-            cropKey={crop?.crop_key ?? null}
+            crop={crop}
             view={route.view}
             onNavigate={navigate}
           />
