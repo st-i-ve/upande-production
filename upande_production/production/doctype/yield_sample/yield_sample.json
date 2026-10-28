@@ -1,0 +1,142 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-10-28 09:00:00.000000",
+ "custom": 0,
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "sample_date",
+  "unit",
+  "crop",
+  "cycle",
+  "growth_stage",
+  "sample_basis",
+  "sample_size",
+  "sampled_yield",
+  "uom",
+  "unit_population",
+  "est_unit_yield"
+ ],
+ "fields": [
+  {
+   "fieldname": "sample_date",
+   "fieldtype": "Date",
+   "label": "Sample Date",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "unit",
+   "fieldtype": "Link",
+   "label": "Unit",
+   "options": "Production Unit",
+   "reqd": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "crop",
+   "fieldtype": "Link",
+   "label": "Crop",
+   "options": "Production Crop"
+  },
+  {
+   "fieldname": "cycle",
+   "fieldtype": "Link",
+   "label": "Cycle",
+   "options": "Production Crop Cycle"
+  },
+  {
+   "fieldname": "growth_stage",
+   "fieldtype": "Data",
+   "label": "Growth Stage"
+  },
+  {
+   "fieldname": "sample_basis",
+   "fieldtype": "Select",
+   "label": "Sample Basis",
+   "options": "Plants\nTrees\nSquare Metres",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sample_size",
+   "fieldtype": "Float",
+   "label": "Sample Size",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sampled_yield",
+   "fieldtype": "Float",
+   "label": "Sampled Yield",
+   "reqd": 1
+  },
+  {
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "label": "Uom",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "unit_population",
+   "fieldtype": "Float",
+   "label": "Unit Population"
+  },
+  {
+   "fieldname": "est_unit_yield",
+   "fieldtype": "Float",
+   "label": "Est Unit Yield",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-10-28 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Yield Sample",
+ "owner": "Administrator",
+ "states": [],
+ "autoname": "YS-.YYYY.-.#####",
+ "naming_rule": "Expression (old style)",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "write": 1,
+   "role": "System Manager"
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "write": 1,
+   "role": "Production Manager"
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "write": 1,
+   "report": 1,
+   "role": "Production Supervisor"
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "Production Viewer"
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

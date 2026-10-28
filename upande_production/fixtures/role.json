@@ -1,0 +1,5 @@
+[
+ {"doctype": "Role", "name": "Production Manager", "role_name": "Production Manager", "desk_access": 1, "disabled": 0},
+ {"doctype": "Role", "name": "Production Supervisor", "role_name": "Production Supervisor", "desk_access": 1, "disabled": 0},
+ {"doctype": "Role", "name": "Production Viewer", "role_name": "Production Viewer", "desk_access": 1, "disabled": 0}
+]

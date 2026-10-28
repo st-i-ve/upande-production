@@ -1,0 +1,138 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-10-28 09:00:00.000000",
+ "custom": 0,
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "crop_name",
+  "crop_key",
+  "accent_color",
+  "icon_key",
+  "parent_unit_label",
+  "unit_label",
+  "sub_unit_label",
+  "yield_uom",
+  "default_cycle_type",
+  "enabled",
+  "sort_order"
+ ],
+ "fields": [
+  {
+   "fieldname": "crop_name",
+   "fieldtype": "Data",
+   "label": "Crop Name",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "crop_key",
+   "fieldtype": "Data",
+   "label": "Crop Key",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "accent_color",
+   "fieldtype": "Color",
+   "label": "Accent Color"
+  },
+  {
+   "fieldname": "icon_key",
+   "fieldtype": "Data",
+   "label": "Icon Key"
+  },
+  {
+   "fieldname": "parent_unit_label",
+   "fieldtype": "Data",
+   "label": "Parent Unit Label"
+  },
+  {
+   "fieldname": "unit_label",
+   "fieldtype": "Data",
+   "label": "Unit Label",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sub_unit_label",
+   "fieldtype": "Data",
+   "label": "Sub Unit Label"
+  },
+  {
+   "fieldname": "yield_uom",
+   "fieldtype": "Link",
+   "label": "Yield Uom",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "default_cycle_type",
+   "fieldtype": "Select",
+   "label": "Default Cycle Type",
+   "options": "Season\nPlanting\nPond Cycle\nHive Season"
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "default": "1"
+  },
+  {
+   "fieldname": "sort_order",
+   "fieldtype": "Int",
+   "label": "Sort Order"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-10-28 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Production Crop",
+ "owner": "Administrator",
+ "states": [],
+ "autoname": "field:crop_name",
+ "naming_rule": "By fieldname",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "write": 1,
+   "role": "System Manager"
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "write": 1,
+   "role": "Production Manager"
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "write": 1,
+   "report": 1,
+   "role": "Production Supervisor"
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "Production Viewer"
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

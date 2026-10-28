@@ -154,6 +154,10 @@ fixtures = [
 		"doctype": "Custom Field",
 		"filters": [["name", "in", ["User-custom_expo_push_tokens"]]],
 	},
+	{
+		"doctype": "Role",
+		"filters": [["name", "in", ["Production Manager", "Production Supervisor", "Production Viewer"]]],
+	},
 ]
 
 # Scheduled Tasks
