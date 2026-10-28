@@ -283,3 +283,53 @@ class TestRules(IntegrationTestCase):
 		d = protocols.diff(proto.name)
 		self.assertEqual(len(d["rule_check"]), len(out))
 		self.assertEqual(len(protocols.rule_check(proto.name)), len(out))
+
+	# -- protocol buffers (establishment period, pre-harvest interval) ---------------
+
+	def _buffer_cycle(self, ago=14, harvest_in=9, **row):
+		op = frappe.db.get_value("Production Operation", {"crop": self.crop, "operation_name": "TR Buffer Op"}) or _make(
+			"Production Operation", crop=self.crop, operation_name="TR Buffer Op", category="Other",
+			work_uom="Kg", default_rate=10).name
+		proto = _make("Production Protocol", protocol_name=frappe.generate_hash(length=6), crop=self.crop,
+			version_status="Active", cultural_activities=[{"operation": op, "schedule": "Interval", "interval_weeks": 1,
+				"establishment_period_weeks": 3, "pre_harvest_interval_days": 14, **row}]).name
+		unit, cy = self._cycle(ago=ago, harvest_in=harvest_in, protocol=proto)
+		return op, unit, cy
+
+	def test_phi_breach_warns(self):
+		op, unit, cy = self._buffer_cycle(ago=30)
+		br = rules.check(cycle=cy, operation=op, on_date=today())
+		b = next(x for x in br if x["rule_type"] == "Pre-harvest interval")
+		self.assertEqual(b["enforcement"], "Warn")
+		self.assertTrue(b["rule"].startswith("protocol:"))
+		self.assertEqual(b["message"], "TR Buffer Op is planned 9 days before harvest; the protocol's pre-harvest interval is 14 days.")
+
+	def test_establishment_breach_warns(self):
+		op, unit, cy = self._buffer_cycle(ago=10, harvest_in=100)
+		br = rules.check(cycle=cy, operation=op, on_date=today())
+		self.assertEqual([b["rule_type"] for b in br], ["Establishment period"])
+		self.assertIn("week 2", br[0]["message"])
+		self.assertIn("3 weeks after planting", br[0]["message"])
+
+	def test_buffer_never_blocks(self):
+		op, unit, cy = self._buffer_cycle(ago=10, harvest_in=5)
+		br = rules.check(cycle=cy, operation=op, on_date=today())
+		self.assertEqual(len(br), 2)
+		self.assertEqual(rules.worst(br), "Warn")
+
+	def test_no_harvest_no_phi(self):
+		op, unit, cy = self._buffer_cycle(ago=30)
+		frappe.db.set_value("Production Crop Cycle", cy, "expected_harvest_start", None)
+		with mock.patch("upande_production.production.logic.stages.harvest_start", return_value=None):
+			br = rules.check(cycle=cy, operation=op, on_date=today())
+		self.assertEqual(br, [])
+
+	def test_record_work_inside_phi_needs_reason(self):
+		op, unit, cy = self._buffer_cycle(ago=30)
+		entries = [{"employee": self.emp, "qty": 2}]
+		plan, t = self._task(unit, cy, op)
+		with self.assertRaises(rules.RuleBreach) as c:
+			work.record_task_work(plan.name, t.name, "In Progress", entries)
+		self.assertEqual(c.exception.rule_status, "Warn")
+		res = work.record_task_work(plan.name, t.name, "In Progress", entries, override_reason="Urgent")
+		self.assertEqual(frappe.db.get_value("Value Adder Work", res["work"][0], "rule_status"), "Warn")

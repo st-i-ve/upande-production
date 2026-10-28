@@ -701,6 +701,11 @@ is started/done) and `productionRecordUnplannedWork`, and when plan tasks are ge
 - `Warn` without a reason: nothing is saved; same shape with `"rule_status": "Warn"` and
   `"needs_override_reason": true`. Ask for a reason and resend with `override_reason`.
 - A breach is `{rule, rule_type, enforcement, message}`.
+- Protocol buffers are rules too, always `Warn` (a reason is required; the breach is flagged in Approvals). `rule` is
+  `protocol:<row name>` and `rule_type` is `Establishment period` ("Spraying is in week 2; the protocol's establishment
+  period is 3 weeks after planting.", or "after the last harvest" from the second cycle on) or `Pre-harvest interval`
+  ("Spraying is planned 9 days before harvest; the protocol's pre-harvest interval is 14 days."). No expected harvest
+  date means no pre-harvest check. Activities the protocol schedules inside the interval are not planned at all.
 - Tasks now carry `rule_status` (OK / Warn / Block, empty on old rows), `rule_notes` and `override_reason`
   (in every task list: week plan, plan detail, add task, update task). A task keeps its reason, so closing it
   later needs no new one.

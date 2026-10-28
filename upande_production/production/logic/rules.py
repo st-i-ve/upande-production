@@ -196,13 +196,19 @@ def _stocking_for_unit(unit, on_date):
 def _context(cycle, unit, on_date) -> dict:
 	"""crop, variety, stage, harvest_start and the unit for a cycle and/or unit on a date."""
 	ctx = {"crop": None, "variety": None, "stage": None, "harvest_start": None, "unit": unit, "cycle": cycle,
-		"stage_known": False}
+		"stage_known": False, "protocol": None, "cycle_start": None, "cycle_no": 1, "picks": [],
+		"harvest_interval_weeks": None}
 	if not cycle and unit:
 		cycle = _cycle_for_unit(unit, on_date)
 		ctx["cycle"] = cycle
 	if cycle and frappe.db.exists("Production Crop Cycle", cycle):
-		cols = ["unit", "crop", "expected_harvest_start"] + (["variety"] if _has("Production Crop Cycle", "variety") else [])
+		cols = ["unit", "crop", "expected_harvest_start", "start_date", "protocol"] + (
+			["variety"] if _has("Production Crop Cycle", "variety") else [])
+		if _has("Production Crop Cycle", "cycle_no"):
+			cols.append("cycle_no")
 		cy = frappe.db.get_value("Production Crop Cycle", cycle, cols, as_dict=True)
+		ctx["protocol"], ctx["cycle_start"] = cy.get("protocol"), cy.get("start_date")
+		ctx["cycle_no"] = cint(cy.get("cycle_no")) or 1
 		ctx["unit"] = unit = unit or cy.unit
 		ctx["crop"] = cy.crop
 		ctx["variety"] = cy.get("variety")
@@ -221,6 +227,13 @@ def _context(cycle, unit, on_date) -> dict:
 				ctx["harvest_start"] = st.harvest_start(cycle) or ctx["harvest_start"]
 			except Exception:
 				pass
+		try:
+			from upande_production.production.logic import schedule
+
+			hc = schedule.harvest_context(cycle)
+			ctx["picks"], ctx["harvest_interval_weeks"] = hc["picks"], hc["harvest_interval_weeks"]
+		except Exception:
+			pass
 	if unit and not ctx["crop"]:
 		ctx["crop"] = frappe.db.get_value("Production Unit", unit, "crop")
 	if not ctx["cycle"] and unit:
@@ -284,12 +297,48 @@ def check(cycle=None, unit=None, operation=None, on_date=None, exclude_work=None
 		return []
 	rules = rules_for(ctx["crop"], ctx["variety"], operation)
 	rev = _reverse_rules(ctx["crop"], ctx["variety"], operation)
-	if not (rules or rev):
+	out = []
+	if rules or rev:
+		span = max([cint(r.get("days")) for r in rules + rev] + [0]) + 1
+		others = _others(ctx["unit"], add_days(on_date, -span), add_days(on_date, span), exclude_work, exclude_task)
+		out = evaluate(rules, rev, op_info(operation), on_date, ctx["stage"], ctx["harvest_start"], others,
+			ctx["stage_known"])
+	return out + buffer_breaches(ctx, operation, on_date)
+
+
+def buffer_breaches(ctx, operation, on_date) -> list:
+	"""The cycle protocol's establishment period and pre-harvest interval (PHI) for `operation` on a date.
+	Both only Warn. No harvest date means no PHI check."""
+	from upande_production.production.logic import schedule
+
+	if not (ctx.get("cycle") and ctx.get("protocol") and ctx.get("cycle_start")):
 		return []
-	span = max([cint(r.get("days")) for r in rules + rev] + [0]) + 1
-	others = _others(ctx["unit"], add_days(on_date, -span), add_days(on_date, span), exclude_work, exclude_task)
-	return evaluate(rules, rev, op_info(operation), on_date, ctx["stage"], ctx["harvest_start"], others,
-		ctx["stage_known"])
+	if not frappe.db.exists("Production Protocol", ctx["protocol"]):
+		return []
+	proto = frappe.get_doc("Production Protocol", ctx["protocol"])
+	rows = schedule.rows_for_check(proto, operation)
+	if not rows:
+		return []
+	on_date, start = getdate(on_date), getdate(ctx["cycle_start"])
+	label = op_info(operation)["label"]
+	out = []
+	for r in rows:
+		est = cint(r.get("establishment_period_weeks"))
+		if est > 0 and on_date < schedule.week_start(start, est + 1):
+			after = _("after the last harvest") if ctx.get("cycle_no", 1) > 1 else _("after planting")
+			week = max((on_date - start).days // 7 + 1, 1)
+			out.append({"rule": f"protocol:{r.name}", "rule_type": "Establishment period", "enforcement": "Warn",
+				"message": _("{0} is in week {1}; the protocol's establishment period is {2} weeks {3}.").format(
+					label, week, est, after)})
+		phi = cint(r.get("pre_harvest_interval_days"))
+		if phi > 0:
+			nh = schedule.next_pick(on_date, ctx.get("harvest_start"), ctx.get("picks") or [],
+				ctx.get("harvest_interval_weeks"))
+			if nh is not None and 0 <= (nh - on_date).days < phi:
+				out.append({"rule": f"protocol:{r.name}", "rule_type": "Pre-harvest interval", "enforcement": "Warn",
+					"message": _("{0} is planned {1} days before harvest; the protocol's pre-harvest interval is {2} days.").format(
+						label, (nh - on_date).days, phi)})
+	return out
 
 
 # -- enforcement ----------------------------------------------------------------
