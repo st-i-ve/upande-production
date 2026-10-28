@@ -179,7 +179,7 @@ Opus review, desk app on the SCP design, crop-scoped routes, no Co-Authored-By t
   generated.
 - **Buffers are enforced by the rule engine** (`rules.check`): protocol cultural rows become
   implicit rules for that cycle — Not before establishment period (Warn) and Not within PHI days
-  before harvest (Block). They apply to add task, tick-off/record work, approvals and protocol
+  before harvest — both Warn (the agronomist decides). They apply to add task, tick-off/record work, approvals and protocol
   check, desk and mobile, exactly like Production Activity Rules (same breach payload).
 - **Cycle chain** for repeat-harvest varieties: cycle 1 starts at planting; expected flowering =
   start + weeks to first flowering; expected harvest start = flowering + weeks flowering → harvest
