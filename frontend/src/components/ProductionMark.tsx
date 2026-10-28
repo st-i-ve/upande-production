@@ -67,10 +67,16 @@ function build(svg: SVGElement, tracks: Track[], timing: KeyframeAnimationOption
         el.style.transformBox = t.box || "view-box";
         el.style.transformOrigin = t.origin;
       }
-      const a = el.animate(t.frames as unknown as Keyframe[], timing);
-      a.pause();
-      a.currentTime = 0;
-      out.push(a);
+      // A bad track must cost the animation, never the app: animate() throws on bad
+      // keyframes, and an uncaught throw here blanked the whole page.
+      try {
+        const a = el.animate(t.frames as unknown as Keyframe[], timing);
+        a.pause();
+        a.currentTime = 0;
+        out.push(a);
+      } catch (e) {
+        console.warn("ProductionMark: skipped a track", t.sel, e);
+      }
     });
   }
   return out;

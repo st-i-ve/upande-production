@@ -4,7 +4,7 @@
 
 Same pattern as Upande SCP and Livestock (scripts/build_scp_logo.py). At rest every
 mark IS the Upande mark (white disc with its thin rim, the arrow where upande_logo.png
-has it on a 689 canvas). On hover the arrow steps aside and a scene plays; it loops
+has it on a 689 canvas). On hover the arrow shrinks into the centre and a scene plays; it loops
 while the pointer stays and eases back out on leave. Keyframes are written once per
 scene and emitted both as CSS (the splash loader, shown through <img>) and as JSON
 in <metadata> (production_logo_motion.js on the desk, ProductionMark.tsx in the app).
@@ -68,13 +68,15 @@ def body(scene, rest_hidden: bool) -> str:
 # ENTER runs 0 -> 1 on hover (and back on leave); a scene's LOOP is its story.
 
 ARROW_HOME = "translate(0px, 0px) scale(1)"
-ARROW_ASIDE = "translate(186px, -190px) scale(.3)"
+ARROW_GONE = "translate(0px, 0px) scale(0)"
 
 ENTER = [
+    # The arrow shrinks into the centre of the disc and fades, so the scene has the whole
+    # disc; on leave it grows back out of the centre.
     (".arrow", "348.5px 347px", [
-        (0, {"transform": ARROW_HOME}),
-        (0.55, {"transform": ARROW_ASIDE}),
-        (1, {"transform": ARROW_ASIDE}),
+        (0, {"transform": ARROW_HOME, "opacity": 1}),
+        (0.45, {"transform": ARROW_GONE, "opacity": 0}),
+        (1, {"transform": ARROW_GONE, "opacity": 0}),
     ]),
     (".scene", None, [
         (0, {"opacity": 0}),
@@ -171,7 +173,16 @@ def motion_json(loop, loop_ms) -> str:
 HEAD = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 689 689" width="689" height="689" role="img" aria-label="{label}">'
 
 
+def check(key: str, tracks) -> None:
+    """Browsers reject (and the app used to crash on) keyframes whose offsets go backwards."""
+    for sel, _origin, frames in tracks:
+        offs = [o for o, _ in frames]
+        if any(o < 0 or o > 1 for o in offs) or any(b < a for a, b in zip(offs, offs[1:])):
+            raise SystemExit(f"{key}: {sel} offsets out of order: {offs}")
+
+
 def write(key: str, scene) -> None:
+    check(key, ENTER + scene.LOOP)
     stem = "production_logo" if key == "productivity" else f"production_logo_{key}"
     desk = "\n".join([
         HEAD.format(label=scene.LABEL),

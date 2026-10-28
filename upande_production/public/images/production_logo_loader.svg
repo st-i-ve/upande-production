@@ -30,12 +30,12 @@
     .needle { animation: production-round-14 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
     .zone { animation: production-round-15 4600ms cubic-bezier(.3,.7,.2,1) infinite both; }
     @keyframes production-in-0 {
-      0% { transform: translate(0px, 0px) scale(1); }
-      9.9% { transform: translate(186px, -190px) scale(.3); }
-      18% { transform: translate(186px, -190px) scale(.3); }
-      82% { transform: translate(186px, -190px) scale(.3); }
-      90.1% { transform: translate(186px, -190px) scale(.3); }
-      100% { transform: translate(0px, 0px) scale(1); }
+      0% { transform: translate(0px, 0px) scale(1); opacity: 1; }
+      8.1% { transform: translate(0px, 0px) scale(0); opacity: 0; }
+      18% { transform: translate(0px, 0px) scale(0); opacity: 0; }
+      82% { transform: translate(0px, 0px) scale(0); opacity: 0; }
+      91.9% { transform: translate(0px, 0px) scale(0); opacity: 0; }
+      100% { transform: translate(0px, 0px) scale(1); opacity: 1; }
     }
     @keyframes production-in-1 {
       0% { opacity: 0; }
