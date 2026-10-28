@@ -1,0 +1,53 @@
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { renderPage } from "./helpers";
+
+vi.mock("@/lib/api", () => ({ blockCosts: vi.fn() }));
+import { blockCosts } from "@/lib/api";
+import { Costs } from "@/pages/Costs";
+
+const mocked = vi.mocked(blockCosts);
+const base = { unit_type: "Pivot Block", is_group: 0, area_ha: 2, harvest_qty: 100, cost_per_ha: 0 };
+
+describe("Costs", () => {
+  beforeEach(() => mocked.mockReset());
+
+  it("shows an empty state", async () => {
+    mocked.mockResolvedValue({ rows: [] });
+    renderPage(<Costs />);
+    expect(await screen.findByText(/No block costs for this period/i)).toBeInTheDocument();
+  });
+
+  it("rolls a group up, expands to blocks, and paints a negative margin red", async () => {
+    mocked.mockResolvedValue({
+      rows: [
+        { ...base, unit: "Pivot 1", parent: null, is_group: 1, area_ha: 5, labour: 1500000, inputs: 500000, total_cost: 2000000, cost_per_ha: 400000, harvest_qty: 300, revenue: 1000000, margin: -1000000 },
+        { ...base, unit: "Block A", parent: "Pivot 1", labour: 1000000, inputs: 100000, total_cost: 1100000, revenue: 1200000, margin: 100000 },
+        { ...base, unit: "Block B", parent: "Pivot 1", labour: 500000, inputs: 400000, total_cost: 900000, revenue: 0, margin: -900000 },
+      ],
+    } as never);
+    renderPage(<Costs />);
+    const group = await screen.findByTestId("cost-row-Pivot 1");
+    expect(group).toHaveTextContent("KES 2,000,000");
+    expect(screen.getByTestId("margin-Pivot 1").className).toMatch(/sev-critical/);
+    expect(screen.queryByTestId("cost-row-Block B")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Expand Pivot 1/ }));
+    expect(screen.getByTestId("cost-row-Block B")).toBeInTheDocument();
+    expect(screen.getByTestId("margin-Block B").className).toMatch(/sev-critical/);
+    expect(screen.getByTestId("margin-Block A").className).not.toMatch(/sev-critical/);
+    // chart draws leaf blocks only, the loss in red
+    expect(screen.getByTestId("bar-Block B")).toHaveAttribute("data-negative", "true");
+    expect(screen.queryByTestId("bar-Pivot 1")).toBeNull();
+  });
+
+  it("hides money when pay is not visible", async () => {
+    mocked.mockResolvedValue({
+      rows: [{ ...base, unit: "Block A", parent: null, labour: null, inputs: 10, total_cost: null, cost_per_ha: null, revenue: 5, margin: null }],
+    } as never);
+    renderPage(<Costs />, { can_see_pay: false });
+    await waitFor(() => expect(screen.getByTestId("cost-row-Block A")).toBeInTheDocument());
+    expect(screen.getByText(/Money figures are hidden/i)).toBeInTheDocument();
+    expect(screen.queryByText("Labour")).toBeNull();
+    expect(screen.queryByText(/KES/)).toBeNull();
+  });
+});
