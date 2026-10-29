@@ -9,6 +9,7 @@ import { KpiCard } from "@/components/KpiCard";
 import { PageShell } from "@/components/PageShell";
 import { RefreshButton } from "@/components/RefreshButton";
 import { useToast } from "@/components/Toast";
+import { BlockBreakdown } from "@/components/costs/BlockBreakdown";
 import { CostTreemap } from "@/components/costs/CostTreemap";
 import { CostsTable, buildTree } from "@/components/costs/CostsTable";
 import { MarginChart } from "@/components/costs/MarginChart";
@@ -60,6 +61,7 @@ export function Costs() {
   const [allRows, setRows] = useState<BlockCostRow[] | null>(null);
   const [trend, setTrend] = useState<CostTrendWeek[] | null>(null);
   const [loading, setLoading] = useState(true);
+  const [openUnit, setOpenUnit] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -243,7 +245,7 @@ export function Costs() {
         <CardHeaderRow>
           <CardHeading>
             <CardTitle>Cost and margin by {unitWord.toLowerCase()}</CardTitle>
-            <CardDescription>Open a group to see the blocks it adds up.</CardDescription>
+            <CardDescription>Open a group to see the blocks it adds up; open a block for what went into it.</CardDescription>
           </CardHeading>
         </CardHeaderRow>
         <CardContent className="pt-0">
@@ -254,7 +256,7 @@ export function Costs() {
               {failure ? "The costs could not be loaded." : `No ${unitWord.toLowerCase()} costs for this period.`}
             </p>
           ) : (
-            <CostsTable rows={rows} canSeePay={canSeePay} areaLabel="Area (ha)" />
+            <CostsTable rows={rows} canSeePay={canSeePay} areaLabel="Area (ha)" onOpenUnit={setOpenUnit} />
           )}
         </CardContent>
       </Card>
@@ -270,6 +272,7 @@ export function Costs() {
           <CardContent className="pt-0">{!rows ? <ChartSkeleton height={220} /> : <MarginChart rows={rows} />}</CardContent>
         </Card>
       )}
+      {openUnit && <BlockBreakdown unit={openUnit} from={range.from} to={range.to} canSeePay={canSeePay} onClose={() => setOpenUnit(null)} />}
     </PageShell>
   );
 }

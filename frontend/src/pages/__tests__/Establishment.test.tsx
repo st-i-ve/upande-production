@@ -91,4 +91,13 @@ describe("Establishment", () => {
       }),
     );
   });
+
+  it("erp budget shown", async () => {
+    vi.mocked(est.listCosts).mockResolvedValue({
+      rows: [],
+      by_unit: [{ unit: "Block A", total: 3000, erp_budget: 2500, by_activity: [{ operation: "Trellis", amount: 3000 }] }],
+    } as never);
+    renderPage(<Establishment />);
+    expect(await screen.findByTestId("erp-budget-Block A")).toHaveTextContent("KES 2,500");
+  });
 });

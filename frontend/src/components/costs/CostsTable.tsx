@@ -41,10 +41,13 @@ export function CostsTable({
   rows,
   canSeePay,
   areaLabel = "Area (ha)",
+  onOpenUnit,
 }: {
   rows: BlockCostRow[];
   canSeePay: boolean;
   areaLabel?: string;
+  /** Opens a block's cost breakdown; leaf blocks become buttons. */
+  onOpenUnit?: (unit: string) => void;
 }) {
   const tree = useMemo(() => buildTree(rows), [rows]);
   const [open, setOpen] = useState<Set<string>>(new Set());
@@ -106,7 +109,18 @@ export function CostsTable({
               </span>
             </button>
           ) : (
-            <span className={cn("text-[var(--sd-ink)]", isGroup ? "" : "pl-5")}>{r.unit}</span>
+            onOpenUnit && !isGroup ? (
+              <button
+                type="button"
+                onClick={() => onOpenUnit(r.unit)}
+                aria-label={`Open the cost breakdown for ${r.unit}`}
+                className="pl-5 text-left text-[var(--sd-ink)] underline-offset-2 hover:underline"
+              >
+                {r.unit}
+              </button>
+            ) : (
+              <span className={cn("text-[var(--sd-ink)]", isGroup ? "" : "pl-5")}>{r.unit}</span>
+            )
           )}
         </td>
         <td className={NUM}>{ha(r.area_ha)}</td>

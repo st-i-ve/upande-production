@@ -12,6 +12,7 @@ import { CATEGORIES, OperationsTable } from "@/components/settings/OperationsTab
 import { ProtocolsList, type ProtocolActions } from "@/components/settings/ProtocolsList";
 import { Card, CardContent, CardDescription, CardHeaderRow, CardHeading, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BlockLinksPanel } from "@/components/settings/BlockLinksPanel";
 import { RulesPanel } from "@/components/varieties/RulesPanel";
 import { VarietiesPanel } from "@/components/varieties/VarietiesPanel";
 import { listOperations, listProtocols, type Row } from "@/lib/api";
@@ -169,6 +170,7 @@ export function Settings() {
             <TabsTrigger value="protocols">Protocols</TabsTrigger>
             <TabsTrigger value="varieties">Varieties</TabsTrigger>
             <TabsTrigger value="rules">Activity rules</TabsTrigger>
+            <TabsTrigger value="links">Block links</TabsTrigger>
           </TabsList>
         }
         filters={[
@@ -275,6 +277,20 @@ export function Settings() {
               ) : (
                 <RulesPanel crop={crop.name} rules={visibleRules} varieties={varieties} operations={opOptions} canEdit={canManage} onChanged={load} />
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="links" className="mt-0">
+          <Card>
+            <CardHeaderRow>
+              <CardHeading>
+                <CardTitle>Block links</CardTitle>
+                <CardDescription>Each block needs a cost centre and a warehouse of the same name, so chemicals issued to it are costed to it.</CardDescription>
+              </CardHeading>
+            </CardHeaderRow>
+            <CardContent>
+              <BlockLinksPanel crop={crop.name} unitLabel={crop.unit_label || "Block"} query={q} />
             </CardContent>
           </Card>
         </TabsContent>

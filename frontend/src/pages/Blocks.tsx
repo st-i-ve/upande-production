@@ -1,6 +1,6 @@
 import { StageChip } from "@/components/varieties/StageChip";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, TriangleAlert } from "lucide-react";
 import { ClearFiltersPill } from "@/components/ClearFiltersPill";
 import { FilterSelect } from "@/components/FilterSelect";
 import { KpiCard, KpiGrid } from "@/components/KpiCard";
@@ -16,6 +16,7 @@ import { UnitDrawer } from "@/components/blocks/UnitDrawer";
 import { BODY_ROW, TD, TDR, TH, THEAD_ROW, THR } from "@/components/blocks/tableStyles";
 import { EmptyNote, Panel } from "@/components/overview/Panel";
 import { cycleFlags, getOverview, listUnits, type OverviewBlock, type UnitRow } from "@/lib/api";
+import { blockLinks } from "@/lib/blockcost-api";
 import { cropUsesCycles, pluralise, useCurrentCrop, viewLabel } from "@/lib/crops";
 import { isError } from "@/lib/frappe";
 import { ha, qty } from "@/lib/format";
@@ -70,6 +71,7 @@ export function Blocks() {
   const [units, setUnits] = useState<UnitRow[] | null>(null);
   const [stats, setStats] = useState<Map<string, OverviewBlock>>(new Map());
   const [flagsByUnit, setFlagsByUnit] = useState<Map<string, string[]>>(new Map());
+  const [linkProblems, setLinkProblems] = useState<Map<string, string[]>>(new Map());
   const [loading, setLoading] = useState(true);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState<string | null>(null);
@@ -84,6 +86,12 @@ export function Blocks() {
     void getOverview(crop.name)
       .then((o) => {
         if (o && !isError(o)) setStats(new Map(o.blocks.map((b) => [b.unit, b])));
+      })
+      .catch(() => {});
+    // So is the cost centre / warehouse check.
+    void blockLinks(crop.name)
+      .then((l) => {
+        if (l && !isError(l)) setLinkProblems(new Map(l.rows.filter((x) => !x.ok).map((x) => [x.unit, x.problems])));
       })
       .catch(() => {});
     // Manager flags are a bonus too.
@@ -108,6 +116,7 @@ export function Blocks() {
     setOpen(null);
     setStats(new Map());
     setFlagsByUnit(new Map());
+    setLinkProblems(new Map());
     void load();
   }, [load]);
 
@@ -263,6 +272,16 @@ export function Blocks() {
                               <span className="w-[22px]" />
                             )}
                             <span className={cn("text-[var(--sd-ink)]", group ? "font-semibold" : "font-medium")}>{u.name}</span>
+                            {linkProblems.has(u.name) && (
+                              <span
+                                data-testid={`link-warning-${u.name}`}
+                                title={linkProblems.get(u.name)!.join("; ")}
+                                aria-label={`Link problem: ${linkProblems.get(u.name)!.join("; ")}`}
+                                className="text-[var(--sd-sev-high)]"
+                              >
+                                <TriangleAlert className="h-3.5 w-3.5" />
+                              </span>
+                            )}
                           </div>
                         </td>
                         <td className={cn(TD, "text-[var(--sd-muted)]")}>{u.unit_type}</td>

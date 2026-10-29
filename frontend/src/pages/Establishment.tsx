@@ -368,6 +368,7 @@ export function Establishment() {
   }, [byUnit, areaOf]);
 
   const activityCols = useMemo(() => [...new Set(byUnit.flatMap((r) => r.by_activity.map((a) => a.operation)))], [byUnit]);
+  const hasErpBudget = useMemo(() => byUnit.some((r) => !!r.erp_budget), [byUnit]);
   const leafUnits = useMemo(() => units.filter((u) => !u.is_group), [units]);
   const balanceOf = useMemo(() => new Map(balances.map((b) => [b.unit, b])), [balances]);
 
@@ -454,6 +455,7 @@ export function Establishment() {
                           <TableHead key={a} className="text-right">{a}</TableHead>
                         ))}
                         <TableHead className="text-right">Total</TableHead>
+                        {hasErpBudget && <TableHead className="text-right">ERP budget</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -470,6 +472,14 @@ export function Establishment() {
                             );
                           })}
                           <TableCell className="text-right font-medium tabular-nums">{kes(r.total)}</TableCell>
+                          {hasErpBudget && (
+                            <TableCell
+                              data-testid={`erp-budget-${r.unit}`}
+                              className={`text-right tabular-nums ${r.erp_budget && r.total > r.erp_budget ? "text-[var(--sd-data-red)]" : ""}`}
+                            >
+                              {r.erp_budget ? kes(r.erp_budget) : "—"}
+                            </TableCell>
+                          )}
                         </TableRow>
                       ))}
                     </TableBody>

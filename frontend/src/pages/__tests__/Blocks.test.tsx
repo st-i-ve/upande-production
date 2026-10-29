@@ -12,6 +12,7 @@ vi.mock("@/lib/api", async (orig) => ({
   getOverview: vi.fn().mockResolvedValue({ error: "no" }),
   cycleFlags: vi.fn().mockResolvedValue({ error: "no" }),
 }));
+vi.mock("@/lib/blockcost-api", () => ({ blockLinks: vi.fn().mockResolvedValue({ rows: [{ unit: "B", ok: false, problems: ["No warehouse"] }, { unit: "C", ok: true, problems: [] }] }) }));
 const listUnits = vi.mocked(api.listUnits);
 const getUnit = vi.mocked(api.getUnit);
 
@@ -110,5 +111,12 @@ describe("Blocks", () => {
     expect(screen.getByText("Plants replaced")).toBeTruthy();
     expect(screen.getByText("35")).toBeTruthy();
     expect(await screen.findByTestId("block-flag-Block A")).toHaveTextContent("3 weeks late");
+  });
+
+  it("warns on a block with a link problem", async () => {
+    listUnits.mockResolvedValue({ units: [unit({ name: "B" }), unit({ name: "C" })] });
+    renderPage(<Blocks />, true, AQUA);
+    expect(await screen.findByTestId("link-warning-B")).toHaveAttribute("title", "No warehouse");
+    expect(screen.queryByTestId("link-warning-C")).toBeNull();
   });
 });

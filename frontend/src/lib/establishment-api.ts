@@ -29,6 +29,8 @@ export interface EstablishmentByUnit {
   unit: string;
   total: number;
   area_ha?: number | null;
+  /** ERPNext Budget on the block's cost centre for the current fiscal year; absent or 0 when none. */
+  erp_budget?: number | null;
   by_activity: EstablishmentByActivity[];
 }
 

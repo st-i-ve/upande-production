@@ -3,8 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderPage } from "./helpers";
 
 vi.mock("@/lib/api", () => ({ blockCosts: vi.fn() }));
+vi.mock("@/lib/blockcost-api", () => ({ blockBreakdown: vi.fn() }));
 vi.mock("@/lib/insights-api", () => ({ costTrend: vi.fn() }));
 import { blockCosts } from "@/lib/api";
+import { blockBreakdown } from "@/lib/blockcost-api";
 import { costTrend } from "@/lib/insights-api";
 import { Costs } from "@/pages/Costs";
 
@@ -54,5 +56,30 @@ describe("Costs", () => {
     expect(screen.getByText(/Money figures are hidden/i)).toBeInTheDocument();
     expect(screen.queryByText("Labour")).toBeNull();
     expect(screen.queryByText(/KES/)).toBeNull();
+  });
+
+  it("breakdown lists inputs per ha", async () => {
+    mocked.mockResolvedValue({ rows: [{ ...base, unit: "Block A", parent: null, labour: 100, inputs: 50, total_cost: 150, revenue: 0, margin: -150 }] } as never);
+    vi.mocked(blockBreakdown).mockReset().mockResolvedValue({
+      unit: "Block A",
+      area_ha: 2,
+      labour: [{ operation: "Pruning", qty_by_uom: [{ uom: "Tree", qty: 40 }], workers: 3, pay: 100 }],
+      inputs: [{ item_code: "NPK", item_name: "NPK 17", item_group: "Fertiliser", qty: 100, uom: "Kg", amount: 50, per_ha: 50, planned_qty: 120 }],
+      other: [{ account: "Repairs - MUT", amount: 20 }],
+      totals: { labour: 100, inputs: 50, other: 20, total: 170, per_ha: 85 },
+      budget: { erp_budget: 150, actual_this_fy: 170 },
+    } as never);
+    renderPage(<Costs />);
+    fireEvent.click(await screen.findByRole("button", { name: /cost breakdown for Block A/i }));
+    const row = await screen.findByTestId("input-NPK");
+    expect(row).toHaveTextContent("NPK 17");
+    expect(row).toHaveTextContent("100.00 Kg");
+    expect(screen.getByTestId("per-ha-NPK")).toHaveTextContent("50.00 Kg/ha");
+    expect(row).toHaveTextContent("120.00 Kg");
+    expect(screen.getByTestId("breakdown-labour")).toHaveTextContent("Pruning");
+    expect(screen.getByTestId("breakdown-other")).toHaveTextContent("Repairs - MUT");
+    expect(screen.getByTestId("breakdown-totals")).toHaveTextContent("KES 170");
+    expect(screen.getByText(/over budget/i)).toBeInTheDocument();
+    expect(blockBreakdown).toHaveBeenCalledWith("Block A", expect.any(String), expect.any(String));
   });
 });
