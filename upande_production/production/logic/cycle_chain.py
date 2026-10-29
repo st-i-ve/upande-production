@@ -151,6 +151,36 @@ def expected_flowering(doc, v=None):
 	return None
 
 
+def _season_on_or_before(v, on) -> tuple:
+	"""(season row, date) of the latest season start on or before `on`."""
+	on = getdate(on)
+	best = None
+	for r in v.seasons:
+		for year in (on.year, on.year - 1):
+			d = getdate(f"{year}-{_month_no(r):02d}-01")
+			if d <= on:
+				if best is None or d > best[1]:
+					best = (r, d)
+				break
+	return best
+
+
+def backfill_season(doc, v) -> bool:
+	"""An open, already-saved cycle of a Seasonal variety without a season takes the season whose start
+	is nearest on or before its actual / expected flowering date (else its start date); its expected
+	flowering follows. True when a season was assigned."""
+	if doc.is_new() or doc.get("flowering_season") or doc.get("status") in ("Closed", "Cancelled") or not _is_seasonal(v):
+		return False
+	ref = doc.get("actual_flowering_date") or doc.get("expected_flowering_date") or doc.get("start_date")
+	hit = _season_on_or_before(v, ref) if ref else None
+	if not hit:
+		return False
+	doc.flowering_season = hit[0]["season_name"]
+	doc.expected_flowering_date = hit[1]
+	doc.flags.season_backfilled = True
+	return True
+
+
 def cycle_number(doc) -> int:
 	"""1 without a previous cycle or for a Once variety; otherwise the previous cycle's number + 1."""
 	if not doc.get("previous_cycle"):
@@ -222,6 +252,7 @@ def sync_actuals(doc) -> None:
 	v = _variety(doc)
 	patterned = False
 	if flower:
+		backfill_season(doc, v)
 		ef = expected_flowering(doc, v)
 		if ef:
 			doc.expected_flowering_date = ef
@@ -250,8 +281,8 @@ def _sync_expected_harvest(doc, v, patterned=False):
 		go = not doc.get("expected_harvest_start") and (cint(doc.get("cycle_no")) > 1 or doc.get("actual_flowering_date")
 			or (patterned and doc.get("flowering_season")))
 	else:
-		go = doc.get("actual_flowering_date") and doc.has_value_changed("actual_flowering_date") \
-			and not doc.has_value_changed("expected_harvest_start")
+		go = doc.flags.get("season_backfilled") or (doc.get("actual_flowering_date")
+			and doc.has_value_changed("actual_flowering_date") and not doc.has_value_changed("expected_harvest_start"))
 	f = doc.get("actual_flowering_date") or doc.get("expected_flowering_date")
 	if not go or not f:
 		return

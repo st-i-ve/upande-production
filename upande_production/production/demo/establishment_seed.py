@@ -302,6 +302,8 @@ def align_cycles():
 			doc.start_date = start
 		if anchored:
 			want = add_days(start, late * 7)
+			if doc.flowering_season and doc.expected_flowering_date:  # seasonal: late against its season start
+				want = add_days(getdate(doc.expected_flowering_date), late * 7)
 			if getdate(doc.actual_flowering_date or "1900-01-01") != want:
 				doc.actual_flowering_date = want
 				dirty = True

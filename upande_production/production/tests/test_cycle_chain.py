@@ -339,6 +339,19 @@ class TestCycleChain(IntegrationTestCase):
 		fl = cycle_chain.flags(c)
 		self.assertTrue(any("3 weeks late" in f for f in fl), fl)
 
+	def test_existing_seasonal_cycle_backfills_season(self):
+		v = self._seasonal("CC Seasonal Back")
+		u = self._unit("CC Block Back")
+		c = _make("Production Crop Cycle", unit=u.name, crop=self.crop.name, variety=v, start_date="2023-04-10",
+			status="Active")
+		frappe.db.set_value(c.doctype, c.name, {"flowering_season": None, "expected_flowering_date": "2026-09-05",
+			"expected_harvest_start": "2027-01-01", "actual_flowering_date": "2026-08-22"})
+		c = frappe.get_doc(c.doctype, c.name)
+		c.save()  # season whose start is nearest on or before the actual flowering (2026-08-22): Main (August)
+		c.reload()
+		self.assertEqual((c.flowering_season, c.expected_flowering_date), ("Main", getdate("2026-08-01")))
+		self.assertEqual(c.expected_harvest_start, add_days(getdate("2026-08-22"), 36 * 7))
+
 	def test_shares_must_total_100(self):
 		with self.assertRaises(frappe.ValidationError):
 			self._seasonal("CC Seasonal Bad", shares=(80, 30))
