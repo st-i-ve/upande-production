@@ -1,8 +1,7 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const src = (p: string) => readFileSync(resolve(__dirname, "../..", p), "utf8");
+const files = import.meta.glob("/src/**/*.{ts,tsx}", { query: "?raw", import: "default", eager: true }) as Record<string, string>;
+const src = (p: string) => files[`/src/${p}`] ?? "";
 
 /** Thresholds live in the backend and arrive with each page; the UI keeps no copy or fallback. */
 const FORBIDDEN: [string, RegExp][] = [
@@ -22,6 +21,7 @@ const FORBIDDEN: [string, RegExp][] = [
 
 describe("no business thresholds in the desk", () => {
   it.each(FORBIDDEN)("%s has no %s", (file, pattern) => {
+    expect(src(file).length).toBeGreaterThan(0);
     expect(src(file)).not.toMatch(pattern);
   });
 });
