@@ -5,6 +5,8 @@ as stage actuals; the expected dates are the planned starts with those two actua
 flowering shows as a flag while still shifting every later stage.
 """
 
+import calendar
+
 import frappe
 from frappe.utils import add_days, cint, getdate, today
 
@@ -12,12 +14,141 @@ from upande_production.production.logic import stages
 
 CYCLE_DT = "Production Crop Cycle"
 FLAG_STATUSES = ("Active", "Harvesting")
+MONTHS = [m for m in calendar.month_name if m]
 
 
 def _variety(doc):
-	return frappe.db.get_value("Production Variety", doc.get("variety"), [
+	v = frappe.db.get_value("Production Variety", doc.get("variety"), [
 		"is_flowering", "harvest_pattern", "lifespan_years", "weeks_flowering_to_harvest",
-		"weeks_to_reflower_after_harvest", "harvest_window_days", "stage_anchor"], as_dict=True) if doc.get("variety") else None
+		"weeks_to_reflower_after_harvest", "harvest_window_days", "stage_anchor", "weeks_to_maturity",
+		"flowering_pattern", "flowering_interval_weeks"], as_dict=True) if doc.get("variety") else None
+	if v:
+		v.seasons = _seasons(doc.get("variety")) if v.flowering_pattern == "Seasonal" else []
+	return v
+
+
+def _seasons(variety) -> list:
+	return frappe.get_all("Production Variety Flowering Season", filters={"parent": variety, "parenttype": "Production Variety"},
+		fields=["season_name", "start_month", "weeks_flowering_to_harvest", "crop_share_pct"], order_by="idx asc")
+
+
+def _month_no(row) -> int:
+	return MONTHS.index(row["start_month"]) + 1
+
+
+def _is_seasonal(v) -> bool:
+	return bool(v and cint(v.is_flowering) and v.flowering_pattern == "Seasonal" and v.seasons)
+
+
+def next_season(variety, after) -> tuple:
+	"""(season row, flowering date) of the first season start strictly after `after` (a season starts on
+	the 1st of its start month). `variety` is a name or the dict from `_variety`."""
+	seasons = variety.seasons if hasattr(variety, "seasons") else _seasons(variety)
+	after = getdate(after)
+	best = None
+	for r in seasons:
+		for year in (after.year, after.year + 1):
+			d = getdate(f"{year}-{_month_no(r):02d}-01")
+			if d > after and (best is None or d < best[1]):
+				best = (r, d)
+				break
+	return best
+
+
+def _season_on_or_after(variety, on) -> tuple:
+	"""Like next_season, but a season starting on `on` itself counts."""
+	return next_season(variety, add_days(getdate(on), -1))
+
+
+def first_season_date(planted_on, variety):
+	"""First season start on or after planting + weeks to maturity."""
+	hit = first_season(planted_on, variety)
+	return hit[1] if hit else None
+
+
+def first_season(planted_on, variety) -> tuple:
+	v = variety if hasattr(variety, "seasons") else _variety(frappe._dict(variety=variety))
+	if not v or not v.seasons:
+		return None
+	return _season_on_or_after(v, add_days(getdate(planted_on), cint(v.weeks_to_maturity) * 7))
+
+
+def _season_row(v, name=None, near=None):
+	"""The season row by name, else the one starting closest (by month) to the date `near`."""
+	if name:
+		row = next((r for r in v.seasons if r["season_name"] == name), None)
+		if row:
+			return row
+	if near and v.seasons:
+		near = getdate(near)
+		return min(v.seasons, key=lambda r: min((_month_no(r) - near.month) % 12, (near.month - _month_no(r)) % 12))
+	return None
+
+
+def _weeks_f2h(doc, v) -> int:
+	"""Weeks from flowering to harvest for the cycle: its season's, else the variety's."""
+	if _is_seasonal(v):
+		row = _season_row(v, doc.get("flowering_season"), doc.get("actual_flowering_date") or doc.get("expected_flowering_date"))
+		if row:
+			return cint(row["weeks_flowering_to_harvest"])
+	return cint(v.weeks_flowering_to_harvest) if v else 0
+
+
+def planted_on(doc):
+	"""Planting date of the cycle's block: the opening balance's planted_on, else the first cycle's start."""
+	unit = doc.get("unit")
+	if unit:
+		d = frappe.db.get_value("Block Opening Balance", {"unit": unit}, "planted_on")
+		if d:
+			return getdate(d)
+	return _root_start(doc)
+
+
+def is_juvenile(doc) -> bool:
+	"""Expected harvest start is before the block's planting date plus the variety's weeks to maturity."""
+	v = _variety(doc)
+	if not v or not cint(v.weeks_to_maturity) or not doc.get("expected_harvest_start") or doc.get("actual_harvest_start"):
+		return False  # a cycle that is already being picked is not waiting for maturity
+	planted = planted_on(doc)
+	if not planted:
+		return False
+	return getdate(doc.expected_harvest_start) < add_days(planted, cint(v.weeks_to_maturity) * 7)
+
+
+def expected_flowering(doc, v=None):
+	"""Expected flowering date of the cycle under its variety's pattern, or None when the pattern gives
+	no answer (the stage timeline then decides). Seasonal: the cycle's season start (kept once set);
+	a first cycle takes the first season after maturity, a later one the next season after the previous
+	flowering. Interval: previous flowering + the interval."""
+	v = v or _variety(doc)
+	if not v or not cint(v.is_flowering):
+		return None
+	if _is_seasonal(v):
+		if doc.get("flowering_season") and doc.get("expected_flowering_date"):
+			return getdate(doc.expected_flowering_date)
+		prev = doc.get("previous_cycle")
+		if prev:
+			p = frappe.db.get_value(CYCLE_DT, prev, ["actual_flowering_date", "expected_flowering_date"], as_dict=True)
+			ref = p and (p.actual_flowering_date or p.expected_flowering_date)
+			hit = next_season(v, ref) if ref else None
+			if hit and doc.get("start_date") and hit[1] < getdate(doc.start_date):
+				hit = _season_on_or_after(v, doc.start_date)
+			return hit[1] if hit else None
+		if not callable(getattr(doc, "is_new", None)) or doc.is_new():
+			planted = planted_on(doc) or (getdate(doc.start_date) if doc.get("start_date") else None)
+			hit = first_season(planted, v) if planted else None
+			return hit[1] if hit else None
+		return None
+	if v.flowering_pattern == "Interval" and cint(v.flowering_interval_weeks) and doc.get("previous_cycle"):
+		p = frappe.db.get_value(CYCLE_DT, doc.get("previous_cycle"), ["actual_flowering_date", "expected_flowering_date"], as_dict=True)
+		ref = p and (p.actual_flowering_date or p.expected_flowering_date)
+		if ref:
+			d = add_days(getdate(ref), cint(v.flowering_interval_weeks) * 7)
+			if doc.get("start_date"):
+				while d < getdate(doc.start_date):
+					d = add_days(d, cint(v.flowering_interval_weeks) * 7)
+			return d
+	return None
 
 
 def cycle_number(doc) -> int:
@@ -89,32 +220,42 @@ def sync_actuals(doc) -> None:
 			doc.actual_harvest_start = first
 			_upsert(doc, harvest, first)
 	v = _variety(doc)
+	patterned = False
 	if flower:
-		if cint(doc.get("cycle_no")) > 1 and v and cint(v.weeks_to_reflower_after_harvest):
+		ef = expected_flowering(doc, v)
+		if ef:
+			doc.expected_flowering_date = ef
+			patterned = True
+			if _is_seasonal(v) and not doc.get("flowering_season"):
+				doc.flowering_season = _season_row(v, near=ef)["season_name"]
+		elif cint(doc.get("cycle_no")) > 1 and v and cint(v.weeks_to_reflower_after_harvest):
 			doc.expected_flowering_date = add_days(doc.start_date, cint(v.weeks_to_reflower_after_harvest) * 7)
 		else:
 			tl = _planned(doc, {flower})
 			st = next((s["start"] for s in tl if s["stage"] == flower), None)
 			if st:
 				doc.expected_flowering_date = st
-	_sync_expected_harvest(doc, v)
+	_sync_expected_harvest(doc, v, patterned)
+	doc.juvenile = 1 if is_juvenile(doc) else 0
 
 
-def _sync_expected_harvest(doc, v):
+def _sync_expected_harvest(doc, v, patterned=False):
 	"""Expected harvest follows the flowering date (actual wins) for flowering varieties: a hand-made
 	later cycle gets it filled in; a newly recorded actual flowering moves it unless the user set
 	expected_harvest_start in the same save."""
-	if not v or not cint(v.is_flowering) or not cint(v.weeks_flowering_to_harvest):
+	weeks = _weeks_f2h(doc, v) if v else 0
+	if not v or not cint(v.is_flowering) or not weeks:
 		return
 	if doc.is_new():
-		go = not doc.get("expected_harvest_start") and (cint(doc.get("cycle_no")) > 1 or doc.get("actual_flowering_date"))
+		go = not doc.get("expected_harvest_start") and (cint(doc.get("cycle_no")) > 1 or doc.get("actual_flowering_date")
+			or (patterned and doc.get("flowering_season")))
 	else:
 		go = doc.get("actual_flowering_date") and doc.has_value_changed("actual_flowering_date") \
 			and not doc.has_value_changed("expected_harvest_start")
 	f = doc.get("actual_flowering_date") or doc.get("expected_flowering_date")
 	if not go or not f:
 		return
-	doc.expected_harvest_start = add_days(getdate(f), cint(v.weeks_flowering_to_harvest) * 7)
+	doc.expected_harvest_start = add_days(getdate(f), weeks * 7)
 	if cint(v.harvest_window_days):
 		doc.expected_harvest_end = add_days(doc.expected_harvest_start, cint(v.harvest_window_days))
 
@@ -122,10 +263,11 @@ def _sync_expected_harvest(doc, v):
 def _expected_harvest(doc):
 	v = _variety(doc)
 	_, harvest = _stage_names(doc)
-	if cint(doc.get("cycle_no")) > 1 and v and cint(v.weeks_flowering_to_harvest):
+	weeks = _weeks_f2h(doc, v) if v else 0
+	if (cint(doc.get("cycle_no")) > 1 or (_is_seasonal(v) and doc.get("flowering_season"))) and weeks:
 		f = doc.get("actual_flowering_date") or doc.get("expected_flowering_date")
 		if f:
-			return add_days(getdate(f), cint(v.weeks_flowering_to_harvest) * 7)
+			return add_days(getdate(f), weeks * 7)
 	if harvest:
 		st = next((s["start"] for s in _planned(doc, {harvest}) if s["stage"] == harvest), None)
 		if st:
@@ -168,9 +310,17 @@ def propose_next(doc) -> str | None:
 		"previous_cycle": doc.name, "cycle_no": cint(doc.get("cycle_no") or 1) + 1, "start_date": nxt,
 		"protocol": stages.variety_protocol(doc.variety)}
 	if cint(v.is_flowering):
-		ef = add_days(nxt, cint(v.weeks_to_reflower_after_harvest) * 7)
+		probe = frappe._dict(previous_cycle=doc.name, start_date=nxt, unit=doc.unit, variety=doc.variety)
+		ef = expected_flowering(probe, v)
+		weeks = cint(v.weeks_flowering_to_harvest)
+		if _is_seasonal(v) and ef:
+			row = _season_row(v, near=ef)
+			vals["flowering_season"] = row["season_name"]
+			weeks = cint(row["weeks_flowering_to_harvest"])
+		elif not ef:
+			ef = add_days(nxt, cint(v.weeks_to_reflower_after_harvest) * 7)
 		vals["expected_flowering_date"] = ef
-		vals["expected_harvest_start"] = add_days(ef, cint(v.weeks_flowering_to_harvest) * 7)
+		vals["expected_harvest_start"] = add_days(ef, weeks * 7)
 		if cint(v.harvest_window_days):
 			vals["expected_harvest_end"] = add_days(vals["expected_harvest_start"], cint(v.harvest_window_days))
 	new = frappe.get_doc(vals)
@@ -211,8 +361,8 @@ def flags(doc, today_=None) -> list[str]:
 		flower, harvest = _stage_names(doc)
 		out = []
 		v = _variety(doc)
-		anchored = v and v.stage_anchor == "Flowering" and cint(doc.get("cycle_no") or 1) <= 1
-		if flower and not anchored:  # a flowering-anchored first cycle starts at flowering
+		anchored = v and v.stage_anchor == "Flowering" and cint(doc.get("cycle_no") or 1) <= 1 and not _is_seasonal(v)
+		if flower and not anchored:  # a flowering-anchored first cycle starts at flowering (not so for seasons)
 			out.append(_compare("flowering", unit, doc.get("expected_flowering_date"), doc.get("actual_flowering_date"),
 				tol, now, "flowered", "flowering due"))
 		if harvest:

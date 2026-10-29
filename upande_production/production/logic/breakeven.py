@@ -178,7 +178,10 @@ def _forecast_value(units, crop):
 	total = 0.0
 	cycles = analytics.current_cycles(crop)
 	for unit in units:
-		fname = _forecast_for(unit, cycles.get(unit))
+		cy = cycles.get(unit)
+		if cy and cy.get("juvenile"):  # a juvenile cycle yields nothing yet: its forecast does not count
+			continue
+		fname = _forecast_for(unit, cy)
 		if not fname:
 			continue
 		qty = frappe.db.sql(

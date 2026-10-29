@@ -33,7 +33,10 @@ NEW_FIELDS = {
 		"lifespan_years", "harvest_pattern", "harvest_interval_weeks", "is_flowering",
 		"weeks_to_first_flowering", "weeks_flowering_to_harvest", "weeks_to_reflower_after_harvest",
 		"weeks_to_first_harvest", "harvest_window_weeks", "plants_per_m2", "dry_matter_target_pct",
+		"weeks_to_maturity", "flowering_pattern", "flowering_seasons", "flowering_interval_weeks",
 	],
+	"Production Variety Flowering Season": ["season_name", "start_month", "weeks_flowering_to_harvest", "crop_share_pct"],
+	"Production Crop Cycle": ["flowering_season", "juvenile"],
 	"Production Protocol": [
 		"capital_activities", "key_activities", "cultural_activities", "lifespan_years", "harvest_pattern",
 		"harvest_interval_weeks", "is_flowering", "weeks_to_first_flowering", "weeks_flowering_to_harvest",

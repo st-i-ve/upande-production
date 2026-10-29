@@ -1,0 +1,57 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-10-29 12:00:00.000000",
+ "custom": 0,
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "istable": 1,
+ "editable_grid": 1,
+ "field_order": [
+  "season_name",
+  "start_month",
+  "weeks_flowering_to_harvest",
+  "crop_share_pct"
+ ],
+ "fields": [
+  {
+   "fieldname": "season_name",
+   "fieldtype": "Data",
+   "label": "Season",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "start_month",
+   "fieldtype": "Select",
+   "label": "Start Month",
+   "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "weeks_flowering_to_harvest",
+   "fieldtype": "Int",
+   "label": "Weeks Flowering to Harvest",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "crop_share_pct",
+   "fieldtype": "Float",
+   "label": "Share of Crop %",
+   "in_list_view": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-29 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Production Variety Flowering Season",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

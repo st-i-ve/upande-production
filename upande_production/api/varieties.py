@@ -12,8 +12,9 @@ from upande_production.production.logic import analytics, stages
 TEMPLATE_FIELDS = [
 	"lifespan_years", "harvest_pattern", "harvest_interval_weeks", "plants_per_m2", "dry_matter_target_pct",
 	"is_flowering", "weeks_to_first_flowering", "weeks_flowering_to_harvest", "weeks_to_reflower_after_harvest",
-	"weeks_to_first_harvest", "harvest_window_weeks",
+	"weeks_to_first_harvest", "harvest_window_weeks", "weeks_to_maturity", "flowering_pattern", "flowering_interval_weeks",
 ]
+SEASON_FIELDS = ["season_name", "start_month", "weeks_flowering_to_harvest", "crop_share_pct"]
 VARIETY_FIELDS = [
 	"name", "variety_name", "crop", "product", "item", "enabled", "stage_anchor", "default_protocol",
 	"days_to_first_harvest", "harvest_window_days", "expected_yield_per_ha", "expected_yield_per_plant",
@@ -36,6 +37,8 @@ def list_varieties(crop):
 	for r in rows:
 		r["stages"] = frappe.get_all("Production Variety Stage", filters={"parent": r.name, "parenttype": "Production Variety"},
 			fields=STAGE_FIELDS, order_by="idx asc")
+		r["flowering_seasons"] = frappe.get_all("Production Variety Flowering Season",
+			filters={"parent": r.name, "parenttype": "Production Variety"}, fields=SEASON_FIELDS, order_by="idx asc")
 	return {"varieties": rows}
 
 
@@ -51,6 +54,8 @@ def save_variety(data):
 			frappe.throw(_("Every stage needs a name."), frappe.ValidationError)
 		if cint(r.get("length_days")) <= 0:
 			frappe.throw(_("Stage {0} needs a length in days.").format(r["stage"]), frappe.ValidationError)
+	if "flowering_seasons" in data:
+		data["flowering_seasons"] = [{k: s.get(k) for k in SEASON_FIELDS if k in s} for s in (data["flowering_seasons"] or [])]
 	return {"name": _save("Production Variety", data, protected=("variety_name",) if data.get("name") else ()).name}
 
 

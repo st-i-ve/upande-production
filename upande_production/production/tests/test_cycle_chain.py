@@ -33,6 +33,7 @@ class TestCycleChain(IntegrationTestCase):
 			stock_uom="Kg", is_stock_item=1).name
 		cls.hass = _make("Production Variety", variety_name="CC Hass", crop=cls.crop.name, item=cls.item,
 			is_flowering=1, harvest_pattern="Interval", harvest_interval_weeks=52, lifespan_years=25,
+			flowering_pattern="Interval", flowering_interval_weeks=52,
 			weeks_to_first_flowering=8, weeks_flowering_to_harvest=30, weeks_to_reflower_after_harvest=6,
 			harvest_window_weeks=8,
 			stages=_stages(("Planting", 0, 56, 0), ("Flowering", 56, 28, 0), ("Fruit set", 84, 182, 0),
@@ -40,7 +41,7 @@ class TestCycleChain(IntegrationTestCase):
 		cls.fl = _make("Production Variety", variety_name="CC Fl", crop=cls.crop.name, item=cls.item,
 			is_flowering=1, stage_anchor="Flowering", harvest_pattern="Interval", harvest_interval_weeks=52,
 			lifespan_years=25, weeks_flowering_to_harvest=36, weeks_to_reflower_after_harvest=12,
-			harvest_window_weeks=8,
+			flowering_pattern="Interval", flowering_interval_weeks=64, harvest_window_weeks=8,
 			stages=_stages(("Flowering", 0, 28, 0), ("Fruit set", 28, 224, 0), ("Harvest", 252, 56, 1))).name
 		cls.once = _make("Production Variety", variety_name="CC Once", crop=cls.crop.name, item=cls.item,
 			harvest_pattern="Once", weeks_to_first_harvest=10,
@@ -109,8 +110,8 @@ class TestCycleChain(IntegrationTestCase):
 		self.assertEqual((n.status, n.previous_cycle, n.cycle_no, n.unit, n.variety),
 			("Planned", c.name, 2, c.unit, self.hass))
 		self.assertEqual(n.start_date, getdate(c.actual_harvest_end))
-		self.assertEqual(n.expected_flowering_date, add_days(n.start_date, 42))
-		self.assertEqual(n.expected_harvest_start, add_days(n.start_date, 42 + 210))
+		self.assertEqual(n.expected_flowering_date, add_days(c.expected_flowering_date, 52 * 7))
+		self.assertEqual(n.expected_harvest_start, add_days(n.expected_flowering_date, 210))
 
 	def test_close_proposes_once(self):
 		c = self._close(self._cycle(start=add_days(today(), -400)))
@@ -160,8 +161,8 @@ class TestCycleChain(IntegrationTestCase):
 		c = _make("Production Crop Cycle", unit=self.unit.name, crop=self.crop.name, variety=self.hass,
 			start_date=add_days(today(), -2), status="Planned", previous_cycle=prev.name).reload()
 		self.assertEqual(c.cycle_no, prev.cycle_no + 1)
-		self.assertEqual(c.expected_flowering_date, add_days(c.start_date, 42))
-		self.assertEqual(c.expected_harvest_start, add_days(c.start_date, 42 + 210))
+		self.assertEqual(c.expected_flowering_date, add_days(prev.expected_flowering_date, 52 * 7))
+		self.assertEqual(c.expected_harvest_start, add_days(c.expected_flowering_date, 210))
 		prev_once = self._close(self._cycle(variety=self.once, start=add_days(today(), -100)))
 		o = _make("Production Crop Cycle", unit=self.unit.name, crop=self.crop.name, variety=self.once,
 			start_date=add_days(today(), -2), status="Planned", previous_cycle=prev_once.name)
@@ -205,7 +206,7 @@ class TestCycleChain(IntegrationTestCase):
 		c = _make("Production Crop Cycle", unit=self.unit.name, crop=self.crop.name, variety=self.fl,
 			start_date=add_days(today(), -2), status="Planned", previous_cycle=prev.name).reload()
 		self.assertEqual(c.cycle_no, 2)
-		ef = add_days(c.start_date, 84)
+		ef = add_days(prev.expected_flowering_date, 64 * 7)
 		self.assertEqual(c.expected_flowering_date, ef)
 		self.assertEqual(stages.stage_start(c, "Flowering"), ef)
 		self.assertEqual(stages.stage_start(c, "Harvest"), add_days(ef, 252))
@@ -248,3 +249,103 @@ class TestCycleChain(IntegrationTestCase):
 		rows = api.list_cycles(self.crop.name)
 		rows = rows.get("cycles") or rows["message"]["cycles"]
 		self.assertTrue(any(r["name"] == c.name and r["flags"] for r in rows))
+
+
+	# ---- Addendum 2026-10-29: maturity, seasons, intervals, juvenile
+
+	@classmethod
+	def _seasonal(cls, name="CC Seasonal", maturity=130, shares=(80, 20), anchor="Planting"):
+		return _make("Production Variety", variety_name=name, crop=cls.crop.name, item=cls.item, is_flowering=1,
+			harvest_pattern="Interval", harvest_interval_weeks=52, lifespan_years=25, weeks_to_maturity=maturity,
+			flowering_pattern="Seasonal", stage_anchor=anchor, harvest_window_weeks=8,
+			flowering_seasons=[
+				{"season_name": "Main", "start_month": "August", "weeks_flowering_to_harvest": 36, "crop_share_pct": shares[0]},
+				{"season_name": "Off", "start_month": "February", "weeks_flowering_to_harvest": 30, "crop_share_pct": shares[1]}],
+			stages=_stages(("Planting", 0, 56, 0), ("Flowering", 56, 28, 0), ("Harvest", 266, 56, 1))).name
+
+	def _unit(self, name):
+		return _make("Production Unit", unit_name=name, unit_type="Orchard Block", crop=self.crop.name,
+			farm=self.farm.name, company=self.company)
+
+	def test_seasonal_first_season_after_maturity(self):
+		v = self._seasonal("CC Seasonal 1")
+		d = cycle_chain.first_season_date(getdate("2023-04-10"), v)  # + 130 weeks = 2025-11-03
+		self.assertEqual(d, getdate("2026-02-01"))
+		self.assertEqual(cycle_chain.first_season_date(getdate("2023-01-02"), v), getdate("2025-08-01"))  # 2025-07-07 ->
+		u = self._unit("CC Block Seas1")
+		c = _make("Production Crop Cycle", unit=u.name, crop=self.crop.name, variety=v, start_date="2023-04-10",
+			status="Planned").reload()
+		self.assertEqual((c.expected_flowering_date, c.flowering_season), (getdate("2026-02-01"), "Off"))
+		self.assertEqual(c.expected_harvest_start, add_days(getdate("2026-02-01"), 30 * 7))
+
+	def test_seasonal_next_season_by_calendar(self):
+		v = self._seasonal("CC Seasonal 2")
+		row, d = cycle_chain.next_season(v, getdate("2026-02-01"))
+		self.assertEqual((row["season_name"], d), ("Main", getdate("2026-08-01")))
+		row, d = cycle_chain.next_season(v, getdate("2026-08-20"))
+		self.assertEqual((row["season_name"], d), ("Off", getdate("2027-02-01")))
+		u = self._unit("CC Block Seas2")
+		c = _make("Production Crop Cycle", unit=u.name, crop=self.crop.name, variety=v, start_date="2023-04-10",
+			status="Active")
+		c = self._close(c, end="2026-11-30")
+		n = frappe.get_doc("Production Crop Cycle", c.proposed_next_cycle)
+		self.assertEqual((n.flowering_season, n.expected_flowering_date), ("Off", getdate("2027-02-01")))
+		self.assertEqual(n.expected_harvest_start, add_days(getdate("2027-02-01"), 30 * 7))
+
+	def test_interval_next_flowering(self):
+		v = _make("Production Variety", variety_name="CC Passion", crop=self.crop.name, item=self.item, is_flowering=1,
+			harvest_pattern="Continuous", harvest_interval_weeks=1, weeks_to_maturity=30, flowering_pattern="Interval",
+			flowering_interval_weeks=4, weeks_to_first_flowering=20, weeks_flowering_to_harvest=10, lifespan_years=3,
+			harvest_window_weeks=6, stages=_stages(("Planting", 0, 140, 0), ("Flowering", 140, 70, 0), ("Harvest", 210, 60, 1))).name
+		u = self._unit("CC Block Int")
+		c = self._close(_make("Production Crop Cycle", unit=u.name, crop=self.crop.name, variety=v,
+			start_date=add_days(today(), -100), status="Active"))
+		n = frappe.get_doc("Production Crop Cycle", c.proposed_next_cycle)
+		self.assertGreaterEqual(n.expected_flowering_date, n.start_date)
+		self.assertEqual((n.expected_flowering_date - c.expected_flowering_date).days % 28, 0)
+		self.assertEqual(n.expected_harvest_start, add_days(n.expected_flowering_date, 70))
+
+	def test_juvenile_cycle_no_projection_yield(self):
+		from upande_production.production.logic import analytics, breakeven
+
+		v = self._seasonal("CC Seasonal 3", maturity=130)
+		u = self._unit("CC Block Juv")
+		c = _make("Production Crop Cycle", unit=u.name, crop=self.crop.name, variety=v, start_date=add_days(today(), -30),
+			status="Active", expected_harvest_start=add_days(today(), 100)).reload()
+		# planted a year ago, mature only in ~2.5 years: the first harvest is before maturity
+		_make("Block Opening Balance", unit=u.name, as_of_date=today(), planted_on=add_days(today(), -365),
+			crop=self.crop.name, setup_cost=0, running_costs_to_date=0, value_recovered_to_date=0)
+		c = frappe.get_doc("Production Crop Cycle", c.name)
+		self.assertTrue(cycle_chain.is_juvenile(c))
+		c.save()
+		self.assertEqual(c.reload().juvenile, 1)
+		self.assertEqual(analytics.current_cycles(self.crop.name)[u.name].juvenile, 1)
+		fc = _make("Production Forecast", unit=u.name, crop=self.crop.name, cycle=c.name,
+			weeks=[{"week_start": add_days(today(), 7), "expected_qty": 100}]) if frappe.db.exists("DocType", "Production Forecast") else None
+		if fc:
+			self.assertIsNone(breakeven._forecast_value([u.name], self.crop.name))
+		old = frappe.get_doc("Production Crop Cycle", c.name)
+		old.expected_harvest_start = add_days(today(), 365 * 3)
+		self.assertFalse(cycle_chain.is_juvenile(old))
+
+	def test_seasonal_flowering_flag_late(self):
+		v = self._seasonal("CC Seasonal 4", anchor="Flowering")
+		u = self._unit("CC Block Late")
+		c = _make("Production Crop Cycle", unit=u.name, crop=self.crop.name, variety=v, start_date=add_days(today(), -100),
+			status="Active")
+		# first cycle of a seasonal variety is no longer exempt: flowering 3 weeks after its season start
+		c.actual_flowering_date = add_days(c.expected_flowering_date, 21)
+		c.save()
+		fl = cycle_chain.flags(c)
+		self.assertTrue(any("3 weeks late" in f for f in fl), fl)
+
+	def test_shares_must_total_100(self):
+		with self.assertRaises(frappe.ValidationError):
+			self._seasonal("CC Seasonal Bad", shares=(80, 30))
+		with self.assertRaises(frappe.ValidationError):
+			_make("Production Variety", variety_name="CC Seasonal None", crop=self.crop.name, item=self.item,
+				is_flowering=1, flowering_pattern="Seasonal")
+		with self.assertRaises(frappe.ValidationError):
+			_make("Production Variety", variety_name="CC Int None", crop=self.crop.name, item=self.item,
+				is_flowering=1, flowering_pattern="Interval", harvest_pattern="Interval", harvest_interval_weeks=4)
+		self._seasonal("CC Seasonal OK", shares=(0, 0))  # no shares set is fine

@@ -21,7 +21,8 @@ CULTURAL_FIELDS = ("operation", "schedule", "interval_weeks", "establishment_per
 CAPITAL_FIELDS = ("operation", "description", "budget_per_ha")
 TABLES = {"key_activities": KEY_FIELDS, "cultural_activities": CULTURAL_FIELDS, "capital_activities": CAPITAL_FIELDS}
 TEMPLATE_FIELDS = ("lifespan_years", "harvest_pattern", "harvest_interval_weeks", "is_flowering",
-	"weeks_to_first_flowering", "weeks_flowering_to_harvest", "weeks_to_reflower_after_harvest", "plants_per_m2")
+	"weeks_to_first_flowering", "weeks_flowering_to_harvest", "weeks_to_reflower_after_harvest", "plants_per_m2",
+	"weeks_to_maturity", "flowering_pattern", "flowering_interval_weeks")
 TEXT_FIELDS = ("operation", "description", "schedule", "repeats")
 HEAD_FIELDS = ("protocol_name", "item", "variety")
 

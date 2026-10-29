@@ -21,12 +21,17 @@
   "plants_per_ha",
   "template_section",
   "lifespan_years",
+  "weeks_to_maturity",
   "harvest_pattern",
   "harvest_interval_weeks",
   "plants_per_m2",
   "dry_matter_target_pct",
   "col_flower",
   "is_flowering",
+  "flowering_pattern",
+  "flowering_interval_weeks",
+  "flowering_seasons_section",
+  "flowering_seasons",
   "weeks_to_first_flowering",
   "weeks_flowering_to_harvest",
   "weeks_to_reflower_after_harvest",
@@ -146,6 +151,12 @@
    "label": "Lifespan (years)"
   },
   {
+   "fieldname": "weeks_to_maturity",
+   "fieldtype": "Int",
+   "label": "Weeks to Maturity",
+   "description": "Weeks after planting until the plant is mature for its first official harvest"
+  },
+  {
    "fieldname": "harvest_pattern",
    "fieldtype": "Select",
    "label": "Harvest Pattern",
@@ -180,22 +191,50 @@
    "label": "Flowering Crop"
   },
   {
+   "fieldname": "flowering_pattern",
+   "fieldtype": "Select",
+   "label": "Flowering Pattern",
+   "options": "\nSeasonal\nInterval",
+   "depends_on": "is_flowering"
+  },
+  {
+   "fieldname": "flowering_interval_weeks",
+   "fieldtype": "Int",
+   "label": "Flowering Interval (weeks)",
+   "depends_on": "eval:doc.is_flowering && doc.flowering_pattern=='Interval'",
+   "description": "Weeks from one flowering to the next"
+  },
+  {
+   "fieldname": "flowering_seasons_section",
+   "fieldtype": "Section Break",
+   "label": "Flowering Seasons",
+   "depends_on": "eval:doc.is_flowering && doc.flowering_pattern=='Seasonal'"
+  },
+  {
+   "fieldname": "flowering_seasons",
+   "fieldtype": "Table",
+   "label": "Flowering Seasons",
+   "options": "Production Variety Flowering Season",
+   "depends_on": "eval:doc.is_flowering && doc.flowering_pattern=='Seasonal'"
+  },
+  {
    "fieldname": "weeks_to_first_flowering",
    "fieldtype": "Int",
    "label": "Weeks to First Flowering",
-   "depends_on": "is_flowering"
+   "depends_on": "eval:doc.is_flowering && doc.flowering_pattern!='Seasonal'"
   },
   {
    "fieldname": "weeks_flowering_to_harvest",
    "fieldtype": "Int",
    "label": "Weeks Flowering to Harvest",
-   "depends_on": "is_flowering"
+   "depends_on": "eval:doc.is_flowering && doc.flowering_pattern!='Seasonal'"
   },
   {
    "fieldname": "weeks_to_reflower_after_harvest",
    "fieldtype": "Int",
    "label": "Weeks to Reflower after Harvest",
-   "depends_on": "eval:doc.is_flowering && doc.harvest_pattern!='Once'"
+   "depends_on": "eval:doc.is_flowering && doc.harvest_pattern!='Once'",
+   "hidden": 1
   },
   {
    "fieldname": "weeks_to_first_harvest",
@@ -211,7 +250,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-10-28 12:00:00.000000",
+ "modified": "2026-10-29 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production Variety",

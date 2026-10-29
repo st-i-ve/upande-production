@@ -16,3 +16,4 @@ upande_production.patches.number_cycles
 upande_production.patches.renumber_cycles_by_pattern
 upande_production.patches.remap_protocol_refs
 upande_production.patches.backfill_cultural_occurrences
+upande_production.patches.flowering_pattern_from_reflower

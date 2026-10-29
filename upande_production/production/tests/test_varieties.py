@@ -299,3 +299,27 @@ class TestVarieties(IntegrationTestCase):
 		v.reload()
 		self.assertEqual(v.weeks_to_first_harvest, 140)
 		self.assertEqual(v.days_to_first_harvest, 980)
+
+
+class TestFloweringPatternDerive(IntegrationTestCase):
+	def test_seasonal_derive_clears_interval_fields(self):
+		d = frappe._dict(is_flowering=1, flowering_pattern="Seasonal", weeks_to_maturity=130,
+			weeks_to_first_flowering=20, flowering_interval_weeks=4,
+			flowering_seasons=[{"weeks_flowering_to_harvest": 36}])
+		derive(d)
+		self.assertFalse(d.weeks_to_first_flowering or d.flowering_interval_weeks)
+		self.assertEqual(d.weeks_to_first_harvest, 166)
+
+	def test_patch_sets_interval_pattern(self):
+		from upande_production.patches import flowering_pattern_from_reflower
+
+		crop = frappe.db.get_value("Production Crop", {}, "name")
+		item = frappe.db.get_value("Item", {"is_stock_item": 1}, "name")
+		name = "TV Patch Interval"
+		if frappe.db.exists("Production Variety", name):
+			frappe.delete_doc("Production Variety", name, force=1)
+		frappe.get_doc({"doctype": "Production Variety", "variety_name": name, "crop": crop, "item": item, "is_flowering": 1,
+			"harvest_pattern": "Interval", "weeks_to_reflower_after_harvest": 6, "weeks_flowering_to_harvest": 30}).insert()
+		flowering_pattern_from_reflower.execute()
+		v = frappe.db.get_value("Production Variety", name, ["flowering_pattern", "flowering_interval_weeks"], as_dict=True)
+		self.assertEqual((v.flowering_pattern, v.flowering_interval_weeks), ("Interval", 36))

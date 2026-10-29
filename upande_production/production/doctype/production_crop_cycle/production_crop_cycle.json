@@ -27,6 +27,8 @@
   "cycle_no",
   "flowering_section",
   "expected_flowering_date",
+  "flowering_season",
+  "juvenile",
   "actual_flowering_date",
   "actual_harvest_start",
   "actual_harvest_end",
@@ -163,6 +165,19 @@
    "read_only": 1
   },
   {
+   "fieldname": "flowering_season",
+   "fieldtype": "Data",
+   "label": "Flowering Season",
+   "read_only": 1
+  },
+  {
+   "fieldname": "juvenile",
+   "fieldtype": "Check",
+   "label": "Juvenile",
+   "read_only": 1,
+   "description": "Expected harvest is before the plant reaches maturity"
+  },
+  {
    "fieldname": "actual_flowering_date",
    "fieldtype": "Date",
    "label": "Actual Flowering Date"
@@ -205,7 +220,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-28 12:00:00.000000",
+ "modified": "2026-10-29 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production Crop Cycle",

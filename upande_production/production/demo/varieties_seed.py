@@ -138,13 +138,16 @@ DEMO = {
 	# Avocado dry matter stays on the Avocado Maturity Test, whose minimum is 24%, so Hass uses 24.
 	"templates": {
 		"Hass": {"is_flowering": 1, "harvest_pattern": "Interval", "harvest_interval_weeks": 52,
-			"weeks_to_first_flowering": 104, "weeks_flowering_to_harvest": 36, "weeks_to_reflower_after_harvest": 12,
+			"weeks_to_maturity": 130, "flowering_pattern": "Seasonal",
+			"flowering_seasons": [("Main", "August", 36, 80), ("Off-season", "February", 36, 20)],
 			"plants_per_m2": 0.0156, "lifespan_years": 30, "dry_matter_target_pct": 24},
 		"Fuerte": {"is_flowering": 1, "harvest_pattern": "Interval", "harvest_interval_weeks": 52,
-			"weeks_to_first_flowering": 104, "weeks_flowering_to_harvest": 36, "weeks_to_reflower_after_harvest": 12,
+			"weeks_to_maturity": 130, "flowering_pattern": "Seasonal",
+			"flowering_seasons": [("Main", "July", 32, 85), ("Off-season", "January", 32, 15)],
 			"plants_per_m2": 0.0156, "lifespan_years": 30, "dry_matter_target_pct": 21},
 		**{n: {"is_flowering": 1, "harvest_pattern": "Continuous", "harvest_interval_weeks": 1,
-			"weeks_to_first_flowering": 20, "weeks_flowering_to_harvest": 10, "weeks_to_reflower_after_harvest": 2,
+			"weeks_to_maturity": 30, "flowering_pattern": "Interval", "flowering_interval_weeks": 4,
+			"weeks_to_first_flowering": 20, "weeks_flowering_to_harvest": 10,
 			"plants_per_m2": 0.1667, "lifespan_years": 3} for n in ("Purple", "Sweet Yellow")},
 		**{n: {"is_flowering": 0, "harvest_pattern": "Once", "weeks_to_first_harvest": 14, "plants_per_m2": 4.0}
 			for n in ("Shangi", "Dutch Robjin", "Markies")},
@@ -192,7 +195,8 @@ def _ensure_variety(v):
 		"days_to_first_harvest": v["first_harvest"], "harvest_window_days": v["window"],
 		"expected_yield_per_ha": v["yield_ha"], "expected_yield_per_plant": v["yield_plant"],
 		"plants_per_ha": v["plants_ha"], "notes": v.get("notes")}
-	tpl = DEMO["templates"].get(v["name"], {})
+	tpl = dict(DEMO["templates"].get(v["name"], {}))
+	seasons = tpl.pop("flowering_seasons", None)
 	vals.update(tpl)
 	if "plants_per_m2" in tpl:
 		vals.pop("plants_per_ha")  # derived from plants_per_m2 on save
@@ -202,6 +206,9 @@ def _ensure_variety(v):
 		doc.set("stages", rows)
 	else:
 		doc = frappe.get_doc({"doctype": "Production Variety", "variety_name": v["name"], **vals, "stages": rows})
+	if seasons:
+		doc.set("flowering_seasons", [{"season_name": n, "start_month": m, "weeks_flowering_to_harvest": w,
+			"crop_share_pct": p} for n, m, w, p in seasons])
 	doc.save(ignore_permissions=True)
 
 
