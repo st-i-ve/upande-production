@@ -117,7 +117,7 @@ def block_warehouses() -> set[str]:
 	out = set(frappe.get_all("Production Unit", filters={"warehouse": ("is", "set")}, pluck="warehouse"))
 	out.update(frappe.get_all("Warehouse", filters={"warehouse_type": ("in", SCP_LOCATION_TYPES)}, pluck="name"))
 	for g in frappe.get_all("Warehouse", filters={"warehouse_name": BLOCKS_GROUP, "is_group": 1}, pluck="name"):
-		out.update(get_descendants_of("Warehouse", g))
+		out.update(get_descendants_of("Warehouse", g, ignore_permissions=True))
 	return out
 
 

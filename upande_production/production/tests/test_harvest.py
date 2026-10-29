@@ -364,6 +364,23 @@ class TestHarvest(IntegrationTestCase):
 			self.assertNotIn(w, names)
 		self.assertIn(self._store("HV Plain Store"), [s["name"] for s in H.stores(self.company)])
 
+	def test_store_list_works_for_a_plain_supervisor(self):
+		"""The phone's store list must not need Warehouse permission (supervisors do not have it)."""
+		gname = frappe.db.get_value("Warehouse", {"warehouse_name": "Production Blocks", "company": self.company})
+		if not gname:
+			gname = _make("Warehouse", warehouse_name="Production Blocks", company=self.company, is_group=1).name
+		child = self._store("HV Sup Under Blocks WH")
+		frappe.db.set_value("Warehouse", child, "parent_warehouse", gname)
+		frappe.get_doc("Warehouse", child).save()
+		user = _make("User", email="hv.sup.stores@example.com", first_name="HVSup", send_welcome_email=0,
+			roles=[{"role": "Production Supervisor"}])
+		frappe.set_user(user.name)
+		try:
+			self.assertNotIn(child, [s["name"] for s in H.stores(self.company)])
+			self.assertNotIn("error", api.get_stores())
+		finally:
+			frappe.set_user("Administrator")
+
 	def test_block_warehouse_refused_as_store(self):
 		block_wh = self._store("HV Block WH")
 		frappe.db.set_value("Production Unit", self.unit2.name, "warehouse", block_wh)
