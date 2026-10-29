@@ -22,7 +22,6 @@ from upande_production.production.logic.settings import get_company
 
 OPEN_STATUSES = ("Filling", "Full")
 STOCK_ENTRY_TYPE = "Harvesting"
-DEFAULT_AVG_KG = 18.0  # a crate of avocados
 BATCH_LOG_PREFIX = "harvest-batch:"  # client_ref of the Avocado Harvest Log a batch writes
 DEFAULT_PICK_RATE = 30  # per crate, when a crop has no crate harvest operation yet
 
@@ -71,7 +70,8 @@ def current_item(unit: str, crop: str) -> tuple[str, str | None]:
 
 
 def avg_kg_per_crate(item: str | None, crop: str | None) -> float:
-	"""The item's own figure, else the crop's, else 18 kg."""
+	"""The item's own figure, else the crop's (Production Crop, Avg Kg per Crate). No figure is an
+	error: a crate with no weight would book an invented quantity."""
 	if item:
 		v = flt(frappe.db.get_value("Item", item, "production_avg_kg_per_crate"))
 		if v > 0:
@@ -80,7 +80,8 @@ def avg_kg_per_crate(item: str | None, crop: str | None) -> float:
 		v = flt(frappe.db.get_value("Production Crop", crop, "avg_kg_per_crate"))
 		if v > 0:
 			return v
-	return DEFAULT_AVG_KG
+	frappe.throw(_("Set the Avg Kg per Crate on the item or on crop {0}").format(crop or ""),
+		frappe.ValidationError)
 
 
 def valuation_rate(item: str, crop: str | None) -> float:
@@ -300,8 +301,8 @@ def _avocado_log(doc, pickers: int):
 	code = frappe.db.get_value("Production Unit", doc.unit, "avocado_block_code")
 	if not code or not frappe.db.exists("Avocado Yield Block", code):
 		return None
-	from upande_production.api.avocadolabour import PLAUSIBLE_RATE
-	lo, hi = PLAUSIBLE_RATE
+	from upande_production.api.avocado_model import load_model
+	lo, hi = load_model()["plausible_rate"]
 	kg = flt(doc.estimated_kg)
 	n = max(int(kg // hi) + (1 if kg % hi else 0), min(max(pickers, 1), max(int(kg // lo), 1)))
 	log = frappe.get_doc({

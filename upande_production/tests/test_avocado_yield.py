@@ -14,31 +14,38 @@ import tempfile
 from datetime import date
 
 from upande_production.api.avocadoapi import (
-	BIENNIAL_OFF_FACTOR, DEFAULT_DROP_PCT, LATE_CROP_SHARE, MIN_RIPENING_TRIALS,
-	STALE_SAMPLE_WEEKS, biennial_factor, data_quality, delivered_this_season, dm_projection,
-	dry_matter_from_moisture, estimate, grade_split, kg_per_tree, late_crop_estimate,
-	lost_potential, previous_late_crop, ripening_agreement, season_calibration,
-	seasonal_windows, undo_count_drop, weekly_spread, yield_curve, _implied_density,
+	DEFAULT_DROP_PCT, MIN_RIPENING_TRIALS, biennial_factor, calibration_seasons,
+	data_quality, delivered_this_season, dm_projection, dry_matter_from_moisture, estimate,
+	grade_split, is_on_year, kg_per_tree, late_crop_estimate, lost_potential,
+	previous_late_crop, ripening_agreement, season_calibration, seasonal_windows,
+	undo_count_drop, weekly_spread, yield_curve, _implied_density,
 )
+from upande_production.tests.avocado_model_fixture import CAL_SEASONS, MODEL
+
+HASS = MODEL["varieties"]["Hass"]
+BIENNIAL_OFF_FACTOR = HASS["off_factor"]
+LATE_CROP_SHARE = HASS["late_share"]
+STALE_SAMPLE_WEEKS = MODEL["stale_sample_weeks"]
+PICK_WEEKS = MODEL["default_pick_weeks"]
 
 TODAY = "2026-08-05"
 
-# What the estate's one closed season measured. Every expected_kg below carries it,
-# because the forecast does.
-CAL = season_calibration()["factor"]
+# What a closed season measured (the fixture's estimate against its delivery). Every
+# expected_kg below carries it, because the forecast does.
+CAL = season_calibration(CAL_SEASONS)["factor"]
 
 BLOCKS = [
 	# name, farm, variety, status, area, spacing, /ha, total, live, sick, bearing, year
-	dict(name="LA9", farm="Lokitela", variety=None, status="Active", area_ha=2.2,
+	dict(name="LA9", farm="Lokitela", variety="Hass", status="Active", area_ha=2.2,
 		 spacing=None, trees_per_ha=250, total_trees=550, live_trees=507, sick_trees=96,
 		 bearing_trees=202.0, planting_year=2018),
-	dict(name="LB-BONDENI 2", farm="Lokitela", variety=None, status="Active", area_ha=2.52,
+	dict(name="LB-BONDENI 2", farm="Lokitela", variety="Hass", status="Active", area_ha=2.52,
 		 spacing=None, trees_per_ha=250, total_trees=630, live_trees=594, sick_trees=0,
 		 bearing_trees=488.0, planting_year=2022),
-	dict(name="LC-MIMA 1", farm="Lokitela", variety=None, status="Active", area_ha=4.16,
+	dict(name="LC-MIMA 1", farm="Lokitela", variety="Hass", status="Active", area_ha=4.16,
 		 spacing=None, trees_per_ha=250, total_trees=1040, live_trees=1017, sick_trees=0,
 		 bearing_trees=240.0, planting_year=2023),
-	dict(name="LD-AIRSTRIP 1", farm="Lokitela", variety=None, status="Active", area_ha=3.4,
+	dict(name="LD-AIRSTRIP 1", farm="Lokitela", variety="Hass", status="Active", area_ha=3.4,
 		 spacing=None, trees_per_ha=250, total_trees=850, live_trees=842, sick_trees=0,
 		 bearing_trees=0.0, planting_year=2024),
 	dict(name="SB4", farm="Saboti", variety="Golden Hass", status="Active", area_ha=17.08,
@@ -80,12 +87,13 @@ HISTORY = [
 ]
 
 # The lift an on year gives last season's late crop: 2026 is on, 2025 was off.
-LIFT = biennial_factor(2026) / biennial_factor(2025)
+LIFT = biennial_factor(2026, HASS) / biennial_factor(2025, HASS)
 
 
 def main():
 	# 1. The curve is measured where the estate has picked, typed elsewhere.
-	curve = yield_curve(HARVESTS, BLOCKS)
+	curves = yield_curve(HARVESTS, BLOCKS, MODEL)
+	curve = curves["Hass"]
 	by_band = {(r["from"], r["to"]): r for r in curve}
 
 	# Two demo harvest rows (488 and 202 trees) must NOT rewrite a curve built on
@@ -98,8 +106,8 @@ def main():
 
 	# A real season does override it.
 	big = yield_curve(HARVESTS + [dict(harvest_date="2025-09-20", orchard_block="LA9",
-									   total_kg=90000.0, trees_harvested=1500)], BLOCKS)
-	b7big = {(r["from"], r["to"]): r for r in big}[(7, 9)]
+									   total_kg=90000.0, trees_harvested=1500)], BLOCKS, MODEL)
+	b7big = {(r["from"], r["to"]): r for r in big["Hass"]}[(7, 9)]
 	assert b7big["basis"] == "harvested", b7big
 	assert abs(b7big["kg_per_tree"] - (90000 + 3030) / 1702) < 0.1, b7big
 
@@ -119,7 +127,7 @@ def main():
 	assert kg_per_tree(curve, None)[0] == 0.0
 
 	# 4. Whole-estate estimate.
-	est = estimate(BLOCKS, HARVESTS, price_per_kg=95.0, on_date=TODAY)
+	est = estimate(BLOCKS, HARVESTS, MODEL, seasons=CAL_SEASONS, price_per_kg=95.0, on_date=TODAY)
 	rows = {r["block"]: r for r in est["rows"]}
 
 	# 2026 is an on year, so the curve is not discounted.
@@ -135,12 +143,12 @@ def main():
 	assert rows["LA9"]["expected_kg"] == round(90.0 * CAL * 202, 0)
 
 	# An off year physically delivers less, and the total has to fall with it.
-	off = estimate(BLOCKS, HARVESTS, price_per_kg=95.0, on_date="2027-08-05")
+	off = estimate(BLOCKS, HARVESTS, MODEL, seasons=CAL_SEASONS, price_per_kg=95.0, on_date="2027-08-05")
 	assert off["biennial_factor"] == BIENNIAL_OFF_FACTOR
 	off_rows = {r["block"]: r for r in off["rows"]}
 	assert off_rows["LA9"]["expected_kg"] == round(90.0 * BIENNIAL_OFF_FACTOR * CAL * 202, 0), \
 		off_rows["LA9"]
-	assert biennial_factor(2024) == 1.0 and biennial_factor(2025) == BIENNIAL_OFF_FACTOR
+	assert biennial_factor(2024, HASS) == 1.0 and biennial_factor(2025, HASS) == BIENNIAL_OFF_FACTOR
 
 	# Their maturity sheets record MOISTURE. 0.77 moisture is 23% dry matter, one
 	# point short of export — reading it as 0.77% dry matter would call a green
@@ -160,7 +168,7 @@ def main():
 	assert rows["LA9"]["expected_grade_1_kg"] == round(90.0 * CAL * 202 * g1, 0)
 
 	# 5. A count on the trees overrides the curve for that block, and says so.
-	counted = estimate(BLOCKS, HARVESTS, counts={
+	counted = estimate(BLOCKS, HARVESTS, MODEL, seasons=CAL_SEASONS, counts={
 		"LA9": {"est_kg_per_tree": 28.4, "count_date": "2026-08-01"},
 	}, price_per_kg=95.0, on_date=TODAY)
 	la9 = {r["block"]: r for r in counted["rows"]}["LA9"]
@@ -174,7 +182,10 @@ def main():
 	issues = {(i["block"], i["issue"]) for i in data_quality(BLOCKS)}
 	assert ("SB4", "no live tree count") in issues
 	assert ("SB5", "density does not match spacing") in issues   # 8x7 is 178/ha, not 250
-	assert ("LA9", "no variety") in issues
+	assert ("LA9", "no variety") in {(i["block"], i["issue"])
+									 for i in data_quality([dict(BLOCKS[0], variety=None)])}
+	# A block whose variety has no yield-by-age rows is said to be sized at zero.
+	assert ("SB4", "no yield curve") in {(i["block"], i["issue"]) for i in data_quality(BLOCKS, MODEL)}
 	assert ("SB4", "density does not match spacing") not in issues  # 5x8 IS 250/ha
 
 	assert abs(_implied_density("8m x 7m") - 178.57) < 0.1
@@ -189,7 +200,7 @@ def main():
 		# LB-BONDENI 2 has one sample only, 2.1 points short -> estate rate, 3 weeks.
 		dict(orchard_block="LB-BONDENI 2", sample_date="2026-08-01", avg_dry_matter_pct=21.9),
 	]
-	proj = dm_projection(samples, on_date=TODAY)
+	proj = dm_projection(samples, MODEL, on_date=TODAY)
 	assert proj["LA9"]["ready"] is True
 	assert proj["LA9"]["weeks_to_minimum"] == 0.0
 	assert abs(proj["LA9"]["gain_per_week"] - 1.0) < 0.01, proj["LA9"]
@@ -206,7 +217,7 @@ def main():
 	old = dm_projection([
 		dict(orchard_block="LA9", sample_date="2026-02-09", avg_dry_matter_pct=19.4),
 		dict(orchard_block="LA9", sample_date="2026-03-09", avg_dry_matter_pct=21.8),
-	], on_date="2026-08-05")["LA9"]
+	], MODEL, on_date="2026-08-05")["LA9"]
 	assert old["stale"] is True, old
 	assert old["weeks_to_minimum"] is None, old
 	assert old["ready_date"] is None, old
@@ -216,14 +227,14 @@ def main():
 	# fruit was ripe then and cannot have gone backwards.
 	ripe_old = dm_projection([
 		dict(orchard_block="LK06", sample_date="2026-02-09", avg_dry_matter_pct=25.0),
-	], on_date="2026-08-05")["LK06"]
+	], MODEL, on_date="2026-08-05")["LK06"]
 	assert ripe_old["ready"] is True and ripe_old["weeks_to_minimum"] == 0.0, ripe_old
 	# A recent reading is unaffected.
 	assert proj["LB-BONDENI 2"]["stale"] is False, proj["LB-BONDENI 2"]
 
 	# 8. The weekly spread starts when the fruit is legal, and refuses to invent a
 	#    date for a block nobody has sampled.
-	sched = weekly_spread(est["rows"], proj, pick_weeks=6, on_date=TODAY)
+	sched = weekly_spread(est["rows"], proj, PICK_WEEKS, on_date=TODAY)
 	assert len(sched["weeks"]) >= 6, sched["weeks"]
 	assert abs(sched["scheduled_kg"] - (rows["LA9"]["expected_kg"]
 									   + rows["LB-BONDENI 2"]["expected_kg"])) < 2, sched
@@ -235,7 +246,7 @@ def main():
 	assert sched["weeks"][0] == "2026-08-03", sched["weeks"][:3]
 
 	# 9. Lost potential: sick trees priced at what that age band actually gives.
-	loss = lost_potential(BLOCKS, curve, price_per_kg=95.0, on_date=TODAY)
+	loss = lost_potential(BLOCKS, curves, MODEL, price_per_kg=95.0, on_date=TODAY)
 	la9_loss = {r["block"]: r for r in loss["rows"]}["LA9"]
 	assert la9_loss["sick_trees"] == 96
 	assert la9_loss["lost_kg"] == round(96 * 90.0, 0), la9_loss
@@ -244,9 +255,9 @@ def main():
 	# A block bearing nothing yet is a schedule, not a loss.
 	assert "LD-AIRSTRIP 1" not in {r["block"] for r in loss["rows"]}
 
-	# 10. Season calibration: the estate estimated 1,037.7 t for 2026 and delivered
-	#     1,185.4 t, so the method runs 14.2% under and the forecast has to say so.
-	cal = season_calibration()
+	# 10. Season calibration: a season estimated at 1,037.7 t and delivered at 1,185.4 t
+	#     means the method runs 14.2% under and the forecast has to say so.
+	cal = season_calibration(CAL_SEASONS)
 	assert cal["factor"] == 1.142, cal
 	assert cal["seasons"] == [2026], cal
 	assert cal["estimated_kg"] == 1037700.0 and cal["actual_kg"] == 1185400.0, cal
@@ -259,6 +270,8 @@ def main():
 	none_yet = season_calibration([])
 	assert none_yet["factor"] == 1.0, none_yet
 	assert none_yet["seasons"] == [] and "no delivered season" in none_yet["basis"], none_yet
+	assert none_yet["has_data"] is False and cal["has_data"] is True
+	assert season_calibration()["factor"] == 1.0, "no seasons given means no correction"
 	assert season_calibration([dict(season=2027, estimated_kg=0, actual_kg=0)])["factor"] == 1.0
 
 	# Several seasons are pooled, not averaged block-by-block: 200 estimated against
@@ -272,7 +285,7 @@ def main():
 
 	# The factor reaches the payload and every block in it.
 	assert est["calibration"] == cal, est["calibration"]
-	raw = estimate(BLOCKS, HARVESTS, price_per_kg=95.0, on_date=TODAY, seasons=[])
+	raw = estimate(BLOCKS, HARVESTS, MODEL, price_per_kg=95.0, on_date=TODAY, seasons=[])
 	assert raw["calibration"]["factor"] == 1.0
 	assert abs(est["total_kg"] - raw["total_kg"] * CAL) < 2, (est["total_kg"], raw["total_kg"])
 	assert est["total_kg"] > raw["total_kg"], "calibration must not be silently dropped"
@@ -284,7 +297,7 @@ def main():
 	assert rows["LA9"]["kg_per_tree"] == round(90.0 * CAL, 1), rows["LA9"]
 
 	# The parameter survives for a block where drop was actually measured.
-	dropped = estimate(BLOCKS, HARVESTS, price_per_kg=95.0, on_date=TODAY, drop_pct=10)
+	dropped = estimate(BLOCKS, HARVESTS, MODEL, seasons=CAL_SEASONS, price_per_kg=95.0, on_date=TODAY, drop_pct=10)
 	assert dropped["drop_pct"] == 10.0
 	d_la9 = {r["block"]: r for r in dropped["rows"]}["LA9"]
 	assert d_la9["expected_kg"] == round(90.0 * CAL * 0.9 * 202, 0), d_la9
@@ -298,8 +311,8 @@ def main():
 
 	# 12. The LATE crop, which is the one still on the trees on 5 August. Three tiers
 	#     of evidence, strongest first, and every block has to say which it got.
-	late = late_crop_estimate(BLOCKS, HISTORY, harvests=HARVESTS, price_per_kg=95.0,
-							  on_date=TODAY)
+	late = late_crop_estimate(BLOCKS, HISTORY, MODEL, seasons=CAL_SEASONS, harvests=HARVESTS,
+							  price_per_kg=95.0, on_date=TODAY)
 	lrows = {r["block"]: r for r in late["rows"]}
 	assert late["crop"] == "Late" and late["season"] == 2026
 
@@ -333,7 +346,8 @@ def main():
 	# The curve is a whole YEAR's kilograms per tree. Handed to one crop uncut it
 	# would forecast this August the fruit of last May as well.
 	assert mima["kg_per_tree"] < 12.0 * CAL, mima
-	assert {r["block"]: r for r in estimate(BLOCKS, HARVESTS, on_date=TODAY)["rows"]
+	assert {r["block"]: r for r in estimate(BLOCKS, HARVESTS, MODEL, seasons=CAL_SEASONS,
+											on_date=TODAY)["rows"]
 			}["LC-MIMA 1"]["expected_kg"] > mima["expected_kg"], "a crop is not a year"
 
 	# A whole-year row and an early crop are not late crops, whatever year they sit
@@ -345,7 +359,7 @@ def main():
 	assert previous_late_crop(contaminated, 2026)["LA9"]["kg_harvested"] == 3030.0
 	assert "LC-MIMA 1" not in previous_late_crop(contaminated, 2026)
 	crows = {r["block"]: r for r in late_crop_estimate(
-		BLOCKS, contaminated, harvests=HARVESTS, on_date=TODAY)["rows"]}
+		BLOCKS, contaminated, MODEL, seasons=CAL_SEASONS, harvests=HARVESTS, on_date=TODAY)["rows"]}
 	assert crows["LC-MIMA 1"]["evidence"] == "age curve", crows["LC-MIMA 1"]
 	assert crows["LA9"]["expected_kg"] == la9l["expected_kg"], crows["LA9"]
 
@@ -356,8 +370,8 @@ def main():
 
 	# (a) A count made on THIS crop beats both, and beats them on the block that had
 	#     the strongest history to override.
-	fresh = late_crop_estimate(BLOCKS, HISTORY, harvests=HARVESTS, price_per_kg=95.0,
-							   on_date=TODAY, counts={
+	fresh = late_crop_estimate(BLOCKS, HISTORY, MODEL, seasons=CAL_SEASONS, harvests=HARVESTS,
+							   price_per_kg=95.0, on_date=TODAY, counts={
 								   "LA9": {"est_kg_per_tree": 28.4, "count_date": "2026-08-01"}})
 	f_la9 = {r["block"]: r for r in fresh["rows"]}["LA9"]
 	assert f_la9["evidence"] == "fruit count", f_la9
@@ -366,8 +380,8 @@ def main():
 
 	# A count made in January is about fruit picked in May. It is not evidence for
 	# August, and the block falls back to its own late crop rather than using it.
-	stale_count = late_crop_estimate(BLOCKS, HISTORY, harvests=HARVESTS, on_date=TODAY,
-									 counts={"LA9": {"est_kg_per_tree": 28.4,
+	stale_count = late_crop_estimate(BLOCKS, HISTORY, MODEL, seasons=CAL_SEASONS, harvests=HARVESTS,
+									 on_date=TODAY, counts={"LA9": {"est_kg_per_tree": 28.4,
 													 "count_date": "2026-01-15"}})
 	s_la9 = {r["block"]: r for r in stale_count["rows"]}["LA9"]
 	assert s_la9["evidence"] == "last late crop", s_la9
@@ -378,26 +392,34 @@ def main():
 
 	# An off year cuts it back: 2027 sits on the same half of the cycle as 2025, so
 	# last season's late crop carries straight across with no lift at all.
-	late27 = late_crop_estimate(BLOCKS, HISTORY, harvests=HARVESTS, on_date="2027-08-05")
+	late27 = late_crop_estimate(BLOCKS, HISTORY, MODEL, seasons=CAL_SEASONS, harvests=HARVESTS,
+								on_date="2027-08-05")
 	assert {r["block"]: r for r in late27["rows"]}["LA9"]["expected_kg"] == 3030.0
 	assert late27["total_kg"] < late["total_kg"], "an off year cannot match an on year"
 
 	# 13. A delivered crop is history. It is never inside the forecast, and adding it
 	#     to one is how an estate total counts the same fruit twice.
+	#     With nothing recorded there is no delivered figure at all: none comes from code.
 	delivered = delivered_this_season([], 2026)
-	assert delivered["kg"] == 1185400.0 and delivered["crop"] == "Early", delivered
-	assert delivered["blocks"] == 51 and "delivered and weighed" in delivered["basis"]
-	assert delivered["harvest_from"] == "2026-05-11"
+	assert delivered["kg"] == 0.0 and delivered["recorded"] is False, delivered
+	assert delivered["crop"] is None and "nothing delivered yet" in delivered["basis"], delivered
+	# The season's harvest logs stand in where there is no yield history.
+	logged = delivered_this_season([], 2026, [
+		dict(harvest_date="2026-05-11", total_kg=1000.0, orchard_block="LA9"),
+		dict(harvest_date="2026-06-20", total_kg=500.0, orchard_block="LB-BONDENI 2"),
+		dict(harvest_date="2025-06-20", total_kg=9999.0, orchard_block="LA9")])
+	assert logged["kg"] == 1500.0 and logged["blocks"] == 2 and logged["recorded"] is True, logged
+	assert logged["harvest_from"] == "2026-05-11" and logged["harvest_to"] == "2026-06-20", logged
 	# Put the delivered early crop into the history and the LATE forecast must not
 	# move by a single kilogram — it is a different crop off the same trees.
 	with_early = HISTORY + [dict(block_code="LA9", year=2026, season_part="Early",
 								 kg_harvested=9000.0)]
-	assert late_crop_estimate(BLOCKS, with_early, harvests=HARVESTS,
+	assert late_crop_estimate(BLOCKS, with_early, MODEL, seasons=CAL_SEASONS, harvests=HARVESTS,
 							  on_date=TODAY)["total_kg"] == late["total_kg"]
-	# ...and now the delivered figure comes from the history rather than the closed
-	# season, because that is the better source once someone has loaded it per block.
+	# ...and once the history is loaded per block the delivered figure comes from it.
 	d2 = delivered_this_season(with_early, 2026)
 	assert d2["kg"] == 9000.0 and d2["blocks"] == 1 and "yield history" in d2["basis"], d2
+	assert d2["recorded"] is True
 	assert delivered_this_season([], 2099)["kg"] == 0.0
 
 	# 14. Dating a crop with no dry matter to date it by.
@@ -405,7 +427,7 @@ def main():
 	stale = dm_projection([
 		dict(orchard_block="LA9", sample_date="2026-02-09", avg_dry_matter_pct=19.4),
 		dict(orchard_block="LA9", sample_date="2026-03-09", avg_dry_matter_pct=21.8),
-	], on_date=TODAY)
+	], MODEL, on_date=TODAY)
 	assert stale["LA9"]["stale"] is True and stale["LA9"]["weeks_to_minimum"] is None
 	assert stale["LA9"]["ready_date"] is None
 
@@ -423,10 +445,10 @@ def main():
 
 	# With a stale reading and nothing else, the old behaviour was a blank calendar.
 	# Now the window carries it — and the schedule still says it is not a measurement.
-	blank = weekly_spread(late["rows"], stale, on_date=TODAY)
+	blank = weekly_spread(late["rows"], stale, PICK_WEEKS, on_date=TODAY)
 	assert blank["weeks"] == [] and blank["scheduled_kg"] == 0, blank
 
-	sched = weekly_spread(late["rows"], stale, on_date=TODAY, windows=windows)
+	sched = weekly_spread(late["rows"], stale, PICK_WEEKS, on_date=TODAY, windows=windows)
 	assert sched["weeks"], "the seasonal fallback has to produce weeks"
 	assert sched["weeks"][0] == "2026-08-31", sched["weeks"]
 	assert sched["kg_by_basis"] == {"last season": lrows["LA9"]["expected_kg"]
@@ -443,7 +465,7 @@ def main():
 	mixed = weekly_spread(late["rows"], dm_projection([
 		dict(orchard_block="LB-BONDENI 2", sample_date="2026-08-01",
 			 avg_dry_matter_pct=23.3),
-	], on_date=TODAY), on_date=TODAY, windows=windows)
+	], MODEL, on_date=TODAY), PICK_WEEKS, on_date=TODAY, windows=windows)
 	by_block = {s["block"]: s for s in mixed["scheduled"]}
 	assert by_block["LB-BONDENI 2"]["measured_on"] == "dry matter", by_block
 	assert "dry matter 23.3%" in by_block["LB-BONDENI 2"]["basis"], by_block
@@ -453,6 +475,9 @@ def main():
 	# 15. Reading the estate's dry matter summary, on a miniature of the real sheet.
 	summary()
 
+	# 16. The model is the records: change a setting and the output changes.
+	model_follows_settings(est, late)
+
 	print(f"test_avocado_yield: OK — curve {[round(r['kg_per_tree'], 1) for r in curve]}, "
 		  f"grade 1 {g1:.1%}, estate {est['total_kg']:,.0f} kg from "
 		  f"{est['bearing_trees']:,.0f} bearing trees "
@@ -461,6 +486,109 @@ def main():
 		  f"{late['evidence_split']}, {len(sched['weeks'])} weeks scheduled off "
 		  f"{sched['blocks_by_basis']}, {delivered['kg']:,.0f} kg already delivered and "
 		  f"kept out of it")
+
+
+def model_follows_settings(est, late):
+	from upande_production.tests.avocado_model_fixture import HASS as HASS_ROWS, make_model
+
+	rows = {r["block"]: r for r in est["rows"]}
+	FUERTE = dict(HASS_ROWS, name="Fuerte", biennial_off_factor=None, on_years=None,
+				  late_crop_share_pct=None, dry_matter_target_pct=21,
+				  yield_by_age=[{"age_years": 0, "kg_per_plant": 0.0}, {"age_years": 2, "kg_per_plant": 50.0}])
+
+	# Yield by age is the variety's: a block of another variety is sized on its own rows.
+	two = make_model(varieties=[dict(HASS_ROWS), FUERTE])
+	blocks = [dict(BLOCKS[0], name="F1", variety="Fuerte"), dict(BLOCKS[0], name="H1", variety="Hass"),
+			  dict(BLOCKS[0], name="M1", variety="Fuerte, Hass")]
+	got = {r["block"]: r for r in estimate(blocks, [], two, on_date=TODAY)["rows"]}
+	assert got["F1"]["kg_per_tree"] == 50.0 and got["H1"]["kg_per_tree"] == 90.0, got
+	assert got["M1"]["kg_per_tree"] == 50.0, "a mixed block takes the first variety listed that has a curve"
+	# A variety with no biennial setting has no biennial effect, in an on or an off year.
+	assert biennial_factor(2025, two["varieties"]["Fuerte"]) == 1.0
+	assert is_on_year(2025, two["varieties"]["Fuerte"]) is None and is_on_year(2025, HASS) is False
+	# An off factor without saying which years are on says nothing.
+	assert make_model(varieties=[dict(HASS_ROWS, on_years=None)])["varieties"]["Hass"]["off_factor"] is None
+	off = estimate(blocks, [], two, on_date="2027-08-05")["rows"]
+	off = {r["block"]: r for r in off}
+	assert off["F1"]["kg_per_tree"] == 50.0 and off["H1"]["kg_per_tree"] == round(90.0 * HASS["off_factor"], 1)
+	# Another off factor moves the off-year figure.
+	flat = make_model(varieties=[dict(HASS_ROWS, biennial_off_factor=0.8)])
+	assert {r["block"]: r for r in estimate(blocks[1:2], [], flat, on_date="2027-08-05")["rows"]
+			}["H1"]["kg_per_tree"] == 72.0
+	# A variety with no curve is sized at zero and says why; it is also a data gap.
+	nocurve = estimate([dict(BLOCKS[0], variety="Pinkerton")], [], two, on_date=TODAY)["rows"][0]
+	assert nocurve["expected_kg"] == 0 and "no yield curve" in nocurve["basis"], nocurve
+	assert any(i["issue"] == "no yield curve" for i in data_quality([dict(BLOCKS[0], variety="Pinkerton")], two))
+
+	# The tree threshold is the crop's: a small harvest overrides the typed figure once allowed to.
+	small = [dict(harvest_date="2025-09-20", orchard_block="LA9", total_kg=20200.0, trees_harvested=202)]
+	assert yield_curve(small, BLOCKS, MODEL)["Hass"][6]["basis"] == "estate history"
+	eager = make_model({"min_trees_to_override_curve": 100})
+	band = yield_curve(small, BLOCKS, eager)["Hass"][6]
+	assert band["basis"] == "harvested" and abs(band["kg_per_tree"] - 100.0) < 0.01, band
+
+	# The late crop's share: the season named Late wins, then the variety's own figure; neither, no sizing.
+	nocount = [dict(BLOCKS[2], name="LC", variety="Hass")]
+	def late_of(variety_rows):
+		m = make_model(varieties=variety_rows)
+		return late_crop_estimate(nocount, [], m, on_date=TODAY)["rows"][0]
+	by_fallback = late_of([dict(HASS_ROWS)])
+	assert by_fallback["expected_kg"] == round(12.0 * 0.846 * 240, 0), by_fallback
+	named = late_of([dict(HASS_ROWS, flowering_seasons=[
+		{"season_name": "Early", "crop_share_pct": 60}, {"season_name": "Late crop", "crop_share_pct": 40}])])
+	assert named["expected_kg"] == round(12.0 * 0.40 * 240, 0), named
+	unset = late_of([dict(HASS_ROWS, late_crop_share_pct=None)])
+	assert unset["expected_kg"] == 0 and "late-crop share" in unset["basis"], unset
+
+	# Dry matter: gain, stale weeks and the export minimum are the crop's / the variety's.
+	one = [dict(orchard_block="LA9", sample_date="2026-07-22", avg_dry_matter_pct=22.6)]
+	base = dm_projection(one, MODEL, on_date=TODAY)["LA9"]
+	assert base["weeks_to_minimum"] == 2.0 and base["minimum_pct"] == 24.0, base   # 1.4 at 0.7 a week
+	quick = dm_projection(one, make_model({"dm_gain_per_week": 1.4}), on_date=TODAY)["LA9"]
+	assert quick["weeks_to_minimum"] == 1.0, quick
+	short_memory = dm_projection(one, make_model({"stale_sample_weeks": 1}), on_date=TODAY)["LA9"]
+	assert short_memory["stale"] is True and short_memory["weeks_to_minimum"] is None, short_memory
+	lower = dm_projection(one, MODEL, on_date=TODAY, minimums={"LA9": 22.0})["LA9"]
+	assert lower["ready"] is True and lower["minimum_pct"] == 22.0, lower
+	assert two["varieties"]["Fuerte"]["dm_min"] == 21 and two["varieties"]["Hass"]["dm_min"] == 24
+	# A late-crop count is only evidence while it is younger than the stale weeks.
+	counts = {"LA9": {"est_kg_per_tree": 28.4, "count_date": "2026-07-22"}}
+	assert late_crop_estimate(BLOCKS, HISTORY, MODEL, harvests=HARVESTS, on_date=TODAY, counts=counts
+							  )["rows"][0]["evidence"] in ("fruit count", "last late crop")
+	fast_stale = make_model({"stale_sample_weeks": 1})
+	assert {r["block"]: r for r in late_crop_estimate(
+		BLOCKS, HISTORY, fast_stale, harvests=HARVESTS, on_date=TODAY, counts=counts)["rows"]
+		}["LA9"]["evidence"] == "last late crop"
+
+	# The picking weeks are the crop's.
+	assert weekly_spread(est["rows"], {}, 3, on_date=TODAY, windows={
+		"LA9": {"start": "2026-08-10", "weeks": 3, "basis": "w"}})["pick_weeks"] == 3
+
+	# 17. Calibration comes from records: estimates vs deliveries, seasons that have both.
+	hist = [dict(block_code="A", year=2026, season_part="Early", kg_harvested=78400.0),
+			dict(block_code="B", year=2026, season_part="Early", kg_harvested=59300.0),
+			dict(block_code="B", year=2025, season_part="Year", kg_harvested=1000.0),
+			dict(block_code="C", year=2026, season_part="Early", kg_harvested=500.0)]
+	fc = [dict(orchard_block="A", season=2026, crop="Early", expected_kg=70000.0),
+		  dict(orchard_block="B", season=2026, crop="Early", expected_kg=64000.0),
+		  # estimated, not picked yet: fruit on the trees is not a miss
+		  dict(orchard_block="D", season=2026, crop="Early", expected_kg=50000.0),
+		  # a whole-season figure for the current season is not scored against half a season
+		  dict(orchard_block="A", season=2026, crop="Whole Season", expected_kg=150000.0),
+		  # a late estimate with no late delivery is not a season either
+		  dict(orchard_block="A", season=2026, crop="Late", expected_kg=79000.0)]
+	seasons = calibration_seasons(hist, fc, [], 2026)
+	assert len(seasons) == 1, seasons
+	assert seasons[0]["estimated_kg"] == 134000.0 and seasons[0]["actual_kg"] == 137700.0, seasons
+	assert seasons[0]["blocks_estimated"] == 3 and seasons[0]["blocks_harvested"] == 3, seasons
+	assert season_calibration(seasons)["factor"] == round(137700 / 134000, 3)
+	# A closed season with only a budget is scored by the budget against the year's deliveries.
+	budgeted = calibration_seasons(hist, [], [dict(season=2025, crop="Whole Season", budget_kg=800.0),
+											  dict(season=2026, crop="Whole Season", budget_kg=9e6)], 2026)
+	assert [(r["season"], r["estimated_kg"], r["actual_kg"]) for r in budgeted] == [(2025, 800.0, 1000.0)], budgeted
+	# Nothing recorded, nothing to correct: the factor is exactly 1.
+	assert calibration_seasons([], [], [], 2026) == []
+	assert season_calibration(calibration_seasons([], fc, [], 2026))["factor"] == 1.0
 
 
 def _write_summary(folder):
@@ -561,13 +689,13 @@ def summary():
 	# refuses to. Same block, same dry matter, 25 weeks apart.
 	blk = [dict(name="LK01", farm="Lokitela", status="Active", area_ha=2.0, live_trees=500,
 				bearing_trees=400.0, planting_year=2018, trees_per_ha=250, variety="Hass")]
-	rows_kg = estimate(blk, [], on_date="2026-08-10")["rows"]
+	rows_kg = estimate(blk, [], MODEL, on_date="2026-08-10")["rows"]
 
 	def pick(week, dm=23.4):
 		p = dm_projection([dict(orchard_block="LK01", avg_dry_matter_pct=dm,
 								sample_date=date.fromisocalendar(2026, week, 1).isoformat())],
-						  on_date="2026-08-10")
-		return p["LK01"], weekly_spread(rows_kg, p, on_date="2026-08-10")
+						  MODEL, on_date="2026-08-10")
+		return p["LK01"], weekly_spread(rows_kg, p, PICK_WEEKS, on_date="2026-08-10")
 
 	fresh, fresh_sched = pick(32)
 	assert fresh["stale"] is False, fresh
@@ -590,7 +718,7 @@ def summary():
 		dict(orchard_block="LK01", sample_date="2026-02-09", avg_dry_matter_pct=18.0),
 		dict(orchard_block="LK01", sample_date="2026-07-27", avg_dry_matter_pct=23.3),
 		dict(orchard_block="LK01", sample_date="2026-08-03", avg_dry_matter_pct=23.5),
-	], on_date="2026-08-10")["LK01"]
+	], MODEL, on_date="2026-08-10")["LK01"]
 	assert mixed["samples"] == 3, mixed
 	assert abs(mixed["gain_per_week"] - 0.2) < 0.01, mixed   # 23.5 - 23.3 over one week
 	assert mixed["gain_basis"] == "measured over 1 weeks", mixed
@@ -611,7 +739,7 @@ def summary():
 		dict(planting_area="23 Ha", planting_year=2018, week_number=7,
 			 test_date="2026-02-09", dry_matter_pct=18.5),
 	]
-	rip = ripening_agreement(trials, tests)
+	rip = ripening_agreement(trials, tests, MODEL["dm_min"])
 	assert rip["completed"] == 1, rip
 	assert rip["avg_days_to_ripen"] == 16.0, rip
 	assert rip["threshold_days"] is None, "a ripeness threshold was invented"
@@ -630,10 +758,10 @@ def summary():
 	assert aug["dry_matter_that_week"][0]["sample_date"] == "2026-08-03", aug
 	# Enough trials and it will say so — but it still returns no threshold.
 	many = ripening_agreement(trials + [dict(t, harvest_date="2026-07-27") for t in trials
-										for _ in range(1)], tests)
+										for _ in range(1)], tests, MODEL["dm_min"])
 	assert many["completed"] == 2 and many["verdict"] is None, many
 	loaded = ripening_agreement(
-		[dict(trials[0], harvest_date=f"2026-07-0{i}") for i in range(1, 5)], tests)
+		[dict(trials[0], harvest_date=f"2026-07-0{i}") for i in range(1, 5)], tests, MODEL["dm_min"])
 	assert loaded["completed"] == 4 and loaded["verdict"], loaded
 	assert loaded["threshold_days"] is None, "still no threshold, however many trials"
 

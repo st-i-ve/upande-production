@@ -19,23 +19,23 @@ import json
 import frappe
 from frappe.utils import add_days, cint, flt, getdate, nowdate
 
-from upande_production.api import avocadoapi, avocadolabour, avocadomaturity
+from upande_production.api import avocado_model, avocadoapi, avocadolabour, avocadomaturity
 from upande_production.api.envelope import as_dict, run
 from upande_production.production.logic.settings import can_see_pay
-
-DEFAULT_PRICE_PER_KG = 95.0
-DEFAULT_CREW = 60
 
 READ_ROLES = {"Production Manager", "Production Supervisor", "Production Viewer",
 			  "Agriculture Manager", "Agriculture User", "System Manager"}
 WRITE_ROLES = {"Production Manager", "Agriculture Manager", "Agriculture User", "System Manager"}
 
-PREF_PRICE = "avocado_price_per_kg"
-PREF_CREW = "avocado_crew_available"
 PREF_MODE = "avocado_forecast_mode"
 
-# Treemap / map shading: a block's kg per tree as a share of what the estate curve
+# Treemap / map shading: a block's kg per tree as a share of what its variety's curve
 # expects at its age. `to_pct` is exclusive; `dark_text` says which label colour reads.
+#
+# This stays in code on purpose (design item 11): it is a colour scale for a shading
+# ramp, not a business threshold. The cut points only choose where the colour changes;
+# nothing is flagged, scored or alerted from them, and the backend sends the scale to
+# the UI so the UI keeps no copy.
 VS_CURVE_BANDS = [
 	{"to_pct": 75, "color": "#eaf0dc", "dark_text": True},
 	{"to_pct": 100, "color": "#cfdcb0", "dark_text": True},
@@ -75,20 +75,33 @@ def _num(v):
 		return None
 
 
-def _price(v):
+def _price(v, model):
+	"""The price to value the crop at: what the caller is trying for the session, else the crop's own."""
 	n = _num(v)
 	if n is not None and n >= 0:
 		return n
-	saved = _num(frappe.defaults.get_user_default(PREF_PRICE))
-	return saved if saved is not None else DEFAULT_PRICE_PER_KG
+	return flt(model["price_per_kg"])
 
 
-def _crew(v):
+def harvest_crew(model, farm=None):
+	"""Pickers on the books: active employees in the Harvest Teams of this crop's units."""
+	crop = model["crop"]
+	rows = frappe.db.sql(
+		"""select count(distinct m.employee) from `tabHarvest Team Member` m
+		join `tabHarvest Team` t on t.name = m.parent
+		join `tabProduction Unit` u on u.name = t.unit
+		join `tabEmployee` e on e.name = m.employee
+		where u.crop = %(crop)s and e.status = 'Active' and (%(farm)s = '' or t.farm = %(farm)s)""",
+		{"crop": crop, "farm": farm or ""})
+	return float(rows[0][0] or 0) if rows else 0.0
+
+
+def _crew(v, model, farm=None):
+	"""Crew for the session: what the caller is trying, else the harvest teams' active members."""
 	n = _num(v)
 	if n is not None and n >= 0:
 		return n
-	saved = _num(frappe.defaults.get_user_default(PREF_CREW))
-	return saved if saved is not None else float(DEFAULT_CREW)
+	return harvest_crew(model, farm)
 
 
 def _mode(v=None):
@@ -126,10 +139,11 @@ def _median(vals):
 	return s[len(s) // 2]
 
 
-def _vs_curve(rows, curve):
+def _vs_curve(rows, curves):
 	"""Each row's kg/tree as a percentage of its age band's curve, set as `vs_curve_pct`."""
 	for r in rows:
 		age = r.get("age")
+		curve = curves.get(r.get("curve_variety"), [])
 		c = next((c for c in curve if age is not None and c["from"] <= age <= c["to"]), None)
 		r["vs_curve_pct"] = (round(r["kg_per_tree"] / c["kg_per_tree"] * 100)
 							 if c and c["kg_per_tree"] and r.get("kg_per_tree") else None)
@@ -148,16 +162,21 @@ def _context(farm, price):
 	"""The forecast every page starts from, plus the lookups they all need."""
 	f = avocadoapi.overview(price_per_kg=price, farm=farm)
 	rows = f["rows"]
-	_vs_curve(rows, f["curve"])
+	_vs_curve(rows, f["curves"])
 	names = {r["block"] for r in rows}
 	projection = {p["block"]: p for p in f["projection"]}
 	windows = {w["block"]: w for w in f["windows"]}
 	history = [h for h in avocadoapi._history()
 			   if (h.get("block_code") or h.get("block")) in names]
 	harvests = [h for h in avocadolabour.read_harvests() if h.orchard_block in names]
-	return frappe._dict(f=f, rows=rows, names=names, projection=projection,
+	return frappe._dict(f=f, model=f["model"], rows=rows, names=names, projection=projection,
 						windows=windows, history=history, harvests=harvests,
 						by_block={r["block"]: r for r in rows})
+
+
+def _on_year(ctx, season):
+	"""True / False for a crop that alternates, None when no variety has a biennial setting."""
+	return avocadoapi.is_on_year(season, avocadoapi.primary_variety(ctx.rows, ctx.model))
 
 
 def _unit_total(kg):
@@ -179,7 +198,7 @@ def _issues_grouped(issues):
 def _curve_rows(curve):
 	out = []
 	for c in curve:
-		label = (f"{c['from']}+" if c["to"] >= 90 else
+		label = (f"{c['from']}+" if c["to"] >= avocado_model.OPEN_END_AGE else
 				 str(c["from"]) if c["to"] == c["from"] else f"{c['from']}-{c['to']}")
 		out.append({"from_age": c["from"], "to_age": c["to"], "label": label,
 					"kg_per_tree": round(c["kg_per_tree"], 1), "basis": c["basis"],
@@ -297,7 +316,7 @@ def _budget_months_actual(budget, ctx, season, sched_weeks):
 		# Same rule as the picking plan's refused records (one shared rule): a row whose implied
 		# rate is not one day's picking is a mis-keyed record, not a delivery. Crate batches always
 		# count; rows without a picker count can't be judged and count too.
-		if flt(h.get("pickers_count")) and not avocadolabour.is_plausible(h):
+		if flt(h.get("pickers_count")) and not avocadolabour.is_plausible(h, ctx.model):
 			continue
 		if h.harvest_date and getdate(h.harvest_date).year == cint(season):
 			m = _month_name(h.harvest_date)
@@ -354,7 +373,7 @@ def _score_early(ctx, season):
 
 def _estimate_vs_delivered(ctx, season):
 	f = ctx.f
-	cal, delivered = f["calibration"], f["delivered"]
+	delivered = f["delivered"]
 	rows = _score_early(ctx, season)
 	has_block = any(r["delivered_kg"] > 0 for r in rows)
 	out = {"season": season, "crop": delivered.get("crop") or "Early"}
@@ -377,25 +396,14 @@ def _estimate_vs_delivered(ctx, season):
 						for r in rows if r["estimated_kg"] > 0 and r["delivered_kg"] <= 0],
 			"note": None, "rows": rows,
 		})
-	elif delivered["kg"] > 0 and cal["actual_kg"] > 0 and not ctx.history:
-		# Whole-estate closed-season totals: nothing per block to score.
-		est, act = cal["estimated_kg"], cal["actual_kg"]
-		out.update({
-			"basis": "estate", "estimated_kg": round(est, 0), "delivered_kg": round(act, 0),
-			"diff_kg": round(act - est, 0),
-			"diff_pct": round((act - est) / est * 100, 1) if est > 0 else None,
-			"performance_pct": round(act / est * 100, 1) if est > 0 else None,
-			"blocks_estimated": cal["blocks_estimated"], "blocks_delivered": cal["blocks_harvested"],
-			"best": None, "weakest": None, "waiting": [], "rows": [],
-			"note": "Whole-estate totals. No block can be scored.",
-		})
 	else:
 		out.update({
 			"basis": "none", "estimated_kg": round(sum(r["estimated_kg"] for r in rows), 0),
 			"delivered_kg": round(flt(delivered["kg"]), 0), "diff_kg": None, "diff_pct": None,
 			"performance_pct": None, "blocks_estimated": sum(1 for r in rows if r["estimated_kg"] > 0),
 			"blocks_delivered": 0, "best": None, "weakest": None, "waiting": [], "rows": rows,
-			"note": "No harvest has been recorded against these estimates yet.",
+			"note": "No delivered season recorded yet." if not delivered.get("recorded")
+					else "No harvest has been recorded against these estimates yet.",
 		})
 	return out
 
@@ -465,7 +473,8 @@ def production_forecast(farm=None, season=None, price_per_kg=None, mode=None):
 	the trees today; `season` selects which season's typed forecast and budget show.
 	"""
 	_need_read()
-	farm, price = _farm(farm), _price(price_per_kg)
+	farm = _farm(farm)
+	price = _price(price_per_kg, avocado_model.load_model())
 	ctx = _context(farm, price)
 	f = ctx.f
 	season = cint(season) or f["season"]
@@ -494,7 +503,7 @@ def production_forecast(farm=None, season=None, price_per_kg=None, mode=None):
 		"header": {
 			"blocks": n_blocks, "live_trees": f["live_trees"], "bearing_trees": f["bearing_trees"],
 			"pct_bearing": f["pct_bearing"], "biennial_factor": f["biennial_factor"],
-			"on_year": f["biennial_factor"] >= 1,
+			"on_year": _on_year(ctx, f["season"]),
 		},
 		"views": views,
 		"manual_note": {"entries": manual["entries"], "blocks_total": n_blocks},
@@ -557,7 +566,7 @@ def _picked_by_week(ctx, season):
 	by = {}
 	for h in ctx.harvests:
 		# mis-keyed logs (several days in one row) are not picks: same rule as the labour plan
-		if h.harvest_date and getdate(h.harvest_date).year == cint(season) and avocadolabour.is_plausible(h):
+		if h.harvest_date and getdate(h.harvest_date).year == cint(season) and avocadolabour.is_plausible(h, ctx.model):
 			w = str(_monday(h.harvest_date))
 			by[w] = by.get(w, 0.0) + flt(h.total_kg)
 	return by
@@ -649,9 +658,8 @@ def _treemap(ctx):
 	}
 
 
-def _pickers(ctx, crew, days_per_week=5):
-	f = ctx.f
-	plan = avocadolabour.build_plan(ctx.rows, ctx.projection, ctx.windows, ctx.harvests,
+def _pickers(ctx, crew, days_per_week=None):
+	plan = avocadolabour.build_plan(ctx.rows, ctx.projection, ctx.windows, ctx.harvests, ctx.model,
 									crew_available=crew, days_per_week=days_per_week, pay_per_day=0)
 	rows = plan["rows"]
 	this_mon = str(_monday())
@@ -668,7 +676,9 @@ def _pickers(ctx, crew, days_per_week=5):
 def season_outlook(farm=None, price_per_kg=None, crew_available=None):
 	"""Season Outlook page (teddy's /avocado-outlook). kg / KES / pickers."""
 	_need_read()
-	farm, price, crew = _farm(farm), _price(price_per_kg), _crew(crew_available)
+	farm = _farm(farm)
+	_m = avocado_model.load_model()
+	price, crew = _price(price_per_kg, _m), _crew(crew_available, _m, farm)
 	ctx = _context(farm, price)
 	f, rows = ctx.f, ctx.rows
 	minimum = f["maturity"]["minimum_pct"]
@@ -693,10 +703,12 @@ def season_outlook(farm=None, price_per_kg=None, crew_available=None):
 			e = by_year.setdefault(y, {"year": y, "kg": 0.0, "blocks": set()})
 			e["kg"] += flt(h.get("kg_harvested"))
 			e["blocks"].add(h.get("block_code") or h.get("block"))
+	primary = avocadoapi.primary_variety(rows, ctx.model)
 	delivered_by_season = [{"year": y, "kg": round(e["kg"], 0), "blocks": len(e["blocks"]),
-							"on_year": avocadoapi.biennial_factor(y) == 1.0}
+							"on_year": avocadoapi.is_on_year(y, primary)}
 						   for y, e in sorted(by_year.items())]
-	acc = round(100 - abs(cal["factor"] - 1) * 100, 1) if cal["factor"] else None
+	acc = (round(100 - abs(cal["factor"] - 1) * 100, 1)
+		   if cal["has_data"] and cal["factor"] else None)
 	cum, series = 0.0, []
 	for r in rows:
 		cum += r.get("value") or r["expected_kg"] or 0
@@ -720,7 +732,7 @@ def season_outlook(farm=None, price_per_kg=None, crew_available=None):
 		 "short": bool(need is not None and need > crew),
 		 "meter_pct": (0 if need is None else round(need / crew * 100, 1) if crew else 100)},
 		{"key": "estimate_accuracy", "label": "Estimate accuracy", "value": acc, "unit": "%",
-		 "note": cal["basis"] or "not calibrated", "estimated_kg": cal["estimated_kg"],
+		 "note": cal["basis"], "none_yet": not cal["has_data"], "estimated_kg": cal["estimated_kg"],
 		 "actual_kg": cal["actual_kg"], "calibration_factor": cal["factor"],
 		 "meter_pct": acc or 0},
 		{"key": "stale_readings", "label": "Stale readings", "value": len(stale), "of": n_proj,
@@ -743,7 +755,7 @@ def season_outlook(farm=None, price_per_kg=None, crew_available=None):
 		"crew_available": crew, "crop": f["crop"],
 		"header": {"blocks": f["blocks"], "total_kg": _unit_total(f["total_kg"]),
 				   "stale_readings": len(stale), "weeks_dated": len(timeline["weeks"]),
-				   "biennial_factor": f["biennial_factor"], "on_year": f["biennial_factor"] >= 1,
+				   "biennial_factor": f["biennial_factor"], "on_year": _on_year(ctx, season),
 				   "evidence_split": f["evidence_split"]},
 		"kpis": kpis, "timeline": timeline, "map": _map(ctx), "treemap": _treemap(ctx),
 		"dry_matter": {"minimum_pct": minimum, "cohorts": cohorts,
@@ -837,7 +849,7 @@ def _calendar_blocks(ctx):
 			continue
 		p = ctx.projection.get(r["block"])
 		w = ctx.windows.get(r["block"])
-		one = avocadoapi.weekly_spread([r], ctx.projection, windows=ctx.windows)
+		one = avocadoapi.weekly_spread([r], ctx.projection, ctx.model["default_pick_weeks"], windows=ctx.windows)
 		placed = one["scheduled"][0] if one["scheduled"] else None
 		b = {"block": r["block"], "farm": r.get("farm") or "", "planting_year": r.get("planting_year"),
 			 "expected_kg": kg, "cohort_note": notes.get(r["block"], ""),
@@ -870,7 +882,7 @@ def harvest_calendar(farm=None, planting_year=None):
 
 	`farm` and `planting_year` filter the grid, KPIs and lists. `filters` always lists
 	every option so the pickers do not shrink as you filter. A week is a Monday.
-	kg_per_crate is 18; every cell and total carries kg and crates.
+	kg_per_crate is the crop's average crate weight; every cell and total carries kg and crates.
 	"""
 	_need_read()
 	farm = _farm(farm)
@@ -878,7 +890,7 @@ def harvest_calendar(farm=None, planting_year=None):
 	ctx = _context(None, 0)
 	minimum = ctx.f["maturity"]["minimum_pct"]
 	all_blocks, all_young = _calendar_blocks(ctx)
-	kpc = avocadolabour.KG_PER_CRATE
+	kpc = ctx.model["avg_kg_per_crate"]
 	filters = {"farms": sorted({b["farm"] for b in all_blocks + all_young if b.get("farm")}),
 			   "planting_years": sorted({cint(b.get("planting_year")) for b in all_blocks + all_young
 										 if b.get("planting_year")})}
@@ -960,18 +972,20 @@ def harvest_calendar(farm=None, planting_year=None):
 
 @frappe.whitelist(methods=["POST"])
 @run
-def picking_plan(farm=None, week=None, crew_available=None, days_per_week=5, pay_per_day=0):
+def picking_plan(farm=None, week=None, crew_available=None, days_per_week=None, pay_per_day=0):
 	"""Picking Plan page (teddy's /avocado-labour) on the crop still on the trees.
 
 	`week` is any date inside the week to open in detail (default: the first dated
 	week from today). Wage fields are null unless the caller may see pay.
 	"""
 	_need_read()
-	farm, crew = _farm(farm), _crew(crew_available)
-	days = cint(days_per_week) or 5
+	farm = _farm(farm)
+	model = avocado_model.load_model()
+	crew = _crew(crew_available, model, farm)
+	days = cint(days_per_week) or model["harvest_days_per_week"]
 	pay = flt(pay_per_day) if can_see_pay() else 0.0
 	ctx = _context(farm, 0)
-	plan = avocadolabour.build_plan(ctx.rows, ctx.projection, ctx.windows, ctx.harvests,
+	plan = avocadolabour.build_plan(ctx.rows, ctx.projection, ctx.windows, ctx.harvests, model,
 									crew_available=crew, days_per_week=days, pay_per_day=pay)
 	rows, summary = plan["rows"], plan["summary"]
 	for r in rows:
@@ -979,7 +993,7 @@ def picking_plan(farm=None, week=None, crew_available=None, days_per_week=5, pay
 		r["status"] = "no_crew" if sf is None else "short" if sf > 0 else "spare"
 		r["people_short"] = round(sf, 1) if sf is not None and sf > 0 else 0
 		r["people_spare"] = round(-sf, 1) if sf is not None and sf < 0 else 0
-		r["by_block"] = _week_blocks(plan, r["week"], days)
+		r["by_block"] = _week_blocks(plan, r["week"], days, model)
 
 	focus = None
 	if week:
@@ -1016,14 +1030,14 @@ def picking_plan(farm=None, week=None, crew_available=None, days_per_week=5, pay
 	}
 
 
-def _week_blocks(plan, week, days):
+def _week_blocks(plan, week, days, model):
 	out = []
 	rates = {k: v for k, v in plan["rates"].items()}
 	for block, kg in sorted(plan["block_kg"].get(week, {}).items(), key=lambda kv: -kv[1]):
-		rate, basis = avocadolabour.rate_for(rates, block)
+		rate, basis = avocadolabour.rate_for(rates, block, model)
 		pd = kg / rate if rate else 0
 		out.append({"block": block, "kg": round(kg, 0),
-					"crates": round(kg / avocadolabour.KG_PER_CRATE),
+					"crates": round(kg / model["avg_kg_per_crate"]),
 					"kg_per_picker_day": round(rate, 1), "rate_basis": basis,
 					"measured": bool(rates.get(block)),
 					"picker_days": round(pd, 1), "pickers_needed": round(pd / max(days, 1), 1)})
@@ -1033,19 +1047,19 @@ def _week_blocks(plan, week, days):
 # -- Dry Matter -----------------------------------------------------------------
 
 
-def _verdict_kind(dm):
+def _verdict_kind(dm, model):
 	if dm is None:
 		return None
-	if dm >= avocadomaturity.MAX_DRY_MATTER_PCT:
+	if dm >= model["dm_max"]:
 		return "over"
-	return "in" if dm >= avocadomaturity.MIN_DRY_MATTER_PCT else "under"
+	return "in" if dm >= model["dm_min"] else "under"
 
 
-def _preview(readings):
+def _preview(readings, model):
 	readings = as_dict(readings) if not isinstance(readings, list) else readings
 	if isinstance(readings, dict):
 		readings = [{"count_size": k, "moisture": v} for k, v in readings.items()]
-	lo, hi = avocadomaturity.MIN_DRY_MATTER_PCT, avocadomaturity.MAX_DRY_MATTER_PCT
+	lo, hi = model["dm_min"], model["dm_max"]
 	sizes, dms = [], []
 	for r in readings or []:
 		dm = avocadomaturity._dry_matter(r.get("moisture"))
@@ -1053,14 +1067,14 @@ def _preview(readings):
 			sizes.append({"count_size": cint(r.get("count_size")), "dry_matter_pct": None, "window": None})
 			continue
 		dms.append(dm)
-		kind = _verdict_kind(dm)
+		kind = _verdict_kind(dm, model)
 		sizes.append({"count_size": cint(r.get("count_size")), "dry_matter_pct": dm, "window": kind,
 					  "short_by_points": round(lo - dm, 1) if dm < lo else 0})
 	avg = round(sum(dms) / len(dms), 1) if dms else None
 	return {"sizes": sizes, "average_dry_matter_pct": avg,
 			"ready_sizes": sum(1 for d in dms if d >= lo), "of": len(dms),
-			"window": _verdict_kind(avg),
-			"verdict": avocadomaturity._verdict(avg) if avg is not None else None,
+			"window": _verdict_kind(avg, model),
+			"verdict": avocadomaturity._verdict(avg, lo, hi) if avg is not None else None,
 			"min_pct": lo, "max_pct": hi}
 
 
@@ -1069,7 +1083,7 @@ def _preview(readings):
 def dry_matter_preview(readings):
 	"""Moisture to dry matter for each fruit size, the average and the verdict (no save)."""
 	_need_read()
-	return _preview(readings)
+	return _preview(readings, avocado_model.load_model())
 
 
 @frappe.whitelist(methods=["POST"])
@@ -1078,16 +1092,18 @@ def dry_matter(farm=None, block=None):
 	"""Dry Matter page: the entry form's lookups, every block's state, trend and recent visits."""
 	_need_read()
 	farm, block = _farm(farm), _farm(block)
+	model = avocado_model.load_model()
 	form = avocadomaturity.get_form()
 	if farm:
 		form["blocks"] = [b for b in form["blocks"] if b.get("farm") == farm]
 	names = {b["block"] for b in form["blocks"]}
-	minimum = avocadomaturity.MIN_DRY_MATTER_PCT
-	projection = avocadoapi.dm_projection([s for s in avocadoapi._samples()
-										   if s.get("orchard_block") in names])
+	minimum = model["dm_min"]
+	samples = avocadoapi._samples(model)
+	projection = avocadoapi.dm_projection([s for s in samples if s.get("orchard_block") in names],
+										  model, minimums=avocadoapi.block_minimums(model))
 
 	series = {}
-	for s in avocadoapi._samples():
+	for s in samples:
 		b = s.get("orchard_block")
 		if b not in names or not flt(s.get("avg_dry_matter_pct")):
 			continue
@@ -1110,7 +1126,8 @@ def dry_matter(farm=None, block=None):
 		rows.append({
 			"block": b["block"], "farm": b.get("farm"), "planting_year": b.get("planting_year"),
 			"state": state, "dry_matter_pct": dm,
-			"short_pct": round(max(0.0, minimum - dm), 1) if dm is not None else None,
+			"short_pct": round(max(0.0, (p or {}).get("minimum_pct", minimum) - dm), 1)
+						 if dm is not None else None,
 			"sample_date": p["sample_date"] if p else None, "samples": p["samples"] if p else 0,
 			"gain_pct_per_week": p["gain_per_week"] if p else None,
 			"gain_basis": p["gain_basis"] if p else None,
@@ -1128,7 +1145,7 @@ def dry_matter(farm=None, block=None):
 			  if not farm or v["where"] in names or v["measured_on"] == "area"]
 	return {
 		"farm": farm, "block": block, "farms": _all_farms(), "form": form,
-		"minimum_pct": minimum, "maximum_pct": avocadomaturity.MAX_DRY_MATTER_PCT,
+		"minimum_pct": minimum, "maximum_pct": model["dm_max"],
 		"blocks": rows,
 		"summary": {"blocks": len(rows),
 					"ready": sum(1 for r in rows if r["state"] == "ready"),
@@ -1156,25 +1173,17 @@ def set_forecast_mode(mode):
 @frappe.whitelist(methods=["POST"])
 @run
 def save_price_per_kg(price_per_kg):
-	"""Remember this user's KES per kg for forecast value."""
-	_need_read()
+	"""Save the estate's KES per kg on the avocado crop (Production Manager). It is not a per-user setting."""
+	if frappe.session.user != "Administrator" and not {"Production Manager", "System Manager"} & set(frappe.get_roles()):
+		frappe.throw("Only a Production Manager can change the estate price.", frappe.PermissionError)
 	p = _num(price_per_kg)
 	if p is None or p < 0:
 		frappe.throw("Price per kg must be a number, zero or more.")
-	frappe.defaults.set_user_default(PREF_PRICE, p)
+	crop = avocado_model.crop_name()
+	if not crop:
+		frappe.throw("There is no avocado crop.")
+	frappe.db.set_value("Production Crop", crop, "price_per_kg", p)
 	return {"ok": True, "price_per_kg": p}
-
-
-@frappe.whitelist(methods=["POST"])
-@run
-def save_crew_available(crew_available):
-	"""Remember how many pickers this user has on the books."""
-	_need_read()
-	n = _num(crew_available)
-	if n is None or n < 0:
-		frappe.throw("Crew available must be a number, zero or more.")
-	frappe.defaults.set_user_default(PREF_CREW, n)
-	return {"ok": True, "crew_available": n}
 
 
 @frappe.whitelist(methods=["POST"])

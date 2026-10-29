@@ -3,32 +3,27 @@
 
 # Entering a dry matter test the way the lab actually runs one.
 #
-# A test is not one number. Fruit is sorted into export count sizes — 14s are the
-# big ones at 275-317 g, 32s the small ones at 94-132 g — and each size is dried
+# A test is not one number. Fruit is sorted into export count sizes — a low count is big
+# fruit and a high count small fruit — and each size is dried
 # and weighed separately, because a small fruit matures ahead of a big one on the
 # same tree. So one visit to one block produces up to ten readings, and the desk
 # form's one-record-at-a-time is the wrong shape for that: ten saves, ten chances
 # to mistype the block.
 #
 # The lab records MOISTURE. Dry matter is the remainder, and the export window is
-# 24-34%. Nobody should be doing that subtraction by hand — reading 0.77 as dry
+# set on the avocado crop. Nobody should be doing that subtraction by hand — reading 0.77 as dry
 # matter instead of moisture calls a green fruit ripe, and that is a rejected
 # container.
 
 import frappe
 from frappe.utils import cint, flt, getdate, nowdate
 
+from upande_production.api import avocado_model
+
 DOCTYPE = "Avocado Maturity Test"
 
-MIN_DRY_MATTER_PCT = 24.0
-MAX_DRY_MATTER_PCT = 34.0
-
-# The export count sizes and the gram band each one covers, straight off the
-# estate's own maturity sheets.
-COUNT_SIZES = [
-	(14, 275, 317), (16, 242, 275), (18, 216, 242), (20, 196, 216), (22, 179, 196),
-	(24, 164, 179), (26, 152, 164), (28, 142, 152), (30, 132, 142), (32, 94, 132),
-]
+# The export count sizes and the gram band each one covers are rows on the avocado
+# Production Crop (count_sizes); the window is its dry matter target and max.
 
 
 def _dry_matter(moisture):
@@ -48,6 +43,7 @@ def _dry_matter(moisture):
 @frappe.whitelist()
 def get_form():
 	"""Everything the entry screen needs to draw itself."""
+	model = avocado_model.load_model()
 	blocks, source = [], None
 	try:
 		from upande_production.api.avocadoapi import _read_blocks
@@ -68,9 +64,9 @@ def get_form():
 		"blocks": blocks,
 		"block_source": source,
 		"areas": areas,
-		"sizes": [{"count": c, "min_g": lo, "max_g": hi} for c, lo, hi in COUNT_SIZES],
-		"min_pct": MIN_DRY_MATTER_PCT,
-		"max_pct": MAX_DRY_MATTER_PCT,
+		"sizes": [{"count": c, "min_g": lo, "max_g": hi} for c, lo, hi in model["count_sizes"]],
+		"min_pct": model["dm_min"],
+		"max_pct": model["dm_max"],
 		"today": nowdate(),
 		"week_number": getdate(nowdate()).isocalendar()[1],
 	}
@@ -88,6 +84,7 @@ def save_readings(readings, orchard_block=None, planting_area=None, week_number=
 		import json
 
 		readings = json.loads(readings)
+	model = avocado_model.load_model()
 
 	orchard_block = (orchard_block or "").strip()
 	planting_area = (planting_area or "").strip()
@@ -98,11 +95,14 @@ def save_readings(readings, orchard_block=None, planting_area=None, week_number=
 		frappe.throw("A week number is needed — it is how the maturity run is tracked.")
 
 	planting_year = None
+	minimum = model["dm_min"]
 	if orchard_block:
 		try:
 			from upande_production.api.avocadoapi import _block_source
 
-			planting_year = frappe.db.get_value(_block_source(), orchard_block, "planting_year")
+			planting_year, variety = frappe.db.get_value(_block_source(), orchard_block,
+														 ["planting_year", "variety"])
+			minimum = avocado_model.dm_min_for(model, variety)
 		except Exception:
 			planting_year = None
 
@@ -116,7 +116,7 @@ def save_readings(readings, orchard_block=None, planting_area=None, week_number=
 		if not dm:
 			skipped.append({"count_size": size, "why": "not a reading we can use"})
 			continue
-		band = next((b for b in COUNT_SIZES if b[0] == size), None)
+		band = next((b for b in model["count_sizes"] if b[0] == size), None)
 		doc = frappe.get_doc({
 			"doctype": DOCTYPE,
 			"orchard_block": orchard_block or None,
@@ -133,7 +133,7 @@ def save_readings(readings, orchard_block=None, planting_area=None, week_number=
 		}).insert(ignore_permissions=False)
 		saved.append({"name": doc.name, "count_size": size,
 					  "dry_matter_pct": flt(doc.dry_matter_pct),
-					  "ready": flt(doc.dry_matter_pct) >= MIN_DRY_MATTER_PCT})
+					  "ready": flt(doc.dry_matter_pct) >= minimum})
 
 	if not saved:
 		frappe.throw("Nothing to save — enter the moisture for at least one fruit size.")
@@ -146,22 +146,24 @@ def save_readings(readings, orchard_block=None, planting_area=None, week_number=
 		"average_dry_matter": round(sum(dms) / len(dms), 1),
 		"ready": sum(1 for s in saved if s["ready"]),
 		"of": len(saved),
-		"verdict": _verdict(sum(dms) / len(dms)),
+		"verdict": _verdict(sum(dms) / len(dms), minimum, model["dm_max"]),
 	}
 
 
-def _verdict(dm):
-	if dm >= MAX_DRY_MATTER_PCT:
-		return f"{dm:.1f}% — over the {MAX_DRY_MATTER_PCT:.0f}% top of the window. Pick now."
-	if dm >= MIN_DRY_MATTER_PCT:
+def _verdict(dm, minimum, maximum):
+	if dm >= maximum:
+		return f"{dm:.1f}% — over the {maximum:.0f}% top of the window. Pick now."
+	if dm >= minimum:
 		return f"{dm:.1f}% — inside the export window. Ready to pick."
-	return (f"{dm:.1f}% — below the {MIN_DRY_MATTER_PCT:.0f}% export floor. "
+	return (f"{dm:.1f}% — below the {minimum:.0f}% export floor. "
 			f"Not pickable for export yet.")
 
 
 @frappe.whitelist()
 def recent(orchard_block=None, limit=40):
 	"""This block's own readings, newest first, with what they imply."""
+	model = avocado_model.load_model()
+	minimums = _block_minimums(model)
 	filters = {"orchard_block": orchard_block} if orchard_block else {}
 	rows = frappe.get_all(
 		DOCTYPE, filters=filters,
@@ -185,7 +187,17 @@ def recent(orchard_block=None, limit=40):
 	for v in visits.values():
 		dms = [s["dry_matter_pct"] for s in v["sizes"] if s["dry_matter_pct"]]
 		v["average_dry_matter"] = round(sum(dms) / len(dms), 1) if dms else 0
-		v["ready"] = v["average_dry_matter"] >= MIN_DRY_MATTER_PCT
+		v["ready"] = v["average_dry_matter"] >= (minimums.get(v["where"]) or model["dm_min"])
 		out.append(v)
 	out.sort(key=lambda v: v["test_date"], reverse=True)
-	return {"visits": out, "min_pct": MIN_DRY_MATTER_PCT, "max_pct": MAX_DRY_MATTER_PCT}
+	return {"visits": out, "min_pct": model["dm_min"], "max_pct": model["dm_max"]}
+
+
+def _block_minimums(model):
+	"""{block: export minimum}; empty where this site has no block master."""
+	try:
+		from upande_production.api.avocadoapi import block_minimums
+
+		return block_minimums(model)
+	except Exception:
+		return {}

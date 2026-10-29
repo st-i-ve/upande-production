@@ -8,8 +8,12 @@
 # Run: env/bin/python -m upande_production.tests.test_avocado_labour   (no site needed)
 
 from upande_production.api.avocadolabour import (
-	DEFAULT_KG_PER_PICKER_DAY, KG_PER_CRATE, labour_plan, picker_rates, rate_for, summarise,
+	is_plausible, labour_plan, picker_rates, rate_for, summarise,
 )
+from upande_production.tests.avocado_model_fixture import MODEL, make_model
+
+DEFAULT_KG_PER_PICKER_DAY = MODEL["default_kg_per_picker_day"]
+KG_PER_CRATE = MODEL["avg_kg_per_crate"]
 
 HARVESTS = [
 	# 7,320 / 10 pickers = 732 kg a picker-day.
@@ -26,7 +30,7 @@ HARVESTS = [
 
 
 def main():
-	rates = picker_rates(HARVESTS)
+	rates = picker_rates(HARVESTS, MODEL)
 
 	# 1. Measured per block, and the estate average for blocks never picked.
 	assert abs(rates["LB-BONDENI 2"]["kg_per_picker_day"] - 732.0) < 0.01, rates["LB-BONDENI 2"]
@@ -41,9 +45,9 @@ def main():
 	assert rates["_rejected"][0]["block"] == "LA3"
 
 	# 3. An unmeasured block falls back to the estate rate, then to the default.
-	assert abs(rate_for(rates, "WESA 6")[0] - estate) < 0.01
-	assert abs(rate_for(picker_rates([]), "WESA 6")[0] - DEFAULT_KG_PER_PICKER_DAY) < 0.01
-	assert "nothing measured yet" in picker_rates([])[""]["basis"]
+	assert abs(rate_for(rates, "WESA 6", MODEL)[0] - estate) < 0.01
+	assert abs(rate_for(picker_rates([], MODEL), "WESA 6", MODEL)[0] - DEFAULT_KG_PER_PICKER_DAY) < 0.01
+	assert "nothing measured yet" in picker_rates([], MODEL)[""]["basis"]
 
 	# 4. A week's headcount uses each block's OWN rate, not the estate average over
 	#    the week's total — the difference is what gets a crew wrongly booked.
@@ -52,7 +56,7 @@ def main():
 		"2026-08-03": {"LB-BONDENI 2": 7320.0, "LA9": 3787.5},
 		"2026-08-10": {"LA9": 1893.75},
 	}
-	rows = labour_plan(weeks, block_kg, rates, crew_available=6, days_per_week=5,
+	rows = labour_plan(weeks, block_kg, rates, MODEL, crew_available=6, days_per_week=5,
 					   pay_per_day=500.0)
 	w1, w2 = rows
 
@@ -72,7 +76,7 @@ def main():
 
 	# 5. A short week must be flagged, because that is the only number that changes
 	#    what a manager does on Monday.
-	tight = labour_plan(weeks, block_kg, rates, crew_available=3, days_per_week=5)
+	tight = labour_plan(weeks, block_kg, rates, MODEL, crew_available=3, days_per_week=5)
 	assert tight[0]["shortfall"] == 1.0, tight[0]
 	assert tight[0]["pct_of_crew"] == 133.0, tight[0]
 
@@ -83,16 +87,30 @@ def main():
 	assert s["total_picker_days"] == 25.0
 
 	# 6. Fewer picking days a week means more pickers for the same crop.
-	three_day = labour_plan(weeks, block_kg, rates, crew_available=3, days_per_week=3)
+	three_day = labour_plan(weeks, block_kg, rates, MODEL, crew_available=3, days_per_week=3)
 	assert three_day[0]["pickers_needed"] > tight[0]["pickers_needed"]
 
 	# 7. A block with no measured rate is counted, and the week says how much of its
 	#    kilograms rest on the estate average rather than on that block.
 	mixed = labour_plan(["2026-08-03"], {"2026-08-03": {"LA9": 1000.0, "WESA 6": 1000.0}},
-						rates, crew_available=4)
+						rates, MODEL, crew_available=4)
 	assert mixed[0]["pct_kg_measured"] == 50.0, mixed[0]
 
 	assert summarise([])["weeks"] == 0
+
+	# 8. Every constant is the crop's setting: change it and the plan changes.
+	faster = make_model({"default_kg_per_picker_day": 900})
+	assert rate_for(picker_rates([], faster), "WESA 6", faster)[0] == 900.0
+	heavy = make_model({"avg_kg_per_crate": 36})
+	assert labour_plan(weeks, block_kg, rates, heavy, crew_available=6)[0]["crates"] == round(11108 / 36, 0)
+	# The days per week default is the crop's; an explicit figure still wins.
+	assert labour_plan(weeks, block_kg, rates, MODEL, crew_available=3)[0]["pickers_needed"] == 4.0
+	assert labour_plan(weeks, block_kg, rates, make_model({"harvest_days_per_week": 4}),
+					   crew_available=3)[0]["pickers_needed"] == 5.0
+	# The plausible-rate range is the crop's too: a tighter ceiling refuses the 732 kg record.
+	tight_rate = make_model({"plausible_kg_per_picker_day_max": 700})
+	assert "LB-BONDENI 2" not in picker_rates(HARVESTS, tight_rate)
+	assert is_plausible(HARVESTS[0], MODEL) and not is_plausible(HARVESTS[0], tight_rate)
 
 	print(f"test_avocado_labour: OK — estate rate {estate:.0f} kg/picker-day, "
 		  f"peak {s['peak_pickers']:.0f} pickers in {s['peak_week']}, "

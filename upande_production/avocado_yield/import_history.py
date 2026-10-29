@@ -775,7 +775,9 @@ def import_maturity(folder="/mnt/c/Users/teddy/Downloads", commit=True):
 
 	# Dry matter itself is derived on the record, not here — the doctype owns that
 	# conversion so a hand-entered test and an imported one cannot disagree.
-	from upande_production.api.avocadoapi import MIN_DRY_MATTER_PCT
+	from upande_production.api.avocado_model import load_model
+
+	MIN_DRY_MATTER_PCT = load_model()["dm_min"]
 
 	frappe.db.delete(MATURITY_DOCTYPE)
 	refused = []
@@ -992,7 +994,9 @@ def block_dry_matter():
 	picked once. `sizes` is how many went into the average — one size is a hint,
 	five is a measurement.
 	"""
-	from upande_production.api.avocadoapi import MIN_DRY_MATTER_PCT
+	from upande_production.api.avocado_model import load_model
+
+	MIN_DRY_MATTER_PCT = load_model()["dm_min"]
 
 	tests = frappe.get_all(
 		MATURITY_DOCTYPE, filters={"planting_year": [">", 0]},

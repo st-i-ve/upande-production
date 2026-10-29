@@ -92,11 +92,12 @@ def _dry_matter_by_unit(crop):
 	out = drymatter.latest_by_unit(crop)
 	if frappe.db.get_value("Production Crop", crop, "crop_key") == "avocado":
 		try:
-			from upande_production.api import avocadoapi
-			from upande_production.api.avocadomaturity import MIN_DRY_MATTER_PCT
+			from upande_production.api import avocado_model, avocadoapi
 
-			for blk, p in avocadoapi.dm_projection(avocadoapi._samples()).items():
-				out.setdefault(blk, {"pct": p["dry_matter_pct"], "target": MIN_DRY_MATTER_PCT,
+			model = avocado_model.load_model()
+			for blk, p in avocadoapi.dm_projection(avocadoapi._samples(model), model,
+					minimums=avocadoapi.block_minimums(model)).items():
+				out.setdefault(blk, {"pct": p["dry_matter_pct"], "target": p["minimum_pct"],
 					"ready": bool(p["ready"]), "date": p["sample_date"]})
 		except Exception:
 			frappe.log_error(title="upande_production: avocado dry matter on blocks")

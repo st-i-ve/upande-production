@@ -205,7 +205,8 @@ class TestHarvest(IntegrationTestCase):
 		row = frappe.db.get_value("Avocado Harvest Log", log, ["orchard_block", "total_kg", "harvest_date", "client_ref"], as_dict=True)
 		self.assertEqual((row.orchard_block, row.total_kg, row.client_ref), (code, 200, H.BATCH_LOG_PREFIX + res["batch"]))
 		from upande_production.api.avocadolabour import is_plausible
-		self.assertTrue(is_plausible(frappe.get_doc("Avocado Harvest Log", log)))
+		from upande_production.tests.avocado_model_fixture import MODEL
+		self.assertTrue(is_plausible(frappe.get_doc("Avocado Harvest Log", log), MODEL))
 		# the avocado seed's mirror skips batch logs, so the batch's own Production Harvest is the only one
 		self.assertEqual(frappe.db.count("Production Harvest", {"harvest_batch": res["batch"]}), 1)
 		frappe.get_doc("Harvest Batch", res["batch"]).cancel()
@@ -215,6 +216,7 @@ class TestHarvest(IntegrationTestCase):
 		# 2 crates (a few kg per picker) is real fruit from scanned crates, not a mis-keyed log:
 		# it counts in the season and never shows up among the refused records.
 		from upande_production.api.avocadolabour import is_plausible, picker_rates
+		from upande_production.tests.avocado_model_fixture import MODEL
 		code = "HVA"
 		if not frappe.db.exists("Avocado Yield Block", code):
 			_make("Avocado Yield Block", block_code=code, area_ha=1, farm=self.farm.name, status="Active")
@@ -222,8 +224,8 @@ class TestHarvest(IntegrationTestCase):
 		self.scan(2, harvestor=self.p1.name)
 		res = self.close()
 		log = frappe.get_doc("Avocado Harvest Log", frappe.db.get_value("Harvest Batch", res["batch"], "avocado_harvest_log"))
-		self.assertTrue(is_plausible(log))
-		self.assertEqual(picker_rates([log.as_dict()])["_rejected"], [])
+		self.assertTrue(is_plausible(log, MODEL))
+		self.assertEqual(picker_rates([log.as_dict()], MODEL)["_rejected"], [])
 		frappe.get_doc("Harvest Batch", res["batch"]).cancel()
 
 	# -- response shapes the app reads

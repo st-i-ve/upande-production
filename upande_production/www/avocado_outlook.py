@@ -1,6 +1,7 @@
 import frappe
 
-from upande_production.api.avocadoapi import biennial_factor
+from upande_production.api import avocado_model
+from upande_production.api.avocadoapi import _block_source, is_on_year, primary_variety
 
 
 def get_context(context):
@@ -27,10 +28,13 @@ def get_years():
 	estate has no rows for simply is not in the list, because a missing season
 	and a bad season look identical once you draw a zero bar for both.
 
-	`on_year` comes from the forecast's own biennial rule rather than a second
+	`on_year` (null when no variety has a biennial setting) comes from the forecast's own biennial rule rather than a second
 	copy of it here, so the bars and the forecast can never disagree about which
 	years are on.
 	"""
+	model = avocado_model.load_model()
+	primary = primary_variety(frappe.get_all(_block_source(), fields=["variety", "bearing_trees"],
+											 limit_page_length=0), model)
 	rows = frappe.db.sql(
 		"""select year, sum(kg_harvested) as kg, count(distinct block_code) as blocks
 		   from `tabAvocado Yield History`
@@ -44,7 +48,7 @@ def get_years():
 				"year": int(r.year),
 				"kg": round(float(r.kg or 0), 0),
 				"blocks": int(r.blocks or 0),
-				"on_year": biennial_factor(r.year) == 1.0,
+				"on_year": is_on_year(r.year, primary),
 			}
 			for r in rows
 		],

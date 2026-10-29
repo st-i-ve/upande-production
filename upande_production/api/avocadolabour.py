@@ -24,22 +24,10 @@ from frappe.utils import cint, flt
 
 HARVEST_DOCTYPE = "Avocado Harvest Log"
 
-# Kilograms in a picking crate, the unit the estate counts in.
-KG_PER_CRATE = 18.0
-
-# What one picker takes off in a day when we have never measured this block.
-# Deliberately conservative: over-estimating the rate under-books the crew, and a
-# block that ripens past its window loses fruit on the ground.
-DEFAULT_KG_PER_PICKER_DAY = 450.0
-
-# A harvest log is one dated event, so kilograms divided by pickers is one
-# picker-day. Outside this range the record is not a day's picking — a mis-keyed
-# picker count, or several days rolled into one row — and it must not quietly set
-# the plan for a whole season.
-PLAUSIBLE_RATE = (150.0, 1200.0)
-
-DEFAULT_PICKING_DAYS_PER_WEEK = 5
-
+# The crate weight, the picking rate used for a block nobody has picked, the range
+# of rates that counts as one day's picking and the picking days per week are all on
+# the avocado Production Crop (avocado_model.load_model()); every function here takes
+# that `model`.
 
 # Logs written by a closed Harvest Batch (crates scanned in the field) carry this client_ref.
 CRATE_BATCH_REF = "harvest-batch:"
@@ -50,18 +38,19 @@ def from_crate_batch(h):
 	return str(h.get("client_ref") or "").startswith(CRATE_BATCH_REF)
 
 
-def is_plausible(h):
-	"""True when a harvest log is one day's picking (kg per picker-day inside PLAUSIBLE_RATE).
+def is_plausible(h, model):
+	"""True when a harvest log is one day's picking (kg per picker-day inside the model's plausible rate).
 
 	Crate batches always count: the rate check is there to catch mis-keyed manual entries, and a
 	small batch (a few crates, part of a day) is real fruit, not a typing mistake."""
 	if from_crate_batch(h):
 		return flt(h.get("total_kg")) > 0
 	kg, pickers = flt(h.get("total_kg")), flt(h.get("pickers_count"))
-	return bool(kg > 0 and pickers > 0 and PLAUSIBLE_RATE[0] <= kg / pickers <= PLAUSIBLE_RATE[1])
+	lo, hi = model["plausible_rate"]
+	return bool(kg > 0 and pickers > 0 and lo <= kg / pickers <= hi)
 
 
-def picker_rates(harvests):
+def picker_rates(harvests, model):
 	"""{block: {kg_per_picker_day, basis, events}} plus an "" estate fallback.
 
 	Rows whose implied rate is not physically a day's work are excluded and
@@ -69,6 +58,7 @@ def picker_rates(harvests):
 	halving next season's crew.
 	"""
 	per_block, rejected = {}, []
+	lo, hi = model["plausible_rate"]
 	for h in harvests:
 		kg = flt(h.get("total_kg"))
 		pickers = flt(h.get("pickers_count"))
@@ -79,7 +69,7 @@ def picker_rates(harvests):
 			# a batch may be part of a day's picking, so it says nothing about a picker-day
 			continue
 		rate = kg / pickers
-		if not (PLAUSIBLE_RATE[0] <= rate <= PLAUSIBLE_RATE[1]):
+		if not (lo <= rate <= hi):
 			rejected.append({"block": block, "date": str(h.get("harvest_date") or ""),
 							 "implied_rate": round(rate, 1),
 							 "why": "not one day's picking for one picker"})
@@ -106,28 +96,29 @@ def picker_rates(harvests):
 		 "basis": f"estate average over {len(per_block)} block(s)",
 		 "events": sum(a["events"] for a in per_block.values())}
 		if total_days else
-		{"kg_per_picker_day": DEFAULT_KG_PER_PICKER_DAY,
-		 "basis": "estate default, nothing measured yet", "events": 0}
+		{"kg_per_picker_day": model["default_kg_per_picker_day"],
+		 "basis": "crop default, nothing measured yet", "events": 0}
 	)
 	rates["_rejected"] = rejected
 	return rates
 
 
-def rate_for(rates, block):
-	"""The block's own measured rate, else the estate's."""
+def rate_for(rates, block, model):
+	"""The block's own measured rate, else the estate's, else the crop's default."""
 	row = rates.get(block) or rates.get("", {})
-	return flt(row.get("kg_per_picker_day")) or DEFAULT_KG_PER_PICKER_DAY, row.get("basis", "")
+	return flt(row.get("kg_per_picker_day")) or model["default_kg_per_picker_day"], row.get("basis", "")
 
 
-def labour_plan(weeks, block_kg, rates, crew_available=0,
-				days_per_week=DEFAULT_PICKING_DAYS_PER_WEEK, pay_per_day=0.0):
+def labour_plan(weeks, block_kg, rates, model, crew_available=0,
+				days_per_week=None, pay_per_day=0.0):
 	"""Per week: kilograms, crates, picker-days, headcount, and the gap.
 
 	`block_kg` is {week: {block: kg}} — kept per block because the rate differs by
 	block, so a week's headcount is the sum of each block's own requirement rather
 	than the total kilograms over an estate-wide average.
 	"""
-	days = max(cint(days_per_week) or DEFAULT_PICKING_DAYS_PER_WEEK, 1)
+	days = max(cint(days_per_week) or model["harvest_days_per_week"], 1)
+	kg_per_crate = model["avg_kg_per_crate"]
 	rows = []
 	for week in weeks:
 		by_block = block_kg.get(week, {})
@@ -135,7 +126,7 @@ def labour_plan(weeks, block_kg, rates, crew_available=0,
 		picker_days = 0.0
 		measured_kg, unmeasured_kg = 0.0, 0.0
 		for block, block_total in by_block.items():
-			rate, basis = rate_for(rates, block)
+			rate, basis = rate_for(rates, block, model)
 			picker_days += flt(block_total) / rate
 			if rates.get(block):
 				measured_kg += flt(block_total)
@@ -147,7 +138,7 @@ def labour_plan(weeks, block_kg, rates, crew_available=0,
 		rows.append({
 			"week": week,
 			"kg": round(kg, 0),
-			"crates": round(kg / KG_PER_CRATE, 0),
+			"crates": round(kg / kg_per_crate, 0),
 			"picker_days": round(picker_days, 1),
 			"pickers_needed": round(needed, 1),
 			"crew_available": crew,
@@ -190,8 +181,8 @@ def summarise(rows):
 # ── Site-facing ──────────────────────────────────────────────────────────────
 
 
-def build_plan(forecast_rows, projection, windows, harvests, crew_available=0,
-			   days_per_week=DEFAULT_PICKING_DAYS_PER_WEEK, pay_per_day=0.0):
+def build_plan(forecast_rows, projection, windows, harvests, model, crew_available=0,
+			   days_per_week=None, pay_per_day=0.0):
 	"""The whole labour plan for a set of forecast rows. Pure over the rows given.
 
 	Shared by the legacy labour page and the React picking plan / season outlook, so
@@ -199,19 +190,20 @@ def build_plan(forecast_rows, projection, windows, harvests, crew_available=0,
 	"""
 	from upande_production.api import avocadoapi
 
-	schedule = avocadoapi.weekly_spread(forecast_rows, projection, windows=windows)
+	pick_weeks = model["default_pick_weeks"]
+	schedule = avocadoapi.weekly_spread(forecast_rows, projection, pick_weeks, windows=windows)
 
 	# weekly_spread totals the estate per week; the plan needs it per block, so the
 	# same spread is rebuilt one block at a time. Same function, so the two pages
 	# can never disagree about which week a block lands in.
 	block_kg = {}
 	for row in forecast_rows:
-		one = avocadoapi.weekly_spread([row], projection, windows=windows)
+		one = avocadoapi.weekly_spread([row], projection, pick_weeks, windows=windows)
 		for week, kg in zip(one["weeks"], one["kg"]):
 			block_kg.setdefault(week, {})[row["block"]] = kg
 
-	rates = picker_rates(harvests)
-	rows = labour_plan(schedule["weeks"], block_kg, rates,
+	rates = picker_rates(harvests, model)
+	rows = labour_plan(schedule["weeks"], block_kg, rates, model,
 					   crew_available=flt(crew_available), days_per_week=days_per_week,
 					   pay_per_day=flt(pay_per_day))
 	return {
@@ -219,8 +211,8 @@ def build_plan(forecast_rows, projection, windows, harvests, crew_available=0,
 		"summary": summarise(rows),
 		"rates": {k: v for k, v in rates.items() if k != "_rejected"},
 		"rejected_records": rates.get("_rejected", []),
-		"kg_per_crate": KG_PER_CRATE,
-		"days_per_week": cint(days_per_week) or DEFAULT_PICKING_DAYS_PER_WEEK,
+		"kg_per_crate": model["avg_kg_per_crate"],
+		"days_per_week": cint(days_per_week) or model["harvest_days_per_week"],
 		# Fruit with no pick date cannot be staffed. Named, not hidden, because it
 		# is the manager's cue to go and sample those blocks.
 		"unscheduled": schedule.get("unscheduled", []),
@@ -239,18 +231,20 @@ def read_harvests():
 
 
 @frappe.whitelist()
-def get_labour_plan(crew_available=0, days_per_week=DEFAULT_PICKING_DAYS_PER_WEEK,
+def get_labour_plan(crew_available=0, days_per_week=None,
 					pay_per_day=0, price_per_kg=0):
 	"""The picking plan, built on the forecast the outlook page already shows."""
-	from upande_production.api import avocadoapi
+	from upande_production.api import avocado_model, avocadoapi
 
+	model = avocado_model.load_model()
 	forecast = avocadoapi.get_forecast(price_per_kg=price_per_kg)
-	projection = avocadoapi.dm_projection(avocadoapi._samples())
+	projection = avocadoapi.dm_projection(avocadoapi._samples(model), model,
+										  minimums=avocadoapi.block_minimums(model))
 	# Where dry matter is too old to date a pick, the forecast falls back to the
 	# window that crop was actually picked in last season. The plan has to use the
 	# same windows or a crew gets booked for weeks the calendar does not have.
 	windows = avocadoapi.seasonal_windows(avocadoapi._history(), forecast.get("season"))
-	out = build_plan(forecast["rows"], projection, windows, read_harvests(),
+	out = build_plan(forecast["rows"], projection, windows, read_harvests(), model,
 					 crew_available=crew_available, days_per_week=days_per_week,
 					 pay_per_day=pay_per_day)
 	out.pop("block_kg")

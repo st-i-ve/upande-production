@@ -26,7 +26,7 @@ BUDGET_DOCTYPE = "Avocado Production Budget"
 
 # Rough shape a late crop actually lands in: slow start, peak mid-crop, tailing off.
 # Four months because that is what the estate's own late-crop windows run
-# (see SEASON_CALIBRATION / the Sept 2025 harvest sheet in avocadoapi.py).
+# (the estate's late-crop harvest sheets).
 MONTH_SHARE = [("August", 0.12), ("September", 0.38), ("October", 0.34), ("November", 0.16)]
 
 

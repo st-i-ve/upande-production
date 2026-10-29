@@ -21,7 +21,8 @@ import frappe
 from frappe.model.document import Document
 from frappe.utils import flt
 
-from upande_production.api.avocadoapi import MIN_DRY_MATTER_PCT, dry_matter_from_moisture
+from upande_production.api import avocado_model
+from upande_production.api.avocadoapi import dry_matter_from_moisture
 
 
 class AvocadoMaturityTest(Document):
@@ -40,4 +41,14 @@ class AvocadoMaturityTest(Document):
 				f"Moisture {self.moisture_pct} gives {self.dry_matter_pct}% dry matter, "
 				f"which no avocado has. Check the reading."
 			)
-		self.export_ready = 1 if flt(self.dry_matter_pct) >= MIN_DRY_MATTER_PCT else 0
+		model = avocado_model.load_model()
+		minimum = model["dm_min"]
+		if self.orchard_block:
+			from upande_production.api.avocadoapi import _block_source
+
+			try:
+				minimum = avocado_model.dm_min_for(
+					model, frappe.db.get_value(_block_source(), self.orchard_block, "variety"))
+			except Exception:
+				pass
+		self.export_ready = 1 if flt(self.dry_matter_pct) >= minimum else 0
