@@ -133,6 +133,12 @@ def seed_groups() -> int:
 def _item(row, company, account):
 	code, name, group, uom, rate = row[:5]
 	if frappe.db.exists("Item", code):
+		# The expense account may appear after the first run: fill a missing default then.
+		if account and not frappe.db.get_value("Item Default", {"parent": code, "company": company}, "expense_account"):
+			doc = frappe.get_doc("Item", code)
+			row = next((d for d in doc.item_defaults if d.company == company), None) or doc.append("item_defaults", {"company": company})
+			row.expense_account = account
+			doc.save(ignore_permissions=True)
 		return 0
 	doc = frappe.get_doc({"doctype": "Item", "item_code": code, "item_name": name, "item_group": group,
 		"stock_uom": uom, "is_stock_item": 1, "valuation_rate": rate, "standard_rate": rate})
