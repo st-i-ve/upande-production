@@ -83,10 +83,22 @@ def validate_flowering(doc) -> None:
 		frappe.throw(_("An interval variety needs the flowering interval (weeks)"), frappe.ValidationError)
 
 
+def validate_yield_model(doc) -> None:
+	"""Yield-by-age rows need one row per age; a biennial off-year factor needs the on years named."""
+	ages = [cint(r.age_years) for r in doc.get("yield_by_age") or []]
+	if len(set(ages)) != len(ages):
+		frappe.throw(_("Yield by age lists an age twice"), frappe.ValidationError)
+	if flt(doc.get("biennial_off_factor")) and not doc.get("on_years"):
+		frappe.throw(_("Say whether the on years are even or odd"), frappe.ValidationError)
+	if flt(doc.get("biennial_off_factor")) < 0 or flt(doc.get("late_crop_share_pct")) < 0:
+		frappe.throw(_("The off-year factor and the late crop share cannot be negative"), frappe.ValidationError)
+
+
 class ProductionVariety(Document):
 	def validate(self):
 		derive(self)
 		validate_flowering(self)
+		validate_yield_model(self)
 		seen = set()
 		for s in self.stages:
 			if s.stage in seen:

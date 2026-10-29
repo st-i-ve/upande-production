@@ -19,6 +19,20 @@
   "enabled",
   "harvests_in_crates",
   "avg_kg_per_crate",
+  "crop_model_section",
+  "price_per_kg",
+  "harvest_days_per_week",
+  "min_trees_to_override_curve",
+  "model_col",
+  "default_kg_per_picker_day",
+  "plausible_kg_per_picker_day_min",
+  "plausible_kg_per_picker_day_max",
+  "model_col2",
+  "dry_matter_max_pct",
+  "dm_gain_per_week",
+  "stale_sample_weeks",
+  "default_pick_weeks",
+  "count_sizes",
   "sort_order",
   "dry_matter_section",
   "dry_matter_testing",
@@ -211,11 +225,98 @@
    "fieldtype": "Table",
    "label": "Grades",
    "options": "Production Grade"
+  },
+  {
+   "fieldname": "crop_model_section",
+   "fieldtype": "Section Break",
+   "label": "Crop model",
+   "depends_on": "eval:doc.crop_key=='avocado'"
+  },
+  {
+   "fieldname": "price_per_kg",
+   "fieldtype": "Currency",
+   "label": "Price per Kg",
+   "description": "Estate price used to value the forecast."
+  },
+  {
+   "fieldname": "harvest_days_per_week",
+   "fieldtype": "Int",
+   "label": "Harvest Days per Week",
+   "default": "5"
+  },
+  {
+   "fieldname": "min_trees_to_override_curve",
+   "fieldtype": "Int",
+   "label": "Min Trees to Override Curve",
+   "default": "1000",
+   "description": "A harvest log only replaces the yield-by-age figure once it covers this many trees."
+  },
+  {
+   "fieldname": "model_col",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "default_kg_per_picker_day",
+   "fieldtype": "Float",
+   "label": "Default Kg per Picker Day",
+   "default": "450",
+   "description": "Used for a block nobody has picked yet."
+  },
+  {
+   "fieldname": "plausible_kg_per_picker_day_min",
+   "fieldtype": "Float",
+   "label": "Plausible Rate Min (kg/picker/day)",
+   "default": "150"
+  },
+  {
+   "fieldname": "plausible_kg_per_picker_day_max",
+   "fieldtype": "Float",
+   "label": "Plausible Rate Max (kg/picker/day)",
+   "default": "1200"
+  },
+  {
+   "fieldname": "model_col2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "dry_matter_max_pct",
+   "fieldtype": "Float",
+   "label": "Dry Matter Max %",
+   "default": "34",
+   "description": "Top of the export window; the minimum is the Dry Matter Target."
+  },
+  {
+   "fieldname": "dm_gain_per_week",
+   "fieldtype": "Float",
+   "label": "Dry Matter Gain per Week",
+   "default": "0.7",
+   "description": "Points a week, for a block with a single sample."
+  },
+  {
+   "fieldname": "stale_sample_weeks",
+   "fieldtype": "Int",
+   "label": "Stale Sample Weeks",
+   "default": "8",
+   "description": "A reading or count older than this is not used to date a pick."
+  },
+  {
+   "fieldname": "default_pick_weeks",
+   "fieldtype": "Int",
+   "label": "Default Pick Weeks",
+   "default": "6",
+   "description": "Weeks a block takes to strip once it is legal to pick."
+  },
+  {
+   "fieldname": "count_sizes",
+   "fieldtype": "Table",
+   "label": "Count Sizes",
+   "options": "Production Crop Count Size",
+   "description": "Export count sizes and the gram band each covers."
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-28 12:00:00.000000",
+ "modified": "2026-10-29 15:00:00.000000",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production Crop",

@@ -19,3 +19,4 @@ upande_production.patches.backfill_cultural_occurrences
 upande_production.patches.flowering_pattern_from_reflower
 upande_production.patches.backfill_flowering_season
 upande_production.patches.seed_default_bands
+upande_production.patches.seed_avocado_model

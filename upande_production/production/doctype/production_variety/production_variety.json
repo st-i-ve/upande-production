@@ -37,6 +37,11 @@
   "weeks_to_reflower_after_harvest",
   "weeks_to_first_harvest",
   "harvest_window_weeks",
+  "yield_model_section",
+  "yield_by_age",
+  "biennial_off_factor",
+  "on_years",
+  "late_crop_share_pct",
   "stages_section",
   "stages",
   "water_section",
@@ -267,11 +272,42 @@
    "fieldtype": "Float",
    "label": "Irrigation Target (mm per week)",
    "description": "Empty uses the crop's."
+  },
+  {
+   "fieldname": "yield_model_section",
+   "fieldtype": "Section Break",
+   "label": "Yield model"
+  },
+  {
+   "fieldname": "yield_by_age",
+   "fieldtype": "Table",
+   "label": "Yield by Age",
+   "options": "Production Variety Yield Age",
+   "description": "Kg per plant by tree age; each row applies until the next."
+  },
+  {
+   "fieldname": "biennial_off_factor",
+   "fieldtype": "Float",
+   "label": "Biennial Off-year Factor",
+   "description": "An off year yields this share of an on year (e.g. 0.58). Empty means no biennial effect."
+  },
+  {
+   "fieldname": "on_years",
+   "fieldtype": "Select",
+   "label": "On Years",
+   "options": "\nEven\nOdd",
+   "depends_on": "biennial_off_factor"
+  },
+  {
+   "fieldname": "late_crop_share_pct",
+   "fieldtype": "Float",
+   "label": "Late Crop Share %",
+   "description": "Used when no flowering season is named Late."
   }
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-10-29 12:00:00.000000",
+ "modified": "2026-10-29 15:00:00.000000",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production Variety",
