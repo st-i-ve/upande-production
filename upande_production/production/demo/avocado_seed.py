@@ -25,7 +25,7 @@ DEMO = {
 	"farm": "Mutara",
 	"season": 2026,
 	"price_per_kg": 95,
-	"crew_available": 14,  # saved as the Administrator's crew default
+	"crew_available": 14,  # pickers on the avocado harvest teams (the crew now comes from the teams)
 	# block -> master data. A and B already exist and are updated in place.
 	"blocks": {
 		"A": {"variety": "Hass", "area_ha": 6.5, "planting_year": 2018, "total_trees": 1040,
@@ -305,8 +305,9 @@ COVER = (0.70, 0.90)  # buyer commitments cover this share of the forecast week
 
 
 def _plausible(h):
+	from upande_production.api.avocado_model import load_model
 	from upande_production.api.avocadolabour import is_plausible
-	return is_plausible(h)
+	return is_plausible(h, load_model())
 
 
 def _unit_cycle(unit):
@@ -443,9 +444,30 @@ def seed_generic_mirror():
 
 
 def seed_prefs():
-	frappe.defaults.set_user_default("avocado_price_per_kg", DEMO["price_per_kg"], user="Administrator")
-	frappe.defaults.set_user_default("avocado_crew_available", DEMO["crew_available"], user="Administrator")
 	frappe.defaults.set_user_default("avocado_forecast_mode", "automatic", user="Administrator")
+
+
+def seed_crew():
+	"""The crew is the active members of the avocado harvest teams. The main seed makes one team of six;
+	a second team on Block B tops the crew up to DEMO["crew_available"] distinct active pickers."""
+	from upande_production.api import avocado
+	from upande_production.api.avocado_model import load_model
+
+	crop = load_model()["crop"]
+	have = avocado.harvest_crew({"crop": crop})
+	need = int(DEMO["crew_available"] - have)
+	if need <= 0 or frappe.db.exists("Harvest Team", {"team_number": "A2"}):
+		return 0
+	unit = "Avocado Block B"
+	on_teams = set(frappe.get_all("Harvest Team Member", pluck="employee"))
+	pickers = [e for e in frappe.get_all("Employee", filters={"designation": "Value Adder", "status": "Active"},
+		pluck="name", order_by="first_name, last_name") if e not in on_teams][:need]
+	leader = frappe.db.get_value("Harvest Team", {"unit": "Avocado Block A"}, "team_leader")
+	if not (leader and pickers and frappe.db.exists("Production Unit", unit)):
+		return 0
+	frappe.get_doc({"doctype": "Harvest Team", "team_number": "A2", "team_leader": leader, "farm": DEMO["farm"],
+		"unit": unit, "harvestors": [{"employee": e} for e in pickers]}).insert(ignore_permissions=True)
+	return len(pickers)
 
 
 def run(commit=True):
@@ -460,6 +482,7 @@ def run(commit=True):
 	out["manual_or_budget_created"] = seed_manual()
 	out.update(seed_generic_mirror())
 	seed_prefs()
+	out["crew_added"] = seed_crew()
 	if commit:
 		frappe.db.commit()
 	print(out)

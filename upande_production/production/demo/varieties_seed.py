@@ -135,7 +135,8 @@ DEMO = {
 	# avocado flowering actuals: days before the cycle record the flowering was observed
 	"flowering_days_before_start": {"Hass": 190, "Fuerte": 130},
 	# Template fields per variety (weeks; plants per m2). `is_flowering` ones derive weeks to first harvest.
-	# Avocado dry matter stays on the Avocado Maturity Test, whose minimum is 24%, so Hass uses 24.
+	# Avocado dry matter stays on the Avocado Maturity Test, whose minimum is 24%, so Hass and Fuerte use 24
+	# (the avocado model reads the variety's target for each block, so 21 would move Fuerte blocks' pick dates).
 	"templates": {
 		"Hass": {"is_flowering": 1, "harvest_pattern": "Interval", "harvest_interval_weeks": 52,
 			"weeks_to_maturity": 130, "flowering_pattern": "Seasonal",
@@ -144,7 +145,7 @@ DEMO = {
 		"Fuerte": {"is_flowering": 1, "harvest_pattern": "Interval", "harvest_interval_weeks": 52,
 			"weeks_to_maturity": 130, "flowering_pattern": "Seasonal",
 			"flowering_seasons": [("Main", "October", 32, 85), ("Off-season", "April", 32, 15)],
-			"plants_per_m2": 0.0156, "lifespan_years": 30, "dry_matter_target_pct": 21},
+			"plants_per_m2": 0.0156, "lifespan_years": 30, "dry_matter_target_pct": 24},
 		**{n: {"is_flowering": 1, "harvest_pattern": "Continuous", "harvest_interval_weeks": 1,
 			"weeks_to_maturity": 30, "flowering_pattern": "Interval", "flowering_interval_weeks": 4,
 			"weeks_to_first_flowering": 20, "weeks_flowering_to_harvest": 10,
@@ -295,6 +296,19 @@ def _set_crop_dry_matter():
 				"dry_matter_target_pct": target}, update_modified=False)
 
 
+def _seed_avocado_model():
+	"""Today's avocado model values onto the avocado crop and its varieties (only where empty)."""
+	from upande_production.production import avocado_defaults
+
+	crop = frappe.db.get_value("Production Crop", {"crop_key": "avocado"})
+	if not crop:
+		return 0
+	n = int(avocado_defaults.apply_to_crop(crop))
+	for v in frappe.get_all("Production Variety", filters={"crop": crop}, pluck="name"):
+		n += int(avocado_defaults.apply_to_variety(v))
+	return n
+
+
 def _fix_cycles():
 	frappe.flags.in_demo_seed = True
 	fixed = 0
@@ -359,6 +373,7 @@ def run():
 		frappe.db.set_value("Production Variety", v["name"], "default_protocol", proto)
 	frappe.db.commit()
 	_set_crop_dry_matter()
+	made["avocado_model"] = _seed_avocado_model()
 	made["operation_categories"] = _set_categories()
 	made["cycles_fixed"] = _fix_cycles()
 	made["ponds_with_strain"] = _fix_ponds()
