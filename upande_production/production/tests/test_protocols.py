@@ -52,6 +52,20 @@ class TestProtocols(IntegrationTestCase):
 		P.submit_for_approval(v2)
 		return a, v2
 
+	def test_template_carries_pattern_and_seasons(self):
+		if not frappe.db.exists("Item Group", "All Item Groups"):
+			_make("Item Group", item_group_name="All Item Groups", is_group=1)
+		item = _make("Item", item_code="TP Hass", item_name="TP Hass", item_group="All Item Groups", stock_uom="Kg",
+			is_stock_item=1).name
+		v = _make("Production Variety", variety_name="TP Hass", crop=self.crop.name, item=item, is_flowering=1,
+			harvest_pattern="Interval", harvest_interval_weeks=52, weeks_to_maturity=130, flowering_pattern="Seasonal",
+			flowering_seasons=[{"season_name": "Main", "start_month": "August", "weeks_flowering_to_harvest": 36,
+				"crop_share_pct": 100}])
+		t = P._template(frappe._dict(variety=v.name))
+		self.assertEqual((t["weeks_to_maturity"], t["flowering_pattern"]), (130, "Seasonal"))
+		self.assertEqual([(s.season_name, s.start_month) for s in t["flowering_seasons"]], [("Main", "August")])
+		self.assertEqual(P._template(frappe._dict(variety=None))["flowering_seasons"], [])
+
 	def test_new_version_copies_steps(self):
 		a = self._active("TPV Copy")
 		self.assertEqual(a.protocol_family, a.name)

@@ -126,6 +126,16 @@ function RemoveCell({ editable, label, onRemove }: { editable: boolean; label: s
   );
 }
 
+function floweringPattern(v: ProtocolVersion): string | null {
+  if (!v.is_flowering) return null;
+  if (v.flowering_pattern === "Seasonal") {
+    const seasons = (v.flowering_seasons ?? []).map((s) => `${s.season_name} (${s.start_month})`);
+    return seasons.length ? seasons.join(", ") : "Seasonal";
+  }
+  if (v.flowering_pattern === "Interval" && v.flowering_interval_weeks) return `Every ${v.flowering_interval_weeks} weeks`;
+  return null;
+}
+
 function Template({ v }: { v: ProtocolVersion }) {
   const items: [string, unknown][] = [
     ["Lifespan (years)", v.lifespan_years],
@@ -133,7 +143,8 @@ function Template({ v }: { v: ProtocolVersion }) {
     ["Harvest interval (weeks)", v.harvest_interval_weeks],
     ["Weeks to first flowering", v.is_flowering ? v.weeks_to_first_flowering : null],
     ["Weeks flowering to harvest", v.is_flowering ? v.weeks_flowering_to_harvest : null],
-    ["Weeks to re-flower", v.is_flowering ? v.weeks_to_reflower_after_harvest : null],
+    ["Weeks to maturity", v.weeks_to_maturity],
+    ["Flowering pattern", floweringPattern(v)],
     ["Plants per m²", v.plants_per_m2],
   ];
   const shown = items.filter(([, x]) => x !== null && x !== undefined && x !== "" && x !== 0);

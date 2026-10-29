@@ -59,6 +59,10 @@ export interface ProtocolTemplate {
   weeks_flowering_to_harvest?: number | null;
   weeks_to_reflower_after_harvest?: number | null;
   plants_per_m2?: number | null;
+  weeks_to_maturity?: number | null;
+  flowering_pattern?: "Seasonal" | "Interval" | string | null;
+  flowering_interval_weeks?: number | null;
+  flowering_seasons?: { season_name: string; start_month: string }[];
 }
 
 export interface ProtocolTables {

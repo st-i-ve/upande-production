@@ -46,6 +46,23 @@ describe("ProtocolsList", () => {
     expect(within(screen.getByTestId("protocol-template")).getByText("Interval")).toBeInTheDocument();
   });
 
+  it("template strip shows weeks to maturity and the flowering pattern, not re-flower", () => {
+    open(version({
+      weeks_to_reflower_after_harvest: 12, weeks_to_maturity: 130, flowering_pattern: "Seasonal",
+      flowering_seasons: [{ season_name: "Main", start_month: "August" }, { season_name: "Off-season", start_month: "February" }],
+    }));
+    const t = within(screen.getByTestId("protocol-template"));
+    expect(t.getByText("Weeks to maturity")).toBeInTheDocument();
+    expect(t.getByText("130")).toBeInTheDocument();
+    expect(t.getByText("Main (August), Off-season (February)")).toBeInTheDocument();
+    expect(t.queryByText("Weeks to re-flower")).toBeNull();
+  });
+
+  it("template strip shows an interval flowering pattern", () => {
+    open(version({ weeks_to_maturity: 30, flowering_pattern: "Interval", flowering_interval_weeks: 4 }));
+    expect(within(screen.getByTestId("protocol-template")).getByText("Every 4 weeks")).toBeInTheDocument();
+  });
+
   it("interval weeks disabled for as needed", () => {
     open();
     const interval = screen.getByLabelText("Interval weeks for Spraying") as HTMLInputElement;

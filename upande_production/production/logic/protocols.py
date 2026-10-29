@@ -61,7 +61,11 @@ def _tables(doc, with_name=True):
 def _template(doc):
 	vals = frappe.db.get_value("Production Variety", doc.variety, list(TEMPLATE_FIELDS),
 		as_dict=True) if doc.variety else None
-	return {f: (vals.get(f) if vals else None) for f in TEMPLATE_FIELDS}
+	out = {f: (vals.get(f) if vals else None) for f in TEMPLATE_FIELDS}
+	out["flowering_seasons"] = frappe.get_all("Production Variety Flowering Season", filters={
+		"parent": doc.variety, "parenttype": "Production Variety"}, fields=["season_name", "start_month"],
+		order_by="idx asc") if doc.variety and out.get("flowering_pattern") == "Seasonal" else []
+	return out
 
 
 def _norm(field, v):
