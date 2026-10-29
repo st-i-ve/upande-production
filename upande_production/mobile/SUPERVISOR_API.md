@@ -134,7 +134,9 @@ or finished late.
 ## productionGetPlanDetail  (new)
 
 One week's plan, tasks grouped by block. Params: `crop` (required), `year`, `week`, `farm`,
-`unit` (only that block). No plan for the week gives `plan: null` and `blocks: []`.
+`unit` (only that block), `mine` (true: only tasks whose supervisor is the Employee linked to the
+logged-in user via `Employee.user_id`; a user with no Employee gets nothing; response carries `mine` and
+`employee`; `productionListWeekPlans` accepts `mine` too and counts only those tasks). No plan for the week gives `plan: null` and `blocks: []`.
 
 Per task: `planned_qty` + `uom`, `done_qty` (approved), `pending_qty` (awaiting approval), `due_date`,
 `status`, `deviation`, `is_late`, `supervisor` / `supervisor_name`, `protocol_ref` + `from_protocol`
