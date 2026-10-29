@@ -2,12 +2,11 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderPage } from "./helpers";
 
-vi.mock("@/lib/avocado-api", () => ({ getPickingPlan: vi.fn(), saveCrewAvailable: vi.fn() }));
-import { getPickingPlan, saveCrewAvailable } from "@/lib/avocado-api";
+vi.mock("@/lib/avocado-api", () => ({ getPickingPlan: vi.fn() }));
+import { getPickingPlan } from "@/lib/avocado-api";
 import { PickingPlan } from "@/pages/avocado/PickingPlan";
 
 const plan = vi.mocked(getPickingPlan);
-const save = vi.mocked(saveCrewAvailable);
 
 const wk = (week: string, status: string, needed: number) => ({
   week, kg: 9000, crates: 500, picker_days: needed * 5, pickers_needed: needed, crew_available: 20, shortfall: needed - 20, pct_of_crew: 90,
@@ -39,7 +38,6 @@ describe("PickingPlan", () => {
     // recharts' ResponsiveContainer needs it; jsdom has none.
     vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
     plan.mockReset().mockResolvedValue(payload() as never);
-    save.mockReset().mockResolvedValue({ ok: true, crew_available: 30 } as never);
   });
 
   it("shows the focus week detail, rates, unscheduled and rejected records", async () => {
@@ -53,12 +51,12 @@ describe("PickingPlan", () => {
     expect(screen.getByLabelText("Pay a day (KES)")).toBeInTheDocument();
   });
 
-  it("saves the crew available, then re-reads the plan with it", async () => {
+  it("tries a crew for this view only: re-reads the plan with it and saves nothing", async () => {
     renderPage(<PickingPlan />);
     const crew = await screen.findByLabelText("Crew available");
+    expect(plan).toHaveBeenLastCalledWith(expect.objectContaining({ crew_available: undefined }));
     fireEvent.change(crew, { target: { value: "30" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    await waitFor(() => expect(save).toHaveBeenCalledWith(30));
+    fireEvent.click(screen.getByRole("button", { name: "Try" }));
     await waitFor(() => expect(plan).toHaveBeenLastCalledWith(expect.objectContaining({ crew_available: 30 })));
   });
 
@@ -66,9 +64,9 @@ describe("PickingPlan", () => {
     renderPage(<PickingPlan />);
     const crew = await screen.findByLabelText("Crew available");
     fireEvent.change(crew, { target: { value: "2.5" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    fireEvent.click(screen.getByRole("button", { name: "Try" }));
     expect(await screen.findByText(/whole number of people/)).toBeInTheDocument();
-    expect(save).not.toHaveBeenCalled();
+    expect(plan).toHaveBeenCalledTimes(1);
   });
 
   it("hides pay when the viewer cannot see it", async () => {

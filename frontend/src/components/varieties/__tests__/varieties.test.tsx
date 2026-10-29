@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/varieties-api", async (orig) => ({
@@ -17,6 +17,7 @@ import { ToastProvider } from "@/components/Toast";
 import { RuleDialog, ruleProblem, toRuleForm } from "@/components/varieties/RuleDialog";
 import { StageEditor, StageTimeline, stageProblem, toStageDrafts } from "@/components/varieties/StageEditor";
 import { VarietyDialog } from "@/components/varieties/VarietyDialog";
+import { yieldModelProblem } from "@/components/varieties/YieldModelEditor";
 import * as vapi from "@/lib/varieties-api";
 import type { Variety } from "@/lib/varieties-api";
 import { CATEGORIES } from "@/components/settings/OperationsTable";
@@ -113,6 +114,49 @@ describe("variety form", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save variety" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("listed twice");
     expect(mocked.saveVariety.mock.calls[0][0]).toMatchObject({ name: "Shangi", weeks_to_first_harvest: 95 });
+  });
+});
+
+describe("variety yield model", () => {
+  const hass: Variety = {
+    ...potato, name: "Hass", variety_name: "Hass", crop: "Avocado", item: "Hass Avocado", is_flowering: 1, flowering_pattern: "Interval",
+    weeks_to_first_flowering: 20, weeks_flowering_to_harvest: 30, flowering_interval_weeks: 52, harvest_pattern: "Interval", harvest_interval_weeks: 52,
+    yield_by_age: [{ age_years: 0, kg_per_plant: 0 }, { age_years: 2, kg_per_plant: 12 }],
+    biennial_off_factor: 0.58, on_years: "Even", late_crop_share_pct: 84.6,
+  };
+
+  it("only a flowering variety shows it, with the saved rows", () => {
+    wrap(<VarietyDialog crop="Potatoes" accent="#2a7" variety={potato} protocols={[]} onClose={() => {}} onSaved={() => {}} />);
+    expect(screen.queryByTestId("yield-model-editor")).toBeNull();
+    cleanup();
+    wrap(<VarietyDialog crop="Avocado" accent="#2a7" variety={hass} protocols={[]} onClose={() => {}} onSaved={() => {}} />);
+    expect(screen.getByTestId("yield-model-editor")).toBeInTheDocument();
+    expect(screen.getByLabelText("Yield row 2 kg per plant")).toHaveValue("12");
+    expect(screen.getByLabelText("Off-year factor")).toHaveValue("0.58");
+    expect(screen.getByLabelText("Late crop share (%)")).toHaveValue("84.6");
+  });
+
+  it("saves edited rows, the off-year factor and the late share", async () => {
+    mocked.saveVariety.mockResolvedValue({ name: "Hass" });
+    wrap(<VarietyDialog crop="Avocado" accent="#2a7" variety={hass} protocols={[]} onClose={() => {}} onSaved={() => {}} />);
+    fireEvent.change(screen.getByLabelText("Yield row 2 kg per plant"), { target: { value: "20" } });
+    fireEvent.click(screen.getByRole("button", { name: /Add age/ }));
+    fireEvent.change(screen.getByLabelText("Yield row 3 from age (years)"), { target: { value: "5" } });
+    fireEvent.change(screen.getByLabelText("Yield row 3 kg per plant"), { target: { value: "63" } });
+    fireEvent.change(screen.getByLabelText("Off-year factor"), { target: { value: "0.6" } });
+    fireEvent.change(screen.getByLabelText("Late crop share (%)"), { target: { value: "80" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save variety" }));
+    await waitFor(() => expect(mocked.saveVariety).toHaveBeenCalled());
+    expect(mocked.saveVariety.mock.calls[0][0]).toMatchObject({
+      yield_by_age: [{ age_years: 0, kg_per_plant: 0 }, { age_years: 2, kg_per_plant: 20 }, { age_years: 5, kg_per_plant: 63 }],
+      biennial_off_factor: 0.6, on_years: "Even", late_crop_share_pct: 80,
+    });
+  });
+
+  it("refuses an age listed twice and an off-year factor with no on years", () => {
+    expect(yieldModelProblem({ ages: [{ age: "2", kg: "1" }, { age: "2", kg: "2" }], offFactor: "", onYears: "", lateShare: "" })).toMatch(/twice/);
+    expect(yieldModelProblem({ ages: [], offFactor: "0.6", onYears: "", lateShare: "" })).toMatch(/even or odd/);
+    expect(yieldModelProblem({ ages: [{ age: "2", kg: "1" }], offFactor: "", onYears: "", lateShare: "" })).toBeNull();
   });
 });
 

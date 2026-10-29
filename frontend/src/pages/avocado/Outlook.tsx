@@ -19,7 +19,7 @@ import { OrchardMap } from "@/components/avocado/outlook-map";
 import { SeasonTimeline } from "@/components/avocado/outlook-timeline";
 import { BlocksTreemap } from "@/components/avocado/outlook-treemap";
 import { Bar, ChartSkeleton } from "@/components/Loading";
-import { getSeasonOutlook, saveCrewAvailable, savePricePerKg, type SeasonOutlook } from "@/lib/avocado-api";
+import { getSeasonOutlook, savePricePerKg, type SeasonOutlook } from "@/lib/avocado-api";
 import { useCurrentCrop, viewLabel } from "@/lib/crops";
 import { isError } from "@/lib/frappe";
 import { qty } from "@/lib/format";
@@ -41,12 +41,15 @@ export function Outlook() {
   const [loading, setLoading] = useState(true);
   const [farm, setFarm] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
+  // Typed in the toolbar for this view only: the estate's price and crew come from settings and harvest teams.
+  const [priceTry, setPriceTry] = useState<number | undefined>();
+  const [crewTry, setCrewTry] = useState<number | undefined>();
   const seq = useRef(0);
 
   const load = useCallback(async () => {
     const mine = ++seq.current;
     setLoading(true);
-    const r = await getSeasonOutlook({ farm: farm || undefined });
+    const r = await getSeasonOutlook({ farm: farm || undefined, price_per_kg: priceTry, crew_available: crewTry });
     if (mine !== seq.current) return;
     setLoading(false);
     if (isError(r)) {
@@ -54,7 +57,7 @@ export function Outlook() {
       return;
     }
     setData(r as SeasonOutlook);
-  }, [farm, toast]);
+  }, [farm, priceTry, crewTry, toast]);
 
   useEffect(() => {
     void load();
@@ -92,14 +95,21 @@ export function Outlook() {
             display={`KES ${qty(data.price_per_kg)}`}
             value={data.price_per_kg}
             unit="KES"
-            onSave={(n) => saveWith(() => savePricePerKg(n), "Price per kilogram saved.")}
+            onSave={(n) => {
+              setPriceTry(n);
+              return true;
+            }}
+            onSaveEstate={crop.boot.can_manage ? (n) => saveWith(() => savePricePerKg(n), "Estate price saved.") : undefined}
           />
           <PillEditor
             label="Crew available"
             display={qty(data.crew_available)}
             value={data.crew_available}
             unit="pickers"
-            onSave={(n) => saveWith(() => saveCrewAvailable(n), "Crew saved.")}
+            onSave={(n) => {
+              setCrewTry(n);
+              return true;
+            }}
           />
         </>
       )}

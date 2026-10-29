@@ -46,7 +46,7 @@ describe("BlockForecast", () => {
     expect(within(budget).getByText("Delivered so far")).toBeTruthy();
     expect(within(budget).getByText("Still on the trees")).toBeTruthy();
     expect(within(budget).getByText("Season outturn")).toBeTruthy();
-    expect(within(budget).getByText("-24.0 t")).toBeTruthy(); // 137.7 + 150.3 against 312
+    expect(within(budget).getByText("-39.0 t")).toBeTruthy(); // 137.7 + 135.3 against 312
     expect(within(screen.getByTestId("forecast-estimate")).getByText("Best block")).toBeTruthy();
     expect(within(screen.getByTestId("forecast-maturity")).getByText("Pickable")).toBeTruthy();
     expect(within(screen.getByTestId("forecast-maturity")).getByText("Not yet")).toBeTruthy();
@@ -56,8 +56,8 @@ describe("BlockForecast", () => {
 
   it("switches Manual/Automatic without refetching and remembers the choice", async () => {
     renderPage(<BlockForecast />);
-    const kpi = async () => (await screen.findAllByText(/^(150\.3|140\.5) t$/)).map((n) => n.textContent);
-    expect(await kpi()).toContain("150.3 t");
+    const kpi = async () => (await screen.findAllByText(/^(135\.3|140\.5) t$/)).map((n) => n.textContent);
+    expect(await kpi()).toContain("135.3 t");
     fireEvent.click(screen.getByRole("button", { name: "Manual" }));
     await waitFor(() => expect(setMode).toHaveBeenCalledWith("manual"));
     expect(await screen.findByText(/block forecasts of 2 orchard blocks/)).toBeTruthy();
@@ -81,13 +81,18 @@ describe("BlockForecast", () => {
     expect(await screen.findByText("Forecast for A saved.")).toBeTruthy();
   });
 
-  it("saves the price from its pill", async () => {
+  it("tries a price for this view only, and a manager can save it for everyone", async () => {
     renderPage(<BlockForecast />);
     fireEvent.click(await screen.findByRole("button", { name: /Price \/ kg: KES 95/ }));
     fireEvent.change(await screen.findByLabelText(/Price \/ kg \(KES\)/), { target: { value: "100" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    fireEvent.click(screen.getByRole("button", { name: "Try here" }));
+    await waitFor(() => expect(getForecast).toHaveBeenLastCalledWith(expect.objectContaining({ price_per_kg: 100 })));
+    expect(savePrice).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole("button", { name: /Price \/ kg: KES/ }));
+    fireEvent.change(await screen.findByLabelText(/Price \/ kg \(KES\)/), { target: { value: "100" } });
+    fireEvent.click(await screen.findByRole("button", { name: "Save for everyone" }));
     await waitFor(() => expect(savePrice).toHaveBeenCalledWith(100));
-    await waitFor(() => expect(getForecast).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText("Estate price saved.")).toBeTruthy();
   });
 
   it("edits the season budget in a dialog", async () => {

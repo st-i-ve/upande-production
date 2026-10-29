@@ -12,7 +12,7 @@ import { PageShell } from "@/components/PageShell";
 import { RefreshButton } from "@/components/RefreshButton";
 import { useToast } from "@/components/Toast";
 import { Card, CardDescription, CardHeaderRow, CardHeading, CardTitle, CardTools } from "@/components/ui/card";
-import { getPickingPlan, saveCrewAvailable, type PickingPlan as PlanData } from "@/lib/avocado-api";
+import { getPickingPlan, type PickingPlan as PlanData } from "@/lib/avocado-api";
 import { useCurrentCrop, viewLabel } from "@/lib/crops";
 import { isError } from "@/lib/frappe";
 import { kes } from "@/lib/format";
@@ -37,7 +37,6 @@ export function PickingPlan() {
   const [daysQ, setDaysQ] = useState<number | undefined>();
   const [payQ, setPayQ] = useState<number | undefined>();
   const [week, setWeek] = useState("");
-  const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -58,21 +57,13 @@ export function PickingPlan() {
     void load();
   }, [load]);
 
-  const saveCrew = async () => {
+  // The crew on the books is the harvest teams' active members; a figure typed here is tried for this view only.
+  const tryCrew = () => {
     const n = toNum(crewDraft);
     if (n === undefined || !Number.isInteger(n)) {
       toast("Crew available must be a whole number of people.", "error");
       return;
     }
-    setSaving(true);
-    const r = await saveCrewAvailable(n);
-    setSaving(false);
-    if (isError(r)) {
-      toast(r.error, "error");
-      return;
-    }
-    toast(`Crew available saved: ${n} pickers.`);
-    // The saved figure is now the plan's: re-read with it.
     if (crewOverride === n) void load();
     else setCrewOverride(n);
   };
@@ -103,12 +94,11 @@ export function PickingPlan() {
                 type="button"
                 onClick={(e) => {
                   e.preventDefault();
-                  void saveCrew();
+                  tryCrew();
                 }}
-                disabled={saving}
                 className="rounded-full bg-foreground px-2.5 py-0.5 text-[11px] font-semibold text-background disabled:opacity-50"
               >
-                Save
+                Try
               </button>
             )}
           </PillNumber>

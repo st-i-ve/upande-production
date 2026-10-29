@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Picker } from "@/components/ui/picker";
 import { Switch } from "@/components/ui/switch";
+import { YieldModelEditor, toYieldModelDraft, yieldModelPayload, yieldModelProblem } from "@/components/varieties/YieldModelEditor";
 import { StageEditor, fromStageDrafts, stageProblem, toStageDrafts, type StageDraft } from "@/components/varieties/StageEditor";
 import { qty } from "@/lib/format";
 import { isError } from "@/lib/frappe";
@@ -92,6 +93,7 @@ export function VarietyDialog({
   const [rows, setRows] = useState<StageDraft[]>(() => toStageDrafts(variety?.stages));
   const [irrigation, setIrrigation] = useState(text(variety?.irrigation_mm_week));
   const [water, setWater] = useState<WaterDraft[]>(() => toWaterDrafts(variety?.water_bands));
+  const [yieldModel, setYieldModel] = useState(() => toYieldModelDraft(variety));
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
@@ -109,7 +111,7 @@ export function VarietyDialog({
     varietyProblem(
       { variety_name: name, item, days: flowering ? "" : days, window, pattern: flowering ? (floweringPattern as FloweringPattern) : null, seasons, intervalWeeks: floweringInterval },
       rows,
-    ) ?? (shareOff ? `Season shares total ${shareTotal}%; they must total 100%.` : null);
+    ) ?? (flowering ? yieldModelProblem(yieldModel) : null) ?? (shareOff ? `Season shares total ${shareTotal}%; they must total 100%.` : null);
 
   async function save() {
     setBusy(true);
@@ -141,6 +143,7 @@ export function VarietyDialog({
       enabled: enabled ? 1 : 0,
       irrigation_mm_week: numOrNull(irrigation),
       water_bands: water.filter((w) => w.parameter).map((w) => ({ parameter: w.parameter, min: numOrNull(w.min), max: numOrNull(w.max), unit: w.unit.trim() || null })),
+      ...(flowering ? yieldModelPayload(yieldModel) : {}),
       stages: fromStageDrafts(rows),
     });
     setBusy(false);
@@ -320,6 +323,8 @@ export function VarietyDialog({
             </Button>
           </div>
         </div>
+
+        {flowering && <YieldModelEditor value={yieldModel} onChange={setYieldModel} />}
 
         <div className="flex flex-col gap-2">
           <Label>Growth stages</Label>

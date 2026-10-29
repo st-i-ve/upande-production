@@ -51,6 +51,12 @@ export interface WaterBand {
   unit: string | null;
 }
 
+/** One row of a variety's yield by tree age: kg per plant from this age until the next row. */
+export interface YieldAge {
+  age_years: number;
+  kg_per_plant: number;
+}
+
 export interface Variety {
   name: string;
   variety_name: string;
@@ -76,6 +82,11 @@ export interface Variety {
   flowering_seasons?: FloweringSeason[];
   /** Species or strain water ranges; empty uses the crop's. */
   water_bands?: WaterBand[];
+  /** Yield model (kg per plant by age, biennial swing, late crop share). */
+  yield_by_age?: YieldAge[];
+  biennial_off_factor?: number | null;
+  on_years?: string | null;
+  late_crop_share_pct?: number | null;
   /** Weekly irrigation target in mm; empty uses the crop's. */
   irrigation_mm_week?: number | null;
   flowering_interval_weeks?: number | null;

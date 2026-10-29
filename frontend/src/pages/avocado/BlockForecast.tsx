@@ -88,13 +88,15 @@ export function BlockForecast() {
   const [farm, setFarm] = useState("");
   const [season, setSeason] = useState("");
   const [mode, setMode] = useState<ForecastMode>("automatic");
+  // Typed in the toolbar for this view only; the estate price is the crop's setting.
+  const [priceTry, setPriceTry] = useState<number | undefined>();
   const modeSet = useRef(false);
   const seq = useRef(0);
 
   const load = useCallback(async () => {
     const mine = ++seq.current;
     setLoading(true);
-    const r = await getProductionForecast({ farm: farm || undefined, season: season ? Number(season) : undefined });
+    const r = await getProductionForecast({ farm: farm || undefined, season: season ? Number(season) : undefined, price_per_kg: priceTry });
     if (mine !== seq.current) return;
     setLoading(false);
     if (isError(r)) {
@@ -107,7 +109,7 @@ export function BlockForecast() {
       modeSet.current = true;
       setMode(d.mode);
     }
-  }, [farm, season, toast]);
+  }, [farm, season, priceTry, toast]);
 
   useEffect(() => {
     void load();
@@ -126,13 +128,13 @@ export function BlockForecast() {
     }
   }
 
-  async function savePrice(n: number) {
+  async function saveEstatePrice(n: number) {
     const r = await savePricePerKg(n);
     if (isError(r)) {
       toast(r.error, "error");
       return false;
     }
-    toast("Price per kilogram saved.");
+    toast("Estate price saved.");
     await load();
     return true;
   }
@@ -161,7 +163,17 @@ export function BlockForecast() {
       </TogglePill>
       {data && (
         <>
-          <PillEditor label="Price / kg" display={`KES ${qty(data.price_per_kg)}`} value={data.price_per_kg} unit="KES" onSave={savePrice} />
+          <PillEditor
+            label="Price / kg"
+            display={`KES ${qty(data.price_per_kg)}`}
+            value={data.price_per_kg}
+            unit="KES"
+            onSave={(n) => {
+              setPriceTry(n);
+              return true;
+            }}
+            onSaveEstate={crop.boot.can_manage ? saveEstatePrice : undefined}
+          />
           <FilterSelect
             label="Season"
             value={String(data.season)}

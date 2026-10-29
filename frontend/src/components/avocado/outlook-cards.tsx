@@ -13,8 +13,11 @@ const KPI_TITLES: Record<OutlookKpi["key"], string> = {
   ready_to_pick: "A block is ready when a sample that is still current puts it at or above the dry matter floor. A stale sample cannot say.",
   crew_next_week: "Pickers the first dated week needs, at each block's own measured kilograms per picker-day.",
   estimate_accuracy: "Fitted, not proven. One season is thin evidence.",
-  stale_readings: "A dry matter sample older than six weeks describes fruit that has already been picked, so it cannot date a harvest.",
+  stale_readings: "A dry matter sample past the crop's stale-sample limit describes fruit that has already been picked, so it cannot date a harvest.",
 };
+
+const staleTitle = (weeks: number) =>
+  `A dry matter sample older than ${weeks} weeks describes fruit that has already been picked, so it cannot date a harvest.`;
 
 function Meter({ pct, tone }: { pct: number; tone?: "bad" | "warn" }) {
   return (
@@ -49,7 +52,7 @@ function cardFor(k: OutlookKpi, bands: Bands | undefined): { value: string; hint
       };
     case "estimate_accuracy":
       return {
-        value: k.value == null ? "—" : pct1(k.value),
+        value: k.none_yet ? "None yet" : k.value == null ? "—" : pct1(k.value),
         hint: k.note,
         tone: bandTone(bands, "Estimate accuracy", k.value),
         meterTone: { Good: undefined, Watch: "warn", Critical: "bad" }[bandFor(bands, "Estimate accuracy", k.value)?.severity ?? "Good"] as "bad" | "warn" | undefined,
@@ -80,7 +83,7 @@ export function OutlookKpis({ data }: { data: SeasonOutlook | null }) {
       {data.kpis.map((k) => {
         const c = cardFor(k, bands);
         return (
-          <div key={k.key} className="relative" title={KPI_TITLES[k.key]} data-testid={`kpi-${k.key}`}>
+          <div key={k.key} className="relative" title={k.key === "stale_readings" ? staleTitle(data.header.stale_sample_weeks) : KPI_TITLES[k.key]} data-testid={`kpi-${k.key}`}>
             <KpiCard
               label={k.label}
               value={c.value}
@@ -297,10 +300,10 @@ export function DeliveredBySeason({ rows }: { rows: SeasonOutlook["delivered_by_
           {rows.map((r) => (
             <li key={r.year} className="grid grid-cols-[3.5rem_1fr_auto] items-center gap-3 text-[13px]">
               <span className="font-medium tabular-nums">{r.year}</span>
-              <ShareBar pct={(r.kg / hi) * 100} tone={r.on_year ? undefined : "muted"} />
+              <ShareBar pct={(r.kg / hi) * 100} tone={r.on_year === false ? "muted" : undefined} />
               <span className="flex items-center gap-2 tabular-nums">
                 {tonnes(r.kg)}
-                <Chip kind={r.on_year ? "good" : ""}>{r.on_year ? "on year" : "off year"}</Chip>
+                {r.on_year != null && <Chip kind={r.on_year ? "good" : ""}>{r.on_year ? "on year" : "off year"}</Chip>}
               </span>
             </li>
           ))}

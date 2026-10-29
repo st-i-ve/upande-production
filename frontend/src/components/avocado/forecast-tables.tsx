@@ -244,7 +244,7 @@ export function ScheduleCard({ s }: { s: ProductionForecast["schedule"] }) {
     <SectionCard
       testId="forecast-schedule"
       title="Pick schedule"
-      description={`Each block's kilograms from the week its dry matter crosses 24%, spread over ${s.pick_weeks} picks. Unsampled blocks are listed below, not dropped into week one.`}
+      description={`Each block's kilograms from the week its dry matter crosses ${s.minimum_pct}%, spread over ${s.pick_weeks} picks. Unsampled blocks are listed below, not dropped into week one.`}
     >
       {!s.weeks.length ? (
         <EmptyNote>

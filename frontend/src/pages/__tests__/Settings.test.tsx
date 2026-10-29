@@ -17,6 +17,7 @@ vi.mock("@/components/cycles/ItemField", () => ({
     <input id={id} aria-label={id} value={value} onChange={(e) => onChange(e.target.value)} />
   ),
 }));
+vi.mock("@/lib/crop-model-api", () => ({ getCropModel: vi.fn(), saveCropModel: vi.fn() }));
 vi.mock("@/lib/protocols-api", () => ({
   listProtocolFamilies: vi.fn(),
   newVersion: vi.fn(),
@@ -35,6 +36,7 @@ import {
   type ProtocolFamily,
   type ProtocolVersion,
 } from "@/lib/protocols-api";
+import { getCropModel } from "@/lib/crop-model-api";
 import { Settings } from "@/pages/Settings";
 
 describe("Settings", () => {
@@ -76,6 +78,18 @@ describe("Settings", () => {
     expect(screen.getByText(/read these settings but not change/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Add operation/ })).toBeNull();
     expect(screen.getAllByText("KES 25").length).toBeGreaterThan(0);
+  });
+
+  it("has a Crop model tab that reads the crop's parameters from the server", async () => {
+    vi.mocked(listOperations).mockResolvedValue({ rows: [] });
+    vi.mocked(getCropModel).mockResolvedValue({
+      crop: "Test Crop", crop_key: "test-crop", can_edit: true,
+      groups: [{ label: "Crop model", tables: [], fields: [{ fieldname: "price_per_kg", label: "Price per Kg", fieldtype: "Currency", options: null, description: null, depends_on: null, value: 95 }] }],
+    });
+    renderPage(<Settings />);
+    fireEvent.mouseDown(await screen.findByRole("tab", { name: "Crop model" }), { button: 0 });
+    expect(await screen.findByLabelText("Price per Kg")).toHaveValue("95");
+    expect(getCropModel).toHaveBeenCalledWith("Test Crop");
   });
 
   const ver = (n: number, status: ProtocolVersion["version_status"], over: Partial<ProtocolVersion> = {}): ProtocolVersion => ({

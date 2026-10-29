@@ -120,7 +120,7 @@ export function HarvestCalendar() {
           <CardHeading>
             <CardTitle>Which block, which week</CardTitle>
             <CardDescription>
-              Hatched weeks are locked, the block is under {data?.minimum_pct ?? 24}% dry matter. Dotted rows have never been sampled: a missing
+              Hatched weeks are locked, the block is under {data?.minimum_pct}% dry matter. Dotted rows have never been sampled: a missing
               measurement, not a verdict.
             </CardDescription>
           </CardHeading>

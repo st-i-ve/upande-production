@@ -189,6 +189,7 @@ export function PillEditor({
   unit,
   step = 1,
   onSave,
+  onSaveEstate,
   className,
 }: {
   label: string;
@@ -196,7 +197,10 @@ export function PillEditor({
   value: number;
   unit?: string;
   step?: number;
+  /** Use the number for this view only. */
   onSave: (next: number) => Promise<boolean> | boolean;
+  /** Managers only: write the number to the crop's settings for everyone. */
+  onSaveEstate?: (next: number) => Promise<boolean> | boolean;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -208,10 +212,10 @@ export function PillEditor({
   const n = Number(text);
   const valid = text.trim() !== "" && Number.isFinite(n) && n >= 0;
 
-  async function save() {
+  async function save(write: (n: number) => Promise<boolean> | boolean = onSave) {
     if (!valid) return;
     setBusy(true);
-    const ok = await onSave(n);
+    const ok = await write(n);
     setBusy(false);
     if (ok) setOpen(false);
   }
@@ -255,8 +259,13 @@ export function PillEditor({
             <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)}>
               Cancel
             </Button>
+            {onSaveEstate && (
+              <Button type="button" variant="outline" size="sm" disabled={!valid || busy} onClick={() => void save(onSaveEstate)}>
+                Save for everyone
+              </Button>
+            )}
             <Button type="submit" size="sm" disabled={!valid || busy}>
-              {busy ? "Saving…" : "Save"}
+              {busy ? "Working…" : onSaveEstate ? "Try here" : "Save"}
             </Button>
           </div>
         </form>

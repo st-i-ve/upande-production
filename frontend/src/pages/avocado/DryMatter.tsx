@@ -48,7 +48,6 @@ export function DryMatter() {
 
   const first = firstLoad(loading, !!data);
   const s = data?.summary;
-  const minimum = data?.minimum_pct ?? 24;
   const blocks = useMemo(
     () => (data?.blocks ?? []).filter((b) => !block || b.block === block),
     [data, block],
@@ -77,7 +76,7 @@ export function DryMatter() {
       }
     >
       <AccentScope accent={accent} className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <KpiCard loading={first} label="Ready" value={s ? `${fmtNum(s.ready)} of ${fmtNum(s.blocks)}` : "—"} hint={`blocks at or above ${minimum}%`} tone={s?.ready ? "good" : "default"} />
+        <KpiCard loading={first} label="Ready" value={s ? `${fmtNum(s.ready)} of ${fmtNum(s.blocks)}` : "—"} hint={data ? `blocks at or above ${data.minimum_pct}%` : ""} tone={s?.ready ? "good" : "default"} />
         <KpiCard loading={first} label="Rising" value={s?.rising ?? "—"} hint="under the floor and gaining" />
         <KpiCard loading={first} label="Stale" value={s?.stale ?? "—"} hint="last reading too old to trust" tone={s?.stale ? "warning" : "default"} />
         <KpiCard loading={first} label="Never sampled" value={s?.never_sampled ?? "—"} hint="no reading for the block or its planting year" tone={s?.never_sampled ? "warning" : "default"} />
@@ -92,7 +91,7 @@ export function DryMatter() {
                 <Bar className="h-[110px] w-full" />
               </Card>
             ))
-          : blocks.map((b) => <BlockCard key={b.block} b={b} minimum={minimum} accent={accent} />)}
+          : blocks.map((b) => <BlockCard key={b.block} b={b} minimum={data!.minimum_pct} accent={accent} />)}
       </div>
       {data && !blocks.length && (
         <p className="mt-4 rounded-2xl bg-[var(--sd-card)] px-5 py-10 text-center text-[13px] text-[var(--sd-quiet)] shadow-[var(--sd-shadow-1)]">

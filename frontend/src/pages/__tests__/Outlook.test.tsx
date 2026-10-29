@@ -14,17 +14,14 @@ vi.mock("@/lib/avocado-api", async (orig) => ({
   ...(await orig<typeof api>()),
   getSeasonOutlook: vi.fn(),
   savePricePerKg: vi.fn(),
-  saveCrewAvailable: vi.fn(),
 }));
 const getOutlook = vi.mocked(api.getSeasonOutlook);
 const savePrice = vi.mocked(api.savePricePerKg);
-const saveCrew = vi.mocked(api.saveCrewAvailable);
 
 describe("Outlook", () => {
   beforeEach(() => {
     getOutlook.mockReset().mockResolvedValue(structuredClone(outlookFixture));
     savePrice.mockReset().mockResolvedValue({ ok: true, price_per_kg: 100 });
-    saveCrew.mockReset().mockResolvedValue({ ok: true, crew_available: 20 });
   });
 
   it("renders every section from the payload", async () => {
@@ -33,8 +30,8 @@ describe("Outlook", () => {
     for (const label of ["Season crop", "Crop value", "Ready to pick", "Crew next week", "Estimate accuracy", "Stale readings"]) {
       expect(screen.getByText(label)).toBeTruthy();
     }
-    expect(screen.getByTestId("kpi-season_crop").textContent).toContain("150.3 t");
-    expect(screen.getByTestId("kpi-crop_value").textContent).toContain("KES 14.3M");
+    expect(screen.getByTestId("kpi-season_crop").textContent).toContain("135.3 t");
+    expect(screen.getByTestId("kpi-crop_value").textContent).toContain("KES 12.9M");
     for (const t of ["Orchard", "Blocks", "Dry matter", "Pickers", "Lost to sick trees", "Needs attention", "Delivered by season"]) {
       expect(screen.getAllByText(t).length).toBeGreaterThan(0);
     }
@@ -68,27 +65,44 @@ describe("Outlook", () => {
     expect(screen.queryByTestId("mapbase")).toBeNull();
   });
 
-  it("saves price and crew from the toolbar pills, then reloads", async () => {
+  it("tries a price and a crew for this view without saving them", async () => {
     renderPage(<Outlook />);
     fireEvent.click(await screen.findByRole("button", { name: /Price \/ kg: KES 95/ }));
     fireEvent.change(await screen.findByLabelText(/Price \/ kg \(KES\)/), { target: { value: "100" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    await waitFor(() => expect(savePrice).toHaveBeenCalledWith(100));
-    await waitFor(() => expect(getOutlook).toHaveBeenCalledTimes(2));
-    expect(await screen.findByText("Price per kilogram saved.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Try here" }));
+    await waitFor(() => expect(getOutlook).toHaveBeenLastCalledWith(expect.objectContaining({ price_per_kg: 100 })));
+    expect(savePrice).not.toHaveBeenCalled();
 
     fireEvent.click(await screen.findByRole("button", { name: /Crew available: 14/ }));
     fireEvent.change(await screen.findByLabelText(/Crew available \(pickers\)/), { target: { value: "20" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    await waitFor(() => expect(saveCrew).toHaveBeenCalledWith(20));
+    await waitFor(() => expect(getOutlook).toHaveBeenLastCalledWith(expect.objectContaining({ price_per_kg: 100, crew_available: 20 })));
   });
 
-  it("toasts the server's error and keeps the pill open", async () => {
-    savePrice.mockResolvedValue({ error: "Price must be a number." });
+  it("lets a manager save the price for everyone, and toasts the server's error", async () => {
     renderPage(<Outlook />);
     fireEvent.click(await screen.findByRole("button", { name: /Price \/ kg: KES 95/ }));
-    fireEvent.click(await screen.findByRole("button", { name: "Save" }));
+    fireEvent.change(await screen.findByLabelText(/Price \/ kg \(KES\)/), { target: { value: "100" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save for everyone" }));
+    await waitFor(() => expect(savePrice).toHaveBeenCalledWith(100));
+    expect(await screen.findByText("Estate price saved.")).toBeTruthy();
+
+    savePrice.mockResolvedValue({ error: "Price must be a number." });
+    fireEvent.click(await screen.findByRole("button", { name: /Price \/ kg: KES/ }));
+    fireEvent.change(await screen.findByLabelText(/Price \/ kg \(KES\)/), { target: { value: "100" } });
+    fireEvent.click(await screen.findByRole("button", { name: "Save for everyone" }));
     expect(await screen.findByText("Price must be a number.")).toBeTruthy();
+  });
+
+  it("says plainly when no season has been delivered, instead of showing a stand-in", async () => {
+    const d = structuredClone(outlookFixture);
+    const k = d.kpis.find((x) => x.key === "estimate_accuracy")!;
+    Object.assign(k, { value: null, note: "no delivered season yet", none_yet: true, calibration_factor: 1, meter_pct: 0 });
+    getOutlook.mockResolvedValue(d);
+    renderPage(<Outlook />);
+    const card = await screen.findByTestId("kpi-estimate_accuracy");
+    expect(card.textContent).toContain("None yet");
+    expect(card.textContent).toContain("no delivered season yet");
   });
 
   it("shows the undated chip and empty states", async () => {

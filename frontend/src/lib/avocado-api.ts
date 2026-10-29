@@ -123,8 +123,8 @@ export interface EarlyScoreRow {
 export interface EstimateVsDelivered {
   season: number;
   crop: string;
-  /** block = scored per block; estate = whole-estate closed-season totals; none = nothing delivered. */
-  basis: "block" | "estate" | "none";
+  /** block = scored per block; none = nothing delivered, or no estimate to score it against. */
+  basis: "block" | "none";
   estimated_kg: number;
   delivered_kg: number;
   diff_kg: number | null;
@@ -192,6 +192,8 @@ export interface ScheduleView {
   unscheduled: Unscheduled[];
   unscheduled_kg: number;
   pick_weeks: number;
+  /** The export dry matter floor the schedule dates picks from. */
+  minimum_pct: number;
   scheduled_blocks: ScheduledBlock[];
   kg_by_basis: Record<string, number>;
   blocks_by_basis: Record<string, number>;
@@ -225,6 +227,8 @@ export interface Calibration {
   actual_kg: number;
   blocks_estimated: number;
   blocks_harvested: number;
+  /** False when no season has both an estimate and a delivery: the factor is 1 and nothing was measured. */
+  has_data: boolean;
 }
 
 export interface Delivered {
@@ -232,6 +236,8 @@ export interface Delivered {
   blocks: number;
   crop: string | null;
   basis: string;
+  /** False when nothing is recorded for the season (the figures are zero, not a measurement). */
+  recorded: boolean;
   harvest_from: ISODate | null;
   harvest_to: ISODate | null;
 }
@@ -252,7 +258,8 @@ export interface ProductionForecast {
     bearing_trees: number;
     pct_bearing: number | null;
     biennial_factor: number;
-    on_year: boolean;
+    /** null when no variety has a biennial setting. */
+    on_year: boolean | null;
   };
   views: Record<ForecastMode, ForecastView>;
   manual_note: { entries: number; blocks_total: number };
@@ -308,6 +315,8 @@ export interface OutlookKpi {
   calibration_factor?: number;
   estimated_kg?: number;
   actual_kg?: number;
+  /** estimate_accuracy: no season has both an estimate and a delivery yet. */
+  none_yet?: boolean;
 }
 
 export interface TimelineWeek {
@@ -426,9 +435,11 @@ export interface SeasonOutlook {
     blocks: number;
     total_kg: number;
     stale_readings: number;
+    /** Weeks after which a dry matter reading stops dating a pick (the crop's setting). */
+    stale_sample_weeks: number;
     weeks_dated: number;
     biennial_factor: number;
-    on_year: boolean;
+    on_year: boolean | null;
     evidence_split: Record<string, number>;
   };
   kpis: OutlookKpi[];
@@ -491,7 +502,7 @@ export interface SeasonOutlook {
   };
   /** At most five, worst first. Empty = nothing wrong. */
   alerts: OutlookAlert[];
-  delivered_by_season: { year: number; kg: number; blocks: number; on_year: boolean }[];
+  delivered_by_season: { year: number; kg: number; blocks: number; on_year: boolean | null }[];
   calibration: Calibration;
   units: Record<string, string>;
 }
@@ -735,8 +746,6 @@ export const setForecastMode = (mode: ForecastMode) =>
 export const savePricePerKg = (price_per_kg: number) =>
   rpc<Ok & { price_per_kg: number }>("save_price_per_kg", { price_per_kg });
 
-export const saveCrewAvailable = (crew_available: number) =>
-  rpc<Ok & { crew_available: number }>("save_crew_available", { crew_available });
 
 export interface SavedDryMatter extends Ok {
   saved: { name: string; count_size: number; dry_matter_pct: number; ready: boolean }[];
