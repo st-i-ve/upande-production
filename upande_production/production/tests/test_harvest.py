@@ -330,6 +330,20 @@ class TestHarvest(IntegrationTestCase):
 		self.assertIn(store, [s["name"] for s in got["data"]])
 		self.assertEqual(api.get_stores()["default"], self.warehouse)
 
+	def test_get_stores_without_default_never_errors(self):
+		frappe.db.set_single_value("Production Settings", "harvest_warehouse", None)
+		got = api.get_stores()
+		self.assertNotIn("error", got)
+		self.assertEqual(got["default"], "")
+		self.assertTrue(got["data"])
+		farm = _make("Farm", farm_name="HV NoStore Farm", company=self.company, abbreviation="HNS",
+			farm_type=[{"farm_type": "Has Blocks"}])  # a farm with no batches: no last store either
+		unit = _make("Production Unit", unit_name="HV NoStore Block", unit_type="Orchard Block", crop=self.unit.crop,
+			farm=farm.name, company=self.company)
+		got = api.get_stores(block=unit.name)
+		self.assertNotIn("error", got)
+		self.assertEqual(got["default"], "")
+
 	def test_scp_location_warehouses_not_stores(self):
 		blk = self._store("HV SCP Block WH")
 		frappe.db.set_value("Warehouse", blk, "warehouse_type", "Block")

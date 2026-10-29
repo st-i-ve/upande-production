@@ -393,8 +393,12 @@ def get_stores(block=None, **kw):
 	try:
 		block = _s(block)
 		row = frappe.db.get_value("Production Unit", block, ["farm", "company"], as_dict=True) if block else None
-		return {"data": H.stores(row.company if row else None),
-			"default": H.default_store(row.farm if row else None) if (row or frappe.db.get_single_value("Production Settings", "harvest_warehouse")) else ""}
+		try:
+			default = H.default_store(row.farm if row else None)
+		except frappe.ValidationError:  # no last store and no harvest warehouse in settings: the user picks
+			frappe.local.message_log = []
+			default = ""
+		return {"data": H.stores(row.company if row else None), "default": default}
 	except Exception as e:
 		return _fail("get_stores", e)
 
