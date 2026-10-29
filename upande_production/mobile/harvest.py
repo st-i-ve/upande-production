@@ -355,10 +355,11 @@ def scan_crates_bulk(crate_ids=None, team_id=None, block=None, harvestor=None, *
 
 
 @frappe.whitelist()
-def mark_ready_for_collection(block=None, team_id=None, **kw):
+def mark_ready_for_collection(block=None, team_id=None, warehouse=None, **kw):
 	"""Close the team's open crates for the block into a Harvest Batch and post the Harvesting stock entry.
 	{team_id, team_number, resolved_team, block, crate_count, crates_marked, + batch, stock_entry, item,
-	estimated_kg, avg_kg_per_crate, production_harvest, work}. crate_count 0 and no batch when nothing was open."""
+	estimated_kg, avg_kg_per_crate, production_harvest, warehouse, work}. crate_count 0 and no batch when nothing was open.
+	`warehouse` is the store the fruit is received into (from get_stores); default = the farm's last store."""
 	try:
 		_begin()
 		block, team_number = _s(block), _s(team_id)
@@ -369,7 +370,7 @@ def mark_ready_for_collection(block=None, team_id=None, **kw):
 		team = _team(team_number)
 		if not team:
 			return _err(f"Team {team_number} not found")
-		batch = H.close_batch(team, block)
+		batch = H.close_batch(team, block, warehouse=_s(warehouse) or None)
 		res = {"team_id": team, "team_number": frappe.db.get_value("Harvest Team", team, "team_number"),
 			"resolved_team": team, "block": block, "crate_count": 0, "crates_marked": []}
 		if batch:
@@ -377,12 +378,25 @@ def mark_ready_for_collection(block=None, team_id=None, **kw):
 				"crate_count": batch.crate_count, "crates_marked": [r.crate_id for r in batch.crates],
 				"batch": batch.name, "stock_entry": batch.stock_entry, "item": batch.item,
 				"estimated_kg": batch.estimated_kg, "avg_kg_per_crate": batch.avg_kg_per_crate,
-				"production_harvest": batch.production_harvest,
+				"production_harvest": batch.production_harvest, "warehouse": batch.warehouse,
 				"work": frappe.get_all("Value Adder Work", filters={"harvest_batch": batch.name}, pluck="name"),
 			})
 		return res
 	except Exception as e:
 		return _fail("mark_ready_for_collection", e)
+
+
+@frappe.whitelist()
+def get_stores(block=None, **kw):
+	"""{data: [{name, label}], default} - stores a batch can be received into (not block warehouses);
+	`default` is the block's farm's last store, else the harvest warehouse in settings."""
+	try:
+		block = _s(block)
+		row = frappe.db.get_value("Production Unit", block, ["farm", "company"], as_dict=True) if block else None
+		return {"data": H.stores(row.company if row else None),
+			"default": H.default_store(row.farm if row else None) if (row or frappe.db.get_single_value("Production Settings", "harvest_warehouse")) else ""}
+	except Exception as e:
+		return _fail("get_stores", e)
 
 
 # ---------------------------------------------------------------- tallies

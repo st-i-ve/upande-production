@@ -4,7 +4,7 @@ import frappe
 from frappe import _
 
 from upande_production.api.envelope import as_dict, run
-from upande_production.production.logic import analytics, cycle_chain, plans, rules, stages, work
+from upande_production.production.logic import analytics, blockcost, cycle_chain, plans, rules, stages, work
 from upande_production.production.logic.settings import PAY_ROLES, can_see_pay
 from upande_production.production.logic.weeks import iso_week_bounds
 
@@ -397,6 +397,13 @@ def value_adder_summary(crop, from_date=None, to_date=None, group_by="employee")
 def block_costs(crop, from_date=None, to_date=None):
 	_need("Production Unit")
 	return analytics.block_costs(crop, from_date, to_date, _can_see_pay())
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def block_links(crop):
+	_need("Production Unit")
+	return {"rows": blockcost.links(crop)}
 
 
 @frappe.whitelist(methods=["POST"])

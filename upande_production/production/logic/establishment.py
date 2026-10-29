@@ -8,7 +8,7 @@ import frappe
 from frappe import _
 from frappe.utils import flt, getdate
 
-from upande_production.production.logic import analytics
+from upande_production.production.logic import analytics, blockcost
 
 
 def leaf_units(unit, crop=None):
@@ -172,9 +172,10 @@ def list_costs(crop, farm=None):
 		for op, per_ha in budgets.items():
 			if per_ha and area:
 				acts.setdefault(op, {"operation": op, "amount": 0, "budget": None})["budget"] = round(per_ha * area, 2)
-		if not acts:
+		erp = blockcost.erp_budget(u.cost_center) or None
+		if not acts and not erp:
 			continue
-		by_unit.append({"unit": u.name, "area_ha": area,
+		by_unit.append({"unit": u.name, "area_ha": area, "erp_budget": erp,
 			"total": round(sum(a["amount"] for a in acts.values()), 2), "by_activity": list(acts.values())})
 	return {"rows": rows, "by_unit": by_unit}
 

@@ -16,6 +16,7 @@
   "plant_count",
   "geojson",
   "cost_center",
+  "warehouse",
   "avocado_block_code",
   "status",
   "company",
@@ -81,6 +82,13 @@
    "fieldname": "geojson",
    "fieldtype": "Long Text",
    "label": "Geojson"
+  },
+  {
+   "fieldname": "warehouse",
+   "fieldtype": "Link",
+   "label": "Block Warehouse",
+   "options": "Warehouse",
+   "description": "The block's warehouse. Chemicals issued to it are charged to the cost centre of the same name."
   },
   {
    "fieldname": "cost_center",

@@ -760,3 +760,15 @@ first (max 500). Params: `crop` (required), `unit` (optional). Tests are entered
 
 `ready` is average at or above target (variety target, else crop target). Missing `crop` fails with an error;
 no read permission on Dry Matter Test is a permission error.
+
+## Harvest store (mark ready for collection)
+
+Harvested crates are received into a store chosen when the batch is closed (never a block warehouse).
+
+`upande_production.mobile.harvest.get_stores(block=None)` returns
+`{"data": [{"name": "Mutara Harvest Store - MUT", "label": "Mutara Harvest Store"}], "default": "Mutara Harvest Store - MUT"}`.
+`default` is the last store used for the block's farm, else the harvest warehouse in Production Settings.
+
+`mark_ready_for_collection(block, team_id, warehouse=None)` posts the Harvesting stock entry into `warehouse`
+(default as above) and returns the usual fields plus `warehouse`. A block warehouse, group, disabled or
+other-company warehouse is refused with `{"error": ...}` and the crates stay open.

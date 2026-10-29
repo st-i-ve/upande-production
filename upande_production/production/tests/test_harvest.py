@@ -302,3 +302,40 @@ class TestHarvest(IntegrationTestCase):
 		res = api.scan_crates_bulk(crate_ids=frappe.as_json(ids), team_id="HV-T1", block=self.unit.name)  # form-encoded lists arrive as JSON text
 		self.assertEqual(res["ok_count"], 2)
 		self.assertEqual(frappe.db.get_value("Stock Entry Type", "Harvesting", "purpose"), "Material Receipt")
+
+	# -- store
+	def _store(self, name):
+		return H.new_warehouse(name, self.company, farm=self.farm.name)
+
+	def test_close_batch_uses_chosen_store(self):
+		store = self._store("HV Chosen Store")
+		self.scan(2)
+		res = api.mark_ready_for_collection(block=self.unit.name, team_id="HV-T1", warehouse=store)
+		self.assertEqual(res["warehouse"], store)
+		batch = frappe.get_doc("Harvest Batch", res["batch"])
+		self.assertEqual(batch.warehouse, store)
+		self.assertEqual(frappe.get_doc("Stock Entry", batch.stock_entry).items[0].t_warehouse, store)
+
+	def test_default_store_last_used(self):
+		store = self._store("HV Last Store")
+		self.assertEqual(H.default_store(None), self.warehouse)  # no farm history: settings
+		self.scan(1)
+		api.mark_ready_for_collection(block=self.unit.name, team_id="HV-T1", warehouse=store)
+		self.assertEqual(H.default_store(self.farm.name), store)
+		self.scan(1)
+		res = self.close()  # no store given: the last one
+		self.assertEqual(res["warehouse"], store)
+		got = api.get_stores(block=self.unit.name)
+		self.assertEqual(got["default"], store)
+		self.assertIn(store, [s["name"] for s in got["data"]])
+		self.assertEqual(api.get_stores()["default"], self.warehouse)
+
+	def test_block_warehouse_refused_as_store(self):
+		block_wh = self._store("HV Block WH")
+		frappe.db.set_value("Production Unit", self.unit2.name, "warehouse", block_wh)
+		self.assertNotIn(block_wh, [s["name"] for s in H.stores(self.company)])
+		self.scan(1)
+		res = api.mark_ready_for_collection(block=self.unit.name, team_id="HV-T1", warehouse=block_wh)
+		self.assertIn("block warehouse", res["error"])
+		self.assertEqual(self.close()["crate_count"], 1)  # the crate is still open and closes into a real store
+

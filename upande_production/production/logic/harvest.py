@@ -104,6 +104,51 @@ def harvest_warehouse() -> str:
 	return wh
 
 
+def block_warehouses() -> set[str]:
+	"""Warehouses linked from a Production Unit: block warehouses, where chemicals and fertiliser are issued."""
+	return set(frappe.get_all("Production Unit", filters={"warehouse": ("is", "set")}, pluck="warehouse"))
+
+
+def stores(company: str | None = None) -> list[dict]:
+	"""[{name, label}] - the stores a harvest may be received into: the company's non-group, enabled
+	warehouses that are not block warehouses."""
+	company = company or get_company()
+	filters = {"is_group": 0, "disabled": 0}
+	if company:
+		filters["company"] = company
+	blocks = block_warehouses()
+	return [{"name": w.name, "label": w.warehouse_name or w.name} for w in frappe.get_all("Warehouse",
+		filters=filters, fields=["name", "warehouse_name"], order_by="warehouse_name asc") if w.name not in blocks]
+
+
+def default_store(farm: str | None = None) -> str:
+	"""The last store a batch of the farm was received into (while it is still a valid store),
+	else the Production Settings harvest warehouse."""
+	if farm:
+		last = frappe.get_all("Harvest Batch", filters={"farm": farm, "docstatus": 1, "warehouse": ("is", "set")},
+			pluck="warehouse", order_by="creation desc", limit=5)
+		blocks = block_warehouses()
+		for wh in last:
+			if wh not in blocks and frappe.db.get_value("Warehouse", wh, "disabled") == 0:
+				return wh
+	return harvest_warehouse()
+
+
+def check_store(warehouse: str, company: str | None = None) -> str:
+	"""Throws unless `warehouse` is a store a harvest may be received into."""
+	row = frappe.db.get_value("Warehouse", warehouse, ["is_group", "disabled", "company"], as_dict=True)
+	if not row:
+		frappe.throw(_("Warehouse {0} not found").format(warehouse), frappe.ValidationError)
+	if row.is_group or row.disabled:
+		frappe.throw(_("{0} cannot receive stock; pick a store").format(warehouse), frappe.ValidationError)
+	if company and row.company != company:
+		frappe.throw(_("{0} belongs to {1}, not {2}").format(warehouse, row.company, company), frappe.ValidationError)
+	if warehouse in block_warehouses():
+		frappe.throw(_("{0} is a block warehouse; harvested fruit is received into a store").format(warehouse),
+			frappe.ValidationError)
+	return warehouse
+
+
 def ensure_stock_entry_type() -> str:
 	if not frappe.db.exists("Stock Entry Type", STOCK_ENTRY_TYPE):
 		doc = frappe.get_doc({"doctype": "Stock Entry Type", "__newname": STOCK_ENTRY_TYPE,
@@ -111,6 +156,21 @@ def ensure_stock_entry_type() -> str:
 		doc.flags.ignore_permissions = True
 		doc.insert()
 	return STOCK_ENTRY_TYPE
+
+
+def new_warehouse(name: str, company: str | None = None, parent: str | None = None, farm: str | None = None,
+		is_group: int = 0) -> str:
+	"""Create (or return) the warehouse `<name> - <abbr>`; sets the custom farm field when another app makes it mandatory."""
+	company = company or get_company()
+	wh = f"{name} - {frappe.db.get_value('Company', company, 'abbr')}"
+	if frappe.db.exists("Warehouse", wh):
+		return wh
+	doc = frappe.get_doc({"doctype": "Warehouse", "warehouse_name": name, "company": company, "is_group": is_group,
+		"parent_warehouse": parent or frappe.db.get_value("Warehouse", {"company": company, "is_group": 1, "parent_warehouse": ("is", "not set")})})
+	if frappe.get_meta("Warehouse").has_field("custom_farm"):
+		doc.custom_farm = farm or frappe.db.get_value("Production Unit", {"company": company, "farm": ("is", "set")}, "farm")
+	doc.insert(ignore_permissions=True)
+	return doc.name
 
 
 def ensure_harvest_warehouse(name: str = "Mutara Harvest Store", company: str | None = None) -> str:
@@ -194,7 +254,7 @@ def validate_batch(doc):
 	doc.item, doc.cycle = current_item(doc.unit, doc.crop)
 	doc.avg_kg_per_crate = avg_kg_per_crate(doc.item, doc.crop)
 	doc.estimated_kg = round(doc.crate_count * doc.avg_kg_per_crate, 3)
-	doc.warehouse = harvest_warehouse()
+	doc.warehouse = check_store(doc.warehouse or default_store(doc.farm), unit.company)
 	doc.cost_center = unit.cost_center
 	doc.valuation_rate = valuation_rate(doc.item, doc.crop)
 	doc.status = "Closed"
@@ -311,14 +371,16 @@ def open_scans(team: str, unit: str) -> list[str]:
 		order_by="allocated_at asc, creation asc")
 
 
-def close_batch(team: str, unit: str, harvest_date=None):
-	"""Close the team's open crates for the block into a submitted Harvest Batch (None if there are none)."""
+def close_batch(team: str, unit: str, harvest_date=None, warehouse: str | None = None):
+	"""Close the team's open crates for the block into a submitted Harvest Batch (None if there are none).
+	The stock is received into `warehouse` (a store), default `default_store(farm)`."""
 	scans = open_scans(team, unit)
 	if not scans:
 		return None
 	doc = frappe.get_doc({
 		"doctype": "Harvest Batch", "team": team, "unit": unit, "harvest_date": harvest_date or today(),
 		"crates": [{"crate_scan": s} for s in scans],
+		"warehouse": warehouse or None,
 	})
 	doc.flags.ignore_permissions = True
 	doc.insert()

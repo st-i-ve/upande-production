@@ -150,9 +150,8 @@
   {
    "fieldname": "warehouse",
    "fieldtype": "Link",
-   "label": "Harvest Warehouse",
-   "options": "Warehouse",
-   "read_only": 1
+   "label": "Harvest Store",
+   "options": "Warehouse"
   },
   {
    "fieldname": "cost_center",
