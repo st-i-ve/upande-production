@@ -38,6 +38,11 @@ DEMO = {
 		"Pond 4": {"species": "Tilapia", "age_days": 90, "count": 7000, "w0": 5.0, "target_g": 450, "target_days": 190,
 				   "source": "Lake Basin Hatchery, Kisumu", "k": 0.48},
 	},
+	# Safe tilapia water bands (parameter, min, max, unit), a Production Crop default and on each tilapia strain.
+	"water_bands": [("DO", 4.0, 0, "mg/L"), ("pH", 6.5, 8.5, ""), ("Temperature", 25.0, 30.0, "C"),
+					("Ammonia", 0, 0.5, "mg/L"), ("Nitrite", 0, 0.3, "mg/L")],
+	"strains": ["GIFT", "Nile (local)"],
+	"sample_stale_days": 10,
 	"feed_types": [(0, "Starter Crumble"), (25, "Grower Pellet 2mm"), (70, "Grower Pellet 4mm"), (120, "Finisher Pellet 6mm")],
 	"feeding_times": "06:30, 12:30, 17:00",
 	"daily_mortality": {"chance": 0.5, "min": 2, "max": 9, "causes": ["Unknown", "Disease", "Predation", "Handling"]},
@@ -190,8 +195,39 @@ def _harvest(pond, cfg, st, live, today):
 	return kg
 
 
+def ensure_limits():
+	"""Water bands (crop default and the tilapia strains), weight-sample stale days and the feed type list on
+	the Aquaculture crop, plus the default Bands (fish survival). Only fills what is empty."""
+	from upande_production.production.demo import bands_seed
+
+	bands_seed.run(commit=False)
+	if not frappe.db.exists("Production Crop", DEMO["crop"]):
+		return
+	rows = [{"parameter": p, "min": lo, "max": hi, "unit": u} for p, lo, hi, u in DEMO["water_bands"]]
+	crop = frappe.get_doc("Production Crop", DEMO["crop"])
+	if not crop.water_bands:
+		for r in rows:
+			crop.append("water_bands", r)
+	if not crop.feed_types:
+		for _from, name in DEMO["feed_types"]:
+			crop.append("feed_types", {"feed_type": name})
+	if not crop.sample_stale_days:
+		crop.sample_stale_days = DEMO["sample_stale_days"]
+	crop.flags.ignore_permissions = True
+	crop.save()
+	for strain in DEMO["strains"]:
+		if frappe.db.exists("Production Variety", strain):
+			v = frappe.get_doc("Production Variety", strain)
+			if not v.water_bands:
+				for r in rows:
+					v.append("water_bands", r)
+				v.flags.ignore_permissions = True
+				v.save()
+
+
 def run(commit=True):
 	frappe.flags.in_seed = True
+	ensure_limits()
 	today = getdate(nowdate())
 	_clear()
 	out = {"stockings": 0, "feeding": 0, "mortality": 0, "sampling": 0, "water": 0, "harvest_kg": 0}

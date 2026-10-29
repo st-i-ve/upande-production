@@ -15,6 +15,9 @@ def _batch(**kw):
 	return b
 
 
+TILAPIA = {"do_min": 4.0, "ph_min": 6.5, "ph_max": 8.5, "temp_min": 25.0, "temp_max": 30.0, "ammonia_max": 0.5, "nitrite_max": 0.3}
+
+
 class TestAquaculturePure(IntegrationTestCase):
 	def test_survival(self):
 		self.assertEqual(logic.survival_pct(1000, 50), 95.0)
@@ -54,9 +57,9 @@ class TestAquaculturePure(IntegrationTestCase):
 
 	def test_bands(self):
 		ok = {"dissolved_oxygen_mg_l": 4.0, "ph": 6.5, "temperature_c": 30.0, "ammonia_mg_l": 0.49}
-		self.assertEqual(logic.reading_flags(ok), [])
+		self.assertEqual(logic.reading_flags(ok, TILAPIA), [])
 		bad = {"dissolved_oxygen_mg_l": 3.9, "ph": 8.6, "temperature_c": 24.9, "ammonia_mg_l": 0.5}
-		self.assertEqual({f["metric"] for f in logic.reading_flags(bad)}, {"do", "ph", "temp", "ammonia"})
+		self.assertEqual({f["metric"] for f in logic.reading_flags(bad, TILAPIA)}, {"do", "ph", "temp", "ammonia"})
 		self.assertEqual(logic.reading_flags({"dissolved_oxygen_mg_l": None}), [])
 
 

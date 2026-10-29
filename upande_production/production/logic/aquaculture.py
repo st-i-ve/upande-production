@@ -14,15 +14,14 @@ from frappe.utils import cint, flt, get_datetime, getdate
 CROP_KEY = "aquaculture"
 CROP_NAME = "Aquaculture"
 
-# Safe bands for tilapia. Each is inclusive; ammonia and nitrite must stay BELOW their limit.
-BANDS = {
-	"do_min": 4.0,        # dissolved oxygen, mg/L
-	"ph_min": 6.5,
-	"ph_max": 8.5,
-	"temp_min": 25.0,     # deg C
-	"temp_max": 30.0,
-	"ammonia_max": 0.5,   # mg/L
-	"nitrite_max": 0.3,   # mg/L
+# Safe water bands are Production Water Band rows on the pond's strain (Production Variety), else on the
+# Production Crop. `bands_from_rows` turns rows into the dict `reading_flags` takes:
+# do_min, ph_min, ph_max, temp_min, temp_max, ammonia_max, nitrite_max (only those set).
+# Each is inclusive; ammonia and nitrite must stay BELOW their limit.
+_PARAM_KEYS = {
+	"DO": (("min", "do_min"),), "pH": (("min", "ph_min"), ("max", "ph_max")),
+	"Temperature": (("min", "temp_min"), ("max", "temp_max")),
+	"Ammonia": (("max", "ammonia_max"),), "Nitrite": (("max", "nitrite_max"),),
 }
 
 CAUSES = ["Low DO", "Disease", "Predation", "Handling", "Unknown"]
@@ -33,7 +32,7 @@ CAUSES = ["Low DO", "Disease", "Predation", "Handling", "Unknown"]
 
 def reading_flags(r: dict, bands: dict | None = None) -> list[dict]:
 	"""Every measurement of a reading that is outside its band: [{metric, value, message}]."""
-	b = bands or BANDS
+	b = bands or {}
 	out = []
 
 	def add(metric, value, msg):
@@ -41,17 +40,51 @@ def reading_flags(r: dict, bands: dict | None = None) -> list[dict]:
 
 	do, ph, t = r.get("dissolved_oxygen_mg_l"), r.get("ph"), r.get("temperature_c")
 	nh3, no2 = r.get("ammonia_mg_l"), r.get("nitrite_mg_l")
-	if do is not None and do < b["do_min"]:
+	if do is not None and "do_min" in b and do < b["do_min"]:
 		add("do", do, f"Dissolved oxygen {do:g} mg/L is under {b['do_min']:g}")
-	if ph is not None and not (b["ph_min"] <= ph <= b["ph_max"]):
+	if ph is not None and "ph_min" in b and "ph_max" in b and not (b["ph_min"] <= ph <= b["ph_max"]):
 		add("ph", ph, f"pH {ph:g} is outside {b['ph_min']:g} to {b['ph_max']:g}")
-	if t is not None and not (b["temp_min"] <= t <= b["temp_max"]):
+	if t is not None and "temp_min" in b and "temp_max" in b and not (b["temp_min"] <= t <= b["temp_max"]):
 		add("temp", t, f"Temperature {t:g} C is outside {b['temp_min']:g} to {b['temp_max']:g}")
-	if nh3 is not None and nh3 >= b["ammonia_max"]:
+	if nh3 is not None and "ammonia_max" in b and nh3 >= b["ammonia_max"]:
 		add("ammonia", nh3, f"Ammonia {nh3:g} mg/L is at or over {b['ammonia_max']:g}")
-	if no2 is not None and no2 >= b["nitrite_max"]:
+	if no2 is not None and "nitrite_max" in b and no2 >= b["nitrite_max"]:
 		add("nitrite", no2, f"Nitrite {no2:g} mg/L is at or over {b['nitrite_max']:g}")
 	return out
+
+
+def bands_from_rows(rows) -> dict:
+	"""Production Water Band rows (dicts) to the band dict; a blank (0) limit is not a limit."""
+	out = {}
+	for r in rows or []:
+		for side, key in _PARAM_KEYS.get(r.get("parameter"), ()):
+			v = flt(r.get(side))
+			if v:
+				out[key] = v
+	return out
+
+
+def _table_bands(doctype, name) -> dict:
+	rows = frappe.get_all("Production Water Band", filters={"parent": name, "parenttype": doctype},
+						  fields=["parameter", "min", "max", "unit"], order_by="idx asc", limit_page_length=0)
+	return bands_from_rows(rows)
+
+
+def crop_bands() -> dict:
+	return _table_bands("Production Crop", CROP_NAME)
+
+
+def strain_bands(strain) -> dict:
+	"""The strain's own bands, else the crop's."""
+	return (_table_bands("Production Variety", strain) if strain else {}) or crop_bands()
+
+
+def bands_for_pond(pond) -> dict:
+	"""Bands of the strain in the pond now (the growing batch, else the latest), else the crop's."""
+	rows = frappe.get_all("Pond Stocking", filters={"pond": pond}, fields=["strain", "status"],
+						  order_by="stocking_date desc, creation desc", limit_page_length=0)
+	pick = next((r for r in rows if r.status == "Growing"), rows[0] if rows else None)
+	return strain_bands(pick.strain if pick else None)
 
 
 def measured_values(row: dict, fields: list[str]) -> dict:
@@ -231,7 +264,7 @@ def validate_water_quality_reading(doc):
 		doc.reader = frappe.session.user
 	taken = {k: (flt(v) if v not in (None, "") else None) for k, v in vals.items()}
 	doc.measured = ",".join(k for k, v in taken.items() if v is not None)  # blank floats are stored as 0
-	flags = reading_flags(taken)
+	flags = reading_flags(taken, bands_for_pond(doc.pond))
 	doc.out_of_band = 1 if flags else 0
 	doc.flag_notes = "; ".join(f["message"] for f in flags)
 

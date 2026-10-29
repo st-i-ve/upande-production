@@ -4,8 +4,8 @@ import frappe
 from frappe import _
 
 from upande_production.api.envelope import as_dict, run
-from upande_production.production.logic import analytics, blockcost, cycle_chain, plans, rules, stages, work
-from upande_production.production.logic.settings import PAY_ROLES, can_see_pay
+from upande_production.production.logic import analytics, bands, blockcost, cycle_chain, plans, rules, stages, work
+from upande_production.production.logic.settings import PAY_ROLES, can_see_pay, is_manager
 from upande_production.production.logic.weeks import iso_week_bounds
 
 MANAGE_ROLES = {"Production Manager", "System Manager"}
@@ -417,7 +417,27 @@ def deviations(crop, from_date=None, to_date=None):
 @run
 def forecast_summary(crop, from_date=None, to_date=None):
 	_need("Production Forecast")
-	return analytics.forecast_summary(crop, from_date, to_date)
+	return {**analytics.forecast_summary(crop, from_date, to_date), "bands": bands.get_bands()}
+
+
+@frappe.whitelist()
+@run
+def get_bands():
+	"""{band_set: [{label, metric, min, max, severity}]}: the colour thresholds every page uses.
+	A row covers min <= value < max; max null means no upper limit."""
+	_need("Production Settings")
+	return bands.get_bands()
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def save_bands(rows):
+	"""Replace all band rows (Production Manager)."""
+	_need("Production Settings", "write")
+	if not is_manager():
+		frappe.throw(_("Only a Production Manager can change bands."), frappe.PermissionError)
+	bands.save_bands(as_dict(rows) if not isinstance(rows, list) else rows)
+	return bands.get_bands()
 
 
 # -- records -----------------------------------------------------------------

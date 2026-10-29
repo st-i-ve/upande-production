@@ -14,15 +14,12 @@ from frappe import _
 from frappe.utils import add_days, flt, get_datetime, getdate, nowdate
 
 from upande_production.api.envelope import as_dict, run
+from upande_production.production.logic import bands as band_logic
 
-# Used when Production Settings has no `irrigation_target_mm_week`.
-DEFAULT_WEEKLY_TARGET_MM = 25.0
+CROP = "Fruits & Vegetables"
+
 # A pivot is "utilised" by the hours it ran against all the hours in the period.
 HOURS_PER_DAY = 24.0
-# Grades counted as the top grade for the "% class 1" figure.
-GRADE_ORDER = ["class 1", "class 2", "ware", "seed", "chats"]
-TOP_GRADES = {"class 1", "class i", "grade 1", "grade a", "premium", "export"}
-
 READ_ROLES = {"Production Manager", "Production Supervisor", "Production Viewer", "System Manager"}
 
 
@@ -53,19 +50,25 @@ def _weeks(frm, to):
 	return out
 
 
-def weekly_target_mm():
-	try:
-		if frappe.get_meta("Production Settings").has_field("irrigation_target_mm_week"):
-			v = flt(frappe.db.get_single_value("Production Settings", "irrigation_target_mm_week"))
-			if v > 0:
-				return v
-	except Exception:
-		pass
-	return DEFAULT_WEEKLY_TARGET_MM
+def weekly_target_mm(variety=None):
+	"""Weekly irrigation target in mm: the variety's own, else the crop's. 0 when neither is set."""
+	if variety:
+		v = flt(frappe.db.get_value("Production Variety", variety, "irrigation_mm_week"))
+		if v > 0:
+			return v
+	return flt(frappe.db.get_value("Production Crop", CROP, "irrigation_mm_week"))
 
 
-def is_top_grade(name):
-	return (name or "").strip().lower() in TOP_GRADES
+def grade_rules(crop=CROP):
+	"""The crop's Production Grade rows: [{grade, rank, is_top}] in rank order."""
+	rows = frappe.get_all("Production Grade", filters={"parent": crop, "parenttype": "Production Crop"},
+						  fields=["grade", "rank", "is_top_grade"], order_by="rank asc, idx asc", limit_page_length=0)
+	return [{"grade": r.grade, "rank": r.rank, "is_top": bool(r.is_top_grade)} for r in rows]
+
+
+def is_top_grade(name, grades):
+	n = (name or "").strip().lower()
+	return any(g["is_top"] and g["grade"].strip().lower() == n for g in grades or [])
 
 
 def _geometry(names):
@@ -114,23 +117,25 @@ def pivot_tree(pivot=None):
 		"Production Unit", filters={"parent_production_unit": ("in", names or [""])},
 		fields=["name", "area_ha", "parent_production_unit as parent"], order_by="name asc",
 	)
-	items = {}
+	items, varieties = {}, {}
 	for c in frappe.get_all(
 		"Production Crop Cycle", filters={"unit": ("in", [k.name for k in kids] or [""]), "status": ("in", ["Active", "Harvesting", "Planned"])},
-		fields=["unit", "item", "status", "start_date"], order_by="start_date asc",
+		fields=["unit", "item", "variety", "status", "start_date"], order_by="start_date asc",
 	):
 		items[c.unit] = c.item
+		varieties[c.unit] = c.variety
 	by_parent = defaultdict(list)
 	for k in kids:
-		by_parent[k.parent].append({"name": k.name, "area_ha": flt(k.area_ha), "item": items.get(k.name)})
+		by_parent[k.parent].append({"name": k.name, "area_ha": flt(k.area_ha), "item": items.get(k.name), "variety": varieties.get(k.name)})
 	return [{"name": p.name, "area_ha": flt(p.area_ha), "slices": by_parent.get(p.name, [])} for p in pivots]
 
 
-def compute_irrigation(runs, pivots, frm, to, target_week):
+def compute_irrigation(runs, pivots, frm, to, target_week, slice_weekly=None):
 	"""Pure rollup over run dicts (unit, start_time, end_time, hours, depth_mm, fault, slices[list]).
 
 	Returns the numbers the page draws; see `irrigation` for the shape. Separate from the
-	query so it can be tested without a site.
+	query so it can be tested without a site. `slice_weekly` is {slice: weekly mm} for slices whose
+	variety has its own target; the others use `target_week`.
 	"""
 	days = (to - frm).days + 1
 	weeks_in_range = days / 7.0
@@ -158,7 +163,10 @@ def compute_irrigation(runs, pivots, frm, to, target_week):
 		w["hours"] += flt(r["hours"])
 		w["mm_sum"] += flt(r["depth_mm"]) * len(covered)
 		w["runs"] += 1
+	slice_target = {s["name"]: round((slice_weekly or {}).get(s["name"], target_week) * weeks_in_range, 1)
+					for p in pivots for s in p["slices"]}
 	return {"mm_by_slice": dict(mm), "per_pivot": per_pivot, "weekly": weekly, "target_mm": target_mm,
+			"slice_target_mm": slice_target,
 			"n_slices": n_slices, "days": days}
 
 
@@ -185,8 +193,11 @@ def irrigation(from_date=None, to_date=None, pivot=None):
 	runs = [{**r, "slices": cover.get(r.name, []), "start_time": str(r.start_time), "end_time": str(r.end_time),
 			 "operator_name": opnames.get(r.operator)} for r in rows]
 	target_week = weekly_target_mm()
-	agg = compute_irrigation(runs, pivots, frm, to, target_week)
+	slice_weekly = {s["name"]: weekly_target_mm(s["variety"]) for p in pivots for s in p["slices"] if s.get("variety")}
+	agg = compute_irrigation(runs, pivots, frm, to, target_week, slice_weekly)
 	target = agg["target_mm"]
+	bands = band_logic.get_bands()
+	on_target_from = band_logic.on_target_from(bands.get("Irrigation % of target"))
 
 	slice_rows, features = [], []
 	geoms = _geometry([s["name"] for p in pivots for s in p["slices"]] + names)
@@ -195,8 +206,9 @@ def irrigation(from_date=None, to_date=None, pivot=None):
 		pivot_mm = [agg["mm_by_slice"].get(s["name"], 0.0) for s in p["slices"]]
 		for s in p["slices"]:
 			m = round(agg["mm_by_slice"].get(s["name"], 0.0), 1)
-			pct = round(m / target * 100, 0) if target else 0
-			row = {"slice": s["name"], "pivot": p["name"], "item": s["item"], "mm": m, "target_mm": target, "pct_of_target": pct}
+			st = agg["slice_target_mm"][s["name"]]
+			pct = round(m / st * 100, 0) if st else 0
+			row = {"slice": s["name"], "pivot": p["name"], "item": s["item"], "mm": m, "target_mm": st, "pct_of_target": pct}
 			slice_rows.append(row)
 			if s["name"] in geoms:
 				features.append({"type": "Feature", "properties": row, "geometry": geoms[s["name"]]})
@@ -223,11 +235,12 @@ def irrigation(from_date=None, to_date=None, pivot=None):
 		"pivots": [pp for pp in agg["per_pivot"].values() if "name" in pp],
 		"pivot_names": [p["name"] for p in pivots_all],
 		"target": {"weekly_mm": target_week, "period_mm": target, "weeks": round(agg["days"] / 7.0, 1)},
+		"bands": bands,
 		"kpis": {
 			"runs": n_runs, "hours": round(hours, 1),
 			"mm_total": round(sum(flt(r["depth_mm"]) for r in runs), 1),
 			"mm_per_slice_avg": round(sum(slice_mms) / len(slice_mms), 1) if slice_mms else 0.0,
-			"slices_on_target": sum(1 for r in slice_rows if r["pct_of_target"] >= 90),
+			"slices_on_target": sum(1 for r in slice_rows if on_target_from is not None and r["pct_of_target"] >= on_target_from),
 			"slices": len(slice_rows),
 			"faults": len(faults),
 			"utilisation_pct": round(hours / (agg["days"] * HOURS_PER_DAY * max(len(pivots), 1)) * 100, 1),
@@ -280,9 +293,13 @@ def build_run(data):
 # -- grading ------------------------------------------------------------------
 
 
-def compute_grading(logs, frm, to):
+def compute_grading(logs, frm, to, grades=None):
 	"""Pure rollup over grading dicts: {unit, item, grading_date, received_kg, rejects_kg,
-	reject_reason, lines: [{grade, kg, crates}]}."""
+	reject_reason, lines: [{grade, kg, crates}]}. `grades` is the crop's `grade_rules`: which grades are top
+	and the order they are listed in; a grade not in it follows the ranked ones."""
+	grades = grades or []
+	rank = {g["grade"].strip().lower(): i for i, g in enumerate(sorted(grades, key=lambda g: g["rank"] or 0))}
+	is_top_grade_ = lambda name: is_top_grade(name, grades)
 	total_graded = total_received = total_rejects = top = 0.0
 	grades_seen = []
 	by_item, by_block = {}, {}
@@ -298,7 +315,7 @@ def compute_grading(logs, frm, to):
 				grades_seen.append(ln["grade"])
 		rec, rej = flt(g["received_kg"]), flt(g["rejects_kg"])
 		graded = sum(flt(ln["kg"]) for ln in g["lines"])
-		g_top = sum(flt(ln["kg"]) for ln in g["lines"] if is_top_grade(ln["grade"]))
+		g_top = sum(flt(ln["kg"]) for ln in g["lines"] if is_top_grade_(ln["grade"]))
 		total_graded += graded
 		total_received += rec
 		total_rejects += rej
@@ -317,7 +334,7 @@ def compute_grading(logs, frm, to):
 			b["received_kg"] += rec
 			for ln in g["lines"]:
 				b["grades"][ln["grade"]] += flt(ln["kg"])
-	order = sorted(grades_seen, key=lambda x: (not is_top_grade(x), GRADE_ORDER.index(x.lower()) if x.lower() in GRADE_ORDER else 99, x.lower()))
+	order = sorted(grades_seen, key=lambda x: (not is_top_grade_(x), rank.get(x.lower(), 99), x.lower()))
 
 	def finish(d):
 		out = []
@@ -325,7 +342,7 @@ def compute_grading(logs, frm, to):
 			out.append({"key": k, "graded_kg": round(b["graded_kg"], 1), "rejects_kg": round(b["rejects_kg"], 1),
 						"received_kg": round(b["received_kg"], 1),
 						"grades": {gr: round(b["grades"].get(gr, 0.0), 1) for gr in order},
-						"class1_pct": round(sum(v for gr, v in b["grades"].items() if is_top_grade(gr)) / b["graded_kg"] * 100, 1) if b["graded_kg"] else 0.0,
+						"class1_pct": round(sum(v for gr, v in b["grades"].items() if is_top_grade_(gr)) / b["graded_kg"] * 100, 1) if b["graded_kg"] else 0.0,
 						"reject_pct": round(b["rejects_kg"] / b["received_kg"] * 100, 1) if b["received_kg"] else 0.0})
 		return out
 
@@ -373,14 +390,15 @@ def grading(from_date=None, to_date=None, unit=None, item=None):
 							 fields=["parent", "grade", "kg", "crates"], order_by="idx asc"):
 		lines[ln.parent].append({"grade": ln.grade, "kg": flt(ln.kg), "crates": flt(ln.crates)})
 	logs = [{**r, "grading_date": str(r.grading_date), "lines": lines.get(r.name, [])} for r in rows]
-	out = compute_grading(logs, frm, to)
-	out["rows"] = [{**g, "class1_kg": round(sum(l["kg"] for l in g["lines"] if is_top_grade(l["grade"])), 1)} for g in logs]
+	grades = grade_rules()
+	out = compute_grading(logs, frm, to, grades)
+	out["rows"] = [{**g, "class1_kg": round(sum(l["kg"] for l in g["lines"] if is_top_grade(l["grade"], grades)), 1)} for g in logs]
 	opts_rows = frappe.get_all("Harvest Grading Log", fields=["unit", "item"], limit_page_length=0)
 	out.update({
 		"from_date": str(frm), "to_date": str(to), "unit": unit or None, "item": item or None,
 		"units": sorted({r.unit for r in opts_rows if r.unit}), "items": sorted({r.item for r in opts_rows if r.item}),
 		"form": {"units": _grading_units(), "reasons": ["Undersize", "Greening", "Rot", "Mechanical damage", "Pest damage"],
-				 "default_grades": ["Class 1", "Class 2", "Ware", "Seed", "Chats"]},
+				 "default_grades": [g["grade"] for g in grades]},
 	})
 	return out
 

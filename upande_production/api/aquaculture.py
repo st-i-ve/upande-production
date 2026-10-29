@@ -14,6 +14,7 @@ from frappe.utils import add_days, cint, flt, get_datetime, getdate, now_datetim
 
 from upande_production.api.envelope import as_dict, run
 from upande_production.production.logic import aquaculture as logic
+from upande_production.production.logic import bands as band_logic
 
 CROP = logic.CROP_NAME
 WEEKS = 8
@@ -171,7 +172,8 @@ def pond_batches(status=None, unit=None):
 	for b in frappe.get_all("Pond Stocking", filters={"status": "Growing"}, fields=["pond", "name"], limit_page_length=0):
 		active[b.pond] = b.name
 	return {
-		"today": str(today), "batches": batches, "kpis": kpis,
+		"today": str(today), "batches": batches, "kpis": kpis, "bands": band_logic.get_bands(),
+		"sample_stale_days": band_logic.crop_limits(CROP, "sample_stale_days")["sample_stale_days"],
 		"form": {
 			"ponds": [{"unit": u.name, "label": u.unit_name, "active_stocking": active.get(u.name)} for u in by_unit.values()],
 			"species": ["Tilapia", "Catfish"], "statuses": ["Growing", "Harvested", "Closed"],
@@ -263,9 +265,9 @@ def save_fish_harvest(data):
 READING_FIELDS = ["dissolved_oxygen_mg_l", "ph", "temperature_c", "ammonia_mg_l", "nitrite_mg_l", "secchi_cm"]
 
 
-def _reading_row(r):
+def _reading_row(r, bands):
 	vals = logic.measured_values(r, READING_FIELDS)
-	flags = logic.reading_flags(vals)
+	flags = logic.reading_flags(vals, bands)
 	return {"name": r.name, "pond": r.pond, "at": str(r.reading_datetime)[:16], **vals, "reader": r.reader,
 			"notes": r.notes, "out_of_band": bool(flags), "flags": flags}
 
@@ -281,11 +283,14 @@ def water_quality(from_date=None, to_date=None, unit=None):
 		filters["pond"] = unit
 	rows = frappe.get_all("Water Quality Reading", filters=filters, order_by="reading_datetime asc", limit_page_length=0,
 		fields=["name", "pond", "reading_datetime", "reader", "notes", "measured", *READING_FIELDS])
-	by_pond = {}
+	by_pond, pond_bands = {}, {}
 	for r in rows:
-		by_pond.setdefault(r.pond, []).append(_reading_row(r))
+		if r.pond not in pond_bands:
+			pond_bands[r.pond] = logic.bands_for_pond(r.pond)
+		by_pond.setdefault(r.pond, []).append(_reading_row(r, pond_bands[r.pond]))
 	ponds, alerts = [], []
 	for u in _pond_units(unit):
+		pond_bands.setdefault(u.name, logic.bands_for_pond(u.name))
 		rs = by_pond.get(u.name, [])
 		latest = rs[-1] if rs else None
 		bad = [r for r in rs if r["out_of_band"]]
@@ -295,7 +300,7 @@ def water_quality(from_date=None, to_date=None, unit=None):
 							   "value": f["value"], "message": f["message"]})
 		dos = [r["dissolved_oxygen_mg_l"] for r in rs if r["dissolved_oxygen_mg_l"] is not None]
 		ponds.append({
-			"unit": u.name, "label": u.unit_name, "readings": len(rs), "latest": latest,
+			"unit": u.name, "label": u.unit_name, "readings": len(rs), "latest": latest, "bands": pond_bands[u.name],
 			"status": "none" if not latest else ("alert" if latest["out_of_band"] else "ok"),
 			"out_of_band_count": len(bad), "min_do_mg_l": min(dos) if dos else None,
 			"series": [{"at": r["at"], **{k: r[k] for k in READING_FIELDS}, "out_of_band": r["out_of_band"]} for r in rs],
@@ -317,7 +322,7 @@ def water_quality(from_date=None, to_date=None, unit=None):
 	def compact(s):
 		return [p for p in s if p["value"] is not None]
 	return {
-		"from_date": str(start), "to_date": str(end), "bands": logic.BANDS, "ponds": ponds, "alerts": alerts[:100],
+		"from_date": str(start), "to_date": str(end), "bands": logic.crop_bands(), "ponds": ponds, "alerts": alerts[:100],
 		"readings": [r for r in reversed(allr)][:60],
 		"kpis": {
 			"ponds_in_band": {"value": len([p for p in with_latest if p["status"] == "ok"]), "of": len(with_latest),
@@ -397,12 +402,15 @@ def feeding_mortality(from_date=None, to_date=None, unit=None):
 		},
 		"form": {
 			"ponds": [{"unit": u.name, "label": u.unit_name, "active_stocking": next(iter(frappe.get_all("Pond Stocking", filters={"pond": u.name, "status": "Growing"}, pluck="name", limit_page_length=1)), None)} for u in _pond_units()],
-			"causes": logic.CAUSES, "feed_types": FEED_TYPES, "today": nowdate(),
+			"causes": logic.CAUSES, "feed_types": _feed_types(), "today": nowdate(),
 		},
 	}
 
 
-FEED_TYPES = ["Starter Crumble", "Grower Pellet 2mm", "Grower Pellet 4mm", "Finisher Pellet 6mm"]
+def _feed_types():
+	"""The crop's Production Feed Type rows, in order."""
+	return frappe.get_all("Production Feed Type", filters={"parent": CROP, "parenttype": "Production Crop"},
+						  pluck="feed_type", order_by="idx asc", limit_page_length=0)
 
 
 @frappe.whitelist(methods=["POST"])

@@ -11,15 +11,12 @@ from frappe import _
 from frappe.utils import add_days, cint, flt, getdate, nowdate
 
 from upande_production.api.envelope import as_dict, run
+from upande_production.production.logic import bands as band_logic
 
 CROP = "Apiary"
 INSPECTION = "Hive Inspection Log"
 HARVEST = "Honey Harvest Log"
 
-# Colonies with more than this many varroa mites per 100 bees need treating.
-MITE_THRESHOLD = 3.0
-# A group is "watch" from this share of the threshold.
-MITE_WATCH = 2.0
 DEFAULT_DAYS = 90
 MAX_WEEKS = 60
 
@@ -70,18 +67,35 @@ def _unit_filter(unit):
 	return {"unit": ("in", names or ["__none__"])}
 
 
-def mite_status(v):
+def limits():
+	"""Mite threshold (treat above), mite watch (rising from) and honey moisture limit, from the Apiary crop;
+	None where the manager has not set one."""
+	return band_logic.crop_limits(CROP, "mite_threshold", "mite_watch", "honey_moisture_limit")
+
+
+def mite_status(v, threshold, watch):
 	if v is None:
 		return "none"
-	return "high" if v > MITE_THRESHOLD else "watch" if v >= MITE_WATCH else "ok"
+	if threshold is None:
+		return "none"
+	return "high" if v > threshold else "watch" if watch is not None and v >= watch else "ok"
 
 
-def queen_status(inspected, queenright):
-	"""Share of colonies with a laying queen decides the chip."""
+def queen_status(inspected, queenright, bands=None):
+	"""Share of colonies with a laying queen decides the chip, by the Queen status bands."""
 	if not inspected:
 		return "none"
-	pct = 100.0 * queenright / inspected
-	return "queenright" if pct >= 95 else "weak" if pct >= 80 else "queenless"
+	return queen_label(100.0 * queenright / inspected, bands)
+
+
+QUEEN_BY_SEVERITY = {"Good": "queenright", "Watch": "weak", "Critical": "queenless"}
+
+
+def queen_label(pct, bands=None):
+	"""The chip code for a queenright share: the Queen status band's severity (Good/Watch/Critical) as
+	queenright/weak/queenless, so a manager can rename or move the bands without breaking the page."""
+	row = band_logic.band_of("Queen status", pct, bands)
+	return QUEEN_BY_SEVERITY[row["severity"]] if row else "none"
 
 
 def _avg(vals):
@@ -131,7 +145,11 @@ def hive_inspections(from_date=None, to_date=None, unit=None):
 	start, end = _range(from_date, to_date)
 	unit = unit or None
 	rows = _inspection_rows(start, end, unit)
+	lim = limits()
+	threshold, watch = lim["mite_threshold"], lim["mite_watch"]
+	all_bands = band_logic.get_bands()
 	k = _kpis(rows)
+	k["queen_status"] = queen_label(k["queenright_pct"], all_bands) if k["queenright_pct"] is not None else "none"
 
 	# Previous period of the same length, for the mite-load trend.
 	span = (end - start).days + 1
@@ -148,10 +166,10 @@ def hive_inspections(from_date=None, to_date=None, unit=None):
 		by_unit.setdefault(r.unit, []).append(r)
 		latest.setdefault(r.unit, r)
 	k["colonies_above_threshold"] = sum(
-		cint(r.colonies_inspected) for r in latest.values() if r.varroa_per_100 is not None and flt(r.varroa_per_100) > MITE_THRESHOLD
+		cint(r.colonies_inspected) for r in latest.values() if threshold is not None and r.varroa_per_100 is not None and flt(r.varroa_per_100) > threshold
 	)
 	k["groups_above_threshold"] = sum(
-		1 for r in latest.values() if r.varroa_per_100 is not None and flt(r.varroa_per_100) > MITE_THRESHOLD
+		1 for r in latest.values() if threshold is not None and r.varroa_per_100 is not None and flt(r.varroa_per_100) > threshold
 	)
 
 	# Weekly series (oldest first).
@@ -182,8 +200,8 @@ def hive_inspections(from_date=None, to_date=None, unit=None):
 				"last_date": str(lt.inspection_date), "days_since": (getdate(nowdate()) - getdate(lt.inspection_date)).days,
 				"colonies": inspected, "queenright": queenright,
 				"queenright_pct": round(100.0 * queenright / inspected, 1) if inspected else None,
-				"queen_status": queen_status(inspected, queenright), "queen_seen": bool(lt.queen_seen),
-				"eggs_seen": bool(lt.eggs_seen), "mites_per_100": mites, "mite_status": mite_status(mites),
+				"queen_status": queen_status(inspected, queenright, all_bands), "queen_seen": bool(lt.queen_seen),
+				"eggs_seen": bool(lt.eggs_seen), "mites_per_100": mites, "mite_status": mite_status(mites, threshold, watch),
 				"brood_pattern": lt.brood_pattern or None, "temperament": lt.temperament or None,
 				"disease_signs": lt.disease_signs or "None", "frames_brood": lt.frames_brood,
 				"frames_honey": lt.frames_honey, "frames_stores": lt.frames_stores, "inspector": lt.inspector,
@@ -199,11 +217,11 @@ def hive_inspections(from_date=None, to_date=None, unit=None):
 		groups.append(item)
 
 	return {
-		"from_date": str(start), "to_date": str(end), "unit": unit, "threshold": MITE_THRESHOLD,
+		"from_date": str(start), "to_date": str(end), "unit": unit, "threshold": threshold, "watch": watch, "bands": all_bands,
 		"kpis": k, "series": series, "groups": groups,
 		"rows": [{**r, "unit_label": next((g["label"] for g in hive_groups() if g["value"] == r.unit), r.unit),
 				  "inspection_date": str(r.inspection_date), "queen_seen": bool(r.queen_seen),
-				  "eggs_seen": bool(r.eggs_seen), "mite_status": mite_status(flt(r.varroa_per_100) if r.varroa_per_100 is not None else None)}
+				  "eggs_seen": bool(r.eggs_seen), "mite_status": mite_status(flt(r.varroa_per_100) if r.varroa_per_100 is not None else None, threshold, watch)}
 				 for r in rows],
 		"form": inspection_form(),
 	}
@@ -214,7 +232,7 @@ def inspection_form():
 		"units": hive_groups(), "employees": _employees(), "today": nowdate(),
 		"brood_patterns": ["Solid", "Patchy", "None"], "temperaments": ["Calm", "Nervous", "Aggressive"],
 		"disease_options": ["None", "Chalkbrood", "AFB/EFB suspect", "Small hive beetle", "Wax moth"],
-		"threshold": MITE_THRESHOLD,
+		"threshold": limits()["mite_threshold"], "watch": limits()["mite_watch"],
 	}
 
 
@@ -333,7 +351,8 @@ def honey_harvest(from_date=None, to_date=None, unit=None):
 	return {
 		"from_date": str(start), "to_date": str(end), "unit": unit, "kpis": k, "series": series, "groups": groups,
 		"rows": [{**r, "unit_label": labels.get(r.unit, r.unit), "harvest_date": str(r.harvest_date)} for r in rows],
-		"form": {"units": hive_groups(), "today": nowdate(), "grades": ["A", "B", "C"], "moisture_limit": 20.0},
+		"bands": band_logic.get_bands(),
+		"form": {"units": hive_groups(), "today": nowdate(), "grades": ["A", "B", "C"], "moisture_limit": limits()["honey_moisture_limit"]},
 	}
 
 

@@ -17,6 +17,8 @@ from frappe.utils import add_days, getdate, nowdate
 
 from upande_production.production.logic.stages import product_item
 
+CROP = "Fruits & Vegetables"
+
 FV = {
 	"seed": 20261029,
 	"marker": "[fv-seed]",
@@ -55,6 +57,10 @@ FV = {
 		"Onion": ["Rot", "Undersize", "Mechanical damage"],
 		"Passion Fruit": ["Undersize", "Pest damage", "Rot"],
 	},
+	"irrigation_mm_week": 25.0,
+	# Production Crop grades (grade, rank, top): the top grade and the names it goes by on the sites
+	"crop_grades": [("Class 1", 1, 1), ("Class 2", 2, 0), ("Ware", 3, 0), ("Seed", 4, 0), ("Chats", 5, 0),
+					("Class I", 6, 1), ("Grade 1", 7, 1), ("Grade A", 8, 1), ("Premium", 9, 1), ("Export", 10, 1)],
 	"kg_per_crate": {"Potatoes": 50, "Cabbage": 30, "Onion": 25, "Passion Fruit": 4},
 	"graders": ["HR-EMP-00303", "HR-EMP-00304"],
 }
@@ -142,10 +148,30 @@ def _seed_grading(rng):
 	return made
 
 
-def run():
+def ensure_limits():
+	"""The crop's weekly irrigation target and grade list (top grades marked), plus the default Bands
+	(irrigation % of target). Only fills what is empty."""
+	from upande_production.production.demo import bands_seed
+
+	bands_seed.run(commit=False)
+	if not frappe.db.exists("Production Crop", CROP):
+		return
+	crop = frappe.get_doc("Production Crop", CROP)
+	if not crop.irrigation_mm_week:
+		crop.irrigation_mm_week = FV["irrigation_mm_week"]
+	if not crop.grades:
+		for g, rank, top in FV["crop_grades"]:
+			crop.append("grades", {"grade": g, "rank": rank, "is_top_grade": top})
+	crop.flags.ignore_permissions = True
+	crop.save()
+
+
+def run(commit=True):
 	rng = random.Random(FV["seed"])
+	ensure_limits()
 	_clear()
 	out = {"irrigation_runs": _seed_irrigation(rng), "grading_logs": _seed_grading(rng)}
-	frappe.db.commit()
+	if commit:
+		frappe.db.commit()
 	print(f"fv seed: {out}")
 	return out

@@ -30,7 +30,9 @@ class TestFvPure(IntegrationTestCase):
 			{"unit": "B2", "item": "Potatoes", "grading_date": "2026-10-21", "received_kg": 500, "rejects_kg": 25,
 			 "reject_reason": "Greening", "lines": [{"grade": "Class 1", "kg": 200}, {"grade": "Ware", "kg": 275}]},
 		]
-		g = fv.compute_grading(logs, getdate("2026-10-12"), getdate("2026-10-25"))
+		grades = [{"grade": "Class 1", "rank": 1, "is_top": True}, {"grade": "Class 2", "rank": 2, "is_top": False},
+				  {"grade": "Ware", "rank": 3, "is_top": False}]
+		g = fv.compute_grading(logs, getdate("2026-10-12"), getdate("2026-10-25"), grades)
 		k = g["kpis"]
 		self.assertEqual(k["graded_kg"], 1425.0)
 		self.assertEqual(k["class1_pct"], round(800 / 1425 * 100, 1))

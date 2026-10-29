@@ -43,6 +43,8 @@ DEMO = {
 							 (247, 6, 47, 83.0, 19.1, "B", 2.2)],
 	},
 	"inspector": None,  # None picks the first active Employee
+	# Production Crop limits (editable in Desk); only filled where the crop has none.
+	"limits": {"mite_threshold": 3.0, "mite_watch": 2.0, "honey_moisture_limit": 20.0},
 }
 
 INSPECTION = "Hive Inspection Log"
@@ -63,8 +65,25 @@ def _clear_demo_rows():
 			frappe.delete_doc(dt, n, force=True, ignore_permissions=True)
 
 
+def ensure_limits():
+	"""Mite threshold and watch, honey moisture limit on the Apiary crop; the default Bands (queen status,
+	grade A share) are seeded with the rest of the Settings bands."""
+	from upande_production.production.demo import bands_seed
+
+	bands_seed.run(commit=False)
+	crop = frappe.db.exists("Production Crop", "Apiary")
+	if not crop:
+		return {}
+	have = frappe.db.get_value("Production Crop", crop, list(DEMO["limits"]), as_dict=True)
+	todo = {k: v for k, v in DEMO["limits"].items() if not have.get(k)}
+	if todo:
+		frappe.db.set_value("Production Crop", crop, todo)
+	return todo
+
+
 def run(commit=True):
 	frappe.flags.in_demo_seed = True
+	ensure_limits()
 	_clear_demo_rows()
 	inspector = DEMO["inspector"] or frappe.db.get_value("Employee", {"status": "Active"}, "name")
 	made = {"inspections": 0, "harvests": 0}
