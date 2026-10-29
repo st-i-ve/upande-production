@@ -143,7 +143,7 @@ DEMO = {
 			"plants_per_m2": 0.0156, "lifespan_years": 30, "dry_matter_target_pct": 24},
 		"Fuerte": {"is_flowering": 1, "harvest_pattern": "Interval", "harvest_interval_weeks": 52,
 			"weeks_to_maturity": 130, "flowering_pattern": "Seasonal",
-			"flowering_seasons": [("Main", "July", 32, 85), ("Off-season", "January", 32, 15)],
+			"flowering_seasons": [("Main", "October", 32, 85), ("Off-season", "April", 32, 15)],
 			"plants_per_m2": 0.0156, "lifespan_years": 30, "dry_matter_target_pct": 21},
 		**{n: {"is_flowering": 1, "harvest_pattern": "Continuous", "harvest_interval_weeks": 1,
 			"weeks_to_maturity": 30, "flowering_pattern": "Interval", "flowering_interval_weeks": 4,
@@ -303,7 +303,7 @@ def _fix_cycles():
 			fields=["name", "unit", "status", "item", "start_date"], order_by="start_date asc")
 		for cy in cycles:
 			vname = _variety_for_cycle(cy)
-			if not vname:
+			if not vname or cy.status == "Planned":  # a proposed successor keeps its own pattern dates
 				continue
 			doc = frappe.get_doc("Production Crop Cycle", cy.name)
 			doc.variety = vname

@@ -11,7 +11,7 @@ their dates are relative to today. Every invented figure is in DEMO.
 import random
 
 import frappe
-from frappe.utils import add_days, flt, getdate, nowdate
+from frappe.utils import add_days, cint, flt, getdate, nowdate
 
 from upande_production.production.logic import cycle_chain, stages
 
@@ -279,6 +279,34 @@ def _first_pick(cycle):
 		where cycle = %s or (unit = %s and ifnull(cycle, '') = '')""", (cycle.name, cycle.unit))[0][0]
 
 
+def _fit_season(doc, first, late) -> bool:
+	"""A seasonal cycle takes the season whose flowering (+ the late weeks) plus its weeks to harvest lands
+	closest to the first recorded pick, so a demo harvest is never flagged late for the wrong season. A
+	changed season drops the unused Planned successor proposed from the old one."""
+	v = cycle_chain._variety(doc)
+	if not cycle_chain._is_seasonal(v):
+		return False
+	first = getdate(first)
+	best = None
+	for r in v.seasons:
+		for year in (first.year - 2, first.year - 1, first.year):
+			d = getdate(f"{year}-{cycle_chain._month_no(r):02d}-01")
+			miss = abs((add_days(d, (cint(r["weeks_flowering_to_harvest"]) + late) * 7) - first).days)
+			if best is None or miss < best[0]:
+				best = (miss, r, d)
+	_miss, row, d = best
+	if doc.flowering_season == row["season_name"] and getdate(doc.expected_flowering_date) == d:
+		return False
+	nxt = doc.proposed_next_cycle
+	if nxt and frappe.db.get_value("Production Crop Cycle", nxt, "status") == "Planned":
+		doc.proposed_next_cycle = None
+		frappe.db.set_value("Production Crop Cycle", doc.name, "proposed_next_cycle", None, update_modified=False)
+		frappe.delete_doc("Production Crop Cycle", nxt, force=1, ignore_permissions=True)
+	doc.flowering_season, doc.expected_flowering_date = row["season_name"], d
+	doc.actual_flowering_date = None
+	return True
+
+
 def align_cycles():
 	"""Make the open cycles agree with their own picks and variety timeline, so the only manager flags
 	left are the deliberate ones. A cycle that is picking gets the start date at which its variety's
@@ -303,6 +331,8 @@ def align_cycles():
 		if anchored:
 			want = add_days(start, late * 7)
 			if doc.flowering_season and doc.expected_flowering_date:  # seasonal: late against its season start
+				if _fit_season(doc, first, late):
+					dirty = True
 				want = add_days(getdate(doc.expected_flowering_date), late * 7)
 			if getdate(doc.actual_flowering_date or "1900-01-01") != want:
 				doc.actual_flowering_date = want
