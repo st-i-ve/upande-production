@@ -167,3 +167,47 @@ class TestRetiredUnits(IntegrationTestCase):
 		rows, _src = avocadoapi._read_blocks()
 		self.assertIn(code, {r["name"] for r in rows})
 		frappe.db.set_value("Production Unit", self.gone, "status", "Retired")
+
+
+class TestRetireClosesOpenWork(IntegrationTestCase):
+	def test_retiring_closes_cycles_and_skips_tasks(self):
+		frappe.set_user("Administrator")
+		T = TestRetiredUnits
+		T.setUpClass.__func__(T) if not hasattr(T, "live") else None
+		crop, farm = T.crop, T.farm
+		u = T._unit("RT Retire Me", json.dumps({"type": "Feature", "properties": {}, "geometry": {"type": "Polygon",
+			"coordinates": [[[36.7, 0.0], [36.8, 0.0], [36.8, 0.1], [36.7, 0.0]]]}}))
+		cyc = _make("Production Crop Cycle", unit=u, crop=crop.name, start_date=add_days(today(), -3),
+			protocol=T.proto.name, status="Active")
+		plan = plans.get_or_create_plan(crop.name, farm.name, T.y, T.w)
+		plan.append("tasks", {"unit": u, "operation": T.op.name, "planned_qty": 4, "uom": "Kg", "rate": 5,
+			"due_date": today(), "status": "Open"})
+		plan.save()
+		doc = frappe.get_doc("Production Unit", u)
+		doc.status = "Retired"
+		doc.save()
+		self.assertEqual(frappe.db.get_value("Production Crop Cycle", cyc.name, "status"), "Closed")
+		self.assertFalse(frappe.db.get_value("Production Crop Cycle", cyc.name, "proposed_next_cycle"))
+		self.assertFalse(frappe.db.exists("Production Crop Cycle", {"previous_cycle": cyc.name}))
+		t = frappe.get_all("Production Plan Task", filters={"unit": u}, fields=["status", "note"])
+		self.assertEqual([x.status for x in t], ["Skipped"])
+		self.assertIn("unit retired", t[0].note)
+		self.assertEqual(units.close_open_work(u), {"cycles": 0, "tasks": 0})  # idempotent
+
+
+class TestHarvestValue(IntegrationTestCase):
+	def test_value_falls_back_to_item_buyer_then_crop_price(self):
+		from upande_production.production.logic.harvest import valuation_rate
+
+		frappe.set_user("Administrator")
+		crop = _make("Production Crop", crop_name="HV Crop", crop_key="hv-crop", unit_label="Block", yield_uom="Kg")
+		self.assertEqual(valuation_rate(None, crop.name), 0)
+		frappe.db.set_value("Production Crop", crop.name, "price_per_kg", 7)
+		self.assertEqual(valuation_rate(None, crop.name), 7)
+		if not frappe.db.exists("Item Group", "All Item Groups"):
+			self.skipTest("no item group")
+		item = frappe.get_doc({"doctype": "Item", "item_code": "HV Honey", "item_name": "HV Honey",
+			"item_group": "All Item Groups", "stock_uom": "Kg", "is_stock_item": 1, "valuation_rate": 12}).insert()
+		self.assertEqual(valuation_rate(item.name, crop.name), 12)
+		item.db_set("valuation_rate", 0)
+		self.assertEqual(valuation_rate(item.name, crop.name), 7)  # crop price is the last fallback

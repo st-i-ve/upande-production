@@ -50,7 +50,7 @@ DEMO = {
 						  ("October", 0.24), ("November", 0.14)]},
 }
 
-from upande_production.production.demo import real_blocks  # noqa: E402
+from upande_production.production.demo import establishment_seed, real_blocks  # noqa: E402
 from upande_production.production.demo.config import DEMO as BASE  # noqa: E402
 
 
@@ -75,9 +75,12 @@ def _load():
 		r = _rng(f"history:{b['code']}")
 		kpt = cfg["kg_per_tree"]
 		shift = r.randint(*DEMO["window_shift_days"])
+		# a block whose flowering is deliberately late (establishment_seed) starts picking that many weeks later
+		# and finishes with the rest, so the estate's monthly totals stay inside the budget months
+		start_lag = 7 * establishment_seed.DEMO["avocado_flowering_late"].get(real_blocks.avocado_unit(b["code"]), 0)
 		bearing = b["bearing"]
 		late_s, late_e = (str(add_days(getdate(d), shift)) for d in w["late_2025"])
-		early_s, early_e = (str(add_days(getdate(d), shift)) for d in w["early_2026"])
+		early_s, early_e = (str(add_days(getdate(d), shift + lag)) for d, lag in zip(w["early_2026"], (start_lag, 0)))
 		early_kg = round(bearing * r.uniform(*kpt["early_2026"]), -2)
 		DEMO["history"][b["code"]] = {
 			(2024, "Year"): (round(bearing * r.uniform(*kpt["year_2024"]), -2), None, None),
@@ -266,7 +269,10 @@ def seed_harvest_logs():
 		for i in range(h["picks"]):
 			day = add_days(d0, round(span * i / (h["picks"] - 1)))
 			ref = f"avocado-seed-harvest-{block}-{i}"
-			if frappe.db.exists(HARVEST_DT, {"client_ref": ref}):
+			have = frappe.db.get_value(HARVEST_DT, {"client_ref": ref}, ["name", "harvest_date"], as_dict=True)
+			if have:
+				if getdate(have.harvest_date) != getdate(day):  # the window moved: the pick moves with it
+					frappe.db.set_value(HARVEST_DT, have.name, "harvest_date", day, update_modified=False)
 				continue
 			kg = round(weights[i] * scale, 0)
 			rate = r.uniform(*h["kg_per_picker_day"])

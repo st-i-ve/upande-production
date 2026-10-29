@@ -378,6 +378,9 @@ def align_cycles():
 			if getdate(doc.actual_flowering_date or "1900-01-01") != want:
 				doc.actual_flowering_date = want
 				dirty = True
+		if getdate(doc.actual_harvest_start or "1900-01-01") != getdate(first):  # picks moved: so did the first one
+			doc.actual_harvest_start = first
+			dirty = True
 		exp = add_days(getdate(first), 0)
 		if not doc.expected_harvest_start or getdate(doc.expected_harvest_start) != exp:
 			doc.expected_harvest_start = exp

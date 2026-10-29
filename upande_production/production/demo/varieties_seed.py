@@ -140,7 +140,7 @@ DEMO = {
 	"templates": {
 		"Hass": {"is_flowering": 1, "harvest_pattern": "Interval", "harvest_interval_weeks": 52,
 			"weeks_to_maturity": 130, "flowering_pattern": "Seasonal",
-			"flowering_seasons": [("Main", "August", 36, 80), ("Off-season", "February", 36, 20)],
+			"flowering_seasons": [("Main", "August", 41, 80), ("Off-season", "February", 41, 20)],
 			"plants_per_m2": 0.0156, "lifespan_years": 30, "dry_matter_target_pct": 24},
 		"Fuerte": {"is_flowering": 1, "harvest_pattern": "Interval", "harvest_interval_weeks": 52,
 			"weeks_to_maturity": 130, "flowering_pattern": "Seasonal",
