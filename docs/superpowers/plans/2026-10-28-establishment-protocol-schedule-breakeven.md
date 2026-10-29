@@ -276,3 +276,50 @@ Establishment: KPI cards (Total invested, Per ha, Blocks set up, Budget vs actua
 - [ ] **Step 2:** Restart Mutara web only; open each new/changed page in the browser (Playwright) at https://mutara.132.145.18.63.nip.io for avocado and F&V; no console errors except the known Frappe `/undefined`.
 - [ ] **Step 3:** Mobile API smoke: week plan for Avocado includes cultural tasks; tick-off of a spray inside the PHI returns a Warn breach.
 - [ ] **Step 4:** Opus whole-branch review; fix; commit.
+
+---
+
+## Addendum 2026-10-29 (spec section "Addendum 2026-10-29")
+
+### Task 18: Variety maturity and flowering patterns (backend)
+
+**Files:** `production/doctype/production_variety/*` (+ new istable `production_variety_flowering_season`), `production/logic/cycle_chain.py`, `production/logic/stages.py` (only if needed), `api/varieties.py` (allow-list), `production/logic/protocols.py` (TEMPLATE_FIELDS), new patch `patches/flowering_pattern_from_reflower.py`, forecast/break-even juvenile handling (`production/logic/breakeven.py` projection, forecast code that expects yield per cycle), `production/demo/varieties_seed.py`. Tests: `test_varieties.py`, `test_cycle_chain.py`, `test_breakeven.py`.
+
+**Interfaces — Produces:**
+- Variety fields: `weeks_to_maturity` Int; `flowering_pattern` Select `Seasonal\nInterval` (depends_on is_flowering); `flowering_seasons` Table **Production Variety Flowering Season** (`season_name` Data reqd, `start_month` Select `January`…`December` reqd, `weeks_flowering_to_harvest` Int reqd, `crop_share_pct` Float) shown when Seasonal; `flowering_interval_weeks` Int shown when Interval; `weeks_to_first_flowering` shown when Interval; `weeks_to_reflower_after_harvest` hidden. Validation: Seasonal needs ≥1 season, shares total 100 when any share is set; Interval needs interval weeks.
+- Cycle field: `flowering_season` Data (read-only), `juvenile` Check (read-only).
+- `cycle_chain.expected_flowering(cycle_doc, variety) -> date|None`; `cycle_chain.next_season(variety, after: date) -> (season_row, flowering_date)`; `cycle_chain.first_season_date(planted_on: date, variety) -> date` (first season start ≥ planted_on + maturity weeks). `propose_next` uses them: Seasonal → next season by calendar after this cycle's flowering; Interval → previous flowering + interval weeks; expected harvest start = flowering + that season's/variety's weeks flowering → harvest.
+- Juvenile: `cycle_chain.is_juvenile(cycle_doc) -> bool` (expected harvest start < unit planted_on + maturity; planted_on from Block Opening Balance.planted_on or the first cycle's start_date). Break-even projection and forecast skip juvenile cycles' yield.
+- Flags: seasonal varieties compare actual flowering with the season start; remove the flowering-anchored first-cycle exception for them.
+- Patch: Interval varieties `flowering_interval_weeks` = `harvest_interval_weeks` or reflower + flowering→harvest; avocado demo varieties become Seasonal.
+- Seeds: Hass seasons Main (August, 36 wks, 80 %), Off-season (February, 36 wks, 20 %); Fuerte Main (July, 32, 85 %), Off (January, 32, 15 %); maturity Hass/Fuerte 130 weeks; passion Interval: maturity 30, first flowering 20, interval 4, flowering→harvest 10. Re-run seeds idempotently; flags after seeding: only deliberate ones (keep Avocado Block A ~3 weeks late now that seasonal checks apply).
+
+Tests: `test_seasonal_first_season_after_maturity`, `test_seasonal_next_season_by_calendar`, `test_interval_next_flowering`, `test_juvenile_cycle_no_projection_yield`, `test_seasonal_flowering_flag_late`, `test_shares_must_total_100`.
+
+### Task 19: Block warehouse, links check, harvest store, ERP budget, block cost breakdown (backend)
+
+**Files:** `production/doctype/production_unit/production_unit.json` (`warehouse` Link Warehouse), `production/doctype/harvest_batch/*` (warehouse chosen), `production/logic/harvest.py` (`close_batch(team, unit, harvest_date=None, warehouse=None)`, `default_store(farm) -> str`, `stores(company) -> list`), `mobile/harvest.py` (`mark_ready_for_collection(..., warehouse=None)`, new `get_stores(block=None)` → `{"data": [{"name","label"}], "default": str}`; document in `mobile/SUPERVISOR_API.md`), new `production/logic/blockcost.py` + `api/blockcost.py`, `api/production.py` (`block_links(crop)`), `api/establishment.py` (`list_costs` by_unit gains `erp_budget`), tests `test_harvest.py`, new `test_blockcost.py`.
+
+**Interfaces — Produces:**
+- `blockcost.links(crop) -> list[{unit, cost_center, warehouse, ok: bool, problems: [str]}]` (problems: "No cost centre", "No warehouse", "Warehouse 'X' and cost centre 'Y' differ — chemicals issued to this block are charged elsewhere"); API `api.production.block_links(crop)` → `{rows}`.
+- `blockcost.erp_budget(cost_center, fiscal_year=None) -> float` (submitted Budget docs with `budget_against = "Cost Center"`; sum of Budget Account `budget_amount`).
+- `blockcost.breakdown(unit, from_date, to_date, can_see_pay) -> {"unit","area_ha","labour": [{operation, qty_by_uom: [{uom, qty}], workers, pay}], "inputs": [{item_code, item_name, item_group, qty, uom, amount, per_ha, planned_qty}], "other": [{account, amount}], "totals": {labour, inputs, other, total, per_ha}, "budget": {erp_budget, actual_this_fy}}` — inputs from submitted Stock Entry Detail rows with `cost_center = unit.cost_center` and `s_warehouse` set (issues), excluding Harvesting entries; other = GL Expense on the cost centre not from those stock entries and not capital accounts; labour pay hidden via `_pay`. API `api.blockcost.block_breakdown(unit, from_date=None, to_date=None)`.
+- Harvest store default: last Harvest Batch warehouse for the farm, else Production Settings `harvest_warehouse`. A block warehouse (one linked from a Production Unit) is refused as a harvest store.
+
+Tests: `test_links_flags_name_mismatch`, `test_erp_budget_sums_cost_center`, `test_breakdown_inputs_from_issues`, `test_breakdown_excludes_harvesting_entries`, `test_close_batch_uses_chosen_store`, `test_default_store_last_used`, `test_block_warehouse_refused_as_store`. Seed: set each demo block's `warehouse` (create `<unit> - MUT` block warehouses under a "Production Blocks - MUT" group if missing, named exactly like the cost centre) and a demo fertiliser + chemical issue per avocado block (Material Issue from the farm store, cost centre = block), and one ERPNext Budget for Avocado Block A's cost centre (current fiscal year) — only if the company has a fiscal year and the needed accounts; otherwise skip with a printed note.
+
+### Task 20: Desk — variety maturity and flowering patterns
+
+**Files:** variety dialog (`frontend/src/components/settings/VarietyDialog.tsx`), `frontend/src/lib/varieties-api.ts`, `CycleGantt.tsx` (season name and "Juvenile" pill), tests in `src/pages/__tests__/Settings.test.tsx`/varieties tests, `Cycles.test.tsx`.
+Show/hide exactly as Task 18; seasons table editor (add row, month select, weeks, share %, total shown, warns when ≠ 100). Tests: `seasonal shows seasons table and hides interval`, `interval shows interval weeks`, `season shares total warning`, `gantt shows season and juvenile`.
+
+### Task 21: Desk — block links, store, ERP budget, block cost breakdown
+
+**Files:** `frontend/src/pages/Costs.tsx` (Block Costs: click a block → breakdown drawer/page with Labour by activity, Inputs by item (qty, UOM, amount, per ha, planned), Other by account, totals, budget vs actual), new `frontend/src/lib/blockcost-api.ts`, `frontend/src/pages/Settings.tsx` (new tab "Block links" listing `block_links` with problems), `frontend/src/pages/Blocks.tsx` (warning icon on blocks with link problems), `frontend/src/pages/Establishment.tsx` (ERP budget column when present). Tests: `Costs.test.tsx` (`breakdown lists inputs per ha`), `Settings.test.tsx` (`block links shows mismatch`), `Establishment.test.tsx` (`erp budget shown`).
+
+### Task 22: Mobile — pick the store when marking a batch ready
+
+**Repo:** `/home/ubuntu/stive/code/reactnative/upande-production` (Expo SDK 54, fleet base; see AGENTS.md). Files: `src/services/harvest.ts` (`getStores(ctx)`, `markReadyForCollection(ctx, team_id, warehouse)`), `src/services/harvest-queue.ts` (queue carries the warehouse), the harvesting screen's "mark ready" step (store picker, default from `get_stores`, remembered per farm). Jest tests in `__tests__/`. Commit and push to `main` of `st-i-ve/st-i-ve-upande-production-mobile` (already authorised for that repo), no Co-Authored-By trailer.
+
+### Task 23: Integration
+Migrate, full backend suite green alone, desk vitest + tsc + build, restart Mutara web, browser check (Settings varieties/block links, Cycles, Block Costs breakdown, Setup Costs), mobile jest; Opus review of the addendum diff; fix; commit.
