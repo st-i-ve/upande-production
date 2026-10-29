@@ -91,8 +91,19 @@ def _radius_m(area_ha):
 	return math.sqrt(area_ha * 10000 / math.pi)
 
 
+def _real(name) -> bool:
+	"""A unit whose warehouse carries a surveyed outline (custom_raw_geojson) is real: never redraw it."""
+	wh = frappe.db.get_value("Production Unit", name, "warehouse")
+	if not wh:  # group units (pivots, phases) aren't linked; their warehouse shares the unit's name
+		wh = frappe.db.get_value("Warehouse", {"warehouse_name": name}, "name")
+	return bool(wh and frappe.db.get_value("Warehouse", wh, "custom_raw_geojson"))
+
+
 def _set(name, feature):
+	if _real(name):
+		return False
 	frappe.db.set_value("Production Unit", name, "geojson", json.dumps(feature, separators=(",", ":")), update_modified=False)
+	return True
 
 
 def run():
