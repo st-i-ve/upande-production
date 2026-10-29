@@ -1,4 +1,5 @@
 import type { Crop } from "@/lib/api";
+import { BANDS } from "./bands-fixtures";
 import type { FeedingMortalityPage, PondBatch, PondBatchesPage, WaterQualityPage } from "@/lib/aquaculture-api";
 
 export const FISH: Crop = {
@@ -24,7 +25,7 @@ export const batch = (over: Partial<PondBatch> = {}): PondBatch => ({
 });
 
 export const batchesPage = (): PondBatchesPage => ({
-  today: "2026-10-28",
+  today: "2026-10-28", bands: BANDS, sample_stale_days: 10,
   batches: [
     batch(),
     batch({ name: "PST-3", pond: "Pond 3", pond_name: "Pond 3", status: "Harvested", live: 0, harvested: 4573, harvest_kg: 1696.8, harvest_date: "2026-10-22", biomass_kg: 0, projected_harvest_date: null, on_track: null, survival_pct: 91.5 }),
@@ -45,17 +46,19 @@ const m = (o: Partial<WaterQualityPage["ponds"][0]["series"][0]> = {}) => ({
   at: "2026-10-27 06:00", dissolved_oxygen_mg_l: 5.2, ph: 7.4, temperature_c: 26.4, ammonia_mg_l: 0.2, nitrite_mg_l: 0.1, secchi_cm: 30, out_of_band: false, ...o,
 });
 
+const WATER_BANDS = { do_min: 4, ph_min: 6.5, ph_max: 8.5, temp_min: 25, temp_max: 30, ammonia_max: 0.5, nitrite_max: 0.3 };
+
 export const waterPage = (): WaterQualityPage => ({
   from_date: "2026-10-15", to_date: "2026-10-28",
-  bands: { do_min: 4, ph_min: 6.5, ph_max: 8.5, temp_min: 25, temp_max: 30, ammonia_max: 0.5, nitrite_max: 0.3 },
+  bands: WATER_BANDS,
   ponds: [
     {
-      unit: "Pond 1", label: "Pond 1", readings: 2, status: "ok", out_of_band_count: 0, min_do_mg_l: 5.2,
+      unit: "Pond 1", label: "Pond 1", readings: 2, status: "ok", bands: WATER_BANDS, out_of_band_count: 0, min_do_mg_l: 5.2,
       latest: { name: "W1", pond: "Pond 1", ...m({ at: "2026-10-28 06:00" }), reader: null, notes: null, out_of_band: false, flags: [] } as never,
       series: [m(), m({ at: "2026-10-28 06:00" })],
     },
     {
-      unit: "Pond 4", label: "Pond 4", readings: 2, status: "alert", out_of_band_count: 1, min_do_mg_l: 2.4,
+      unit: "Pond 4", label: "Pond 4", readings: 2, status: "alert", bands: WATER_BANDS, out_of_band_count: 1, min_do_mg_l: 2.4,
       latest: { name: "W2", pond: "Pond 4", ...m({ at: "2026-10-28 06:00", dissolved_oxygen_mg_l: 2.4, out_of_band: true }), reader: null, notes: "aerators off", out_of_band: true,
         flags: [{ metric: "do", value: 2.4, message: "Dissolved oxygen 2.4 mg/L is under 4" }] } as never,
       series: [m({ dissolved_oxygen_mg_l: 5.8 }), m({ at: "2026-10-28 06:00", dissolved_oxygen_mg_l: 2.4, out_of_band: true })],

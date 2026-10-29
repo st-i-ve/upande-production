@@ -44,12 +44,12 @@ function WaterLines({
             tickFormatter={(t: number) => dayMonth(new Date(t).toISOString())} minTickGap={32} />
           <YAxis width={36} tickLine={false} axisLine={false} tick={AXIS} unit={unit}
             domain={isDo ? [0, (m: number) => Math.max(10, Math.ceil(m))] : [(m: number) => Math.min(22, Math.floor(m)), (m: number) => Math.max(32, Math.ceil(m))]} />
-          {isDo ? (
+          {lo != null && (isDo ? (
             <ReferenceArea y1={0} y2={lo} fill="var(--sd-data-red)" fillOpacity={0.08} />
           ) : (
             <ReferenceArea y1={lo} y2={hi} fill="var(--sd-data-green)" fillOpacity={0.1} />
-          )}
-          <ReferenceLine y={lo} stroke={isDo ? "var(--sd-data-red)" : "var(--sd-quiet)"} strokeDasharray="4 3" label={{ value: isDo ? `min ${lo}` : `${lo}`, position: "insideBottomLeft", fontSize: 10, fill: "var(--sd-quiet)" }} />
+          ))}
+          {lo != null && <ReferenceLine y={lo} stroke={isDo ? "var(--sd-data-red)" : "var(--sd-quiet)"} strokeDasharray="4 3" label={{ value: isDo ? `min ${lo}` : `${lo}`, position: "insideBottomLeft", fontSize: 10, fill: "var(--sd-quiet)" }} />}
           {hi != null && <ReferenceLine y={hi} stroke="var(--sd-quiet)" strokeDasharray="4 3" label={{ value: `${hi}`, position: "insideTopLeft", fontSize: 10, fill: "var(--sd-quiet)" }} />}
           <Tooltip
             cursor={{ stroke: "var(--sd-line)" }}
@@ -99,7 +99,7 @@ export function MiniDo({ pond, bands, color }: { pond: WaterPond; bands: Bands; 
         <LineChart data={rows} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
           <YAxis hide domain={[0, (m: number) => Math.max(10, Math.ceil(m))]} />
           <XAxis hide type="number" dataKey="t" domain={["dataMin", "dataMax"]} />
-          <ReferenceArea y1={0} y2={bands.do_min} fill="var(--sd-data-red)" fillOpacity={0.1} />
+          {bands.do_min != null && <ReferenceArea y1={0} y2={bands.do_min} fill="var(--sd-data-red)" fillOpacity={0.1} />}
           <Line dataKey="v" stroke={color} strokeWidth={2} dot={false} isAnimationActive={false} />
         </LineChart>
       </ResponsiveContainer>

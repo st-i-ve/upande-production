@@ -1,4 +1,5 @@
 import { KpiCard, KpiGrid } from "@/components/KpiCard";
+import { bandFor, bandTone, useBands, type Bands } from "@/lib/bands";
 import type { LossView, OutlookAlert, OutlookKpi, SeasonOutlook } from "@/lib/avocado-api";
 import { kes, qty } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -31,7 +32,7 @@ function Meter({ pct, tone }: { pct: number; tone?: "bad" | "warn" }) {
   );
 }
 
-function cardFor(k: OutlookKpi): { value: string; hint: string; tone: "default" | "warning" | "critical" | "good"; meterTone?: "bad" | "warn" } {
+function cardFor(k: OutlookKpi, bands: Bands | undefined): { value: string; hint: string; tone: "default" | "warning" | "critical" | "good"; meterTone?: "bad" | "warn" } {
   switch (k.key) {
     case "season_crop":
       return { value: k.value == null ? "—" : tonnes(k.value), hint: k.note, tone: "default" };
@@ -50,8 +51,8 @@ function cardFor(k: OutlookKpi): { value: string; hint: string; tone: "default" 
       return {
         value: k.value == null ? "—" : pct1(k.value),
         hint: k.note,
-        tone: k.value == null ? "default" : k.value >= 90 ? "good" : "warning",
-        meterTone: k.value != null && k.value < 90 ? "warn" : undefined,
+        tone: bandTone(bands, "Estimate accuracy", k.value),
+        meterTone: { Good: undefined, Watch: "warn", Critical: "bad" }[bandFor(bands, "Estimate accuracy", k.value)?.severity ?? "Good"] as "bad" | "warn" | undefined,
       };
     case "stale_readings":
       return {
@@ -64,6 +65,7 @@ function cardFor(k: OutlookKpi): { value: string; hint: string; tone: "default" 
 }
 
 export function OutlookKpis({ data }: { data: SeasonOutlook | null }) {
+  const bands = useBands();
   if (!data) {
     return (
       <KpiGrid cols={3}>
@@ -76,7 +78,7 @@ export function OutlookKpis({ data }: { data: SeasonOutlook | null }) {
   return (
     <KpiGrid cols={3} className="lg:grid-cols-3">
       {data.kpis.map((k) => {
-        const c = cardFor(k);
+        const c = cardFor(k, bands);
         return (
           <div key={k.key} className="relative" title={KPI_TITLES[k.key]} data-testid={`kpi-${k.key}`}>
             <KpiCard

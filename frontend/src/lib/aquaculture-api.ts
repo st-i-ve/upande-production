@@ -7,6 +7,7 @@
  * A fish "batch" is a Pond Stocking: fish have no crop cycles.
  */
 
+import type { Bands as KpiBands } from "@/lib/bands";
 import { call, type Envelope } from "@/lib/frappe";
 import type { SeriesPoint } from "@/components/Sparkline";
 
@@ -84,6 +85,9 @@ export interface PondBatch {
 
 export interface PondBatchesPage {
   today: ISODate;
+  bands: KpiBands;
+  /** A growing batch not weighed within this many days is flagged; null until set on the crop. */
+  sample_stale_days: number | null;
   batches: PondBatch[];
   kpis: {
     growing: KpiValue;
@@ -133,14 +137,15 @@ export const saveFishHarvest = (data: HarvestInput) =>
 
 // -- Water quality ----------------------------------------------------------------
 
+/** Safe water ranges from the pond's strain (else the crop); a limit the manager has not set is absent. */
 export interface Bands {
-  do_min: number;
-  ph_min: number;
-  ph_max: number;
-  temp_min: number;
-  temp_max: number;
-  ammonia_max: number;
-  nitrite_max: number;
+  do_min?: number;
+  ph_min?: number;
+  ph_max?: number;
+  temp_min?: number;
+  temp_max?: number;
+  ammonia_max?: number;
+  nitrite_max?: number;
 }
 
 export interface ReadingFlag {
@@ -174,6 +179,7 @@ export interface WaterPond {
   readings: number;
   latest: WaterReading | null;
   status: "ok" | "alert" | "none";
+  bands: Bands;
   out_of_band_count: number;
   min_do_mg_l: number | null;
   series: Array<Measures & { at: string; out_of_band: boolean }>;

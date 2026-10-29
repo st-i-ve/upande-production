@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type maplibregl from "maplibre-gl";
 import { MapBase, MapControlPanel, MapFloatingCard, MapKpiPill, MapPanelDock } from "@/components/map";
 import type { IrrigationPage, SliceMm } from "@/lib/fv-api";
-import { fmtNum, MM_LEGEND, mmColor } from "./fv-format";
+import { fmtNum, mmColor, mmLegend } from "./fv-format";
 
 const SRC = "fv-slices";
 const FILL = "fv-slices-fill";
@@ -12,7 +12,7 @@ function paint(map: maplibregl.Map, data: IrrigationPage, accent: string) {
     type: "FeatureCollection" as const,
     features: data.map.features.map((f) => ({
       ...f,
-      properties: { ...f.properties, color: mmColor(f.properties.pct_of_target, accent) },
+      properties: { ...f.properties, color: mmColor(f.properties.pct_of_target, data.bands["Irrigation % of target"]) },
     })),
   };
   const src = map.getSource(SRC) as maplibregl.GeoJSONSource | undefined;
@@ -71,7 +71,7 @@ export function PivotMap({ data, accent }: { data: IrrigationPage; accent: strin
       <MapPanelDock>
         <MapControlPanel title="mm applied vs target" defaultOpen>
           <ul className="flex flex-col gap-1.5 text-[12px]">
-            {MM_LEGEND.map((l) => (
+            {mmLegend(data.bands["Irrigation % of target"]).map((l) => (
               <li key={l.label} className="flex items-center gap-2">
                 <span className="h-3 w-3 rounded-sm" style={{ background: l.color || accent }} />
                 {l.label}

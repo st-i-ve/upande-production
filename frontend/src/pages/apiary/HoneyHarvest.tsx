@@ -17,6 +17,7 @@ import { HoneyChart, MoistureChart } from "@/components/apiary/charts";
 import { HarvestDialog } from "@/components/apiary/HarvestDialog";
 import { Chip, daysAgo, dayMonth, dayMonthYear, EmptyNote, fmt, TONE } from "@/components/apiary/ui";
 import { getHoneyHarvest, type HoneyHarvestPage } from "@/lib/apiary-api";
+import { bandTone } from "@/lib/bands";
 import { useCurrentCrop, viewLabel } from "@/lib/crops";
 import { isError } from "@/lib/frappe";
 import { todayISO } from "@/lib/utils";
@@ -51,7 +52,7 @@ export function HoneyHarvest() {
 
   const first = firstLoad(loading, !!data);
   const k = data?.kpis;
-  const limit = data?.form.moisture_limit ?? 20;
+  const limit = data?.form.moisture_limit ?? null;
   const dirty = !!unit || range.from !== defaultRange().from || range.to !== defaultRange().to;
   const unitOptions = useMemo(() => (data?.form.units ?? []).map((u) => ({ value: u.value, label: u.label })), [data]);
   const spark = (pick: (s: HoneyHarvestPage["series"][number]) => number | null) =>
@@ -61,7 +62,7 @@ export function HoneyHarvest() {
     <PageShell
       title={viewLabel("honey-harvest", crop)}
       eyebrow={crop.name}
-      description={data ? `${dayMonthYear(data.from_date)} to ${dayMonthYear(data.to_date)} · honey under ${limit}% moisture keeps` : undefined}
+      description={data ? `${dayMonthYear(data.from_date)} to ${dayMonthYear(data.to_date)} ${limit != null ? `· honey under ${limit}% moisture keeps` : ""}` : undefined}
       actions={
         <>
           <DateRangePicker label="Period" value={range} onChange={setRange} max={todayISO()} />
@@ -78,8 +79,8 @@ export function HoneyHarvest() {
       <AccentScope accent={accent} className="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <KpiCard loading={first} label="Honey" value={k ? `${fmt(k.kg, 1)} kg` : "—"} hint={k ? `${k.harvests} harvest${k.harvests === 1 ? "" : "s"} · ${fmt(k.wax_kg, 1)} kg wax` : undefined} tone="good" series={spark((s) => s.kg)} showDelta={false} />
         <KpiCard loading={first} label="Per hive" value={k?.kg_per_hive != null ? `${fmt(k.kg_per_hive, 2)} kg` : "—"} hint={k ? `across ${fmt(k.colonies)} colonies` : undefined} />
-        <KpiCard loading={first} label="Average moisture" value={k?.avg_moisture != null ? `${fmt(k.avg_moisture, 1)}%` : "—"} hint={`weighted by kg · limit ${limit}%`} tone={k?.avg_moisture != null && k.avg_moisture > limit ? "critical" : "default"} series={spark((s) => s.avg_moisture)} showDelta={false} />
-        <KpiCard loading={first} label="Grade A" value={k?.grade_a_pct != null ? `${fmt(k.grade_a_pct, 0)}%` : "—"} hint="of honey by weight" tone={k?.grade_a_pct != null && k.grade_a_pct < 60 ? "warning" : "default"} series={spark((s) => s.grade_a_pct)} showDelta={false} />
+        <KpiCard loading={first} label="Average moisture" value={k?.avg_moisture != null ? `${fmt(k.avg_moisture, 1)}%` : "—"} hint={limit != null ? `weighted by kg · limit ${limit}%` : "weighted by kg"} tone={k?.avg_moisture != null && limit != null && k.avg_moisture > limit ? "critical" : "default"} series={spark((s) => s.avg_moisture)} showDelta={false} />
+        <KpiCard loading={first} label="Grade A" value={k?.grade_a_pct != null ? `${fmt(k.grade_a_pct, 0)}%` : "—"} hint="of honey by weight" tone={bandTone(data?.bands, "Grade A share", k?.grade_a_pct) === "good" ? "default" : bandTone(data?.bands, "Grade A share", k?.grade_a_pct)} series={spark((s) => s.grade_a_pct)} showDelta={false} />
       </AccentScope>
 
       <Card className="mt-4 overflow-hidden">
@@ -192,7 +193,7 @@ export function HoneyHarvest() {
                     <td className={`${TDR} font-semibold`}>{fmt(r.honey_kg, 1)}</td>
                     <td className={TDR}>
                       {r.moisture_pct != null ? `${fmt(r.moisture_pct, 1)}%` : "—"}
-                      {r.moisture_pct != null && r.moisture_pct > limit && <Chip className={`ml-2 ${TONE.warn}`}>wet</Chip>}
+                      {r.moisture_pct != null && limit != null && r.moisture_pct > limit && <Chip className={`ml-2 ${TONE.warn}`}>wet</Chip>}
                     </td>
                     <td className={TD}>{r.grade ? <Chip className={GRADE_TONE[r.grade] ?? TONE.quiet}>Grade {r.grade}</Chip> : "—"}</td>
                     <td className={TDR}>{fmt(r.wax_kg, 1)}</td>

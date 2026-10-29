@@ -72,7 +72,7 @@ export function InspectionDialog({
     return p;
   }, [v, inspected, queenright, mites, form.today]);
 
-  const miteState = mites == null ? "none" : mites > form.threshold ? "high" : mites >= form.threshold * 0.67 ? "watch" : "ok";
+  const miteState = mites == null || form.threshold == null ? "none" : mites > form.threshold ? "high" : form.watch != null && mites >= form.watch ? "watch" : "ok";
   const qrPct = inspected && queenright != null ? Math.round((100 * queenright) / inspected) : null;
 
   const save = async () => {
@@ -92,7 +92,7 @@ export function InspectionDialog({
       toast(r.error, "error");
       return;
     }
-    toast("Inspection saved.", "ok", mites != null && mites > form.threshold ? { hint: `Mite load is over ${form.threshold} per 100 bees. Plan a treatment.` } : undefined);
+    toast("Inspection saved.", "ok", mites != null && form.threshold != null && mites > form.threshold ? { hint: `Mite load is over ${form.threshold} per 100 bees. Plan a treatment.` } : undefined);
     onOpenChange(false);
     onSaved();
   };
@@ -137,7 +137,7 @@ export function InspectionDialog({
           <Field id="hi-temper" label="Temperament">
             <Picker id="hi-temper" label="Temperament" value={v.temper} onChange={(x) => set("temper", x)} placeholder="Choose" clearable clearLabel="Not noted" options={form.temperaments} />
           </Field>
-          <Field id="hi-mites" label="Varroa mites per 100 bees" hint={`Treat above ${form.threshold}. Leave blank if you did not count.`}>
+          <Field id="hi-mites" label="Varroa mites per 100 bees" hint={form.threshold != null ? `Treat above ${form.threshold}. Leave blank if you did not count.` : "Leave blank if you did not count."}>
             <Input id="hi-mites" type="number" min={0} step="0.1" inputMode="decimal" value={v.mites} onChange={(e) => set("mites", e.target.value)} />
           </Field>
           <Field id="hi-disease" label="Disease signs">

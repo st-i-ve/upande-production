@@ -67,7 +67,7 @@ export function HarvestDialog({
     return p;
   }, [v, kg, moisture, form.today]);
 
-  const wet = moisture != null && moisture > form.moisture_limit;
+  const wet = moisture != null && form.moisture_limit != null && moisture > form.moisture_limit;
 
   const save = async () => {
     setTried(true);
@@ -105,7 +105,7 @@ export function HarvestDialog({
           <Field id="hh-supers" label="Supers removed"><Input id="hh-supers" type="number" min={0} inputMode="numeric" value={v.supers} onChange={(e) => set("supers", e.target.value)} /></Field>
           <Field id="hh-frames" label="Frames extracted"><Input id="hh-frames" type="number" min={0} inputMode="numeric" value={v.frames} onChange={(e) => set("frames", e.target.value)} /></Field>
           <Field id="hh-kg" label="Honey (kg)"><Input id="hh-kg" type="number" min={0} step="0.1" inputMode="decimal" value={v.kg} onChange={(e) => set("kg", e.target.value)} /></Field>
-          <Field id="hh-moisture" label="Moisture %" hint={wet ? `Over ${form.moisture_limit}%: too wet to store safely.` : `Keep under ${form.moisture_limit}%.`}>
+          <Field id="hh-moisture" label="Moisture %" hint={wet ? `Over ${form.moisture_limit}%: too wet to store safely.` : form.moisture_limit != null ? `Keep under ${form.moisture_limit}%.` : undefined}>
             <Input id="hh-moisture" type="number" min={5} max={40} step="0.1" inputMode="decimal" value={v.moisture} onChange={(e) => set("moisture", e.target.value)} />
           </Field>
           <Field id="hh-grade" label="Grade"><Picker id="hh-grade" label="Grade" value={v.grade} onChange={(x) => set("grade", x || "A")} options={form.grades.map((g) => ({ value: g, label: `Grade ${g}` }))} /></Field>

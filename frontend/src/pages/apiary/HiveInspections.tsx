@@ -18,6 +18,7 @@ import { HealthTrendChart } from "@/components/apiary/charts";
 import { InspectionDialog } from "@/components/apiary/InspectionDialog";
 import { Chip, daysAgo, dayMonthYear, EmptyNote, fmt, MITE_LABEL, MITE_TONE, TONE } from "@/components/apiary/ui";
 import { getHiveInspections, type HiveInspectionsPage } from "@/lib/apiary-api";
+import { bandTone } from "@/lib/bands";
 import { useCurrentCrop, viewLabel } from "@/lib/crops";
 import { isError } from "@/lib/frappe";
 import { todayISO } from "@/lib/utils";
@@ -51,7 +52,7 @@ export function HiveInspections() {
 
   const first = firstLoad(loading, !!data);
   const k = data?.kpis;
-  const threshold = data?.threshold ?? 3;
+  const threshold = data?.threshold ?? null;
   const dirty = !!unit || range.from !== defaultRange().from || range.to !== defaultRange().to;
   const unitOptions = useMemo(() => (data?.form.units ?? []).map((u) => ({ value: u.value, label: u.label })), [data]);
   const spark = (pick: (s: HiveInspectionsPage["series"][number]) => number | null) =>
@@ -62,7 +63,7 @@ export function HiveInspections() {
     <PageShell
       title={viewLabel("hive-inspections", crop)}
       eyebrow={crop.name}
-      description={data ? `${dayMonthYear(data.from_date)} to ${dayMonthYear(data.to_date)} · treat colonies above ${threshold} mites per 100 bees` : undefined}
+      description={data ? `${dayMonthYear(data.from_date)} to ${dayMonthYear(data.to_date)} ${threshold != null ? `· treat colonies above ${threshold} mites per 100 bees` : "· set a mite threshold on the Apiary crop"}` : undefined}
       actions={
         <>
           <DateRangePicker label="Period" value={range} onChange={setRange} max={todayISO()} />
@@ -79,18 +80,18 @@ export function HiveInspections() {
       <AccentScope accent={accent} className="grid grid-cols-2 gap-4 xl:grid-cols-3">
         <KpiCard loading={first} label="Inspections" value={k?.inspections ?? "—"} hint={k ? `${fmt(k.colonies)} colonies opened` : undefined} series={spark((s) => s.inspections)} showDelta={false} />
         <KpiCard loading={first} label="Colonies inspected" value={k?.colonies ?? "—"} hint="counted once per visit" series={spark((s) => s.colonies)} showDelta={false} />
-        <KpiCard loading={first} label="Queenright" value={k?.queenright_pct != null ? `${fmt(k.queenright_pct, 1)}%` : "—"} hint="colonies with a laying queen" tone={k?.queenright_pct != null && k.queenright_pct < 90 ? "warning" : "good"} series={spark((s) => s.queenright_pct)} showDelta={false} />
+        <KpiCard loading={first} label="Queenright" value={k?.queenright_pct != null ? `${fmt(k.queenright_pct, 1)}%` : "—"} hint="colonies with a laying queen" tone={bandTone(data?.bands, "Queen status", k?.queenright_pct)} series={spark((s) => s.queenright_pct)} showDelta={false} />
         <KpiCard
           loading={first}
           label="Average mite load"
           value={k?.avg_mites != null ? fmt(k.avg_mites, 1) : "—"}
           hint={trend == null ? "per 100 bees" : `per 100 bees · ${trend > 0 ? "up" : trend < 0 ? "down" : "level"} ${fmt(Math.abs(trend), 2)} on the previous period`}
-          tone={k?.avg_mites != null && k.avg_mites > threshold ? "critical" : "default"}
+          tone={k?.avg_mites != null && threshold != null && k.avg_mites > threshold ? "critical" : "default"}
           series={spark((s) => s.avg_mites)}
           goodDirection="down"
           deltaLabel="vs prev inspected week"
         />
-        <KpiCard loading={first} label={`Colonies over ${threshold} mites`} value={k?.colonies_above_threshold ?? "—"} hint={k ? `${k.groups_above_threshold} hive group${k.groups_above_threshold === 1 ? "" : "s"}, by latest count` : undefined} tone={k?.colonies_above_threshold ? "critical" : "good"} />
+        <KpiCard loading={first} label={threshold != null ? `Colonies over ${threshold} mites` : "Colonies over the mite limit"} value={k?.colonies_above_threshold ?? "—"} hint={k ? `${k.groups_above_threshold} hive group${k.groups_above_threshold === 1 ? "" : "s"}, by latest count` : undefined} tone={k?.colonies_above_threshold ? "critical" : "good"} />
         <KpiCard loading={first} label="Disease flags" value={k?.disease_flags ?? "—"} hint="inspections noting disease signs" tone={k?.disease_flags ? "warning" : "default"} series={spark((s) => s.disease_flags)} showDelta={false} />
       </AccentScope>
 

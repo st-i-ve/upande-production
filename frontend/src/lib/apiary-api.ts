@@ -7,6 +7,7 @@
  * first, empty weeks included.
  */
 
+import type { Bands } from "@/lib/bands";
 import { call, type Envelope } from "@/lib/frappe";
 
 const PREFIX = "upande_production.api.apiary.";
@@ -34,7 +35,9 @@ export interface InspectionForm {
   brood_patterns: string[];
   temperaments: string[];
   disease_options: string[];
-  threshold: number;
+  /** Treat above this (mites per 100 bees); null until the manager sets it on the Apiary crop. */
+  threshold: number | null;
+  watch: number | null;
 }
 
 export interface InspectionKpis {
@@ -48,6 +51,7 @@ export interface InspectionKpis {
   colonies_above_threshold: number;
   groups_above_threshold: number;
   disease_flags: number;
+  queen_status: QueenStatus;
 }
 
 export interface InspectionWeek {
@@ -116,7 +120,9 @@ export interface HiveInspectionsPage {
   from_date: string;
   to_date: string;
   unit: string | null;
-  threshold: number;
+  threshold: number | null;
+  watch: number | null;
+  bands: Bands;
   kpis: InspectionKpis;
   series: InspectionWeek[];
   groups: HiveGroupStatus[];
@@ -201,11 +207,12 @@ export interface HoneyHarvestPage {
   from_date: string;
   to_date: string;
   unit: string | null;
+  bands: Bands;
   kpis: HarvestKpis;
   series: HarvestWeek[];
   groups: HarvestGroup[];
   rows: HarvestRow[];
-  form: { units: Option[]; today: string; grades: string[]; moisture_limit: number };
+  form: { units: Option[]; today: string; grades: string[]; moisture_limit: number | null };
 }
 
 export interface HarvestInput {

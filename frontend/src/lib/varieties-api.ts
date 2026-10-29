@@ -42,6 +42,15 @@ export interface FloweringSeason {
   crop_share_pct?: number | null;
 }
 
+/** Safe water range for one parameter of a pond; DO uses min, pH and Temperature both, Ammonia and Nitrite max. */
+export const WATER_PARAMETERS = ["DO", "pH", "Temperature", "Ammonia", "Nitrite"] as const;
+export interface WaterBand {
+  parameter: string;
+  min: number | null;
+  max: number | null;
+  unit: string | null;
+}
+
 export interface Variety {
   name: string;
   variety_name: string;
@@ -65,6 +74,10 @@ export interface Variety {
   weeks_to_maturity?: number | null;
   flowering_pattern?: FloweringPattern | null;
   flowering_seasons?: FloweringSeason[];
+  /** Species or strain water ranges; empty uses the crop's. */
+  water_bands?: WaterBand[];
+  /** Weekly irrigation target in mm; empty uses the crop's. */
+  irrigation_mm_week?: number | null;
   flowering_interval_weeks?: number | null;
   weeks_to_first_flowering?: number | null;
   weeks_flowering_to_harvest?: number | null;

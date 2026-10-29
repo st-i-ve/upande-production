@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui/card";
 import type { PondBatch } from "@/lib/aquaculture-api";
+import { bandTone, type Bands } from "@/lib/bands";
 import { cn } from "@/lib/utils";
 import { GrowthChart } from "./growth-chart";
 import { ageLabel, dayMonth, fmtGrams, fmtKg, fmtNum, fmtPct, TONE } from "./format";
@@ -16,17 +17,21 @@ function statusChip(b: PondBatch) {
 export function BatchCard({
   b,
   accent,
+  bands,
+  staleDays,
   onSample,
   onHarvest,
 }: {
   b: PondBatch;
   accent: string;
+  bands?: Bands;
+  staleDays: number | null;
   onSample: (b: PondBatch) => void;
   onHarvest: (b: PondBatch) => void;
 }) {
   const growing = b.status === "Growing";
-  const lowSurvival = b.survival_pct != null && b.survival_pct < 90;
-  const staleSample = growing && (b.sample_age_days == null || b.sample_age_days > 10);
+  const lowSurvival = bandTone(bands, "Fish survival", b.survival_pct) === "critical";
+  const staleSample = growing && staleDays != null && (b.sample_age_days == null || b.sample_age_days > staleDays);
   return (
     <Card className="flex flex-col gap-3 p-5" data-testid={`batch-card-${b.pond_name}`}>
       <div className="flex items-start justify-between gap-3">

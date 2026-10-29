@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { StageEditor, fromStageDrafts, stageProblem, toStageDrafts, type StageDraft } from "@/components/varieties/StageEditor";
 import { qty } from "@/lib/format";
 import { isError } from "@/lib/frappe";
-import { FLOWERING_PATTERNS, HARVEST_PATTERNS, MONTHS, firstHarvestWeeks, saveVariety, type FloweringPattern, type FloweringSeason, type HarvestPattern, type StageAnchor, type Variety } from "@/lib/varieties-api";
+import { FLOWERING_PATTERNS, HARVEST_PATTERNS, MONTHS, WATER_PARAMETERS, firstHarvestWeeks, saveVariety, type FloweringPattern, type FloweringSeason, type HarvestPattern, type StageAnchor, type Variety, type WaterBand } from "@/lib/varieties-api";
 
 const ANCHORS: StageAnchor[] = ["Planting", "Flowering", "Stocking"];
 
@@ -23,6 +23,11 @@ const toSeasonDrafts = (rows?: FloweringSeason[]): SeasonDraft[] =>
 /** Sum of the shares typed, or null when none is set. */
 export const seasonShareTotal = (rows: SeasonDraft[]): number | null =>
   rows.some((r) => r.share.trim() !== "") ? rows.reduce((a, r) => a + (Number(r.share) || 0), 0) : null;
+
+/** A water band row as typed; numbers stay strings until saved. */
+interface WaterDraft { parameter: string; min: string; max: string; unit: string }
+const toWaterDrafts = (rows?: WaterBand[]): WaterDraft[] =>
+  (rows ?? []).map((r) => ({ parameter: r.parameter, min: r.min ? String(r.min) : "", max: r.max ? String(r.max) : "", unit: r.unit ?? "" }));
 
 const text = (v: number | null | undefined) => (v == null ? "" : String(v));
 
@@ -85,6 +90,8 @@ export function VarietyDialog({
   const [anchor, setAnchor] = useState<string>(variety?.stage_anchor ?? "Planting");
   const [enabled, setEnabled] = useState(variety ? !!Number(variety.enabled) : true);
   const [rows, setRows] = useState<StageDraft[]>(() => toStageDrafts(variety?.stages));
+  const [irrigation, setIrrigation] = useState(text(variety?.irrigation_mm_week));
+  const [water, setWater] = useState<WaterDraft[]>(() => toWaterDrafts(variety?.water_bands));
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
@@ -132,6 +139,8 @@ export function VarietyDialog({
       default_protocol: protocol || null,
       stage_anchor: anchor as StageAnchor,
       enabled: enabled ? 1 : 0,
+      irrigation_mm_week: numOrNull(irrigation),
+      water_bands: water.filter((w) => w.parameter).map((w) => ({ parameter: w.parameter, min: numOrNull(w.min), max: numOrNull(w.max), unit: w.unit.trim() || null })),
       stages: fromStageDrafts(rows),
     });
     setBusy(false);
@@ -280,10 +289,36 @@ export function VarietyDialog({
             <Label htmlFor="v-anchor">Stages count from</Label>
             <Picker id="v-anchor" label="Stages count from" value={anchor} onChange={setAnchor} options={ANCHORS} />
           </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="v-irrigation">Irrigation target (mm per week)</Label>
+            <Input id="v-irrigation" inputMode="decimal" className="tabular-nums" value={irrigation} onChange={(e) => setIrrigation(e.target.value)} />
+            <span className="text-[11.5px] text-[var(--sd-quiet)]">Empty uses the crop's target.</span>
+          </div>
           <label className="flex items-center gap-2 text-[13px] text-[var(--sd-ink)]">
             <Switch checked={enabled} onCheckedChange={setEnabled} aria-label="Enabled" />
             Enabled
           </label>
+        </div>
+
+        <div className="flex flex-col gap-2" data-testid="water-bands-editor">
+          <Label>Safe water bands</Label>
+          <span className="text-[11.5px] text-[var(--sd-quiet)]">For fish: oxygen needs a minimum, pH and temperature a range, ammonia and nitrite a maximum. Empty uses the crop's bands.</span>
+          {water.map((w, i) => (
+            <div key={i} className="grid grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr_auto] items-center gap-2">
+              <Picker label={`Water band ${i + 1} parameter`} value={w.parameter} onChange={(v) => setWater((rs) => rs.map((r, j) => (j === i ? { ...r, parameter: v } : r)))} options={[...WATER_PARAMETERS]} placeholder="Parameter" />
+              <Input aria-label={`Water band ${i + 1} min`} inputMode="decimal" className="tabular-nums" placeholder="Min" value={w.min} onChange={(e) => setWater((rs) => rs.map((r, j) => (j === i ? { ...r, min: e.target.value } : r)))} />
+              <Input aria-label={`Water band ${i + 1} max`} inputMode="decimal" className="tabular-nums" placeholder="Max" value={w.max} onChange={(e) => setWater((rs) => rs.map((r, j) => (j === i ? { ...r, max: e.target.value } : r)))} />
+              <Input aria-label={`Water band ${i + 1} unit`} placeholder="Unit" value={w.unit} onChange={(e) => setWater((rs) => rs.map((r, j) => (j === i ? { ...r, unit: e.target.value } : r)))} />
+              <Button type="button" variant="outline" aria-label={`Remove water band ${i + 1}`} onClick={() => setWater((rs) => rs.filter((_, j) => j !== i))}>
+                Remove
+              </Button>
+            </div>
+          ))}
+          <div>
+            <Button type="button" variant="outline" onClick={() => setWater((rs) => [...rs, { parameter: "", min: "", max: "", unit: "" }])}>
+              Add water band
+            </Button>
+          </div>
         </div>
 
         <div className="flex flex-col gap-2">

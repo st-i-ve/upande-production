@@ -9,6 +9,7 @@
  * lacks pay visibility (`boot.can_see_pay`), so they are typed nullable.
  */
 
+import type { Bands } from "@/lib/bands";
 import { call, type Envelope } from "@/lib/frappe";
 import type { UomQty } from "@/lib/format";
 
@@ -401,6 +402,8 @@ export interface ForecastSummary {
   units: ForecastUnit[];
   totals: ForecastTotals;
   seasons: Array<{ year: number; actual: number }>;
+  /** Colour thresholds (Settings > Bands): see lib/bands.ts. */
+  bands: Bands;
 }
 
 export const forecastSummary = (crop: string, fromDate: string, toDate: string) =>

@@ -8,13 +8,16 @@ import { MiniDo } from "./water-charts";
 type Cell = { key: string; label: string; value: number | null; unit: string; bad: boolean; band: string; d: number };
 
 export function cells(m: Measures, b: Bands): Cell[] {
-  const out = (v: number | null, bad: boolean) => v != null && bad;
+  const below = (v: number | null, lo?: number) => v != null && lo != null && v < lo;
+  const above = (v: number | null, hi?: number) => v != null && hi != null && v > hi;
+  const atOrOver = (v: number | null, hi?: number) => v != null && hi != null && v >= hi;
+  const range = (lo?: number, hi?: number) => (lo != null && hi != null ? `${lo} to ${hi}` : "");
   return [
-    { key: "do", label: "Oxygen", value: m.dissolved_oxygen_mg_l, unit: "mg/L", d: 1, band: `min ${b.do_min}`, bad: out(m.dissolved_oxygen_mg_l, (m.dissolved_oxygen_mg_l ?? 0) < b.do_min) },
-    { key: "ph", label: "pH", value: m.ph, unit: "", d: 1, band: `${b.ph_min} to ${b.ph_max}`, bad: out(m.ph, (m.ph ?? 7) < b.ph_min || (m.ph ?? 7) > b.ph_max) },
-    { key: "temp", label: "Temp", value: m.temperature_c, unit: "°C", d: 1, band: `${b.temp_min} to ${b.temp_max}`, bad: out(m.temperature_c, (m.temperature_c ?? 27) < b.temp_min || (m.temperature_c ?? 27) > b.temp_max) },
-    { key: "ammonia", label: "Ammonia", value: m.ammonia_mg_l, unit: "mg/L", d: 2, band: `under ${b.ammonia_max}`, bad: out(m.ammonia_mg_l, (m.ammonia_mg_l ?? 0) >= b.ammonia_max) },
-    { key: "nitrite", label: "Nitrite", value: m.nitrite_mg_l, unit: "mg/L", d: 2, band: `under ${b.nitrite_max}`, bad: out(m.nitrite_mg_l, (m.nitrite_mg_l ?? 0) >= b.nitrite_max) },
+    { key: "do", label: "Oxygen", value: m.dissolved_oxygen_mg_l, unit: "mg/L", d: 1, band: b.do_min != null ? `min ${b.do_min}` : "", bad: below(m.dissolved_oxygen_mg_l, b.do_min) },
+    { key: "ph", label: "pH", value: m.ph, unit: "", d: 1, band: range(b.ph_min, b.ph_max), bad: below(m.ph, b.ph_min) || above(m.ph, b.ph_max) },
+    { key: "temp", label: "Temp", value: m.temperature_c, unit: "°C", d: 1, band: range(b.temp_min, b.temp_max), bad: below(m.temperature_c, b.temp_min) || above(m.temperature_c, b.temp_max) },
+    { key: "ammonia", label: "Ammonia", value: m.ammonia_mg_l, unit: "mg/L", d: 2, band: b.ammonia_max != null ? `under ${b.ammonia_max}` : "", bad: atOrOver(m.ammonia_mg_l, b.ammonia_max) },
+    { key: "nitrite", label: "Nitrite", value: m.nitrite_mg_l, unit: "mg/L", d: 2, band: b.nitrite_max != null ? `under ${b.nitrite_max}` : "", bad: atOrOver(m.nitrite_mg_l, b.nitrite_max) },
     { key: "secchi", label: "Secchi", value: m.secchi_cm, unit: "cm", d: 0, band: "", bad: false },
   ];
 }

@@ -1,3 +1,4 @@
+import { BANDS } from "./bands-fixtures";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CROP, renderPage } from "./helpers";
@@ -22,7 +23,7 @@ describe("Forecast", () => {
   });
 
   it("shows empty states", async () => {
-    fc.mockResolvedValue({ uom: "Kg", weeks: [], units: [], totals: { forecast: 0, forecast_to_date: 0, actual: 0, committed: 0, error_pct: null }, seasons: [] });
+    fc.mockResolvedValue({ uom: "Kg", weeks: [], units: [], totals: { forecast: 0, forecast_to_date: 0, actual: 0, committed: 0, error_pct: null }, seasons: [], bands: BANDS });
     renderPage(<Forecast />);
     expect(await screen.findByText(/No weekly forecast for this period/i)).toBeInTheDocument();
     fireEvent.mouseDown(screen.getByRole("tab", { name: "Accuracy" }));
@@ -46,6 +47,7 @@ describe("Forecast", () => {
       ],
       totals: { forecast: 1000, forecast_to_date: 1000, actual: 800, committed: 500, error_pct: -20 },
       seasons: [{ year: 2025, actual: 12000 }],
+      bands: BANDS,
     });
     renderPage(<Forecast />);
     expect(await screen.findByTestId("today-marker")).toBeInTheDocument();
@@ -66,7 +68,7 @@ describe("Forecast", () => {
   });
 
   it("never links out to the standalone avocado pages", async () => {
-    fc.mockResolvedValue({ uom: "Kg", weeks: [], units: [], totals: { forecast: 0, forecast_to_date: 0, actual: 0, committed: 0, error_pct: null }, seasons: [] });
+    fc.mockResolvedValue({ uom: "Kg", weeks: [], units: [], totals: { forecast: 0, forecast_to_date: 0, actual: 0, committed: 0, error_pct: null }, seasons: [], bands: BANDS });
     renderPage(<Forecast />, {}, { ...CROP, crop_key: "avocado" });
     await screen.findByText(/No weekly forecast/i);
     expect(document.querySelector('a[href^="/avocado-"]')).toBeNull();

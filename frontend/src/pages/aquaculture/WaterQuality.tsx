@@ -17,7 +17,7 @@ import { ScrollTable, STICKY_HEAD } from "@/components/ScrollTable";
 import { useToast } from "@/components/Toast";
 import { ToolbarButton } from "@/components/ToolbarButton";
 import { Card, CardDescription, CardHeaderRow, CardHeading, CardTitle } from "@/components/ui/card";
-import { getWaterQuality, type WaterQualityPage } from "@/lib/aquaculture-api";
+import { getWaterQuality, type Bands, type WaterQualityPage } from "@/lib/aquaculture-api";
 import { useCurrentCrop, viewLabel } from "@/lib/crops";
 import { isError } from "@/lib/frappe";
 import { todayISO, ymd } from "@/lib/utils";
@@ -27,6 +27,17 @@ function defaultRange(): DateRange {
   const d = new Date(`${to}T00:00:00`);
   d.setDate(d.getDate() - 13);
   return { from: ymd(d), to };
+}
+
+/** The safe ranges in words; only the limits the manager has set. */
+function safeBands(b: Bands): string {
+  const parts = [
+    b.do_min != null ? `oxygen at least ${b.do_min} mg/L` : "",
+    b.ph_min != null && b.ph_max != null ? `pH ${b.ph_min} to ${b.ph_max}` : "",
+    b.temp_min != null && b.temp_max != null ? `${b.temp_min} to ${b.temp_max} °C` : "",
+    b.ammonia_max != null ? `ammonia under ${b.ammonia_max} mg/L` : "",
+  ].filter(Boolean);
+  return parts.length ? `Safe bands: ${parts.join(" · ")}` : "No safe water bands set on the crop or its varieties yet";
 }
 
 export function WaterQuality() {
@@ -58,13 +69,13 @@ export function WaterQuality() {
     return (unit: string) => POND_COLORS[Math.max(all.findIndex((p) => p.unit === unit), 0) % POND_COLORS.length];
   }, [data]);
   const withData = (data?.ponds ?? []).filter((p) => p.readings > 0);
-  const lowDo = k && k.lowest_do_mg_l.value != null && data && Number(k.lowest_do_mg_l.value) < data.bands.do_min;
+  const lowDo = k && k.lowest_do_mg_l.value != null && data && data.bands.do_min != null && Number(k.lowest_do_mg_l.value) < data.bands.do_min;
 
   return (
     <PageShell
       title={viewLabel("water-quality", crop)}
       eyebrow={crop.name}
-      description={data ? `Safe bands: oxygen at least ${data.bands.do_min} mg/L · pH ${data.bands.ph_min} to ${data.bands.ph_max} · ${data.bands.temp_min} to ${data.bands.temp_max} °C · ammonia under ${data.bands.ammonia_max} mg/L (tilapia)` : undefined}
+      description={data ? safeBands(data.bands) : undefined}
       actions={
         <>
           <DateRangePicker label="Period" value={range} onChange={setRange} max={todayISO()} />
@@ -81,7 +92,7 @@ export function WaterQuality() {
       <KpiGrid cols={4}>
         <KpiCard loading={first} label="Ponds in band" value={k ? `${k.ponds_in_band.value} of ${k.ponds_in_band.of}` : "—"} hint="latest reading inside every safe band" tone={k && k.ponds_in_band.value !== k.ponds_in_band.of ? "warning" : "good"} />
         <KpiCard loading={first} label="Alerts" value={k ? Number(k.alerts.value) : "—"} hint="out-of-band measurements in the period" series={k?.alerts.series} goodDirection="down" deltaLabel="vs prev day" tone={k && Number(k.alerts.value) > 0 ? "critical" : "default"} />
-        <KpiCard loading={first} label="Lowest oxygen" value={k?.lowest_do_mg_l.value != null ? `${fmtNum(Number(k.lowest_do_mg_l.value), 1)} mg/L` : "—"} hint={`safe is ${data?.bands.do_min ?? 4} or more`} series={k?.lowest_do_mg_l.series} goodDirection="up" deltaLabel="vs prev day" tone={lowDo ? "critical" : "default"} />
+        <KpiCard loading={first} label="Lowest oxygen" value={k?.lowest_do_mg_l.value != null ? `${fmtNum(Number(k.lowest_do_mg_l.value), 1)} mg/L` : "—"} hint={data?.bands.do_min != null ? `safe is ${data.bands.do_min} or more` : undefined} series={k?.lowest_do_mg_l.series} goodDirection="up" deltaLabel="vs prev day" tone={lowDo ? "critical" : "default"} />
         <KpiCard loading={first} label="Average temperature" value={k?.avg_temp_c.value != null ? `${fmtNum(Number(k.avg_temp_c.value), 1)} °C` : "—"} hint={`${k?.readings.value ?? 0} readings`} series={k?.avg_temp_c.series} deltaLabel="vs prev day" />
       </KpiGrid>
 
@@ -94,7 +105,7 @@ export function WaterQuality() {
                 <Bar className="h-[70px] w-full" />
               </Card>
             ))
-          : data.ponds.map((p) => <WaterCard key={p.unit} pond={p} bands={data.bands} color={colorOf(p.unit)} />)}
+          : data.ponds.map((p) => <WaterCard key={p.unit} pond={p} bands={p.bands ?? data.bands} color={colorOf(p.unit)} />)}
       </div>
       {data && !data.ponds.length && <div className="mt-4"><Empty>No ponds are set up for this crop.</Empty></div>}
 

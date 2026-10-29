@@ -8,6 +8,7 @@
  * `YYYY-MM-DD HH:mm:ss`.
  */
 
+import type { Bands } from "@/lib/bands";
 import { call, type Envelope } from "@/lib/frappe";
 
 const PREFIX = "upande_production.api.fv.";
@@ -94,6 +95,7 @@ export interface IrrigationPage {
   pivot_names: string[];
   pivots: PivotSummary[];
   target: { weekly_mm: number; period_mm: number; weeks: number };
+  bands: Bands;
   kpis: {
     runs: number;
     hours: number;

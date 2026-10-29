@@ -1,4 +1,5 @@
 import { addDays } from "date-fns";
+import type { Band } from "@/lib/bands";
 import { todayISO, ymd } from "@/lib/utils";
 
 /** Default window for both pages: the last six weeks, from a Monday. */
@@ -27,24 +28,23 @@ export function weeklySeries<T extends { week: string }>(rows: T[], pick: (r: T)
   return rows.map((r) => ({ week: r.week, value: pick(r) }));
 }
 
-/** Shade for a slice by how much of the period target it received. */
-export function mmColor(pct: number, accent: string): string {
-  if (pct < 50) return "#c0392b";
-  if (pct < 90) return "#e0a030";
-  // On target is a calm green, not the crop accent: F&V's accent is an orange that reads as a
-  // warning next to the under-target red.
-  if (pct <= 125) return ON_TARGET;
-  return "#3b7ea1";
-}
-
 export const ON_TARGET = "#3f8f5a";
 
-export const MM_LEGEND = [
-  { label: "Under 50% of target", color: "#c0392b" },
-  { label: "50-90%", color: "#e0a030" },
-  { label: "On target (90-125%)", color: ON_TARGET },
-  { label: "Over 125%", color: "#3b7ea1" },
-];
+/** Shades by position in the "Irrigation % of target" bands: under, low, on target, over. */
+const BAND_SHADES = ["#c0392b", "#e0a030", ON_TARGET, "#3b7ea1"];
+const NO_BAND = "#c4c7cc";
+
+/** Shade for a slice by how much of the period target it received (on target is a calm green, not the crop
+ *  accent: F&V's accent is an orange that reads as a warning next to the under-target red). */
+export function mmColor(pct: number, rows: Band[] | undefined): string {
+  const i = (rows ?? []).findIndex((b) => pct >= b.min && (b.max == null || pct < b.max));
+  return i < 0 ? NO_BAND : BAND_SHADES[i % BAND_SHADES.length];
+}
+
+/** The legend rows, labelled by the bands the server sent. */
+export function mmLegend(rows: Band[] | undefined): { label: string; color: string }[] {
+  return (rows ?? []).map((b, i) => ({ label: b.label, color: BAND_SHADES[i % BAND_SHADES.length] }));
+}
 
 /** First grade is the crop accent; the rest step through neutral warm tones. */
 export function gradeColor(grades: string[], grade: string, accent: string): string {

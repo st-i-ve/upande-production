@@ -9,7 +9,7 @@ import { RefreshButton } from "@/components/RefreshButton";
 import { SearchInput } from "@/components/SearchInput";
 import { TogglePill } from "@/components/TogglePill";
 import { useToast } from "@/components/Toast";
-import { AccuracyTable, errorTone, vsForecast } from "@/components/forecast/AccuracyTable";
+import { AccuracyTable, errorLimits, errorTone, vsForecast } from "@/components/forecast/AccuracyTable";
 import { CommitmentsPanel } from "@/components/forecast/CommitmentsPanel";
 import { FORECAST_CHART_HEIGHT, ForecastChart } from "@/components/forecast/ForecastChart";
 import { SamplesPanel } from "@/components/forecast/SamplesPanel";
@@ -60,7 +60,7 @@ export function Forecast() {
     if (isError(r)) {
       setFailure(r.error);
       toast(r.error, "error");
-      setData((cur) => cur ?? { uom: crop.yield_uom || "", weeks: [], units: [], totals: EMPTY_TOTALS, seasons: [] });
+      setData((cur) => cur ?? { uom: crop.yield_uom || "", weeks: [], units: [], totals: EMPTY_TOTALS, seasons: [], bands: {} });
       return;
     }
     setFailure(null);
@@ -89,6 +89,7 @@ export function Forecast() {
     return { forecast, forecast_to_date: toDate, actual, committed: base.committed, error_pct: toDate > 0 ? Math.round(((actual - toDate) / toDate) * 1000) / 10 : null };
   }, [data, variety, varietyUnits]);
   const first = firstLoad(loading, !!data);
+  const lim = errorLimits(data?.bands);
 
   const series = useMemo(() => {
     const w = data?.weeks ?? [];
@@ -110,14 +111,14 @@ export function Forecast() {
     };
   }, [data]);
 
-  const offTarget = useMemo(() => varietyUnits.filter((u) => errorTone(u.error_pct) === "poor").length, [varietyUnits]);
+  const offTarget = useMemo(() => varietyUnits.filter((u) => errorTone(u.error_pct, data?.bands) === "poor").length, [varietyUnits, data?.bands]);
   const cover = totals.forecast > 0 ? (totals.committed / totals.forecast) * 100 : null;
 
   const units = useMemo(
     () =>
       varietyUnits
         .filter((u) => !q || matchesQuery(u.unit, q))
-        .filter((u) => !offOnly || errorTone(u.error_pct) !== "good")
+        .filter((u) => !offOnly || errorTone(u.error_pct, data?.bands) !== "good")
         .sort((a, b) => Math.abs(b.error_pct ?? 0) - Math.abs(a.error_pct ?? 0)),
     [varietyUnits, q, offOnly],
   );
@@ -152,7 +153,7 @@ export function Forecast() {
             tabs: ["accuracy"],
             node: (
               <TogglePill pressed={offOnly} onPressedChange={setOffOnly}>
-                Off by more than 10%
+                {lim.good != null ? `Off by more than ${lim.good}%` : "Off forecast"}
               </TogglePill>
             ),
           },
@@ -183,7 +184,7 @@ export function Forecast() {
               loading={first}
               label="Actual vs forecast to date"
               value={data ? vsForecast(totals.error_pct) : "—"}
-              tone={data ? ({ good: "accent", fair: "warning", poor: "critical", none: "default" } as const)[errorTone(totals.error_pct)] : "default"}
+              tone={data ? ({ good: "accent", fair: "warning", poor: "critical", none: "default" } as const)[errorTone(totals.error_pct, data.bands)] : "default"}
               hint="harvest so far against the forecast for the same weeks"
               series={series.error}
               goodDirection="down"
@@ -201,7 +202,7 @@ export function Forecast() {
               loading={first}
               label={`${unitLabel}s off target`}
               value={data ? offTarget : "—"}
-              hint="more than 25% from forecast"
+              hint={lim.fair != null ? `more than ${lim.fair}% from forecast` : "beyond the forecast error bands"}
               tone={offTarget ? "warning" : "good"}
             />
           </div>
@@ -247,7 +248,7 @@ export function Forecast() {
               ) : units.length === 0 ? (
                 <p className="px-1 py-6 text-center text-[13px] text-[var(--sd-muted)]">Nothing matches these filters.</p>
               ) : (
-                <AccuracyTable units={units} uom={uom} unitLabel={unitLabel} />
+                <AccuracyTable units={units} uom={uom} unitLabel={unitLabel} bands={data?.bands} />
               )}
             </CardContent>
           </Card>

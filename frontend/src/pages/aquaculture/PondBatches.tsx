@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Plus } from "lucide-react";
+import { bandTone } from "@/lib/bands";
 import { BatchCard } from "@/components/aquaculture/batch-card";
 import { HarvestDialog, SamplingDialog, StockingDialog } from "@/components/aquaculture/batch-dialogs";
 import { ageLabel, dayMonth, fmtGrams, fmtKg, fmtNum, fmtPct, TONE } from "@/components/aquaculture/format";
@@ -72,7 +73,7 @@ export function PondBatches() {
         <KpiCard loading={first} label="Fish alive" value={k ? fmtNum(Number(k.live_fish.value)) : "—"} hint={`${k?.growing.value ?? 0} growing batches`} series={k?.live_fish.series} goodDirection="up" deltaLabel="vs last week" />
         <KpiCard loading={first} label="Biomass" value={k ? fmtKg(Number(k.biomass_kg.value)) : "—"} hint="live fish times average weight" series={k?.biomass_kg.series} goodDirection="up" deltaLabel="vs last week" />
         <KpiCard loading={first} label="FCR" value={k ? fmtNum(k.fcr.value as number | null, 2) : "—"} hint="kg of feed per kg gained, growing batches" series={k?.fcr.series} goodDirection="down" deltaLabel="vs last week" tone={k && Number(k.fcr.value) > 1.8 ? "warning" : "default"} />
-        <KpiCard loading={first} label="Survival" value={k ? fmtPct(k.survival_pct.value as number | null) : "—"} hint="of fingerlings stocked, growing batches" series={k?.survival_pct.series} goodDirection="up" deltaLabel="vs last week" tone={k && Number(k.survival_pct.value) < 90 ? "critical" : "default"} />
+        <KpiCard loading={first} label="Survival" value={k ? fmtPct(k.survival_pct.value as number | null) : "—"} hint="of fingerlings stocked, growing batches" series={k?.survival_pct.series} goodDirection="up" deltaLabel="vs last week" tone={k && k.survival_pct.value != null ? bandTone(data?.bands, "Fish survival", Number(k.survival_pct.value)) === "critical" ? "critical" : "default" : "default"} />
       </KpiGrid>
 
       <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3" data-testid="batch-cards">
@@ -84,7 +85,7 @@ export function PondBatches() {
                 <Bar className="h-[150px] w-full" />
               </Card>
             ))
-          : batches.map((b) => <BatchCard key={b.name} b={b} accent={accent} onSample={setSampling} onHarvest={setHarvesting} />)}
+          : batches.map((b) => <BatchCard key={b.name} b={b} accent={accent} bands={data?.bands} staleDays={data?.sample_stale_days ?? null} onSample={setSampling} onHarvest={setHarvesting} />)}
       </div>
       {data && !batches.length && (
         <div className="mt-4">

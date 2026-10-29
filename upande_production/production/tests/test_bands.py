@@ -28,7 +28,10 @@ class Isolated(IntegrationTestCase):
 		frappe.db.savepoint("bands_test")
 
 	def tearDown(self):
-		frappe.db.rollback(save_point="bands_test")
+		try:
+			frappe.db.rollback(save_point="bands_test")
+		except Exception:  # an endpoint that returned {"error"} already rolled the whole transaction back
+			frappe.db.rollback()
 		super().tearDown()
 
 
@@ -238,3 +241,23 @@ class TestFvLimits(Isolated):
 		src = (ROOT / "api" / "fv.py").read_text()
 		for name in ("DEFAULT_WEEKLY_TARGET_MM", "GRADE_ORDER", "TOP_GRADES", "irrigation_target_mm_week"):
 			self.assertNotIn(name, src)
+
+
+class TestVarietyDialogApi(Isolated):
+	def test_water_bands_and_irrigation_round_trip(self):
+		from upande_production.api import varieties as vapi
+
+		aquaculture_seed.ensure_limits()
+		strain = frappe.db.get_value("Production Variety", {"crop": "Aquaculture"}, "name")
+		if not strain:
+			self.skipTest("no aquaculture variety on this site")
+		listed = {v["name"]: v for v in vapi.list_varieties("Aquaculture")["varieties"]}
+		self.assertEqual({b["parameter"] for b in listed[strain]["water_bands"]}, {"DO", "pH", "Temperature", "Ammonia", "Nitrite"})
+		r = vapi.save_variety({"name": strain, "irrigation_mm_week": 18.5,
+							   "water_bands": [{"parameter": "DO", "min": 5.5, "max": 0, "unit": "mg/L"}]})
+		self.assertNotIn("error", r)
+		v = {x["name"]: x for x in vapi.list_varieties("Aquaculture")["varieties"]}[strain]
+		self.assertEqual(v["irrigation_mm_week"], 18.5)
+		self.assertEqual([(b["parameter"], b["min"]) for b in v["water_bands"]], [("DO", 5.5)])
+		self.assertEqual(aqua_logic.strain_bands(strain), {"do_min": 5.5})
+		self.assertIn("parameter", vapi.save_variety({"name": strain, "water_bands": [{"min": 1}]})["error"])

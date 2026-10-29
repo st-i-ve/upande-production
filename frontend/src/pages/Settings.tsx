@@ -12,6 +12,7 @@ import { CATEGORIES, OperationsTable } from "@/components/settings/OperationsTab
 import { ProtocolsList, type ProtocolActions } from "@/components/settings/ProtocolsList";
 import { Card, CardContent, CardDescription, CardHeaderRow, CardHeading, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BandsPanel } from "@/components/settings/BandsPanel";
 import { BlockLinksPanel } from "@/components/settings/BlockLinksPanel";
 import { RulesPanel } from "@/components/varieties/RulesPanel";
 import { VarietiesPanel } from "@/components/varieties/VarietiesPanel";
@@ -171,6 +172,7 @@ export function Settings() {
             <TabsTrigger value="varieties">Varieties</TabsTrigger>
             <TabsTrigger value="rules">Activity rules</TabsTrigger>
             <TabsTrigger value="links">Block links</TabsTrigger>
+            <TabsTrigger value="bands">Bands</TabsTrigger>
           </TabsList>
         }
         filters={[
@@ -291,6 +293,20 @@ export function Settings() {
             </CardHeaderRow>
             <CardContent>
               <BlockLinksPanel crop={crop.name} unitLabel={crop.unit_label || "Block"} query={q} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="bands" className="mt-0">
+          <Card>
+            <CardHeaderRow>
+              <CardHeading>
+                <CardTitle>Bands</CardTitle>
+                <CardDescription>The thresholds that colour KPIs on every page: forecast error, estimate accuracy, irrigation, fish survival, queen status and grade A share.</CardDescription>
+              </CardHeading>
+            </CardHeaderRow>
+            <CardContent>
+              <BandsPanel canEdit={canManage} />
             </CardContent>
           </Card>
         </TabsContent>

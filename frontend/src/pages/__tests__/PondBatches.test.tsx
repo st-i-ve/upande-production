@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderPage } from "./helpers";
 import { batchesPage, FISH } from "./aquaculture-fixtures";
@@ -22,6 +22,24 @@ describe("PondBatches", () => {
     stock.mockReset().mockResolvedValue({ ok: true, name: "PST-9" } as never);
     sample.mockReset().mockResolvedValue({ ok: true, name: "FSL-1" } as never);
     harvest.mockReset().mockResolvedValue({ ok: true, name: "PST-1", status: "Harvested" } as never);
+  });
+
+  it("flags a stale weight sample by the days the server sent, and none when unset", async () => {
+    const page = batchesPage();
+    page.batches[0] = { ...page.batches[0], sample_age_days: 6 };
+    page.sample_stale_days = 4;
+    get.mockResolvedValue(page as never);
+    render();
+    const weight = (card: HTMLElement) => within(card).getByText("Avg weight").nextElementSibling as HTMLElement;
+    expect((weight(await screen.findByTestId("batch-card-Pond 1"))).className).toMatch(/sd-target/);
+    cleanup();
+    page.sample_stale_days = 10;
+    render();
+    expect(weight(await screen.findByTestId("batch-card-Pond 1")).className).not.toMatch(/sd-target/);
+    cleanup();
+    page.sample_stale_days = null;
+    render();
+    expect(weight(await screen.findByTestId("batch-card-Pond 1")).className).not.toMatch(/sd-target/);
   });
 
   it("draws a card per batch with live count, FCR, survival and projection", async () => {

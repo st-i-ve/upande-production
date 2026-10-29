@@ -15,7 +15,7 @@ function Tip({ lines }: { lines: string[] }) {
 }
 
 /** Per-group mite load over the inspections, with the treatment threshold. Small, no axes clutter. */
-export function MiteChart({ points, threshold, accent, label }: { points: GroupTrendPoint[]; threshold: number; accent: string; label: string }) {
+export function MiteChart({ points, threshold, accent, label }: { points: GroupTrendPoint[]; threshold: number | null; accent: string; label: string }) {
   const data = points.filter((p) => p.mites != null).map((p) => ({ ...p, label: dayMonth(p.date) }));
   if (data.length < 1) {
     return (
@@ -24,14 +24,14 @@ export function MiteChart({ points, threshold, accent, label }: { points: GroupT
       </div>
     );
   }
-  const max = Math.max(threshold * 1.5, ...data.map((d) => d.mites as number)) + 0.5;
+  const max = Math.max((threshold ?? 0) * 1.5, ...data.map((d) => d.mites as number)) + 0.5;
   return (
     <div className="h-[110px] w-full" role="img" aria-label={label} data-testid="hg-trend">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={data} margin={{ top: 6, right: 6, left: -22, bottom: 0 }}>
           <XAxis dataKey="label" tickLine={false} axisLine={false} tick={TICK} interval="preserveStartEnd" />
           <YAxis domain={[0, max]} tickLine={false} axisLine={false} tick={TICK} width={36} tickFormatter={(v) => String(Math.round(v * 10) / 10)} />
-          <ReferenceLine y={threshold} stroke="var(--sd-data-red)" strokeDasharray="4 3" />
+          {threshold != null && <ReferenceLine y={threshold} stroke="var(--sd-data-red)" strokeDasharray="4 3" />}
           <Tooltip content={({ active, payload }) => {
             const p = active ? (payload?.[0]?.payload as (GroupTrendPoint & { label: string }) | undefined) : undefined;
             return p ? <Tip lines={[p.label, `${fmt(p.mites, 1)} mites per 100 bees`, `${fmt(p.queenright_pct, 0)}% queenright`]} /> : null;
@@ -44,7 +44,7 @@ export function MiteChart({ points, threshold, accent, label }: { points: GroupT
 }
 
 /** All hive groups: average mites per week (line) with the threshold, and queenright share (bars). */
-export function HealthTrendChart({ series, threshold, accent }: { series: InspectionWeek[]; threshold: number; accent: string }) {
+export function HealthTrendChart({ series, threshold, accent }: { series: InspectionWeek[]; threshold: number | null; accent: string }) {
   const data = series.map((s) => ({ ...s, label: dayMonth(s.week) }));
   return (
     <div className="px-3 pb-3" data-testid="health-trend">
@@ -53,9 +53,9 @@ export function HealthTrendChart({ series, threshold, accent }: { series: Inspec
           <ComposedChart data={data} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} stroke="var(--sd-line-soft)" />
             <XAxis dataKey="label" tickLine={false} axisLine={false} tick={TICK} interval="preserveStartEnd" />
-            <YAxis yAxisId="m" width={36} tickLine={false} axisLine={false} tick={TICK} domain={[0, (max: number) => Math.max(Math.ceil(max), threshold + 1)]} />
+            <YAxis yAxisId="m" width={36} tickLine={false} axisLine={false} tick={TICK} domain={[0, (max: number) => Math.max(Math.ceil(max), (threshold ?? 0) + 1)]} />
             <YAxis yAxisId="q" orientation="right" width={40} tickLine={false} axisLine={false} tick={TICK} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-            <ReferenceLine yAxisId="m" y={threshold} stroke="var(--sd-data-red)" strokeDasharray="4 4" label={{ value: `limit ${threshold}`, position: "insideTopLeft", fontSize: 11, fill: "var(--sd-data-red)" }} />
+            {threshold != null && <ReferenceLine yAxisId="m" y={threshold} stroke="var(--sd-data-red)" strokeDasharray="4 4" label={{ value: `limit ${threshold}`, position: "insideTopLeft", fontSize: 11, fill: "var(--sd-data-red)" }} />}
             <Tooltip cursor={{ fill: "rgba(10,10,10,0.04)" }} content={({ active, payload }) => {
               const p = active ? (payload?.[0]?.payload as (InspectionWeek & { label: string }) | undefined) : undefined;
               return p ? <Tip lines={[`Week of ${p.label}`, `${p.inspections} inspections · ${p.colonies} colonies`, `${fmt(p.avg_mites, 1)} mites per 100 bees`, `${fmt(p.queenright_pct, 0)}% queenright`]} /> : null;
@@ -98,7 +98,7 @@ export function HoneyChart({ series, accent }: { series: HarvestWeek[]; accent: 
 }
 
 /** Moisture per week against the 20% ceiling honey must stay under to keep. */
-export function MoistureChart({ series, limit, accent }: { series: HarvestWeek[]; limit: number; accent: string }) {
+export function MoistureChart({ series, limit, accent }: { series: HarvestWeek[]; limit: number | null; accent: string }) {
   const data = series.filter((s) => s.avg_moisture != null).map((s) => ({ ...s, label: dayMonth(s.week) }));
   if (!data.length) return null;
   return (
@@ -108,8 +108,8 @@ export function MoistureChart({ series, limit, accent }: { series: HarvestWeek[]
           <AreaChart data={data} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} stroke="var(--sd-line-soft)" />
             <XAxis dataKey="label" tickLine={false} axisLine={false} tick={TICK} interval="preserveStartEnd" />
-            <YAxis width={40} tickLine={false} axisLine={false} tick={TICK} domain={[14, (m: number) => Math.max(Math.ceil(m), limit + 1)]} tickFormatter={(v) => `${v}%`} />
-            <ReferenceLine y={limit} stroke="var(--sd-data-red)" strokeDasharray="4 4" label={{ value: `${limit}% limit`, position: "insideTopRight", fontSize: 11, fill: "var(--sd-data-red)" }} />
+            <YAxis width={40} tickLine={false} axisLine={false} tick={TICK} domain={[14, (m: number) => Math.max(Math.ceil(m), (limit ?? 0) + 1)]} tickFormatter={(v) => `${v}%`} />
+            {limit != null && <ReferenceLine y={limit} stroke="var(--sd-data-red)" strokeDasharray="4 4" label={{ value: `${limit}% limit`, position: "insideTopRight", fontSize: 11, fill: "var(--sd-data-red)" }} />}
             <Tooltip content={({ active, payload }) => {
               const p = active ? (payload?.[0]?.payload as (HarvestWeek & { label: string }) | undefined) : undefined;
               return p ? <Tip lines={[`Week of ${p.label}`, `${fmt(p.avg_moisture, 1)}% moisture`]} /> : null;

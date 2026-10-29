@@ -1,12 +1,22 @@
 import type { ForecastUnit } from "@/lib/api";
+import { bandFor, type Bands } from "@/lib/bands";
 import { qty } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-/** Within +/-10% green, within +/-25% amber, anything worse red. */
-export function errorTone(pct: number | null): "good" | "fair" | "poor" | "none" {
-  if (pct == null) return "none";
-  const a = Math.abs(pct);
-  return a <= 10 ? "good" : a <= 25 ? "fair" : "poor";
+/** The size of the miss (either direction) against the "Forecast error" bands the server sent:
+ *  Good is green, Watch amber, Critical red; no band for the value means no tone. */
+export function errorTone(pct: number | null, bands: Bands | undefined): "good" | "fair" | "poor" | "none" {
+  const b = bandFor(bands, "Forecast error", pct == null ? null : Math.abs(pct));
+  return !b ? "none" : b.severity === "Good" ? "good" : b.severity === "Watch" ? "fair" : "poor";
+}
+
+/** Where green ends and where amber ends, for the words beside the table; null when the bands say none. */
+export function errorLimits(bands: Bands | undefined): { good: number | null; fair: number | null } {
+  const top = (sev: "Good" | "Watch") => {
+    const maxes = (bands?.["Forecast error"] ?? []).filter((b) => b.severity === sev && b.max != null).map((b) => b.max as number);
+    return maxes.length ? Math.max(...maxes) : null;
+  };
+  return { good: top("Good"), fair: top("Watch") };
 }
 
 const TONE_CLASS = {
@@ -46,7 +56,8 @@ function BiasBar({ pct, tone }: { pct: number | null; tone: keyof typeof BAR_COL
   );
 }
 
-export function AccuracyTable({ units, uom, unitLabel }: { units: ForecastUnit[]; uom: string; unitLabel: string }) {
+export function AccuracyTable({ units, uom, unitLabel, bands }: { units: ForecastUnit[]; uom: string; unitLabel: string; bands: Bands | undefined }) {
+  const lim = errorLimits(bands);
   return (
     <div className="overflow-x-auto rounded-[var(--sd-radius-lg)] border border-[var(--sd-line)]">
       <table className="w-full min-w-[28rem] text-[13px]">
@@ -61,7 +72,7 @@ export function AccuracyTable({ units, uom, unitLabel }: { units: ForecastUnit[]
         </thead>
         <tbody>
           {units.map((u) => {
-            const tone = errorTone(u.error_pct);
+            const tone = errorTone(u.error_pct, bands);
             return (
               <tr key={u.unit} className="border-b border-[var(--sd-line-soft)] last:border-0">
                 <td className="px-3 py-2.5 font-medium text-[var(--sd-ink)]">{u.unit}</td>
@@ -83,7 +94,7 @@ export function AccuracyTable({ units, uom, unitLabel }: { units: ForecastUnit[]
         </tbody>
       </table>
       <p className="border-t border-[var(--sd-line-soft)] px-3 py-2 text-[11.5px] text-[var(--sd-quiet)]">
-        Only weeks up to the current one count. Actual vs forecast is how far the harvest so far is from the forecast for the same weeks. Green within 10%, amber within 25%, red beyond.
+        Only weeks up to the current one count. Actual vs forecast is how far the harvest so far is from the forecast for the same weeks. {lim.good != null && lim.fair != null ? `Green within ${lim.good}%, amber within ${lim.fair}%, red beyond.` : "Colours follow the Forecast error bands in Settings."}
       </p>
     </div>
   );
