@@ -250,3 +250,50 @@ dry matter tests for avocado blocks, and actual flowering dates that produce at 
 Backend: patch conversion, generation from the three tables, buffer enforcement (Block/Warn), cycle
 chain proposal, flags with tolerance, establishment cost split, break-even (actual and projected
 dates, capital-account exclusion, pay hidden). Desk vitest for the new pages and show/hide rules.
+
+## Addendum 2026-10-29: maturity, flowering patterns, block cost centre, harvest store, ERP budget
+
+### Decisions (user)
+- **Everything done on a block is costed to its cost centre**: fertiliser, chemicals and other inputs
+  issued against the block (SCP's chemical plan already issues stock with the cost centre named like
+  the block's warehouse). The block's cost view is where the manager finds out what is happening on
+  a block and whether it is working.
+- **Labour = casual Value Adders' pay figures only** (recorded per worker). Payroll is a different
+  system and never enters here; no GL for labour.
+- **Users pick the store** when a harvest batch closes; the stock entry keeps the block's cost centre.
+- **Blocks have ERP budgets** (ERPNext Budget on the block's cost centre).
+- **Maturity per variety**: the week the plant is mature for its first official harvest (avocado
+  2–3 years, passion fruit some months).
+- **Flowering**: the user asked for a perspective; agreed design below.
+
+### Calls made by me (check these)
+1. **Flowering pattern** on the variety (shown when flowering): `Seasonal` or `Interval`.
+   - Seasonal (avocado): table **flowering seasons** — season name (Main / Off-season), start month,
+     weeks flowering → harvest, share of the season's crop %. Expected flowering of a cycle = the 1st
+     of its season's start month. The first season of a block = the first season start on/after
+     planting + weeks to maturity. Each season is one cycle; closing it proposes the next season (by
+     calendar) as the next cycle.
+   - Interval (passion fruit): weeks to first flowering (from planting), **flowering interval
+     (weeks)**, weeks flowering → harvest. Next cycle's flowering = previous flowering + interval.
+   - Replaces `weeks_to_reflower_after_harvest` (kept hidden; a patch moves values across).
+2. **Juvenile**: cycles whose expected harvest falls before planting + weeks to maturity are marked
+   juvenile: no yield expected in forecasts and break-even projection; their key/cultural activities
+   still plan.
+3. **Flags for seasonal varieties** compare actual flowering with the season start (tolerance as
+   before). This removes the "first flowering-anchored cycle is never checked" exception for them.
+4. **Block ↔ warehouse**: Production Unit gains `warehouse` (the block's warehouse, as SCP uses).
+   A **block links check** (Settings and Blocks) lists every leaf block whose cost centre is missing,
+   whose warehouse is missing, or whose warehouse name ≠ cost centre name (SCP's chemical plan would
+   then charge a different cost centre).
+5. **Harvest store**: Harvest Batch `warehouse` is chosen by the user (desk and the mobile "mark
+   ready" step); default = the last store used for that farm, else Production Settings'
+   harvest warehouse. Stores offered = non-group warehouses of the company that aren't block
+   warehouses.
+6. **ERP budget**: block budget = sum of the submitted ERPNext Budget account amounts against the
+   block's cost centre for the current fiscal year. Setup Costs shows it against setup + running
+   spend for that year; the protocol's `budget_per_ha` stays as a fallback when no ERP budget exists.
+7. **Block cost breakdown** (the "what is happening on this block" view, in Block Costs per block):
+   labour by activity (pay, qty, workers), inputs by item (Stock Entry issues on the cost centre:
+   item, qty, UOM, amount, per ha — e.g. fertiliser kg/ha), other expenses by account, each over the
+   chosen period, plus budget vs actual. Planned protocol quantities are shown next to actual input
+   quantities where the operation's item is known (else omitted).
