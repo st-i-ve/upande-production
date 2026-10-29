@@ -6,7 +6,7 @@ bench --site mutara.local execute upande_production.production.demo.all.run
 import frappe
 
 from upande_production.production.demo import (
-	apiary_seed, aquaculture_seed, avocado_seed, blocks_seed, establishment_seed, fv_seed, geo, harvest_seed, rules_seed, seed, varieties_seed,
+	apiary_seed, aquaculture_seed, avocado_seed, blocks_seed, establishment_seed, fv_seed, geo, harvest_seed, rules_seed, seed, stores_seed, varieties_seed,
 )
 
 
@@ -32,3 +32,6 @@ def run():
 	# block warehouses, fertiliser / chemical issues per avocado block, an ERP budget
 	blocks_seed.run()
 	print(f"[demo] {blocks_seed.__name__} done")
+	# chemical and fertiliser stores, copied products and opening stock
+	stores_seed.run()
+	print(f"[demo] {stores_seed.__name__} done")
