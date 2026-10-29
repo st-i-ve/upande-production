@@ -1,1 +1,0 @@
-import{I as a}from"../production-CcYbKjP1.js";const t=(o,n,c)=>a("upande_production.api.blockcost.block_breakdown",{unit:o,from_date:n||null,to_date:c||null}),d=o=>a("upande_production.api.production.block_links",{crop:o});export{t as a,d as b};

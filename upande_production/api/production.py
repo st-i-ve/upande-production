@@ -188,7 +188,7 @@ _CYCLE_FIELDS = [
 	"name", "title", "unit", "item", "cycle_type", "start_date", "expected_harvest_start",
 	"expected_harvest_end", "protocol", "status", "area_ha", "previous_cycle", "variety", "current_stage",
 	"cycle_no", "expected_flowering_date", "actual_flowering_date", "actual_harvest_start", "actual_harvest_end",
-	"due_for_uprooting", "proposed_next_cycle", "protocol_flags",
+	"due_for_uprooting", "proposed_next_cycle", "protocol_flags", "flowering_season", "juvenile",
 ]
 
 

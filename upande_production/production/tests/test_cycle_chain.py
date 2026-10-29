@@ -251,6 +251,7 @@ class TestCycleChain(IntegrationTestCase):
 		rows = api.list_cycles(self.crop.name)
 		rows = rows.get("cycles") or rows["message"]["cycles"]
 		self.assertTrue(any(r["name"] == c.name and r["flags"] for r in rows))
+		self.assertTrue(all("flowering_season" in r and "juvenile" in r for r in rows))
 
 
 	# ---- Addendum 2026-10-29: maturity, seasons, intervals, juvenile

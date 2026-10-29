@@ -146,7 +146,7 @@ export function CycleGantt({
                     </span>
                   )}
                   <StatusPill status={c.status} />
-                  <StageChip stage={c.current_stage} accent={accent} />
+                  {c.status !== "Planned" && <StageChip stage={c.current_stage} accent={accent} />}
                   {uproot && (
                     <span data-testid={`gantt-uproot-${c.name}`} className="rounded-full bg-[var(--sd-alert-warn)] px-2 py-0.5 text-[10.5px] font-medium text-[var(--sd-sev-high)]">
                       Due for uprooting
