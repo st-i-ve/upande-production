@@ -206,3 +206,60 @@ class TestAvocadoModel(IntegrationTestCase):
 								   {"orchard_block": "A", "season": avocado_seed.DEMO["season"], "crop": "Early"})
 		frappe.db.set_value("Avocado Production Forecast", name, "expected_kg", 140000)
 		self.assertNotEqual(api.season_outlook()["calibration"]["factor"], o["calibration"]["factor"])
+
+
+class TestCropModelApi(IntegrationTestCase):
+	"""Settings, Crop model: the editor is described by the doctype and writes need a Production Manager."""
+
+	@classmethod
+	def setUpClass(cls):
+		super().setUpClass()
+		frappe.set_user("Administrator")
+		avocado_seed.run(commit=False)
+
+	def setUp(self):
+		frappe.db.savepoint("crop_model_api")
+		self.addCleanup(frappe.db.rollback, save_point="crop_model_api")
+
+	def groups(self, crop="Avocado"):
+		from upande_production.api import cropmodel
+		r = cropmodel.get_crop_model(crop)
+		self.assertNotIn("error", r)
+		return {g["label"]: g for g in r["groups"]}
+
+	def test_groups_come_from_the_doctype_and_the_crop_key(self):
+		g = self.groups()
+		names = {f["fieldname"] for grp in g.values() for f in grp["fields"]}
+		self.assertTrue({"price_per_kg", "avg_kg_per_crate", "harvest_days_per_week", "default_kg_per_picker_day",
+			"plausible_kg_per_picker_day_min", "plausible_kg_per_picker_day_max", "dry_matter_target_pct",
+			"dry_matter_max_pct", "dm_gain_per_week", "stale_sample_weeks", "default_pick_weeks",
+			"min_trees_to_override_curve"} <= names)
+		tables = {t["fieldname"]: t for grp in g.values() for t in grp["tables"]}
+		self.assertEqual([c["fieldname"] for c in tables["count_sizes"]["columns"]], ["count", "min_g", "max_g"])
+		self.assertEqual(len(tables["count_sizes"]["rows"]), frappe.db.count("Production Crop Count Size", {"parent": "Avocado"}))
+		# another crop does not show the avocado model
+		other = self.groups("Apiary")
+		self.assertNotIn("price_per_kg", {f["fieldname"] for grp in other.values() for f in grp["fields"]})
+		self.assertIn("mite_threshold", {f["fieldname"] for grp in other.values() for f in grp["fields"]})
+
+	def test_save_changes_values_and_tables(self):
+		from upande_production.api import cropmodel
+		r = cropmodel.save_crop_model("Avocado", {"price_per_kg": 120, "default_pick_weeks": 4,
+			"count_sizes": [{"count": 12, "min_g": 300, "max_g": 340}]})
+		self.assertNotIn("error", r)
+		self.assertEqual(frappe.db.get_value("Production Crop", "Avocado", ["price_per_kg", "default_pick_weeks"]), (120, 4))
+		self.assertEqual(frappe.db.get_all("Production Crop Count Size", {"parent": "Avocado"}, ["count", "min_g"]),
+			[frappe._dict(count=12, min_g=300)])
+		self.assertEqual(avocado_model.load_model()["default_pick_weeks"], 4)
+
+	def test_unknown_field_and_non_managers_are_refused(self):
+		from upande_production.api import cropmodel
+		# the envelope rolls the whole transaction back on a refusal; keep the seeded data for the other tests
+		with mock.patch.object(frappe.db, "rollback"):
+			self.assertIn("error", cropmodel.save_crop_model("Avocado", {"crop_key": "x"}))
+			self.assertIn("error", cropmodel.save_crop_model("Avocado", {"nonsense": 1}))
+		frappe.set_user("Guest")
+		try:
+			self.assertIn("error", cropmodel.save_crop_model("Avocado", {"price_per_kg": 1}))
+		finally:
+			frappe.set_user("Administrator")

@@ -481,6 +481,7 @@ def production_forecast(farm=None, season=None, price_per_kg=None, mode=None):
 	manual = _manual(season, farm, price)
 	budget = _budget_view(avocadoapi.get_manual_budget(season=season))
 	sched = _schedule_view(f["schedule"], price)
+	sched["minimum_pct"] = ctx.model["dm_min"]
 	loss = _loss_view(f["losses"], price)
 	n_blocks = f["blocks"]
 	views = {
@@ -754,7 +755,8 @@ def season_outlook(farm=None, price_per_kg=None, crew_available=None):
 		"farm": farm, "farms": _all_farms(), "season": season, "price_per_kg": price,
 		"crew_available": crew, "crop": f["crop"],
 		"header": {"blocks": f["blocks"], "total_kg": _unit_total(f["total_kg"]),
-				   "stale_readings": len(stale), "weeks_dated": len(timeline["weeks"]),
+				   "stale_readings": len(stale), "stale_sample_weeks": ctx.model["stale_sample_weeks"],
+				   "weeks_dated": len(timeline["weeks"]),
 				   "biennial_factor": f["biennial_factor"], "on_year": _on_year(ctx, season),
 				   "evidence_split": f["evidence_split"]},
 		"kpis": kpis, "timeline": timeline, "map": _map(ctx), "treemap": _treemap(ctx),

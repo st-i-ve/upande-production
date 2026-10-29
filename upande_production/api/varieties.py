@@ -15,11 +15,13 @@ TEMPLATE_FIELDS = [
 	"weeks_to_first_harvest", "harvest_window_weeks", "weeks_to_maturity", "flowering_pattern", "flowering_interval_weeks",
 ]
 WATER_BAND_FIELDS = ["parameter", "min", "max", "unit"]
+YIELD_AGE_FIELDS = ["age_years", "kg_per_plant"]
 SEASON_FIELDS = ["season_name", "start_month", "weeks_flowering_to_harvest", "crop_share_pct"]
 VARIETY_FIELDS = [
 	"name", "variety_name", "crop", "product", "item", "enabled", "stage_anchor", "default_protocol",
 	"days_to_first_harvest", "harvest_window_days", "expected_yield_per_ha", "expected_yield_per_plant",
-	"plants_per_ha", "notes", "irrigation_mm_week", *TEMPLATE_FIELDS,
+	"plants_per_ha", "notes", "irrigation_mm_week", "biennial_off_factor", "on_years", "late_crop_share_pct",
+	*TEMPLATE_FIELDS,
 ]
 RULE_FIELDS = [
 	"name", "crop", "variety", "stage", "operation", "operation_category", "rule_type", "days",
@@ -40,6 +42,8 @@ def list_varieties(crop):
 			fields=STAGE_FIELDS, order_by="idx asc")
 		r["flowering_seasons"] = frappe.get_all("Production Variety Flowering Season",
 			filters={"parent": r.name, "parenttype": "Production Variety"}, fields=SEASON_FIELDS, order_by="idx asc")
+		r["yield_by_age"] = frappe.get_all("Production Variety Yield Age",
+			filters={"parent": r.name, "parenttype": "Production Variety"}, fields=YIELD_AGE_FIELDS, order_by="age_years asc")
 		r["water_bands"] = frappe.get_all("Production Water Band",
 			filters={"parent": r.name, "parenttype": "Production Variety"}, fields=WATER_BAND_FIELDS, order_by="idx asc")
 	return {"varieties": rows}
@@ -59,6 +63,8 @@ def save_variety(data):
 			frappe.throw(_("Stage {0} needs a length in days.").format(r["stage"]), frappe.ValidationError)
 	if "flowering_seasons" in data:
 		data["flowering_seasons"] = [{k: s.get(k) for k in SEASON_FIELDS if k in s} for s in (data["flowering_seasons"] or [])]
+	if "yield_by_age" in data:
+		data["yield_by_age"] = [{k: b.get(k) for k in YIELD_AGE_FIELDS if k in b} for b in (data["yield_by_age"] or [])]
 	if "water_bands" in data:
 		data["water_bands"] = [{k: b.get(k) for k in WATER_BAND_FIELDS if k in b} for b in (data["water_bands"] or [])]
 		for b in data["water_bands"]:
