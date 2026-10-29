@@ -60,6 +60,8 @@ def validate_flowering(doc) -> None:
 	"""Seasonal needs at least one season (shares total 100 when any is set); Interval needs the interval."""
 	if not doc.is_flowering:
 		return
+	if not doc.flowering_pattern:
+		frappe.throw(_("A flowering variety needs a flowering pattern (Seasonal or Interval)"), frappe.ValidationError)
 	if doc.flowering_pattern == "Seasonal":
 		seasons = doc.flowering_seasons or []
 		if not seasons:

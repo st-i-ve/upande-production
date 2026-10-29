@@ -295,7 +295,7 @@ class TestVarieties(IntegrationTestCase):
 
 	def test_variety_saves_derived_values(self):
 		v = _make("Production Variety", variety_name="TV Derived", crop=self.crop.name, item="TV Product - Alpha",
-			plants_per_m2=0.0156, is_flowering=1, weeks_to_first_flowering=104, weeks_flowering_to_harvest=36)
+			plants_per_m2=0.0156, is_flowering=1, flowering_pattern="Interval", flowering_interval_weeks=52, weeks_to_first_flowering=104, weeks_flowering_to_harvest=36)
 		v.reload()
 		self.assertEqual(v.weeks_to_first_harvest, 140)
 		self.assertEqual(v.days_to_first_harvest, 980)
@@ -318,8 +318,10 @@ class TestFloweringPatternDerive(IntegrationTestCase):
 		name = "TV Patch Interval"
 		if frappe.db.exists("Production Variety", name):
 			frappe.delete_doc("Production Variety", name, force=1)
-		frappe.get_doc({"doctype": "Production Variety", "variety_name": name, "crop": crop, "item": item, "is_flowering": 1,
-			"harvest_pattern": "Interval", "weeks_to_reflower_after_harvest": 6, "weeks_flowering_to_harvest": 30}).insert()
+		old = frappe.get_doc({"doctype": "Production Variety", "name": name, "variety_name": name, "crop": crop, "item": item,
+			"is_flowering": 1, "harvest_pattern": "Interval", "weeks_to_reflower_after_harvest": 6,
+			"weeks_flowering_to_harvest": 30})
+		old.db_insert()  # a legacy row: validation now refuses a flowering variety without a pattern
 		flowering_pattern_from_reflower.execute()
 		v = frappe.db.get_value("Production Variety", name, ["flowering_pattern", "flowering_interval_weeks"], as_dict=True)
 		self.assertEqual((v.flowering_pattern, v.flowering_interval_weeks), ("Interval", 36))

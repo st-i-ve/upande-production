@@ -137,6 +137,10 @@ def expected_flowering(doc, v=None):
 		if not callable(getattr(doc, "is_new", None)) or doc.is_new():
 			planted = planted_on(doc) or (getdate(doc.start_date) if doc.get("start_date") else None)
 			hit = first_season(planted, v) if planted else None
+			if doc.get("start_date"):  # an established block: never a season already past at the cycle's start
+				on_start = _season_on_or_after(v, doc.start_date)
+				if on_start and (not hit or on_start[1] > hit[1]):
+					hit = on_start
 			return hit[1] if hit else None
 		return None
 	if v.flowering_pattern == "Interval" and cint(v.flowering_interval_weeks) and doc.get("previous_cycle"):
@@ -317,10 +321,31 @@ def _root_start(doc):
 	return getdate(d.get("start_date")) if d.get("start_date") else None
 
 
+def _next_flowering(doc, v) -> tuple:
+	"""(flowering date, season row) of the successor cycle, or (None, None) when the variety's pattern
+	gives none. Seasonal: the very next season by calendar after this cycle's season start (never
+	skipped, whatever the harvest does); Interval: this cycle's flowering + the interval."""
+	if not cint(v.is_flowering):
+		return None, None
+	if _is_seasonal(v):
+		ref = doc.get("expected_flowering_date") if doc.get("flowering_season") else None
+		ref = ref or doc.get("actual_flowering_date") or doc.get("expected_flowering_date")
+		hit = next_season(v, ref) if ref else None
+		return (hit[1], hit[0]) if hit else (None, None)
+	if v.flowering_pattern == "Interval" and cint(v.flowering_interval_weeks):
+		ref = doc.get("actual_flowering_date") or doc.get("expected_flowering_date")
+		if ref:
+			return add_days(getdate(ref), cint(v.flowering_interval_weeks) * 7), None
+	return None, None
+
+
 def propose_next(doc) -> str | None:
-	"""A Closed cycle of a repeat-harvest variety proposes its successor once; lifespan reached marks
-	it due for uprooting instead."""
-	if doc.get("status") != "Closed" or doc.get("proposed_next_cycle") or not doc.get("variety"):
+	"""A cycle of a repeat-harvest variety proposes its successor once, when it flowers or closes (first
+	wins); lifespan reached marks a closed cycle due for uprooting instead."""
+	if (doc.get("status") not in ("Active", "Harvesting", "Closed") or doc.get("proposed_next_cycle")
+			or not doc.get("variety")):
+		return None
+	if doc.get("status") != "Closed" and not doc.get("actual_flowering_date"):
 		return None
 	v = _variety(doc)
 	if not v or (v.harvest_pattern or "Once") == "Once":
@@ -330,24 +355,26 @@ def propose_next(doc) -> str | None:
 		doc.proposed_next_cycle = existing
 		frappe.db.set_value(CYCLE_DT, doc.name, "proposed_next_cycle", existing, update_modified=False)
 		return None
-	nxt = getdate(doc.get("actual_harvest_end") or today())
+	flowering, season = _next_flowering(doc, v)
+	nxt = flowering or getdate(doc.get("actual_harvest_end") or today())
 	first = _root_start(doc)
 	if v.lifespan_years and first and add_days(first, int(v.lifespan_years * 365)) <= nxt:
-		doc.due_for_uprooting = 1
-		frappe.db.set_value(CYCLE_DT, doc.name, "due_for_uprooting", 1, update_modified=False)
+		if doc.get("status") == "Closed":
+			doc.due_for_uprooting = 1
+			frappe.db.set_value(CYCLE_DT, doc.name, "due_for_uprooting", 1, update_modified=False)
 		return None
+	if flowering and frappe.db.exists(CYCLE_DT, {"unit": doc.unit, "variety": doc.variety, "name": ("!=", doc.name),
+			"expected_flowering_date": flowering, "status": ("!=", "Cancelled")}):
+		return None  # that flowering already has a cycle
 	vals = {"doctype": CYCLE_DT, "unit": doc.unit, "crop": doc.crop, "variety": doc.variety, "item": doc.item,
 		"cycle_type": doc.cycle_type, "area_ha": doc.area_ha, "plant_count": doc.plant_count, "status": "Planned",
 		"previous_cycle": doc.name, "cycle_no": cint(doc.get("cycle_no") or 1) + 1, "start_date": nxt,
 		"protocol": stages.variety_protocol(doc.variety)}
 	if cint(v.is_flowering):
-		probe = frappe._dict(previous_cycle=doc.name, start_date=nxt, unit=doc.unit, variety=doc.variety)
-		ef = expected_flowering(probe, v)
-		weeks = cint(v.weeks_flowering_to_harvest)
-		if _is_seasonal(v) and ef:
-			row = _season_row(v, near=ef)
-			vals["flowering_season"] = row["season_name"]
-			weeks = cint(row["weeks_flowering_to_harvest"])
+		ef, weeks = flowering, cint(v.weeks_flowering_to_harvest)
+		if season:
+			vals["flowering_season"] = season["season_name"]
+			weeks = cint(season["weeks_flowering_to_harvest"])
 		elif not ef:
 			ef = add_days(nxt, cint(v.weeks_to_reflower_after_harvest) * 7)
 		vals["expected_flowering_date"] = ef
@@ -397,8 +424,11 @@ def flags(doc, today_=None) -> list[str]:
 			out.append(_compare("flowering", unit, doc.get("expected_flowering_date"), doc.get("actual_flowering_date"),
 				tol, now, "flowered", "flowering due"))
 		if harvest:
-			out.append(_compare("harvest", unit, _expected_harvest(doc), doc.get("actual_harvest_start"), tol, now,
-				"harvest started", "harvest due"))
+			# a juvenile block cannot be picked yet: no "harvest due ... nothing recorded" for it
+			juvenile = not doc.get("actual_harvest_start") and (cint(doc.get("juvenile")) or is_juvenile(doc))
+			if not juvenile:
+				out.append(_compare("harvest", unit, _expected_harvest(doc), doc.get("actual_harvest_start"), tol, now,
+					"harvest started", "harvest due"))
 		if doc.get("actual_harvest_end") and doc.get("expected_harvest_end"):
 			out.append(_compare("end", unit, doc.expected_harvest_end, doc.actual_harvest_end, tol, now,
 				"harvest ended", ""))

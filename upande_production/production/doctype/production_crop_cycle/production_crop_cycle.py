@@ -27,5 +27,5 @@ class ProductionCropCycle(Document):
 		self.title = f"{self.unit} · {self.item or self.crop}"
 
 	def on_update(self):
-		if self.status == "Closed" and not self.proposed_next_cycle:
+		if not self.proposed_next_cycle:
 			cycle_chain.propose_next(self)
