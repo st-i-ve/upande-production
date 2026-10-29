@@ -66,6 +66,24 @@ def erp_budget(cost_center: str | None, fiscal_year: str | None = None) -> float
 	return flt(row[0][0]) if row and row[0][0] else 0.0
 
 
+def actual_this_fy(units, ccs, fy=None) -> float:
+	"""What a block (or group) has cost in the current fiscal year, to compare with its ERP budget: setup
+	costs posted in the year + running GL expense (no Harvesting receipt, no capital accounts) + approved
+	labour pay. Raw number: callers hide it with `_pay`."""
+	from upande_production.production.logic import breakeven, establishment  # they import this module
+	fy = fy or fiscal_year_range()
+	if not fy:
+		return 0.0
+	total = sum(flt(r[3]) for r in establishment.cost_rows(list(units), fy[2], fy[1])) if units else 0.0
+	capital = breakeven._capital_accounts()
+	for cc in ccs:
+		total += sum(v for d, v in breakeven._gl_events(cc, capital) if fy[1] <= getdate(d) <= fy[2])
+	if units:
+		total += flt(frappe.db.sql("""select sum(pay_value) from `tabValue Adder Work` where docstatus = 1
+			and unit in %s and work_date between %s and %s""", (tuple(units), fy[1], fy[2]))[0][0])
+	return total
+
+
 # -- breakdown ---------------------------------------------------------------
 
 
@@ -80,7 +98,8 @@ def _scope(unit: str):
 	else:
 		subs = [frappe._dict(name=row.name, cost_center=row.cost_center, area_ha=row.area_ha, is_group=0)]
 	area = flt(row.area_ha) or sum(flt(s.area_ha) for s in subs if not s.is_group)
-	return [s.name for s in subs], [s.cost_center for s in subs if s.cost_center], area
+	ccs = list(dict.fromkeys(s.cost_center for s in subs if s.cost_center))  # blocks may share a cost centre
+	return [s.name for s in subs], ccs, area
 
 
 def _labour(units, frm, to, can_see_pay):
@@ -107,7 +126,7 @@ def _inputs(ccs, frm, to, area):
 	rows = frappe.db.sql("""select d.item_code, i.item_name, i.item_group, d.stock_uom, sum(d.transfer_qty), sum(d.amount)
 		from `tabStock Entry Detail` d join `tabStock Entry` se on se.name = d.parent
 		left join `tabItem` i on i.name = d.item_code
-		where se.docstatus = 1 and se.stock_entry_type != 'Harvesting' and d.cost_center in %(c)s
+		where se.docstatus = 1 and se.purpose = 'Material Issue' and se.stock_entry_type != 'Harvesting' and d.cost_center in %(c)s
 		and ifnull(d.s_warehouse, '') != '' and ifnull(d.t_warehouse, '') = ''
 		and se.posting_date between %(f)s and %(t)s
 		group by d.item_code, i.item_name, i.item_group, d.stock_uom order by sum(d.amount) desc""",
@@ -144,13 +163,8 @@ def breakdown(unit: str, from_date, to_date, can_see_pay: bool) -> dict:
 	inp_total = round(sum(r["amount"] for r in inputs), 2)
 	oth_total = round(sum(r["amount"] for r in other), 2)
 	total = round((lab_total or 0) + inp_total + oth_total, 2)
-	fy = fiscal_year_range()
-	actual = 0.0
-	if fy:
-		from upande_production.production.logic import breakeven
-		for cc in ccs:
-			actual += sum(v for d, v in breakeven._gl_events(cc, set()) if fy[1] <= getdate(d) <= fy[2])
+	actual = actual_this_fy(units, ccs)
 	return {"unit": unit, "area_ha": area, "labour": labour, "inputs": inputs, "other": other,
 		"totals": {"labour": lab_total, "inputs": inp_total, "other": oth_total,
 			"total": _pay(total, can_see_pay), "per_ha": _pay(round(total / area, 2) if area else 0, can_see_pay)},
-		"budget": {"erp_budget": round(sum(erp_budget(cc) for cc in ccs), 2), "actual_this_fy": round(actual, 2)}}
+		"budget": {"erp_budget": round(sum(erp_budget(cc) for cc in ccs), 2), "actual_this_fy": _pay(round(actual, 2), can_see_pay)}}

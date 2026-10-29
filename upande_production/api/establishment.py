@@ -17,7 +17,7 @@ def _manage():
 @run
 def list_costs(crop, farm=None):
 	frappe.has_permission("Block Establishment Cost", "read", throw=True)
-	return logic.list_costs(crop, farm or None)
+	return logic.list_costs(crop, farm or None, can_see_pay())
 
 
 @frappe.whitelist(methods=["POST"])

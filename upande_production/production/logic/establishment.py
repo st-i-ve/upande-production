@@ -143,7 +143,7 @@ def capital_activities(crop):
 		"budget_per_ha": r["budget_per_ha"]} for r in rows]
 
 
-def list_costs(crop, farm=None):
+def list_costs(crop, farm=None, can_see_pay=True):
 	filters = {"crop": crop, "docstatus": 1}
 	if farm:
 		filters["farm"] = farm
@@ -175,7 +175,9 @@ def list_costs(crop, farm=None):
 		erp = blockcost.erp_budget(u.cost_center) or None
 		if not acts and not erp:
 			continue
-		by_unit.append({"unit": u.name, "area_ha": area, "erp_budget": erp,
+		actual = analytics._pay(round(blockcost.actual_this_fy([u.name], [u.cost_center] if u.cost_center else []), 2),
+			can_see_pay) if erp else None
+		by_unit.append({"unit": u.name, "area_ha": area, "erp_budget": erp, "actual_this_fy": actual,
 			"total": round(sum(a["amount"] for a in acts.values()), 2), "by_activity": list(acts.values())})
 	return {"rows": rows, "by_unit": by_unit}
 

@@ -63,7 +63,7 @@ describe("Costs", () => {
     vi.mocked(blockBreakdown).mockReset().mockResolvedValue({
       unit: "Block A",
       area_ha: 2,
-      labour: [{ operation: "Pruning", qty_by_uom: [{ uom: "Tree", qty: 40 }], workers: 3, pay: 100 }],
+      labour: [{ operation: "OP-0007", operation_name: "Pruning", qty_by_uom: [{ uom: "Tree", qty: 40 }], workers: 3, pay: 100 }],
       inputs: [{ item_code: "NPK", item_name: "NPK 17", item_group: "Fertiliser", qty: 100, uom: "Kg", amount: 50, per_ha: 50, planned_qty: 120 }],
       other: [{ account: "Repairs - MUT", amount: 20 }],
       totals: { labour: 100, inputs: 50, other: 20, total: 170, per_ha: 85 },
@@ -77,6 +77,7 @@ describe("Costs", () => {
     expect(screen.getByTestId("per-ha-NPK")).toHaveTextContent("50.00 Kg/ha");
     expect(row).toHaveTextContent("120.00 Kg");
     expect(screen.getByTestId("breakdown-labour")).toHaveTextContent("Pruning");
+    expect(screen.getByTestId("breakdown-labour")).not.toHaveTextContent("OP-0007");
     expect(screen.getByTestId("breakdown-other")).toHaveTextContent("Repairs - MUT");
     expect(screen.getByTestId("breakdown-totals")).toHaveTextContent("KES 170");
     expect(screen.getByText(/over budget/i)).toBeInTheDocument();

@@ -49,7 +49,9 @@ class TestBlockCost(IntegrationTestCase):
 		type(self).n += 1
 		name = f"BC-SE-{self.n:04d}"
 		cc = frappe.db.get_value("Production Unit", unit, "cost_center")
-		frappe.get_doc({"doctype": "Stock Entry", "name": name, "stock_entry_type": entry_type, "company": self.company,
+		frappe.get_doc({"doctype": "Stock Entry", "name": name, "stock_entry_type": entry_type,
+			"purpose": {"Material Transfer": "Material Transfer", "Chemical Mixing": "Repack"}.get(entry_type, "Material Issue"),
+			"company": self.company,
 			"docstatus": 1, "posting_date": d or today()}).db_insert()
 		frappe.get_doc({"doctype": "Stock Entry Detail", "name": f"{name}-1", "parent": name, "parenttype": "Stock Entry",
 			"parentfield": "items", "item_code": self.fert.name, "qty": qty, "transfer_qty": qty, "stock_uom": "Kg", "uom": "Kg",
@@ -110,7 +112,8 @@ class TestBlockCost(IntegrationTestCase):
 		u = self._unit("BC Inputs", area_ha=4)
 		self._issue(u.name, 100, 5000)
 		self._issue(u.name, 60, 3000)
-		self._issue(u.name, 10, 999, entry_type="Material Transfer")  # still an issue row: s_warehouse only
+		self._issue(u.name, 10, 999, entry_type="Material Transfer")  # not an issue: not counted
+		self._issue(u.name, 30, 888, entry_type="Chemical Mixing")    # repack consumption: counted at the mix only
 		self._gl(u.name, 250)                                         # other expense, a journal
 		self._gl(u.name, 8000, "Stock Entry", "BC-SE-0001")           # stock posting of the issue: not "other"
 		res = B.breakdown(u.name, None, None, True)
@@ -118,13 +121,13 @@ class TestBlockCost(IntegrationTestCase):
 		self.assertEqual(res["area_ha"], 4)
 		row = res["inputs"][0]
 		self.assertEqual((row["item_code"], row["qty"], row["uom"], row["amount"], row["per_ha"]),
-			(self.fert.name, 170, "Kg", 8999, 42.5))
+			(self.fert.name, 160, "Kg", 8000, 40))
 		self.assertEqual(row["item_group"], "All Item Groups")
 		self.assertEqual(res["other"], [{"account": self.expense, "amount": 250}])
-		self.assertEqual(res["totals"]["inputs"], 8999)
+		self.assertEqual(res["totals"]["inputs"], 8000)
 		self.assertEqual(res["totals"]["other"], 250)
-		self.assertEqual(res["totals"]["total"], 9249)
-		self.assertEqual(res["totals"]["per_ha"], 2312.25)
+		self.assertEqual(res["totals"]["total"], 8250)
+		self.assertEqual(res["totals"]["per_ha"], 2062.5)
 		self.assertEqual(set(res["budget"]), {"erp_budget", "actual_this_fy"})
 
 	def test_breakdown_labour_and_pay_hidden(self):
@@ -159,3 +162,49 @@ class TestBlockCost(IntegrationTestCase):
 		self.assertEqual([r["amount"] for r in res["inputs"]], [70])
 		with self.assertRaises(frappe.ValidationError):
 			B.breakdown("Nope", None, None, True)
+
+	def test_blockcosts_table_ignores_harvesting_receipt(self):
+		from upande_production.production.logic import analytics
+
+		u = self._unit("BC Table")
+		issue = self._issue(u.name, 20, 400)
+		self._gl(u.name, 400, "Stock Entry", issue)
+		self._gl(u.name, 250)
+		harvest = self._issue(u.name, 500, 9000, entry_type="Harvesting", receipt=True)
+		self._gl(u.name, -9000, "Stock Entry", harvest)  # the receipt credits the expense account
+		row = next(r for r in analytics.block_costs(self.crop.name, None, None, True)["rows"] if r["unit"] == u.name)
+		res = B.breakdown(u.name, None, None, True)
+		self.assertEqual(row["inputs"], res["totals"]["inputs"] + res["totals"]["other"])
+		self.assertEqual(row["inputs"], 650)
+
+	def test_scope_dedupes_cost_centres(self):
+		g = self._unit("BC Group", is_group=1)
+		a = self._unit("BC Shared A", parent_production_unit=g.name)
+		b = self._unit("BC Shared B", parent_production_unit=g.name)
+		frappe.db.set_value("Production Unit", b.name, "cost_center", a.cost_center)
+		_units, ccs, _area = B._scope(g.name)
+		self.assertEqual(len(ccs), len(set(ccs)))
+
+	def test_actual_this_fy_includes_labour_and_setup_both_sides(self):
+		from upande_production.production.logic import establishment
+
+		fy = B.fiscal_year_range()
+		if not fy:
+			self.skipTest("no current fiscal year")
+		u = self._unit("BC Actual")
+		self._gl(u.name, 100)
+		self._gl(u.name, 7000, d=fy[1].replace(year=fy[1].year - 1))  # last year: out
+		emp = _make("Employee", first_name="BCActual", gender="Male", date_of_birth="1990-01-01",
+			date_of_joining="2020-01-01", company=self.company)
+		op = _make("Production Operation", crop=self.crop.name, operation_name="BC Actual Op", category="Other", work_uom="Kg")
+		frappe.get_doc({"doctype": "Value Adder Work", "name": "BC-VAW-ACT", "work_date": today(), "employee": emp.name,
+			"unit": u.name, "operation": op.name, "qty": 1, "uom": "Kg", "pay_value": 300, "docstatus": 1}).db_insert()
+		frappe.get_doc({"doctype": "Budget", "budget_against": "Cost Center", "company": self.company,
+			"cost_center": u.cost_center, "account": self.expense, "budget_amount": 5000, "from_fiscal_year": fy[0],
+			"to_fiscal_year": fy[0], "applicable_on_booking_actual_expenses": 1}).insert().submit()
+		self.assertEqual(B.actual_this_fy([u.name], [u.cost_center]), 400)
+		self.assertEqual(B.breakdown(u.name, None, None, True)["budget"]["actual_this_fy"], 400)
+		row = {r["unit"]: r for r in establishment.list_costs(self.crop.name)["by_unit"]}[u.name]
+		self.assertEqual((row["erp_budget"], row["actual_this_fy"]), (5000, 400))
+		hidden = {r["unit"]: r for r in establishment.list_costs(self.crop.name, None, False)["by_unit"]}[u.name]
+		self.assertIsNone(hidden["actual_this_fy"])

@@ -31,6 +31,8 @@ export interface EstablishmentByUnit {
   area_ha?: number | null;
   /** ERPNext Budget on the block's cost centre for the current fiscal year; absent or 0 when none. */
   erp_budget?: number | null;
+  /** Setup + running expense + labour this fiscal year (null when pay is hidden); compared with the ERP budget. */
+  actual_this_fy?: number | null;
   by_activity: EstablishmentByActivity[];
 }
 

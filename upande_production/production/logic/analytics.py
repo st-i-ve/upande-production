@@ -98,7 +98,9 @@ def _inputs_by_cc(ccs, frm, to):
 	rows = frappe.db.sql(
 		"""select gle.cost_center, sum(gle.debit - gle.credit)
 		from `tabGL Entry` gle join `tabAccount` a on a.name = gle.account
+		left join `tabStock Entry` se on gle.voucher_type = 'Stock Entry' and se.name = gle.voucher_no
 		where gle.is_cancelled = 0 and a.root_type = 'Expense'
+		and (se.name is null or se.stock_entry_type != 'Harvesting')
 		and gle.cost_center in %(c)s and gle.posting_date between %(f)s and %(t)s
 		group by gle.cost_center""",
 		{"c": tuple(ccs), "f": frm, "t": to},

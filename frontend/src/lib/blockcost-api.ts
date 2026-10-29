@@ -8,6 +8,8 @@ import { call } from "@/lib/frappe";
 
 export interface BreakdownLabour {
   operation: string;
+  /** Human name of the operation (the code is `operation`). */
+  operation_name?: string | null;
   qty_by_uom: { uom: string; qty: number }[];
   workers: number;
   /** Withheld (null) when the viewer cannot see pay. */

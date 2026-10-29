@@ -475,7 +475,8 @@ export function Establishment() {
                           {hasErpBudget && (
                             <TableCell
                               data-testid={`erp-budget-${r.unit}`}
-                              className={`text-right tabular-nums ${r.erp_budget && r.total > r.erp_budget ? "text-[var(--sd-data-red)]" : ""}`}
+                              className={`text-right tabular-nums ${r.erp_budget && r.actual_this_fy != null && r.actual_this_fy > r.erp_budget ? "text-[var(--sd-data-red)]" : ""}`}
+                              title={r.actual_this_fy != null ? `Spent this fiscal year ${kes(r.actual_this_fy)}` : undefined}
                             >
                               {r.erp_budget ? kes(r.erp_budget) : "—"}
                             </TableCell>

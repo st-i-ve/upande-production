@@ -100,4 +100,17 @@ describe("Establishment", () => {
     renderPage(<Establishment />);
     expect(await screen.findByTestId("erp-budget-Block A")).toHaveTextContent("KES 2,500");
   });
+
+  it("erp budget compares this fiscal year's spend, not all-time setup", async () => {
+    vi.mocked(est.listCosts).mockResolvedValue({
+      rows: [],
+      by_unit: [
+        { unit: "Block A", total: 3000, erp_budget: 2500, actual_this_fy: 900, by_activity: [{ operation: "Trellis", amount: 3000 }] },
+        { unit: "Block B", total: 100, erp_budget: 500, actual_this_fy: 800, by_activity: [{ operation: "Trellis", amount: 100 }] },
+      ],
+    } as never);
+    renderPage(<Establishment />);
+    expect((await screen.findByTestId("erp-budget-Block A")).className).not.toMatch(/data-red/);
+    expect(screen.getByTestId("erp-budget-Block B").className).toMatch(/data-red/);
+  });
 });

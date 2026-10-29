@@ -109,7 +109,7 @@ export function BlockBreakdown({
                   <tbody>
                     {data.labour.map((l) => (
                       <tr key={l.operation} className="border-b border-[var(--sd-line-soft)] last:border-0">
-                        <td className="px-2 py-2 text-[var(--sd-ink)]">{l.operation}</td>
+                        <td className="px-2 py-2 text-[var(--sd-ink)]">{l.operation_name || l.operation}</td>
                         <td className={cn(TD, "text-right")}>{formatUoms(l.qty_by_uom) || "—"}</td>
                         <td className={cn(TD, "text-right")}>{qty(l.workers)}</td>
                         {canSeePay && <td className={cn(TD, "text-right")}>{kes(l.pay)}</td>}
