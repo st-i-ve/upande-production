@@ -5,19 +5,15 @@ import frappe
 from frappe.model.document import Document
 from frappe.utils import getdate
 
+from upande_production.production.logic.harvest import valuation_rate
+
 
 class ProductionHarvest(Document):
 	def validate(self):
 		if not self.crop:
 			self.crop = frappe.db.get_value("Production Unit", self.unit, "crop")
 		if not self.price_per_uom:
-			filters = {"crop": self.crop, "price_per_uom": (">", 0)}
-			if self.item:
-				filters["item"] = self.item
-			self.price_per_uom = (
-				frappe.db.get_value("Buyer Commitment", filters, "price_per_uom", order_by="week_start desc")
-				or 0
-			)
+			self.price_per_uom = valuation_rate(self.item, self.crop)
 		self.value = (self.qty or 0) * (self.price_per_uom or 0)
 
 	def on_update(self):

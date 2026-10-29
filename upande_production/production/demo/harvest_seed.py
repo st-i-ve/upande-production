@@ -30,6 +30,7 @@ TEAMS = [
 	("1", 0, slice(0, 6), "PH1-B1"),
 	("2", 1, slice(6, 12), "P2-B2"),
 ]
+CROP_PRICE = {"Apiary": 900, "Fruits & Vegetables": 45, "Aquaculture": 400}
 # team number, block, [crates per scan call] -> closed after scanning; the last entry may stay open
 BATCHES = [
 	("1", "PH1-B1", 30, True),
@@ -54,6 +55,10 @@ def setup_masters():
 	for item, price in BASE["prices"].items():
 		if frappe.db.exists("Item", item) and not frappe.db.get_value("Item", item, "valuation_rate"):
 			frappe.db.set_value("Item", item, "valuation_rate", round(price * VALUATION_SHARE, 2))
+	# last-resort price of a harvest (Production Crop, Price per Kg): kept when a manager already set one
+	for crop, price in CROP_PRICE.items():
+		if frappe.db.exists("Production Crop", crop) and not frappe.db.get_value("Production Crop", crop, "price_per_kg"):
+			frappe.db.set_value("Production Crop", crop, "price_per_kg", price)
 	for crop in ("Avocado", "Fruits & Vegetables"):
 		if frappe.db.exists("Production Crop", crop):
 			H.harvest_operation(crop)

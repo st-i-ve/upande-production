@@ -15,6 +15,8 @@ begin; `last_day` is the inclusive last day.
 import frappe
 from frappe.utils import add_days, cint, getdate, today
 
+from upande_production.production.logic.units import unit_filter
+
 CYCLE_DT = "Production Crop Cycle"
 STOCKING_DT = "Pond Stocking"
 OPEN_CYCLE_STATUSES = ("Planned", "Active", "Harvesting")
@@ -201,7 +203,7 @@ def refresh_current_stage(cycle) -> str | None:
 def refresh_all_open():
 	"""Scheduler (daily): refresh current_stage of every open cycle."""
 	n = 0
-	for name in frappe.get_all(CYCLE_DT, filters={"status": ("in", OPEN_CYCLE_STATUSES), "variety": ("is", "set")},
+	for name in frappe.get_all(CYCLE_DT, filters=unit_filter({"status": ("in", OPEN_CYCLE_STATUSES), "variety": ("is", "set")}),
 			pluck="name"):
 		refresh_current_stage(frappe.get_doc(CYCLE_DT, name))
 		n += 1

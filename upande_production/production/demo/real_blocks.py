@@ -18,6 +18,7 @@ import frappe
 from frappe.utils import cint, flt
 
 from upande_production.production.demo.config import DEMO
+from upande_production.production.logic import units
 
 DEMO_ONLY = (
 	"Avocado Block A", "Avocado Block B", "Pivot 3", "Pivot 4",
@@ -108,7 +109,7 @@ def retire_demo_units() -> int:
 	n = 0
 	for name in DEMO_ONLY:
 		if frappe.db.exists("Production Unit", name) and frappe.db.get_value("Production Unit", name, "status") != "Retired":
-			frappe.db.set_value("Production Unit", name, "status", "Retired", update_modified=False)
+			units.retire(name)
 			n += 1
 	return n
 

@@ -84,16 +84,21 @@ def avg_kg_per_crate(item: str | None, crop: str | None) -> float:
 		frappe.ValidationError)
 
 
-def valuation_rate(item: str, crop: str | None) -> float:
-	"""Per-kg value the receipt books: the item's valuation rate, else the latest buyer price,
-	else the Production Settings fallback, else 0 (booked with allow_zero_valuation_rate)."""
-	v = flt(frappe.db.get_value("Item", item, "valuation_rate"))
+def valuation_rate(item: str | None, crop: str | None) -> float:
+	"""Per-kg value of a harvest: the item's valuation rate, else the latest buyer price (of the item,
+	else of the crop), else the crop's own Price per Kg (Production Crop), else the Production Settings
+	fallback, else 0 (a receipt is then booked with allow_zero_valuation_rate)."""
+	v = flt(frappe.db.get_value("Item", item, "valuation_rate")) if item else 0
 	if v > 0:
 		return v
-	filters = {"item": item, "price_per_uom": (">", 0)}
-	if crop:
-		filters["crop"] = crop
-	v = flt(frappe.db.get_value("Buyer Commitment", filters, "price_per_uom", order_by="week_start desc"))
+	for filters in ([{"item": item}] if item else []) + ([{}] if crop else []):
+		if crop:
+			filters = {**filters, "crop": crop}
+		v = flt(frappe.db.get_value("Buyer Commitment", {**filters, "price_per_uom": (">", 0)}, "price_per_uom",
+			order_by="week_start desc"))
+		if v > 0:
+			return v
+	v = flt(frappe.db.get_value("Production Crop", crop, "price_per_kg")) if crop else 0
 	if v > 0:
 		return v
 	return flt(frappe.db.get_single_value("Production Settings", "harvest_default_rate"))

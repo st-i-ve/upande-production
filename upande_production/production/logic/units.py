@@ -86,3 +86,26 @@ def unit_filter(filters: dict | None = None, field: str = "unit") -> dict:
 	if gone:
 		out[field] = ("not in", list(gone))
 	return out
+
+
+def close_open_work(unit: str) -> dict:
+	"""A unit has been retired: its open cycles close (no next-cycle proposal) and its open plan tasks are
+	skipped with a note. Straight DB writes, so no cycle hook proposes a successor. Idempotent."""
+	cycles = frappe.get_all("Production Crop Cycle", filters={"unit": unit, "status": ("in", ("Planned", "Active", "Harvesting"))},
+		pluck="name")
+	for c in cycles:
+		frappe.db.set_value("Production Crop Cycle", c, {"status": "Closed", "current_stage": None, "protocol_flags": "",
+			"flag_count": 0}, update_modified=False)
+	tasks = frappe.get_all("Production Plan Task", filters={"unit": unit, "status": ("in", ("Open", "In Progress"))},
+		fields=["name", "note"])
+	for t in tasks:
+		note = f"{t.note}\n" if t.note else ""
+		frappe.db.set_value("Production Plan Task", t.name, {"status": "Skipped", "note": f"{note}unit retired"},
+			update_modified=False)
+	return {"cycles": len(cycles), "tasks": len(tasks)}
+
+
+def retire(unit: str) -> None:
+	"""Mark a unit Retired and close its open work."""
+	frappe.db.set_value("Production Unit", unit, "status", "Retired", update_modified=False)
+	close_open_work(unit)

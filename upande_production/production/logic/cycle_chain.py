@@ -11,7 +11,7 @@ import frappe
 from frappe.utils import add_days, cint, getdate, today
 
 from upande_production.production.logic import stages
-from upande_production.production.logic.units import unit_filter
+from upande_production.production.logic.units import retired_units, unit_filter
 
 CYCLE_DT = "Production Crop Cycle"
 FLAG_STATUSES = ("Active", "Harvesting")
@@ -414,7 +414,7 @@ def _compare(label, unit, expected, actual, tol, now, verb_late, due_text):
 def flags(doc, today_=None) -> list[str]:
 	"""Manager flags for one Active / Harvesting cycle. Never raises."""
 	try:
-		if doc.get("status") not in FLAG_STATUSES or not doc.get("variety"):
+		if doc.get("status") not in FLAG_STATUSES or not doc.get("variety") or doc.get("unit") in retired_units():
 			return []
 		now, tol, unit = getdate(today_ or today()), _tolerance_weeks(), doc.get("unit")
 		flower, harvest = _stage_names(doc)
@@ -461,7 +461,7 @@ def refresh_flags(cycle) -> int:
 def refresh_flags_all() -> int:
 	"""Scheduler (daily): recompute flags of every open cycle; returns cycles flagged."""
 	n = 0
-	for name in frappe.get_all(CYCLE_DT, filters={"status": ("in", FLAG_STATUSES)}, pluck="name"):
+	for name in frappe.get_all(CYCLE_DT, filters=unit_filter({"status": ("in", FLAG_STATUSES)}), pluck="name"):
 		if refresh_flags(name):
 			n += 1
 	return n
