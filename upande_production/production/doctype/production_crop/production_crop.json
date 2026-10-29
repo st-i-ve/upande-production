@@ -23,7 +23,18 @@
   "dry_matter_section",
   "dry_matter_testing",
   "dry_matter_on",
-  "dry_matter_target_pct"
+  "dry_matter_target_pct",
+  "apiary_section",
+  "mite_threshold",
+  "mite_watch",
+  "honey_moisture_limit",
+  "aquaculture_section",
+  "sample_stale_days",
+  "water_bands",
+  "feed_types",
+  "fv_section",
+  "irrigation_mm_week",
+  "grades"
  ],
  "fields": [
   {
@@ -133,6 +144,73 @@
    "fieldtype": "Float",
    "label": "Dry Matter Target %",
    "depends_on": "dry_matter_testing"
+  },
+  {
+   "fieldname": "apiary_section",
+   "fieldtype": "Section Break",
+   "label": "Apiary limits",
+   "depends_on": "eval:doc.crop_key=='apiary'"
+  },
+  {
+   "fieldname": "mite_threshold",
+   "fieldtype": "Float",
+   "label": "Mite Threshold (per 100 bees)",
+   "description": "Colonies above this need treating."
+  },
+  {
+   "fieldname": "mite_watch",
+   "fieldtype": "Float",
+   "label": "Mite Watch (per 100 bees)",
+   "description": "A group is on watch from this load."
+  },
+  {
+   "fieldname": "honey_moisture_limit",
+   "fieldtype": "Float",
+   "label": "Honey Moisture Limit %",
+   "description": "Honey wetter than this may ferment."
+  },
+  {
+   "fieldname": "aquaculture_section",
+   "fieldtype": "Section Break",
+   "label": "Aquaculture",
+   "depends_on": "eval:doc.crop_key=='aquaculture'"
+  },
+  {
+   "fieldname": "sample_stale_days",
+   "fieldtype": "Int",
+   "label": "Weight Sample Stale Days",
+   "description": "A batch not weighed within this many days is flagged."
+  },
+  {
+   "fieldname": "water_bands",
+   "fieldtype": "Table",
+   "label": "Water Bands",
+   "options": "Production Water Band",
+   "description": "Safe water ranges; a variety can override them."
+  },
+  {
+   "fieldname": "feed_types",
+   "fieldtype": "Table",
+   "label": "Feed Types",
+   "options": "Production Feed Type"
+  },
+  {
+   "fieldname": "fv_section",
+   "fieldtype": "Section Break",
+   "label": "Fruits & Vegetables",
+   "depends_on": "eval:doc.crop_key=='fruits-vegetables'"
+  },
+  {
+   "fieldname": "irrigation_mm_week",
+   "fieldtype": "Float",
+   "label": "Irrigation Target (mm per week)",
+   "description": "Default for varieties without their own target."
+  },
+  {
+   "fieldname": "grades",
+   "fieldtype": "Table",
+   "label": "Grades",
+   "options": "Production Grade"
   }
  ],
  "index_web_pages_for_search": 1,

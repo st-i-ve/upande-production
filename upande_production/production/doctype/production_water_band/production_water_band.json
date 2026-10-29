@@ -1,0 +1,57 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-10-29 14:00:00.000000",
+ "custom": 0,
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "istable": 1,
+ "editable_grid": 1,
+ "field_order": [
+  "parameter",
+  "min",
+  "max",
+  "unit"
+ ],
+ "fields": [
+  {
+   "fieldname": "parameter",
+   "fieldtype": "Select",
+   "label": "Parameter",
+   "options": "DO\npH\nTemperature\nAmmonia\nNitrite",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "min",
+   "fieldtype": "Float",
+   "label": "Min (safe at or above)",
+   "in_list_view": 1,
+   "description": "Used by DO, pH and Temperature."
+  },
+  {
+   "fieldname": "max",
+   "fieldtype": "Float",
+   "label": "Max (safe under; pH and Temperature at or under)",
+   "in_list_view": 1,
+   "description": "Used by pH, Temperature, Ammonia and Nitrite."
+  },
+  {
+   "fieldname": "unit",
+   "fieldtype": "Data",
+   "label": "Unit",
+   "in_list_view": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-29 14:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Production Water Band",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

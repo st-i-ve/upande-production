@@ -1,0 +1,72 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-10-29 14:00:00.000000",
+ "custom": 0,
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "istable": 1,
+ "editable_grid": 1,
+ "field_order": [
+  "band_set",
+  "label",
+  "metric",
+  "min",
+  "max",
+  "severity"
+ ],
+ "fields": [
+  {
+   "fieldname": "band_set",
+   "fieldtype": "Data",
+   "label": "Band Set",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "Which colour scale this row belongs to, e.g. Forecast error."
+  },
+  {
+   "fieldname": "label",
+   "fieldtype": "Data",
+   "label": "Label",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "metric",
+   "fieldtype": "Data",
+   "label": "Metric",
+   "description": "What the number measures, e.g. percent."
+  },
+  {
+   "fieldname": "min",
+   "fieldtype": "Float",
+   "label": "From (included)",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "max",
+   "fieldtype": "Float",
+   "label": "Up to (not included)",
+   "in_list_view": 1,
+   "description": "Leave empty or 0 for no upper limit."
+  },
+  {
+   "fieldname": "severity",
+   "fieldtype": "Select",
+   "label": "Severity",
+   "options": "Good\nWatch\nCritical",
+   "default": "Good",
+   "in_list_view": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-29 14:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Production Band",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

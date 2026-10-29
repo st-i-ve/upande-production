@@ -39,6 +39,9 @@
   "harvest_window_weeks",
   "stages_section",
   "stages",
+  "water_section",
+  "water_bands",
+  "irrigation_mm_week",
   "notes"
  ],
  "fields": [
@@ -246,6 +249,24 @@
    "fieldname": "harvest_window_weeks",
    "fieldtype": "Int",
    "label": "Harvest Window (weeks)"
+  },
+  {
+   "fieldname": "water_section",
+   "fieldtype": "Section Break",
+   "label": "Water and Irrigation"
+  },
+  {
+   "fieldname": "water_bands",
+   "fieldtype": "Table",
+   "label": "Water Bands",
+   "options": "Production Water Band",
+   "description": "Safe water ranges for this species or strain; empty uses the crop's."
+  },
+  {
+   "fieldname": "irrigation_mm_week",
+   "fieldtype": "Float",
+   "label": "Irrigation Target (mm per week)",
+   "description": "Empty uses the crop's."
   }
  ],
  "index_web_pages_for_search": 0,
