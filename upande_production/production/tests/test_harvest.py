@@ -330,6 +330,24 @@ class TestHarvest(IntegrationTestCase):
 		self.assertIn(store, [s["name"] for s in got["data"]])
 		self.assertEqual(api.get_stores()["default"], self.warehouse)
 
+	def test_scp_location_warehouses_not_stores(self):
+		blk = self._store("HV SCP Block WH")
+		frappe.db.set_value("Warehouse", blk, "warehouse_type", "Block")
+		pivot = self._store("HV SCP Pivot WH")
+		frappe.db.set_value("Warehouse", pivot, "warehouse_type", "Pivot")
+		group = frappe.get_doc({"doctype": "Warehouse", "warehouse_name": "Production Blocks", "company": self.company,
+			"is_group": 1}) if not frappe.db.exists("Warehouse", {"warehouse_name": "Production Blocks", "company": self.company}) else None
+		if group:
+			group.insert()
+		gname = frappe.db.get_value("Warehouse", {"warehouse_name": "Production Blocks", "company": self.company})
+		child = self._store("HV Under Blocks WH")
+		frappe.db.set_value("Warehouse", child, "parent_warehouse", gname)
+		frappe.get_doc("Warehouse", child).save()  # rebuilds the tree (lft/rgt)
+		names = [s["name"] for s in H.stores(self.company)]
+		for w in (blk, pivot, child):
+			self.assertNotIn(w, names)
+		self.assertIn(self._store("HV Plain Store"), [s["name"] for s in H.stores(self.company)])
+
 	def test_block_warehouse_refused_as_store(self):
 		block_wh = self._store("HV Block WH")
 		frappe.db.set_value("Production Unit", self.unit2.name, "warehouse", block_wh)

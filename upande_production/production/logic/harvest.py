@@ -13,6 +13,7 @@ Cancelling the batch reverses all of it. Nothing here receives, weighs or packs 
 """
 
 import frappe
+from frappe.utils.nestedset import get_descendants_of
 from frappe import _
 from frappe.utils import flt, getdate, now_datetime, today
 
@@ -104,9 +105,19 @@ def harvest_warehouse() -> str:
 	return wh
 
 
+SCP_LOCATION_TYPES = ("Phase", "Pivot", "Section", "Block", "Farm")
+BLOCKS_GROUP = "Production Blocks"
+
+
 def block_warehouses() -> set[str]:
-	"""Warehouses linked from a Production Unit: block warehouses, where chemicals and fertiliser are issued."""
-	return set(frappe.get_all("Production Unit", filters={"warehouse": ("is", "set")}, pluck="warehouse"))
+	"""Location warehouses, never harvest stores: those linked from a Production Unit (where chemicals
+	and fertiliser are issued), SCP's location warehouses (Phase, Pivot, Section, Block, Farm) and
+	anything under the "Production Blocks" group."""
+	out = set(frappe.get_all("Production Unit", filters={"warehouse": ("is", "set")}, pluck="warehouse"))
+	out.update(frappe.get_all("Warehouse", filters={"warehouse_type": ("in", SCP_LOCATION_TYPES)}, pluck="name"))
+	for g in frappe.get_all("Warehouse", filters={"warehouse_name": BLOCKS_GROUP, "is_group": 1}, pluck="name"):
+		out.update(get_descendants_of("Warehouse", g))
+	return out
 
 
 def stores(company: str | None = None) -> list[dict]:
