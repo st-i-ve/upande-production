@@ -167,6 +167,44 @@ class TestMobileApi(IntegrationTestCase):
 		other = self._call(api.productionGetPlanDetail, {"crop": self.crop.name, "farm": self.farm.name, "year": y, "week": w, "unit": "nope"})
 		self.assertEqual(other["blocks"], [])
 
+	def test_mine_filters_to_the_logged_in_supervisor(self):
+		plan, mine_task = self._plan_with_task(supervisor=self.emp.name)
+		other = _make(
+			"Employee", first_name="TMOtherSup", gender="Male", date_of_birth="1992-01-01",
+			date_of_joining="2020-01-01", company=self.company,
+		)
+
+		def drop_other():
+			frappe.db.delete("Production Plan Task", {"supervisor": other.name})
+			frappe.delete_doc("Employee", other.name, force=True, ignore_permissions=True)
+
+		self.addCleanup(drop_other)
+		plan.reload()
+		plan.append("tasks", {
+			"unit": self.unit.name, "operation": self.op.name, "planned_qty": 3, "uom": "Kg",
+			"rate": 40, "due_date": today(), "status": "Open", "supervisor": other.name,
+		})
+		plan.save()
+		y, w = iso_of(today())
+		args = {"crop": self.crop.name, "farm": self.farm.name, "year": y, "week": w}
+		all_det = self._call(api.productionGetPlanDetail, args)
+		self.assertFalse(all_det["mine"])
+		# the user has no Employee yet: "mine" shows nothing
+		none = self._call(api.productionGetPlanDetail, {**args, "mine": True})
+		self.assertEqual((none["tasks_total"], none["blocks"], none["employee"]), (0, [], None))
+		frappe.db.set_value("Employee", self.emp.name, "user_id", frappe.session.user)
+		self.addCleanup(lambda: frappe.db.set_value("Employee", self.emp.name, "user_id", None))
+		det = self._call(api.productionGetPlanDetail, {**args, "mine": True})
+		self.assertEqual(det["employee"], self.emp.name)
+		names = [t["name"] for b in det["blocks"] for t in b["tasks"]]
+		self.assertIn(mine_task, names)
+		self.assertTrue(all(t["supervisor"] == self.emp.name for b in det["blocks"] for t in b["tasks"]))
+		self.assertEqual(det["tasks_total"], len(names))
+		self.assertLess(det["tasks_total"], all_det["tasks_total"])
+		lst = self._call(api.productionListWeekPlans, {"crop": self.crop.name, "farm": self.farm.name, "mine": True})
+		row = next(p for p in lst["plans"] if p["name"] == plan.name)
+		self.assertEqual(row["tasks_total"], det["tasks_total"])
+
 	def test_add_task_validates_and_creates(self):
 		y, w = iso_of(add_days(today(), 21))
 		due = add_days(today(), 21)

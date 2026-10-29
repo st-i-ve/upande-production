@@ -424,6 +424,15 @@ def _plan_for_edit(crop, farm, year, week):
 	return plans.get_or_create_plan(crop, farm, year, week)
 
 
+def _my_employee() -> str | None:
+	"""The Employee linked to the logged-in user (Employee.user_id), or None."""
+	return frappe.db.get_value("Employee", {"user_id": frappe.session.user, "status": "Active"}, "name")
+
+
+def _mine(data) -> bool:
+	return cint(data.get("mine")) == 1 or str(data.get("mine")).lower() == "true"
+
+
 def _is_late(t) -> bool:
 	if t.deviation == "Late":
 		return True
@@ -479,9 +488,13 @@ def productionListWeekPlans():
 			fields=["name", "farm", "plan_year", "plan_week", "week_start", "week_end"],
 			order_by="plan_year desc, plan_week desc", limit=cint(data.get("limit")) or 26,
 		)
+		task_filters = {"parenttype": "Production Work Plan", "parent": ("in", [r.name for r in rows] or [""])}
+		mine = _mine(data)
+		emp = _my_employee() if mine else None
+		if mine:
+			task_filters["supervisor"] = emp or "\0no-employee"
 		tasks = frappe.get_all(
-			"Production Plan Task",
-			filters={"parenttype": "Production Work Plan", "parent": ("in", [r.name for r in rows] or [""])},
+			"Production Plan Task", filters=task_filters,
 			fields=["parent", "status", "deviation", "due_date", "pending_qty"],
 		)
 		by_plan = {}
@@ -492,6 +505,7 @@ def productionListWeekPlans():
 			r["is_current"] = (r.plan_year, r.plan_week) == (cur_year, cur_week)
 		return {
 			"crop": crop, "current_year": cur_year, "current_week": cur_week, "plans": rows,
+			"mine": mine, "employee": emp,
 			"current_plan": next((r.name for r in rows if r["is_current"]), None),
 		}
 
@@ -523,6 +537,12 @@ def productionGetPlanDetail():
 		filters = {"parent": name, "parenttype": "Production Work Plan"}
 		if unit:
 			filters["unit"] = unit
+		mine = _mine(data)
+		emp = _my_employee() if mine else None
+		out["mine"], out["employee"] = mine, emp
+		if mine:
+			# only the logged-in supervisor's own tasks (nothing when the user has no Employee link)
+			filters["supervisor"] = emp or "\0no-employee"
 		tasks = frappe.get_all("Production Plan Task", filters=filters, fields=PLAN_TASK_FIELDS,
 			order_by="due_date asc, idx asc")
 		crew = _task_entries(name)
