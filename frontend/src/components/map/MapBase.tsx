@@ -28,7 +28,7 @@ export interface MapBaseProps {
 
 export type Basemap = "satellite" | "street";
 
-/** Mutara, Laikipia (simulated demo position; see production/demo/geo.py). */
+/** Mutara, Laikipia: the starting view until the surveyed block outlines load and the map fits to them. */
 export const DEFAULT_CENTER: [number, number] = [36.75, 0.06];
 export const DEFAULT_ZOOM = 14;
 
