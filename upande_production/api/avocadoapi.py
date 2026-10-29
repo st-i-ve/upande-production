@@ -901,6 +901,20 @@ def _block_source():
 				 "or load blocks into Avocado Yield Block.")
 
 
+def retired_codes():
+	"""Block codes whose Production Unit is Retired: they stay in the records, never on a page."""
+	return set(frappe.get_all("Production Unit", filters={"status": "Retired", "avocado_block_code": ("is", "set")},
+							  pluck="avocado_block_code", limit_page_length=0))
+
+
+def _live(rows, *fields):
+	"""`rows` without those of a retired block (the block code sits in the first of `fields` that a row has)."""
+	gone = retired_codes()
+	if not gone:
+		return rows
+	return [r for r in rows if next((r.get(f) for f in fields if r.get(f)), None) not in gone]
+
+
 def _read_blocks(extra=None, farm=None):
 	fields = BLOCK_FIELDS + (extra or [])
 	source = _block_source()
@@ -910,17 +924,17 @@ def _read_blocks(extra=None, farm=None):
 		# which of the two answered.
 		pass
 	filters = {"farm": farm} if farm else None
-	return frappe.get_all(source, fields=fields, filters=filters, limit_page_length=0), source
+	return _live(frappe.get_all(source, fields=fields, filters=filters, limit_page_length=0), "name"), source
 
 
 def _latest_counts():
 	"""{block: latest fruit count} — the newest count per block wins."""
-	rows = frappe.get_all(
+	rows = _live(frappe.get_all(
 		COUNT_DOCTYPE,
 		fields=["orchard_block", "count_date", "fruit_per_tree", "est_kg_per_tree",
 				"trees_counted", "weight_basis", "drop_pct"],
 		order_by="count_date asc", limit_page_length=0,
-	)
+	), "orchard_block")
 	return {r.orchard_block: {"count_date": str(r.count_date),
 							  "fruit_per_tree": flt(r.fruit_per_tree),
 							  "est_kg_per_tree": undo_count_drop(r.est_kg_per_tree, r.drop_pct),
@@ -941,7 +955,7 @@ def get_blocks():
 @frappe.whitelist()
 def get_forecast(price_per_kg=0, drop_pct=DEFAULT_DROP_PCT):
 	blocks, source = _read_blocks(["to_infill"])
-	harvests = (frappe.get_all(HARVEST_DOCTYPE, fields=HARVEST_FIELDS, limit_page_length=0)
+	harvests = (_live(frappe.get_all(HARVEST_DOCTYPE, fields=HARVEST_FIELDS, limit_page_length=0), "orchard_block")
 				if frappe.db.exists("DocType", HARVEST_DOCTYPE) else [])
 	model = avocado_model.load_model()
 	out = estimate(blocks, harvests, model, counts=_latest_counts(), price_per_kg=flt(price_per_kg),
@@ -1006,12 +1020,12 @@ def _samples(model=None):
 	"""
 	model = model or avocado_model.load_model()
 	if frappe.db.exists("DocType", SAMPLE_DOCTYPE):
-		rows = frappe.get_all(
+		rows = _live(frappe.get_all(
 			SAMPLE_DOCTYPE,
 			fields=["orchard_block", "sample_date", "avg_dry_matter_pct", "min_dry_matter_pct",
 					"avg_fruit_weight_g", "harvest_ready"],
 			order_by="sample_date asc", limit_page_length=0,
-		)
+		), "orchard_block")
 		if rows:
 			return rows
 	return _cohort_samples(model)
@@ -1031,8 +1045,8 @@ def _cohort_samples(model):
 	fields = ["planting_year", "week_number", "test_date", "dry_matter_pct"]
 	if frappe.get_meta("Avocado Maturity Test").get_field("orchard_block"):
 		fields.append("orchard_block")
-	tests = frappe.get_all("Avocado Maturity Test", fields=fields,
-						   order_by="week_number asc", limit_page_length=0)
+	tests = _live(frappe.get_all("Avocado Maturity Test", fields=fields,
+								 order_by="week_number asc", limit_page_length=0), "orchard_block")
 
 	# A test naming its own block is a measurement of that block and goes straight
 	# through. Only the rest are spread across their planting year.
@@ -1075,7 +1089,7 @@ def _cohort_samples(model):
 
 	blocks_by_year = {}
 	source, _ = _block_source(), None
-	for b in frappe.get_all(source, fields=["name", "planting_year"], limit_page_length=0):
+	for b in _live(frappe.get_all(source, fields=["name", "planting_year"], limit_page_length=0), "name"):
 		if b.planting_year:
 			blocks_by_year.setdefault(cint(b.planting_year), []).append(b.name)
 
@@ -1199,14 +1213,14 @@ def _history():
 	# crop a year and no windows. Better than a page that throws.
 	fields += [f for f in ("season_part", "harvest_start", "harvest_end", "window_basis")
 			   if meta.get_field(f)]
-	return frappe.get_all(HISTORY_DOCTYPE, fields=fields, limit_page_length=0)
+	return _live(frappe.get_all(HISTORY_DOCTYPE, fields=fields, limit_page_length=0), "block_code")
 
 
 def _calibration_seasons(history):
 	"""Seasons with both a typed estimate and a delivery, read from the records (see calibration_seasons)."""
-	forecasts = (frappe.get_all(MANUAL_FORECAST_DOCTYPE,
-								fields=["orchard_block", "season", "crop", "expected_kg"],
-								limit_page_length=0)
+	forecasts = (_live(frappe.get_all(MANUAL_FORECAST_DOCTYPE,
+									  fields=["orchard_block", "season", "crop", "expected_kg"],
+									  limit_page_length=0), "orchard_block")
 				 if frappe.db.exists("DocType", MANUAL_FORECAST_DOCTYPE) else [])
 	budgets = (frappe.get_all(MANUAL_BUDGET_DOCTYPE, fields=["season", "crop", "budget_kg"],
 							  limit_page_length=0)
@@ -1215,7 +1229,7 @@ def _calibration_seasons(history):
 
 
 def _harvest_rows(names=None):
-	rows = (frappe.get_all(HARVEST_DOCTYPE, fields=HARVEST_FIELDS, limit_page_length=0)
+	rows = (_live(frappe.get_all(HARVEST_DOCTYPE, fields=HARVEST_FIELDS, limit_page_length=0), "orchard_block")
 			if frappe.db.exists("DocType", HARVEST_DOCTYPE) else [])
 	return [h for h in rows if h.orchard_block in names] if names is not None else rows
 
@@ -1337,12 +1351,12 @@ def _manual_forecast_rows(season=None, crop=None):
 		# An Early entry estimates the crop that is already delivered (it is what the
 		# estimate-vs-delivered card scores), not the crop still coming.
 		filters["crop"] = ["!=", "Early"]
-	entries = frappe.get_all(
+	entries = _live(frappe.get_all(
 		MANUAL_FORECAST_DOCTYPE, filters=filters,
 		fields=["name", "orchard_block", "season", "crop", "expected_kg",
 				"price_per_kg", "entered_by", "entry_date", "notes"],
 		order_by="entry_date desc", limit_page_length=0,
-	)
+	), "orchard_block")
 	blocks, _ = _read_blocks()
 	by_block = {b["name"]: b for b in blocks}
 	seen, rows = set(), []

@@ -19,7 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Picker } from "@/components/ui/picker";
 import { listUnits, type UnitRow } from "@/lib/api";
 import { useCurrentCrop, viewLabel } from "@/lib/crops";
-import { listDryMatterTests, saveDryMatterTest, type DryMatterTest } from "@/lib/drymatter-api";
+import { listDryMatterDue, listDryMatterTests, saveDryMatterTest, type DryMatterTest, type DueList, type DueRow } from "@/lib/drymatter-api";
 import { isError } from "@/lib/frappe";
 import { shortDate } from "@/lib/format";
 import { cn, todayISO } from "@/lib/utils";
@@ -40,17 +40,41 @@ function Badge({ ready }: { ready: boolean }) {
   );
 }
 
-/** Dry matter tests for crops that switch them on (potatoes, mangoes ...). Avocado has its own page. */
+const DUE = "bg-[var(--sd-alert-warn)] text-[var(--sd-sev-high)]";
+const RECENT = "bg-[var(--sd-alert-ok)] text-[var(--sd-sev-moderate)]";
+const WAITING = "bg-[var(--sd-bg-soft)] text-[var(--sd-quiet)]";
+
+function DueChip({ r, days }: { r: DueRow; days: number }) {
+  if (r.state === "due")
+    return (
+      <span data-testid="due-chip" className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium", DUE)}>
+        {r.last_test ? `Due, last test ${r.days_since} d ago` : "Due, never sampled"}
+      </span>
+    );
+  if (r.state === "recent")
+    return (
+      <span data-testid="due-chip" className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium", RECENT)}>
+        Tested {r.days_since === 0 ? "today" : `${r.days_since} d ago`}
+      </span>
+    );
+  return (
+    <span data-testid="due-chip" title={`Sampling starts at ${r.from_stage ?? "the first stage"}; retest after ${days} days`} className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium", WAITING)}>
+      Not yet at {r.from_stage}
+    </span>
+  );
+}
+
+/** Dry matter tests for the varieties that are tested (potatoes, onions, cabbage ...). Avocado has its own page. */
 export function DryMatterTests() {
   const crop = useCurrentCrop();
   const toast = useToast();
   const [rows, setRows] = useState<DryMatterTest[] | null>(null);
+  const [due, setDue] = useState<DueList | null>(null);
+  const [recordFor, setRecordFor] = useState("");
   const [units, setUnits] = useState<UnitRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [unit, setUnit] = useState("");
   const [recording, setRecording] = useState(false);
-  const target = crop.dry_matter_target_pct ?? null;
-  const on = crop.dry_matter_on || "Fruit";
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -61,6 +85,8 @@ export function DryMatterTests() {
       return;
     }
     setRows((r as { rows: DryMatterTest[] }).rows ?? []);
+    const d = await listDryMatterDue(crop.name);
+    if (!isError(d)) setDue(d as DueList);
   }, [crop.name, unit, toast]);
 
   useEffect(() => {
@@ -81,12 +107,15 @@ export function DryMatterTests() {
   const total = rows?.length ?? 0;
   const ready = (rows ?? []).filter((r) => !!Number(r.ready)).length;
   const unitOptions = useMemo(() => units.map((u) => u.name), [units]);
+  const dueRows = useMemo(() => (due?.rows ?? []).filter((r) => !unit || r.unit === unit), [due, unit]);
+  const dueNow = dueRows.filter((r) => r.state === "due").length;
+  const dueOf = (u: string) => (due?.rows ?? []).find((r) => r.unit === u) ?? null;
 
   return (
     <PageShell
       title={viewLabel("dry-matter-tests", crop)}
       eyebrow={crop.name}
-      description={`Dry matter of the ${on.toLowerCase()}${target != null ? `, ready at ${target}% or more` : ""}. Several samples per test; the average decides.`}
+      description="Each variety is tested on its own part (tuber, bulb, head, fruit) and is ready at its own target. Sampling is due from the variety's sampling stage. Several samples per test; the average decides."
       actions={
         <>
           <FilterSelect label={crop.unit_label} value={unit} onChange={setUnit} options={unitOptions} allLabel={`All ${crop.unit_label.toLowerCase()}s`} />
@@ -99,11 +128,65 @@ export function DryMatterTests() {
         </>
       }
     >
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-3">
+      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+        <KpiCard loading={first} label="Due for sampling" value={due ? dueNow : "—"} hint={due ? `no test in ${due.retest_days} days, in or past the sampling stage` : ""} tone={dueNow ? "warning" : "default"} />
         <KpiCard loading={first} label="Tests" value={rows ? total : "—"} hint="recorded" />
-        <KpiCard loading={first} label="Ready" value={rows ? `${ready} of ${total}` : "—"} hint={target != null ? `average at or above ${target}%` : "average at or above target"} tone={ready ? "good" : "default"} />
+        <KpiCard loading={first} label="Ready" value={rows ? `${ready} of ${total}` : "—"} hint="average at or above the variety's target" tone={ready ? "good" : "default"} />
         <KpiCard loading={first} label="Not yet" value={rows ? total - ready : "—"} hint="below target" tone={total - ready ? "warning" : "default"} />
       </div>
+
+      <Card className="mt-4 overflow-hidden" data-testid="dm-due">
+        <CardHeaderRow>
+          <CardHeading>
+            <CardTitle>Due for sampling</CardTitle>
+            <CardDescription>
+              {due ? `A ${crop.unit_label.toLowerCase()} is due when its crop is in or past the variety's sampling stage and has no test in the last ${due.retest_days} days (Production Settings).` : "Blocks that are in or past their sampling stage."}
+            </CardDescription>
+          </CardHeading>
+        </CardHeaderRow>
+        {first || !due ? (
+          <div className="px-5 pb-6"><RowsSkeleton rows={3} /></div>
+        ) : dueRows.length ? (
+          <ScrollTable>
+            <table className="w-full text-[13px]">
+              <thead className={STICKY_HEAD}>
+                <tr className={THEAD_ROW}>
+                  <th className={TH}>{crop.unit_label}</th>
+                  <th className={TH}>Variety</th>
+                  <th className={TH}>Stage now</th>
+                  <th className={TH}>Sample from</th>
+                  <th className={TH}>Tested on</th>
+                  <th className={THR}>Last test</th>
+                  <th className={THR}>Target</th>
+                  <th className={TH}>Sampling</th>
+                  <th className={TH}><span className="sr-only">Record</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {dueRows.map((r) => (
+                  <tr key={r.unit} className={BODY_ROW} data-testid={`due-row-${r.unit}`}>
+                    <td className={cn(TD, "font-semibold")}>{r.unit}</td>
+                    <td className={cn(TD, "text-[var(--sd-muted)]")}>{r.variety || "—"}</td>
+                    <td className={TD}>{r.stage || "—"}</td>
+                    <td className={cn(TD, "text-[var(--sd-muted)]")}>{r.from_stage || "from the start"}</td>
+                    <td className={cn(TD, "text-[var(--sd-muted)]")}>{r.on || "—"}</td>
+                    <td className={cn(TDR, "tabular-nums")}>{r.last_test ? `${shortDate(r.last_test)}${r.last_pct != null ? ` · ${r.last_pct.toFixed(1)}%` : ""}` : "never"}</td>
+                    <td className={cn(TDR, "text-[var(--sd-muted)]")}>{r.target_pct != null ? `${r.target_pct}%` : "—"}</td>
+                    <td className={TD}><DueChip r={r} days={due.retest_days} /></td>
+                    <td className={TD}>
+                      {r.state !== "not_yet" && (
+                        <Button variant="outline" size="sm" aria-label={`Record a test for ${r.unit}`} onClick={() => { setRecordFor(r.unit); setRecording(true); }}>Record</Button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </ScrollTable>
+        ) : (
+          <p className="px-5 py-8 text-center text-[13px] text-[var(--sd-quiet)]">No {crop.unit_label.toLowerCase()} with a tested variety{unit ? ` for ${unit}` : ""} has an open cycle.</p>
+        )}
+      </Card>
 
       <Card className="mt-4 overflow-hidden">
         <CardHeaderRow>
@@ -122,6 +205,7 @@ export function DryMatterTests() {
                   <th className={TH}>Date</th>
                   <th className={TH}>{crop.unit_label}</th>
                   <th className={TH}>Variety</th>
+                  <th className={TH}>Stage</th>
                   <th className={THR}>Samples</th>
                   <th className={THR}>Average</th>
                   <th className={THR}>Target</th>
@@ -134,6 +218,7 @@ export function DryMatterTests() {
                     <td className={cn(TD, "font-semibold tabular-nums")}>{shortDate(t.test_date)}</td>
                     <td className={TD}>{t.unit}</td>
                     <td className={cn(TD, "text-[var(--sd-muted)]")}>{t.variety || "—"}</td>
+                    <td className={cn(TD, "text-[var(--sd-muted)]")} data-testid={`dm-stage-${t.name}`}>{t.stage || "—"}</td>
                     <td className={TDR}>{t.samples.length}</td>
                     <td className={cn(TDR, "font-semibold")}>{t.avg_pct.toFixed(1)}%</td>
                     <td className={cn(TDR, "text-[var(--sd-muted)]")}>{t.target_pct != null ? `${t.target_pct}%` : "—"}</td>
@@ -150,7 +235,7 @@ export function DryMatterTests() {
         )}
       </Card>
 
-      <RecordTestDialog open={recording} onOpenChange={setRecording} unitOptions={unitOptions} defaultUnit={unit} target={target} crop={crop.name} onSaved={load} />
+      <RecordTestDialog open={recording} onOpenChange={(o) => { setRecording(o); if (!o) setRecordFor(""); }} unitOptions={unitOptions} defaultUnit={recordFor || unit} dueOf={dueOf} fallbackTarget={crop.dry_matter_target_pct ?? null} crop={crop.name} onSaved={load} />
     </PageShell>
   );
 }
@@ -160,7 +245,8 @@ function RecordTestDialog({
   onOpenChange,
   unitOptions,
   defaultUnit,
-  target,
+  dueOf,
+  fallbackTarget,
   crop,
   onSaved,
 }: {
@@ -168,7 +254,9 @@ function RecordTestDialog({
   onOpenChange: (o: boolean) => void;
   unitOptions: string[];
   defaultUnit: string;
-  target: number | null;
+  dueOf: (unit: string) => DueRow | null;
+  /** The crop's default target, used until a block (and so a variety) is chosen. */
+  fallbackTarget: number | null;
   crop: string;
   onSaved: () => void;
 }) {
@@ -190,6 +278,8 @@ function RecordTestDialog({
   const valid = nums.filter((n): n is number => n != null && Number.isFinite(n) && n > 0 && n < 100);
   const bad = nums.some((n, i) => vals[i].trim() !== "" && (n == null || !Number.isFinite(n) || n <= 0 || n >= 100));
   const avg = averageOf(valid);
+  const info = dueOf(unit);
+  const target = info?.target_pct ?? fallbackTarget;
   const isReady = avg != null && target != null && avg >= target;
 
   async function save() {
@@ -220,6 +310,11 @@ function RecordTestDialog({
         <div className="flex flex-col gap-1.5">
           <Label>Where</Label>
           <Picker label="Where" value={unit} onChange={setUnit} options={unitOptions} placeholder="Choose where" />
+          {info && (
+            <span className="text-[12px] text-[var(--sd-quiet)]" data-testid="dmt-variety">
+              {info.variety ?? "No variety"}{info.stage ? `, now in ${info.stage}` : ""}{info.on ? `, tested on the ${info.on.toLowerCase()}` : ""}
+            </span>
+          )}
         </div>
         <div className="flex flex-col gap-1.5">
           <Label>Test date</Label>

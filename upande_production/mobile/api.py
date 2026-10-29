@@ -4,6 +4,7 @@ from frappe.utils import cint, getdate, today
 
 from upande_production.production.logic import analytics, approvals, plans, rules, work
 from upande_production.production.logic.settings import can_see_pay
+from upande_production.production.logic.units import unit_filter
 from upande_production.production.logic.weeks import iso_of, iso_week_bounds
 
 TASK_FIELDS = [
@@ -171,7 +172,7 @@ def productionGetWeekPlan():
 		tasks = []
 		if name:
 			tasks = frappe.get_all(
-				"Production Plan Task", filters={"parent": name, "parenttype": "Production Work Plan"},
+				"Production Plan Task", filters=unit_filter({"parent": name, "parenttype": "Production Work Plan"}),
 				fields=TASK_FIELDS, order_by="due_date asc, idx asc",
 			)
 			_strip_pay(tasks, "rate")
@@ -410,7 +411,7 @@ def _find_plan(crop, farm, year, week):
 def _crop_farm(crop):
 	"""The crop's farm when all its units sit on one (Mutara today), so a phone that sends no farm
 	still lands on the same week plan as the desk instead of a farm-less one."""
-	farms = {f for f in frappe.get_all("Production Unit", filters={"crop": crop}, pluck="farm") if f}
+	farms = {f for f in frappe.get_all("Production Unit", filters={"crop": crop, "status": ("!=", "Retired")}, pluck="farm") if f}
 	return farms.pop() if len(farms) == 1 else None
 
 
@@ -488,7 +489,7 @@ def productionListWeekPlans():
 			fields=["name", "farm", "plan_year", "plan_week", "week_start", "week_end"],
 			order_by="plan_year desc, plan_week desc", limit=cint(data.get("limit")) or 26,
 		)
-		task_filters = {"parenttype": "Production Work Plan", "parent": ("in", [r.name for r in rows] or [""])}
+		task_filters = unit_filter({"parenttype": "Production Work Plan", "parent": ("in", [r.name for r in rows] or [""])})
 		mine = _mine(data)
 		emp = _my_employee() if mine else None
 		if mine:
@@ -537,6 +538,8 @@ def productionGetPlanDetail():
 		filters = {"parent": name, "parenttype": "Production Work Plan"}
 		if unit:
 			filters["unit"] = unit
+		else:
+			filters = unit_filter(filters)
 		mine = _mine(data)
 		emp = _my_employee() if mine else None
 		out["mine"], out["employee"] = mine, emp

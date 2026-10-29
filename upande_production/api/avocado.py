@@ -21,6 +21,7 @@ from frappe.utils import add_days, cint, flt, getdate, nowdate
 
 from upande_production.api import avocado_model, avocadoapi, avocadolabour, avocadomaturity
 from upande_production.api.envelope import as_dict, run
+from upande_production.production.logic import drymatter as drymatter_logic
 from upande_production.production.logic.settings import can_see_pay
 
 READ_ROLES = {"Production Manager", "Production Supervisor", "Production Viewer",
@@ -119,7 +120,8 @@ def _round(v, n=0):
 
 def _all_farms():
 	source = avocadoapi._block_source()
-	return sorted({f for f in frappe.get_all(source, pluck="farm", limit_page_length=0) if f})
+	rows = avocadoapi._live(frappe.get_all(source, fields=["name", "farm"], limit_page_length=0), "name")
+	return sorted({r.farm for r in rows if r.farm})
 
 
 def _monday(d=None):
@@ -1116,10 +1118,12 @@ def dry_matter(farm=None, block=None):
 	for pts in series.values():
 		pts.sort(key=lambda p: p["date"])
 
+	variety_of = {r["name"]: r.get("variety") for r in avocadoapi._read_blocks()[0]}
 	rows = []
 	for b in form["blocks"]:
 		p = projection.get(b["block"])
 		pts = series.get(b["block"], [])
+		sampling = drymatter_logic.block_status(b["block"], variety_of.get(b["block"]), pts[-1]["date"] if pts else None)
 		if p:
 			dm = p["dry_matter_pct"]
 			state = ("stale" if p["stale"] else "ready" if p["ready"] else "rising")
@@ -1139,6 +1143,8 @@ def dry_matter(farm=None, block=None):
 			"needs": p["needs"] if p else "a first dry matter sample",
 			"measured_on": pts[-1]["measured_on"] if pts else None,
 			"trend": pts,
+			"stage": sampling["stage"], "sample_from_stage": sampling["from_stage"], "sampling": sampling["state"],
+			"days_since_test": sampling["days_since"],
 		})
 	rows.sort(key=lambda r: (r["dry_matter_pct"] is None, -(r["dry_matter_pct"] or 0)))
 
@@ -1149,7 +1155,9 @@ def dry_matter(farm=None, block=None):
 		"farm": farm, "block": block, "farms": _all_farms(), "form": form,
 		"minimum_pct": minimum, "maximum_pct": model["dm_max"],
 		"blocks": rows,
+		"retest_days": drymatter_logic.retest_days(),
 		"summary": {"blocks": len(rows),
+					"due": sum(1 for r in rows if r["sampling"] == "due"),
 					"ready": sum(1 for r in rows if r["state"] == "ready"),
 					"rising": sum(1 for r in rows if r["state"] == "rising"),
 					"stale": sum(1 for r in rows if r["state"] == "stale"),

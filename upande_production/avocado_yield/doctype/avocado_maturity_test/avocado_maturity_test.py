@@ -52,3 +52,13 @@ class AvocadoMaturityTest(Document):
 			except Exception:
 				pass
 		self.export_ready = 1 if flt(self.dry_matter_pct) >= minimum else 0
+		self.cycle_stage = self._stage_on_test_date()
+
+	def _stage_on_test_date(self):
+		"""The block's cycle stage on the test date (area-level tests have no block, so no stage)."""
+		if not (self.orchard_block and self.test_date):
+			return None
+		from upande_production.production.logic import drymatter
+
+		unit = frappe.db.get_value("Production Unit", {"avocado_block_code": self.orchard_block})
+		return drymatter.stage_of_cycle(drymatter.cycle_on(unit, self.test_date), self.test_date) if unit else None

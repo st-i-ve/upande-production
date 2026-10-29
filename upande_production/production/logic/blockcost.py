@@ -20,7 +20,7 @@ from upande_production.production.logic.analytics import _pay, merge_uoms
 
 def links(crop: str) -> list[dict]:
 	"""[{unit, cost_center, warehouse, ok, problems}] for every leaf block of the crop."""
-	rows = frappe.get_all("Production Unit", filters={"crop": crop, "is_group": 0},
+	rows = frappe.get_all("Production Unit", filters={"crop": crop, "is_group": 0, "status": ("!=", "Retired")},
 		fields=["name", "cost_center", "warehouse"], order_by="lft asc")
 	out = []
 	for r in rows:

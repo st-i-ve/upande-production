@@ -35,7 +35,7 @@ export interface Crop {
   uses_crop_cycles?: number | boolean;
   /** Dry matter tests are switched on for this crop (avocado keeps its own page). */
   dry_matter_testing?: number | boolean;
-  dry_matter_on?: "Fruit" | "Tuber" | null;
+  dry_matter_on?: "Fruit" | "Tuber" | "Bulb" | "Head" | "Leaf" | null;
   dry_matter_target_pct?: number | null;
 }
 

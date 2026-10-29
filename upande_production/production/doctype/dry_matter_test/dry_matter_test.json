@@ -11,6 +11,7 @@
   "crop",
   "variety",
   "test_date",
+  "stage",
   "tested_on",
   "tested_by",
   "col_a",
@@ -63,7 +64,7 @@
    "fieldname": "tested_on",
    "fieldtype": "Select",
    "label": "Tested On",
-   "options": "\nFruit\nTuber"
+   "options": "\nFruit\nTuber\nBulb\nHead\nLeaf"
   },
   {
    "fieldname": "tested_by",
@@ -105,6 +106,13 @@
    "fieldtype": "Table",
    "label": "Samples",
    "options": "Dry Matter Sample"
+  },
+  {
+   "fieldname": "stage",
+   "fieldtype": "Data",
+   "label": "Cycle stage",
+   "read_only": 1,
+   "description": "The cycle's stage on the test date (set from the cycle)."
   }
  ],
  "index_web_pages_for_search": 0,

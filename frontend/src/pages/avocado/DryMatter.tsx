@@ -75,7 +75,8 @@ export function DryMatter() {
         </>
       }
     >
-      <AccentScope accent={accent} className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+      <AccentScope accent={accent} className="grid grid-cols-2 gap-4 xl:grid-cols-5">
+        <KpiCard loading={first} label="Due for sampling" value={s?.due ?? "—"} hint={data?.retest_days ? `in or past the sampling stage, no test in ${data.retest_days} days` : "in or past the sampling stage"} tone={s?.due ? "warning" : "default"} />
         <KpiCard loading={first} label="Ready" value={s ? `${fmtNum(s.ready)} of ${fmtNum(s.blocks)}` : "—"} hint={data ? `blocks at or above ${data.minimum_pct}%` : ""} tone={s?.ready ? "good" : "default"} />
         <KpiCard loading={first} label="Rising" value={s?.rising ?? "—"} hint="under the floor and gaining" />
         <KpiCard loading={first} label="Stale" value={s?.stale ?? "—"} hint="last reading too old to trust" tone={s?.stale ? "warning" : "default"} />
@@ -118,6 +119,7 @@ export function DryMatter() {
                   <th className={TH}>Date</th>
                   <th className={THR}>Week</th>
                   <th className={TH}>Where</th>
+                  <th className={TH}>Stage</th>
                   <th className={THR}>Sizes</th>
                   <th className={THR}>Avg dry matter</th>
                   <th className={TH}>Verdict</th>
@@ -134,6 +136,7 @@ export function DryMatter() {
                         <Chip className="ml-2 bg-[var(--sd-bg-soft)] text-[var(--sd-quiet)]">area, not a block</Chip>
                       )}
                     </td>
+                    <td className={cn(TD, "text-[var(--sd-muted)]")} data-testid="dm-visit-stage">{v.stage || "—"}</td>
                     <td className={TDR}>{v.sizes.length}</td>
                     <td className={cn(TDR, "font-semibold")}>{v.average_dry_matter.toFixed(1)}%</td>
                     <td className={TD}>

@@ -165,12 +165,14 @@ def recent(orchard_block=None, limit=40):
 	model = avocado_model.load_model()
 	minimums = _block_minimums(model)
 	filters = {"orchard_block": orchard_block} if orchard_block else {}
-	rows = frappe.get_all(
+	from upande_production.api.avocadoapi import _live
+
+	rows = _live(frappe.get_all(
 		DOCTYPE, filters=filters,
 		fields=["name", "orchard_block", "planting_area", "week_number", "test_date",
-				"fruit_count_size", "moisture_pct", "dry_matter_pct"],
+				"fruit_count_size", "moisture_pct", "dry_matter_pct", "cycle_stage"],
 		order_by="test_date desc, fruit_count_size asc", limit_page_length=cint(limit) or 40,
-	)
+	), "orchard_block")
 	# Group a visit back together: one date is one trip to one block, however many
 	# sizes were dried.
 	visits = {}
@@ -179,7 +181,7 @@ def recent(orchard_block=None, limit=40):
 		v = visits.setdefault(key, {"test_date": str(r.test_date),
 									"where": r.orchard_block or r.planting_area,
 									"measured_on": "block" if r.orchard_block else "area",
-									"week_number": r.week_number, "sizes": []})
+									"week_number": r.week_number, "stage": r.cycle_stage or None, "sizes": []})
 		v["sizes"].append({"count_size": r.fruit_count_size,
 						   "dry_matter_pct": flt(r.dry_matter_pct),
 						   "moisture_pct": flt(r.moisture_pct)})

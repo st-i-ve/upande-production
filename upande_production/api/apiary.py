@@ -54,7 +54,7 @@ def _weeks(start, end):
 def hive_groups():
 	"""The crop's hive groups, leaf units only."""
 	rows = frappe.get_all(
-		"Production Unit", filters={"crop": CROP, "is_group": 0}, fields=["name", "unit_name", "farm"],
+		"Production Unit", filters={"crop": CROP, "is_group": 0, "status": ("!=", "Retired")}, fields=["name", "unit_name", "farm"],
 		order_by="unit_name asc", limit_page_length=0,
 	)
 	return [{"value": r.name, "label": r.unit_name or r.name, "farm": r.farm} for r in rows]

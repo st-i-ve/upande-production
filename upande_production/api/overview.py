@@ -11,6 +11,7 @@ from upande_production.api.envelope import run
 from upande_production.production.logic import analytics
 from upande_production.production.logic.approvals import approval_counts
 from upande_production.production.logic.settings import can_see_pay
+from upande_production.production.logic.units import retired_sql, unit_filter
 from upande_production.production.logic.weeks import iso_of
 
 TREND_WEEKS = 8
@@ -56,8 +57,8 @@ def _forecast_weeks(crop):
 		fc = frappe.db.sql(
 			"""select sum(w.expected_qty) from `tabProduction Forecast Week` w
 			join `tabProduction Forecast` f on f.name = w.parent
-			where f.crop = %s and w.week_start between %s and %s""",
-			(crop, monday, sunday),
+			where f.crop = %s and w.week_start between %s and %s and f.unit not in %s""",
+			(crop, monday, sunday, retired_sql()),
 		)[0][0]
 		cm = frappe.db.sql(
 			"""select sum(committed_qty) from `tabBuyer Commitment`
@@ -75,7 +76,7 @@ def _operations(crop):
 		return []
 	rows = frappe.get_all(
 		"Production Plan Task",
-		filters={"parenttype": "Production Work Plan", "parent": ("in", plans)},
+		filters=unit_filter({"parenttype": "Production Work Plan", "parent": ("in", plans)}),
 		fields=["operation_name", "uom", "planned_qty", "done_qty", "pending_qty", "status"],
 	)
 	agg = {}
@@ -98,10 +99,10 @@ def _upcoming(crop):
 		return []
 	return frappe.get_all(
 		"Production Plan Task",
-		filters={
+		filters=unit_filter({
 			"parenttype": "Production Work Plan", "parent": ("in", plans),
 			"status": ("in", ["Open", "In Progress"]), "due_date": (">=", getdate(today())),
-		},
+		}),
 		fields=["unit", "operation_name", "due_date", "status", "planned_qty", "done_qty", "uom"],
 		order_by="due_date asc",
 		limit=8,
@@ -184,9 +185,9 @@ def _breakdown(crop, employee, frm, to, key, pay):
 	data = frappe.db.sql(
 		f"""select {key}, uom, sum(qty), sum(hours), sum(pay_value), count(*)
 		from `tabValue Adder Work`
-		where docstatus = 1 and crop = %s and employee = %s and work_date between %s and %s
+		where docstatus = 1 and crop = %s and employee = %s and work_date between %s and %s and unit not in %s
 		group by {key}, uom order by {key}""",
-		(crop, employee, frm, to),
+		(crop, employee, frm, to, retired_sql()),
 	)
 	grouped = {}
 	for k, uom, qty, hours, pv, n in data:
@@ -206,7 +207,7 @@ def _breakdown(crop, employee, frm, to, key, pay):
 
 def get_value_adder_detail_data(crop, employee, from_date, to_date, pay):
 	frm, to = analytics._range(from_date, to_date)
-	base = {"crop": crop, "employee": employee, "work_date": ("between", [frm, to])}
+	base = unit_filter({"crop": crop, "employee": employee, "work_date": ("between", [frm, to])})
 	recent = frappe.get_all(
 		"Value Adder Work",
 		filters={**base, "docstatus": 1},

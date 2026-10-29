@@ -28,6 +28,8 @@ DEMO = {
 		 "enforcement": "Block", "reason": "Spray residues: stop spraying onions 14 days before harvest."},
 		{"crop": "Fruits & Vegetables", "product": "Passion Fruit", "category": "Spraying", "type": BEFORE, "days": 7,
 		 "enforcement": "Block", "reason": "Spray residues: stop spraying passion fruit 7 days before picking."},
+		{"crop": "Fruits & Vegetables", "product": "Maize", "category": "Spraying", "type": BEFORE, "days": 14,
+		 "enforcement": "Block", "reason": "Spray residues: stop spraying maize 14 days before harvest."},
 		# no weeding while the potato tubers are forming and bulking
 		{"crop": "Fruits & Vegetables", "product": "Potatoes", "category": "Weeding", "type": NOT_IN,
 		 "stage": "Tuber initiation", "enforcement": "Warn",

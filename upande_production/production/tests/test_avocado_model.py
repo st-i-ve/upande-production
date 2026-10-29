@@ -121,11 +121,14 @@ class TestAvocadoModel(IntegrationTestCase):
 		self.assertEqual(api.dry_matter_preview([{"count_size": 14, "moisture": 0.77}])["min_pct"], 22.0)
 		self.assertEqual(api.dry_matter_preview([{"count_size": 14, "moisture": 0.77}])["sizes"][0]["window"], "in")
 		self.assertEqual(api.harvest_calendar()["minimum_pct"], 22.0)
-		# a variety's own target wins for its blocks (block B is Fuerte)
+		# a variety's own target wins for its blocks (the seed's Fuerte blocks against its Hass ones)
 		frappe.db.set_value("Production Variety", "Fuerte", "dry_matter_target_pct", 25)
 		mins = avocadoapi.block_minimums(avocado_model.load_model())
-		self.assertEqual(mins["B"], 25.0)
-		self.assertEqual(mins["A"], 22.0)
+		blocks = avocado_seed.DEMO["blocks"]
+		fuerte = next(c for c, b in blocks.items() if b["variety"] == "Fuerte")
+		hass = next(c for c, b in blocks.items() if b["variety"] == "Hass")
+		self.assertEqual(mins[fuerte], 25.0)
+		self.assertEqual(mins[hass], 22.0)
 
 	def test_count_sizes_follow_the_crop(self):
 		crop = frappe.get_doc("Production Crop", "Avocado")
@@ -153,7 +156,7 @@ class TestAvocadoModel(IntegrationTestCase):
 	def test_crew_is_the_active_members_of_the_crops_harvest_teams(self):
 		crew = api.season_outlook()["crew_available"]
 		self.assertEqual(crew, avocado_seed.DEMO["crew_available"])
-		team = frappe.get_all("Harvest Team", filters={"unit": "Avocado Block A"}, pluck="name")[0]
+		team = frappe.get_all("Harvest Team", filters={"team_number": "1"}, pluck="name")[0]
 		emp = frappe.get_all("Harvest Team Member", filters={"parent": team}, pluck="employee")[0]
 		frappe.db.set_value("Employee", emp, "status", "Left")
 		self.assertEqual(api.season_outlook()["crew_available"], crew - 1)
@@ -202,9 +205,10 @@ class TestAvocadoModel(IntegrationTestCase):
 		k = {x["key"]: x for x in o["kpis"]}
 		self.assertFalse(k["estimate_accuracy"]["none_yet"])
 		# change an estimate and the factor follows
+		block = next(iter(avocado_seed.DEMO["history"]))
 		name = frappe.db.get_value("Avocado Production Forecast",
-								   {"orchard_block": "A", "season": avocado_seed.DEMO["season"], "crop": "Early"})
-		frappe.db.set_value("Avocado Production Forecast", name, "expected_kg", 140000)
+								   {"orchard_block": block, "season": avocado_seed.DEMO["season"], "crop": "Early"})
+		frappe.db.set_value("Avocado Production Forecast", name, "expected_kg", act * 2)
 		self.assertNotEqual(api.season_outlook()["calibration"]["factor"], o["calibration"]["factor"])
 
 

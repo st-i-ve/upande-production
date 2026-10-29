@@ -11,7 +11,7 @@ import { YieldModelEditor, toYieldModelDraft, yieldModelPayload, yieldModelProbl
 import { StageEditor, fromStageDrafts, stageProblem, toStageDrafts, type StageDraft } from "@/components/varieties/StageEditor";
 import { qty } from "@/lib/format";
 import { isError } from "@/lib/frappe";
-import { FLOWERING_PATTERNS, HARVEST_PATTERNS, MONTHS, WATER_PARAMETERS, firstHarvestWeeks, saveVariety, type FloweringPattern, type FloweringSeason, type HarvestPattern, type StageAnchor, type Variety, type WaterBand } from "@/lib/varieties-api";
+import { DRY_MATTER_PARTS, FLOWERING_PATTERNS, HARVEST_PATTERNS, MONTHS, WATER_PARAMETERS, firstHarvestWeeks, saveVariety, type FloweringPattern, type FloweringSeason, type DryMatterPart, type HarvestPattern, type StageAnchor, type Variety, type WaterBand } from "@/lib/varieties-api";
 
 const ANCHORS: StageAnchor[] = ["Planting", "Flowering", "Stocking"];
 
@@ -85,6 +85,9 @@ export function VarietyDialog({
   const [seasons, setSeasons] = useState<SeasonDraft[]>(() => toSeasonDrafts(variety?.flowering_seasons));
   const [perM2, setPerM2] = useState(text(variety?.plants_per_m2));
   const [dryMatter, setDryMatter] = useState(text(variety?.dry_matter_target_pct));
+  const [dmTesting, setDmTesting] = useState<string>(variety?.dry_matter_testing ?? "");
+  const [dmOn, setDmOn] = useState<string>(variety?.dry_matter_on ?? "");
+  const [dmFrom, setDmFrom] = useState<string>(variety?.dry_matter_from_stage ?? "");
   const [yieldHa, setYieldHa] = useState(text(variety?.expected_yield_per_ha));
   const [yieldPlant, setYieldPlant] = useState(text(variety?.expected_yield_per_plant));
   const [protocol, setProtocol] = useState(variety?.default_protocol ?? "");
@@ -136,6 +139,9 @@ export function VarietyDialog({
       harvest_window_weeks: numOrNull(window),
       plants_per_m2: numOrNull(perM2),
       dry_matter_target_pct: numOrNull(dryMatter),
+      dry_matter_testing: dmTesting as "" | "Yes" | "No",
+      dry_matter_on: dmOn as "" | DryMatterPart,
+      dry_matter_from_stage: dmFrom,
       expected_yield_per_ha: numOrNull(yieldHa),
       expected_yield_per_plant: numOrNull(yieldPlant),
       default_protocol: protocol || null,
@@ -287,6 +293,18 @@ export function VarietyDialog({
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="v-dm">Dry matter target (%)</Label>
             <Input id="v-dm" inputMode="decimal" className="tabular-nums" value={dryMatter} onChange={(e) => setDryMatter(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="v-dm-testing">Test dry matter?</Label>
+            <Picker id="v-dm-testing" label="Test dry matter" value={dmTesting} onChange={setDmTesting} options={["Yes", "No"]} clearable clearLabel="Crop default" placeholder="Crop default" />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="v-dm-on">Dry matter on what part</Label>
+            <Picker id="v-dm-on" label="Dry matter on what part" value={dmOn} onChange={setDmOn} options={DRY_MATTER_PARTS} clearable clearLabel="Crop default" placeholder="Crop default" />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="v-dm-from">Sample from stage</Label>
+            <Picker id="v-dm-from" label="Sample from stage" value={dmFrom} onChange={setDmFrom} options={rows.map((r) => r.stage.trim()).filter(Boolean)} clearable clearLabel="From the start" placeholder="From the start" />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="v-anchor">Stages count from</Label>

@@ -7,6 +7,7 @@ from frappe.utils import flt, getdate, today
 
 from upande_production.api.envelope import run
 from upande_production.production.logic import analytics
+from upande_production.production.logic.units import retired_sql
 from upande_production.production.logic.weeks import iso_week_bounds
 
 STATES = ("done", "partial", "not_started", "late", "pending_approval", "no_work")
@@ -37,9 +38,9 @@ def _work_rows(crop, start, end, farm):
 		"""select w.unit, w.operation, o.operation_name, o.color from `tabValue Adder Work` w
 		join `tabProduction Operation` o on o.name = w.operation
 		where w.crop = %(crop)s and w.docstatus < 2 and w.approval_status in ('Approved', 'Pending')
-		and w.work_date between %(s)s and %(e)s
+		and w.work_date between %(s)s and %(e)s and w.unit not in %(retired)s
 		order by w.work_date desc, w.creation desc""",
-		{"crop": crop, "s": start, "e": end},
+		{"crop": crop, "s": start, "e": end, "retired": retired_sql()},
 		as_dict=True,
 	)
 
@@ -159,7 +160,7 @@ def coverage_map(crop, year, week, farm=None, operation=None, status=None):
 	start, end = iso_week_bounds(int(year), int(week))
 	ref_day = getdate(today())
 
-	filters = {"crop": crop}
+	filters = {"crop": crop, "status": ("!=", "Retired")}
 	if farm:
 		filters["farm"] = farm
 	rows = frappe.get_all(

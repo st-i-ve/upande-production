@@ -5,7 +5,9 @@ from frappe import _
 
 from upande_production.api.envelope import as_dict, run
 from upande_production.production.logic import analytics, bands, blockcost, cycle_chain, plans, rules, stages, work
+from upande_production.production.logic import drymatter as drymatter_logic
 from upande_production.production.logic.settings import PAY_ROLES, can_see_pay, is_manager
+from upande_production.production.logic.units import unit_filter
 from upande_production.production.logic.weeks import iso_week_bounds
 
 MANAGE_ROLES = {"Production Manager", "System Manager"}
@@ -64,7 +66,7 @@ def _unit_rows(crop):
 	rows = frappe.db.sql(
 		"""select name, unit_type, parent_production_unit as parent, is_group, area_ha, plant_count,
 		cost_center, status, if(ifnull(geojson, '') = '', 0, 1) as has_geojson
-		from `tabProduction Unit` where crop = %s order by lft""",
+		from `tabProduction Unit` where crop = %s and status != 'Retired' order by lft""",
 		(crop,),
 		as_dict=True,
 	)
@@ -133,6 +135,8 @@ def get_bootstrap():
 		],
 		order_by="sort_order asc, name asc",
 	)
+	for c in crops:  # the page gate: the crop's default is on, or one of its varieties says Yes
+		c["dry_matter_testing"] = int(drymatter_logic.crop_tests_dry_matter(c["name"]))
 	return {
 		"crops": crops,
 		"farms": frappe.get_all("Farm", pluck="name", order_by="name asc"),
@@ -200,6 +204,8 @@ def list_cycles(crop, unit=None, status=None):
 	filters = {"crop": crop}
 	if unit:
 		filters["unit"] = unit
+	else:
+		filters = unit_filter(filters)
 	if status:
 		filters["status"] = status
 	cycles = frappe.get_all("Production Crop Cycle", filters=filters, fields=_CYCLE_FIELDS, order_by="start_date desc")
@@ -265,7 +271,7 @@ def get_plan(crop, farm, year, week):
 	pay = _can_see_pay()
 	tasks = frappe.get_all(
 		"Production Plan Task",
-		filters={"parent": name, "parenttype": "Production Work Plan"},
+		filters=unit_filter({"parent": name, "parenttype": "Production Work Plan"}),
 		fields=[
 			"name", "unit", "cycle", "operation", "operation_name", "planned_qty", "done_qty", "pending_qty", "uom",
 			"rate", "due_date", "supervisor", "status", "deviation", "protocol_ref", "note",
@@ -451,6 +457,8 @@ def list_samples(crop, unit=None):
 	filters = {"crop": crop}
 	if unit:
 		filters["unit"] = unit
+	else:
+		filters = unit_filter(filters)
 	return {"rows": frappe.get_all("Yield Sample", filters=filters, fields=["*"], order_by="sample_date desc", limit=500)}
 
 
@@ -474,7 +482,7 @@ def list_harvests(crop, from_date=None, to_date=None):
 	return {
 		"rows": frappe.get_all(
 			"Production Harvest",
-			filters={"crop": crop, "harvest_date": ("between", [frm, to])},
+			filters=unit_filter({"crop": crop, "harvest_date": ("between", [frm, to])}),
 			fields=["*"],
 			order_by="harvest_date desc",
 			limit=1000,

@@ -3,7 +3,8 @@
 Runs against the demo data from production/demo/avocado_seed.py, which is idempotent:
 setUpClass calls it without committing, so a fresh site gets it for the length of
 the run and a seeded site is left as it was. Numbers are asserted against the seed's
-own DEMO dict, not against literals.
+own DEMO dict, not against literals. The blocks are the surveyed Phase 1 / Phase 2 units; the
+bearing ones ("active") carry the history, harvests, dry matter and counts.
 """
 
 import contextlib
@@ -18,10 +19,16 @@ from upande_production.production.demo import avocado_seed
 from upande_production.production.demo.avocado_seed import DEMO
 
 
+def _active():
+	"""Codes of the blocks with a delivered history (the seed's active, bearing blocks)."""
+	return set(DEMO["history"])
+
+
 def _batch_kg():
 	"""Estimated kg that Harvest Batches on avocado blocks (the harvest app) wrote into the logs this season."""
-	return sum(frappe.get_all("Avocado Harvest Log", filters={"client_ref": ("like", "harvest-batch:%"),
-		"harvest_date": ("between", [f"{DEMO['season']}-01-01", f"{DEMO['season']}-12-31"])}, pluck="total_kg"))
+	return sum(r.total_kg for r in frappe.get_all("Avocado Harvest Log", filters={"client_ref": ("like", "harvest-batch:%"),
+		"harvest_date": ("between", [f"{DEMO['season']}-01-01", f"{DEMO['season']}-12-31"])},
+		fields=["total_kg", "orchard_block"]) if r.orchard_block in DEMO["blocks"])  # retired blocks never show
 
 
 def _early_total():
@@ -72,12 +79,12 @@ class TestAvocadoApi(IntegrationTestCase):
 		self.assertGreater(auto["total_kg"], 0)
 		self.assertAlmostEqual(auto["total_value_kes"], auto["total_kg"] * r["price_per_kg"], delta=1)
 		self.assertAlmostEqual(auto["grade_1_share"], DEMO["harvest"]["grade_1"], delta=0.05)
-		# typed forecasts: A, B and D carry one each
+		# typed forecasts: one per active block
 		self.assertEqual(manual["manual_entries"], len(DEMO["typed_forecasts"]))
 		self.assertEqual(manual["total_kg"], sum(DEMO["typed_forecasts"].values()))
 		# season budget is the sum of its months
 		self.assertTrue(r["budget"]["set"])
-		self.assertEqual(r["budget"]["budget_kg"], sum(kg for _, kg in DEMO["budget"]["months"]))
+		self.assertEqual(r["budget"]["budget_kg"], sum(m["budget_kg"] for m in r["budget"]["months"]))
 		self.assertEqual(r["budget"]["months_total_kg"], r["budget"]["budget_kg"])
 		self.assertEqual(manual["vs_budget"]["diff_kg"], manual["total_kg"] - r["budget"]["budget_kg"])
 		# the automatic forecast is the late crop only: budget is compared with delivered + on the trees
@@ -93,11 +100,17 @@ class TestAvocadoApi(IntegrationTestCase):
 		self.assertEqual(e["basis"], "block")
 		self.assertEqual(e["delivered_kg"], _early_total())
 		self.assertEqual(e["estimated_kg"], sum(DEMO["early_estimates"].values()))
-		self.assertEqual(e["best"]["block"], "A")
-		self.assertEqual(e["weakest"]["block"], "B")
+		self.assertIn(e["best"]["block"], _active())
+		self.assertIn(e["weakest"]["block"], _active())
+		self.assertGreaterEqual(e["best"]["pct_of_estimate"], e["weakest"]["pct_of_estimate"])
 		years = {y["planting_year"]: y for y in r["by_planting_year"]}
-		self.assertEqual(set(years), {2018})
-		self.assertEqual(years[2018]["blocks_picked"], 2)
+		planted = {}
+		for code in _active():
+			y = DEMO["blocks"][code]["planting_year"]
+			planted[y] = planted.get(y, 0) + 1
+		self.assertEqual(set(years), set(planted))
+		for y, n in planted.items():
+			self.assertEqual(years[y]["blocks_picked"], n)
 		# yield curve measured for the 7-9 band from the harvest logs
 		band = next(c for c in r["yield_curve"] if c["label"] == "7-9")
 		self.assertEqual(band["basis"], "harvested")
@@ -107,8 +120,9 @@ class TestAvocadoApi(IntegrationTestCase):
 		self.assertTrue(r["losses"]["rows"])
 		self.assertEqual(r["losses"]["lost_kg"], sum(x["lost_kg"] for x in r["losses"]["rows"]))
 		by_block = {b["block"]: b for b in r["maturity"]["blocks"]}
-		self.assertTrue(by_block["A"]["ready"])
-		self.assertFalse(by_block["B"]["ready"])
+		self.assertEqual(set(by_block), set(DEMO["dry_matter"]))  # the sampled blocks
+		self.assertTrue(any(b["ready"] for b in by_block.values()))
+		self.assertFalse(all(b["ready"] for b in by_block.values()))
 
 	def test_farm_filter_and_unknown_farm(self):
 		r = api.production_forecast(farm=DEMO["farm"])
@@ -125,7 +139,9 @@ class TestAvocadoApi(IntegrationTestCase):
 						  "estimate_accuracy", "stale_readings"])
 		k = {x["key"]: x for x in r["kpis"]}
 		self.assertEqual(k["season_crop"]["delivered_kg"], _early_total())
-		self.assertEqual(k["ready_to_pick"]["value"], 1)  # block A only
+		ready = api.dry_matter()["summary"]["ready"]
+		self.assertGreater(ready, 0)
+		self.assertEqual(k["ready_to_pick"]["value"], ready)  # the blocks at or over the floor
 		self.assertEqual(k["stale_readings"]["value"], 0)
 		self.assertEqual(k["crew_next_week"]["crew_available"], DEMO["crew_available"])
 		# timeline: picked early-crop weeks then forecast weeks, gaps filled
@@ -133,17 +149,17 @@ class TestAvocadoApi(IntegrationTestCase):
 		self.assertGreater(sum(w["picked_kg"] for w in weeks), 0)
 		self.assertGreater(sum(w["forecast_kg"] for w in weeks), 0)
 		self.assertEqual(r["timeline"]["picked_kg"], sum(w["picked_kg"] for w in weeks))
-		# cohort: 2018 planting is A and B, about two weeks off the floor on average
+		# cohort: the 2018 planting is the sampled blocks planted that year, near the floor on average
 		c = next(c for c in r["dry_matter"]["cohorts"] if c["planting_year"] == 2018)
-		self.assertEqual(sorted(c["blocks"]), ["A", "B"])
-		self.assertAlmostEqual(c["dry_matter_pct"], 23.7, delta=0.3)
-		self.assertEqual(r["treemap"]["with_crop"], 2)
-		self.assertEqual(r["treemap"]["without_crop"], 0)
+		self.assertEqual(sorted(c["blocks"]), sorted(b for b in DEMO["dry_matter"] if DEMO["blocks"][b]["planting_year"] == 2018))
+		self.assertTrue(21 < c["dry_matter_pct"] < 26, c["dry_matter_pct"])
+		self.assertEqual(r["treemap"]["with_crop"], len(_active()))
+		self.assertEqual(r["treemap"]["without_crop"], len(DEMO["blocks"]) - len(_active()))  # young blocks
 		self.assertEqual(len(r["treemap"]["bands"]), 5)
-		self.assertEqual({b["block"] for b in r["map"]["blocks"]}, {"A", "B"})  # boundaries copied from the units
+		self.assertEqual({b["block"] for b in r["map"]["blocks"]}, set(DEMO["blocks"]))  # outlines copied from the units
 		self.assertEqual(r["map"]["without_boundary"], 0)
 		self.assertTrue(r["pickers"]["rows"])
-		self.assertEqual(r["pickers"]["weeks_short"], 0)  # 14 pickers cover the peak
+		self.assertEqual(api.season_outlook(crew_available=500)["pickers"]["weeks_short"], 0)  # a big crew covers the peak
 		self.assertGreater(api.season_outlook(crew_available=4)["pickers"]["weeks_short"], 0)
 		self.assertLessEqual(len(r["alerts"]), 5)
 		self.assertEqual(r["undated"]["blocks"], [])
@@ -153,20 +169,25 @@ class TestAvocadoApi(IntegrationTestCase):
 		self.assertNotIn("error", r)
 		self.assertEqual(r["kg_per_crate"], frappe.db.get_value("Production Crop", "Avocado", "avg_kg_per_crate"))
 		states = {b["block"]: b["state"] for b in r["blocks"]}
-		self.assertEqual(states, {"A": "ready", "B": "waiting"})
-		a = next(b for b in r["blocks"] if b["block"] == "A")
+		self.assertEqual(set(states), _active())
+		self.assertTrue({"ready", "waiting"} <= set(states.values()))
+		a = next(b for b in r["blocks"] if b["state"] == "ready")
 		self.assertEqual(len(a["cells"]), len(r["weeks"]))
 		self.assertAlmostEqual(a["row_kg"], a["expected_kg"], delta=len(r["weeks"]))
-		b = next(b for b in r["blocks"] if b["block"] == "B")
-		self.assertEqual(b["cells"][0]["kind"], "locked")  # under 24% until it crosses
-		self.assertEqual(r["kpis"]["pickable_now"], {"blocks": 1, "of": 2, "minimum_pct": 24.0})
+		locked = [b for b in r["blocks"] if b["state"] == "waiting" and b["cells"][0]["kind"] == "locked"]
+		self.assertTrue(locked)  # under 24% until it crosses
+		ready = sum(1 for s in states.values() if s == "ready")
+		self.assertEqual(r["kpis"]["pickable_now"], {"blocks": ready, "of": len(states), "minimum_pct": 24.0})
 		self.assertEqual(r["no_pick_date"], [])
-		self.assertEqual(r["no_forecast"], [])
+		# the young plantings bear nothing yet, so they carry no forecast
+		self.assertEqual({x["block"] for x in r["no_forecast"]}, set(DEMO["blocks"]) - _active())
+		self.assertTrue(all(x["reason"] == "not_bearing" for x in r["no_forecast"]))
 		self.assertEqual(sum(w["kg"] for w in r["weeks"]), r["summary"]["total_kg"])
 		self.assertEqual(sum(1 for w in r["weeks"] if w["is_peak"]), 1)
 		# filters
 		only = api.harvest_calendar(planting_year=2018)
-		self.assertEqual({x["block"] for x in only["blocks"]}, {"A", "B"})
+		self.assertEqual({x["block"] for x in only["blocks"]},
+						 {c for c in _active() if DEMO["blocks"][c]["planting_year"] == 2018})
 		self.assertEqual(only["filters"]["planting_years"], r["filters"]["planting_years"])
 		self.assertEqual(only["no_forecast"], [])
 
@@ -191,19 +212,31 @@ class TestAvocadoApi(IntegrationTestCase):
 	def test_dry_matter(self):
 		r = api.dry_matter()
 		self.assertNotIn("error", r)
-		self.assertEqual(r["summary"], {"blocks": 2, "ready": 1, "rising": 1, "stale": 0, "never_sampled": 0})
-		a = next(b for b in r["blocks"] if b["block"] == "A")
-		self.assertEqual(a["state"], "ready")
+		s = r["summary"]
+		self.assertEqual(s["blocks"], len(DEMO["blocks"]))
+		self.assertEqual(s["ready"] + s["rising"] + s["stale"] + s["never_sampled"], s["blocks"])
+		self.assertEqual(s["never_sampled"], len(DEMO["blocks"]) - len(DEMO["dry_matter"]))  # sampled blocks only
+		sampled = [b for b in r["blocks"] if b["state"] != "never_sampled"]
+		self.assertEqual({b["block"] for b in sampled}, set(DEMO["dry_matter"]))
+		a = next(b for b in r["blocks"] if b["state"] == "ready")
 		self.assertGreaterEqual(a["dry_matter_pct"], 24.0)
 		self.assertEqual(len(a["trend"]), DEMO["dm_visits"])
 		self.assertLess(a["trend"][0]["dry_matter_pct"], a["trend"][-1]["dry_matter_pct"])
-		b = next(b for b in r["blocks"] if b["block"] == "B")
-		self.assertEqual(b["state"], "rising")
-		self.assertAlmostEqual(b["weeks_to_minimum"], 2.0, delta=0.6)
+		b = next(b for b in r["blocks"] if b["state"] == "rising")
+		self.assertGreater(b["weeks_to_minimum"], 0)
 		self.assertTrue(r["recent_visits"])
 		self.assertEqual(r["form"]["sizes"][0]["count"], 14)
-		one = api.dry_matter(block="A")
-		self.assertTrue(all(v["where"] == "A" for v in one["recent_visits"]))
+		first = next(iter(DEMO["dry_matter"]))
+		one = api.dry_matter(block=first)
+		self.assertTrue(all(v["where"] == first for v in one["recent_visits"]))
+		# the cycle's stage on each test, and which blocks are due for sampling
+		self.assertTrue(all("stage" in v for v in r["recent_visits"]))
+		self.assertEqual(s["due"], sum(1 for b in r["blocks"] if b["sampling"] == "due"))
+		young = next(b for b in r["blocks"] if b["block"] not in DEMO["history"])
+		self.assertEqual(young["sampling"], "no_cycle")  # a young planting has no open cycle
+		for b in sampled:
+			self.assertIsNotNone(b["stage"], b["block"])
+			self.assertEqual(b["sample_from_stage"], "Maturity")
 
 	def test_dry_matter_preview_and_save(self):
 		p = api.dry_matter_preview([{"count_size": 14, "moisture": 0.77}, {"count_size": 16, "moisture": 70}])

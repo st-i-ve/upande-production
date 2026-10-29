@@ -3,7 +3,7 @@
 bench --site mutara.local execute upande_production.production.demo.fv_seed.run
 
 Fills Pivot Irrigation Run (about six weeks, 2-3 runs a week per pivot, one tower
-misalignment on Pivot 3) and Harvest Grading Log (one per existing Production Harvest
+misalignment on Pivot 1) and Harvest Grading Log (one per existing Production Harvest
 row on a pivot block, so graded kg plus rejects equals the harvested kg). Every
 invented figure is in FV below. Rows carry the marker in FV["marker"] in their notes;
 a re-run deletes those rows and writes them again, nothing else is touched.
@@ -16,6 +16,7 @@ import frappe
 from frappe.utils import add_days, getdate, nowdate
 
 from upande_production.production.logic.stages import product_item
+from upande_production.production.logic.units import retired_units
 
 CROP = "Fruits & Vegetables"
 
@@ -23,7 +24,7 @@ FV = {
 	"seed": 20261029,
 	"marker": "[fv-seed]",
 	"weeks": 6,
-	"pivots": ["Pivot 1", "Pivot 2", "Pivot 3", "Pivot 4"],
+	"pivots": ["Pivot 1", "Pivot 2"],
 	"runs_per_week": (2, 3),
 	"run_hours": (9, 20),
 	"depth_mm": (9.5, 14.0),
@@ -34,9 +35,9 @@ FV = {
 	"operators": ["HR-EMP-00300", "HR-EMP-00301", "HR-EMP-00302"],
 	# (pivot, weeks back from the current week, fault, depth factor, hours factor)
 	"faults": [
-		("Pivot 3", 2, "Tower misalignment", 0.35, 0.4),
+		("Pivot 1", 2, "Tower misalignment", 0.35, 0.4),
 		("Pivot 2", 4, "Pressure drop", 0.6, 0.7),
-		("Pivot 4", 1, "Power", 0.5, 0.5),
+		("Pivot 2", 1, "Power", 0.5, 0.5),
 	],
 	"fault_notes": {
 		"Tower misalignment": "Tower 7 out of line, pivot stopped on the alarm. Realigned the next morning.",
@@ -49,6 +50,7 @@ FV = {
 		"Cabbage": {"Class 1": 0.72, "Class 2": 0.2, "Ware": 0.08},
 		"Onion": {"Class 1": 0.66, "Class 2": 0.22, "Chats": 0.12},
 		"Passion Fruit": {"Class 1": 0.7, "Class 2": 0.2, "Ware": 0.1},
+		"Maize": {"Class 1": 0.7, "Class 2": 0.22, "Ware": 0.08},
 	},
 	"reject_share": (0.02, 0.07),
 	"reject_reasons": {
@@ -56,12 +58,13 @@ FV = {
 		"Cabbage": ["Pest damage", "Rot", "Mechanical damage"],
 		"Onion": ["Rot", "Undersize", "Mechanical damage"],
 		"Passion Fruit": ["Undersize", "Pest damage", "Rot"],
+		"Maize": ["Rot", "Pest damage", "Undersize"],
 	},
 	"irrigation_mm_week": 25.0,
 	# Production Crop grades (grade, rank, top): the top grade and the names it goes by on the sites
 	"crop_grades": [("Class 1", 1, 1), ("Class 2", 2, 0), ("Ware", 3, 0), ("Seed", 4, 0), ("Chats", 5, 0),
 					("Class I", 6, 1), ("Grade 1", 7, 1), ("Grade A", 8, 1), ("Premium", 9, 1), ("Export", 10, 1)],
-	"kg_per_crate": {"Potatoes": 50, "Cabbage": 30, "Onion": 25, "Passion Fruit": 4},
+	"kg_per_crate": {"Potatoes": 50, "Cabbage": 30, "Onion": 25, "Passion Fruit": 4, "Maize": 30},
 	"graders": ["HR-EMP-00303", "HR-EMP-00304"],
 }
 
@@ -118,10 +121,11 @@ def _seed_irrigation(rng):
 
 def _seed_grading(rng):
 	harvests = frappe.get_all(
-		"Production Harvest", filters={"unit": ("like", "P_-B_")},
+		"Production Harvest", filters={"unit": ("like", "P_-B%")},
 		fields=["unit", "cycle", "item", "harvest_date", "qty"], order_by="harvest_date asc, unit asc",
 	)
-	harvests = [h for h in harvests if product_item(h.item) in FV["grades"]]  # varieties grade like their product
+	gone = retired_units()
+	harvests = [h for h in harvests if h.unit not in gone and product_item(h.item) in FV["grades"]]  # varieties grade like their product
 	made = 0
 	for h in harvests:
 		recv = round(float(h.qty), 1)

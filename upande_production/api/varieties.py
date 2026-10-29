@@ -11,6 +11,7 @@ from upande_production.production.logic import analytics, stages
 
 TEMPLATE_FIELDS = [
 	"lifespan_years", "harvest_pattern", "harvest_interval_weeks", "plants_per_m2", "dry_matter_target_pct",
+	"dry_matter_testing", "dry_matter_on", "dry_matter_from_stage",
 	"is_flowering", "weeks_to_first_flowering", "weeks_flowering_to_harvest", "weeks_to_reflower_after_harvest",
 	"weeks_to_first_harvest", "harvest_window_weeks", "weeks_to_maturity", "flowering_pattern", "flowering_interval_weeks",
 ]

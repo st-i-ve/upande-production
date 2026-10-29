@@ -95,6 +95,13 @@ DEMO = {
 		 "anchored": [("Passion Pruning", "Vegetative", 0, 90, 4, 600, "Training and pruning on the trellis"),
 			("Harvest", "Harvest", 0, 12, 30, 150, "Picking every 12 days")],
 		 "notes": "Sweeter yellow type, earlier and heavier bearing."},
+		{"name": "H513", "crop": "Fruits & Vegetables", "product": "Maize", "item": "Maize - H513",
+		 "anchor": "Planting", "first_harvest": 110, "window": 20, "yield_ha": 7000, "plants_ha": 53000, "yield_plant": 0.13,
+		 "stages": [("Planting", 0, 7), ("Emergence", 7, 14), ("Vegetative", 21, 34), ("Tasselling and silking", 55, 20),
+			("Grain fill", 75, 35), ("Harvest", 110, 20, 1)],
+		 "base_protocol": "Maize", "timing": {"Harvest": (110, 0, 1)}, "drop": ["Top Dressing"],
+		 "anchored": [("Top Dressing", "Vegetative", 14, 0, 1, 120, "Top-dress with CAN at knee height")],
+		 "notes": "Medium-altitude hybrid maize (Kenya Seed H513); grown on the pivots for green cobs and grain."},
 		{"name": "Hass", "crop": "Avocado", "product": None, "item": "Hass Avocado",
 		 "anchor": "Flowering", "first_harvest": 240, "window": 120, "yield_ha": 12000, "plants_ha": 160, "yield_plant": 75,
 		 "stages": [("Flowering", 0, 30), ("Fruit set", 30, 30), ("Fruit development", 60, 150), ("Maturity", 210, 30),
@@ -122,16 +129,9 @@ DEMO = {
 		 "anchored": [("Harvest", "Harvest-ready", 0, 0, 1, 400, "Harvest at 350-400 g")],
 		 "notes": "Local Nile tilapia stock, slower growing."},
 	],
-	# existing cycles -> variety: by unit; F&V by protocol family default when a unit is not listed
-	"cycle_varieties": {
-		"Avocado Block A": "Hass", "Avocado Block B": "Fuerte",
-		"P1-B1": "Shangi", "P1-B2": "Dutch Robjin", "P1-B3": "Gloria F1", "P1-B4": "Copenhagen Market",
-		"P2-B1": "Red Creole", "P2-B2": "Red Creole", "P2-B3": "Markies", "P2-B4": "Shangi",
-		"P3-B1": "Gloria F1", "P3-B2": "Copenhagen Market", "P3-B3": "Red Pinoy F1", "P3-B4": "Red Creole",
-		"P4-B1": "Purple", "P4-B2": "Sweet Yellow", "P4-B3": "Purple", "P4-B4": "Sweet Yellow",
-	},
+	# open cycles -> variety: the real blocks' varieties come from config (avocado blocks and fv_cycles), see _cycle_varieties
 	# earlier (closed) cycles on a block: variety by the previous crop's product
-	"previous_variety": {"Potatoes": "Markies", "Cabbage": "Gloria F1", "Onion": "Red Pinoy F1"},
+	"previous_variety": {"Potatoes": "Markies", "Cabbage": "Gloria F1", "Onion": "Red Pinoy F1", "Maize": "H513"},
 	# avocado flowering actuals: days before the cycle record the flowering was observed
 	"flowering_days_before_start": {"Hass": 190, "Fuerte": 130},
 	# Template fields per variety (weeks; plants per m2). `is_flowering` ones derive weeks to first harvest.
@@ -156,10 +156,23 @@ DEMO = {
 			for n in ("Gloria F1", "Copenhagen Market")},
 		**{n: {"is_flowering": 0, "harvest_pattern": "Once", "weeks_to_first_harvest": 16, "plants_per_m2": 40}
 			for n in ("Red Creole", "Red Pinoy F1")},
+		"H513": {"is_flowering": 0, "harvest_pattern": "Once", "weeks_to_first_harvest": 16, "plants_per_m2": 5.3},
 		**{n: {"is_flowering": 0, "harvest_pattern": "Once", "weeks_to_first_harvest": 26} for n in ("GIFT", "Nile (local)")},
 	},
-	# crop-level dry matter testing (avocado keeps its own maturity test page; the figure is its minimum)
-	"crop_dry_matter": {"Avocado": ("Fruit", 24), "Fruits & Vegetables": ("Tuber", 20)},
+	# crop-level default for dry matter testing: (test?, part, target %). Avocado keeps its own maturity test
+	# page (the figure is the export minimum). Fruits & Vegetables mixes tubers, bulbs, heads and fruit, so the
+	# crop default is off and each variety says whether, on which part, to what target and from which stage.
+	"crop_dry_matter": {"Avocado": (1, "Fruit", 24), "Fruits & Vegetables": (0, None, 0)},
+	# variety -> (test?, part, target %, sampling is due from this stage). Passion fruit is off: no dry matter
+	# figure is taken on it. Maize and fish follow the crop (off).
+	"variety_dry_matter": {
+		"Hass": ("Yes", "Fruit", 24, "Maturity"), "Fuerte": ("Yes", "Fruit", 24, "Maturity"),
+		"Shangi": ("Yes", "Tuber", 20, "Tuber initiation"), "Dutch Robjin": ("Yes", "Tuber", 19, "Tuber initiation"),
+		"Markies": ("Yes", "Tuber", 21, "Tuber initiation"),
+		"Red Creole": ("Yes", "Bulb", 11, "Bulb bulking"), "Red Pinoy F1": ("Yes", "Bulb", 11, "Bulb bulking"),
+		"Gloria F1": ("Yes", "Head", 8, "Head formation"), "Copenhagen Market": ("Yes", "Head", 8, "Head formation"),
+		"Purple": ("No", None, 0, None), "Sweet Yellow": ("No", None, 0, None),
+	},
 	"ponds": {"Pond 1": "GIFT", "Pond 2": "Nile (local)", "Pond 3": "GIFT", "Pond 4": "Nile (local)"},
 }
 
@@ -196,6 +209,10 @@ def _ensure_variety(v):
 		"days_to_first_harvest": v["first_harvest"], "harvest_window_days": v["window"],
 		"expected_yield_per_ha": v["yield_ha"], "expected_yield_per_plant": v["yield_plant"],
 		"plants_per_ha": v["plants_ha"], "notes": v.get("notes")}
+	dm = DEMO["variety_dry_matter"].get(v["name"])
+	if dm:
+		vals.update({"dry_matter_testing": dm[0], "dry_matter_on": dm[1] or "", "dry_matter_target_pct": dm[2],
+			"dry_matter_from_stage": dm[3] or ""})
 	tpl = dict(DEMO["templates"].get(v["name"], {}))
 	seasons = tpl.pop("flowering_seasons", None)
 	vals.update(tpl)
@@ -270,8 +287,18 @@ def _set_categories():
 	return n
 
 
+def _cycle_varieties():
+	"""unit -> variety of its open cycle: the real avocado blocks and the pivot blocks of config.fv_cycles."""
+	from upande_production.production.demo import real_blocks
+	from upande_production.production.demo.config import DEMO as BASE
+
+	out = {b["name"]: b["variety"] for b in real_blocks.active_avocado()}
+	out.update({unit: spec[4] for unit, spec in BASE["fv_cycles"].items()})
+	return out
+
+
 def _variety_for_cycle(cy):
-	vmap = DEMO["cycle_varieties"]
+	vmap = _cycle_varieties()
 	if cy.status == "Closed":
 		return DEMO["previous_variety"].get(stages.product_item(cy.item))
 	return vmap.get(cy.unit)
@@ -290,9 +317,9 @@ def _expected_from_stages(doc, vname):
 
 
 def _set_crop_dry_matter():
-	for crop, (on, target) in DEMO["crop_dry_matter"].items():
+	for crop, (testing, on, target) in DEMO["crop_dry_matter"].items():
 		if frappe.db.exists("Production Crop", crop):
-			frappe.db.set_value("Production Crop", crop, {"dry_matter_testing": 1, "dry_matter_on": on,
+			frappe.db.set_value("Production Crop", crop, {"dry_matter_testing": testing, "dry_matter_on": on or "",
 				"dry_matter_target_pct": target}, update_modified=False)
 
 

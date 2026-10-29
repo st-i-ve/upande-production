@@ -115,6 +115,29 @@ describe("variety form", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("listed twice");
     expect(mocked.saveVariety.mock.calls[0][0]).toMatchObject({ name: "Shangi", weeks_to_first_harvest: 95 });
   });
+
+  it("carries the dry matter settings: test or not, on what part, from which stage", async () => {
+    mocked.saveVariety.mockResolvedValue({ name: "Shangi" });
+    const tested: Variety = { ...potato, dry_matter_testing: "Yes", dry_matter_on: "Tuber", dry_matter_from_stage: "Tuber initiation", dry_matter_target_pct: 20 };
+    wrap(<VarietyDialog crop="Potatoes" accent="#2a7" variety={tested} protocols={[]} onClose={() => {}} onSaved={() => {}} />);
+    expect(screen.getByLabelText("Test dry matter")).toHaveTextContent("Yes");
+    expect(screen.getByLabelText("Dry matter on what part")).toHaveTextContent("Tuber");
+    expect(screen.getByLabelText("Sample from stage")).toHaveTextContent("Tuber initiation");
+    fireEvent.click(screen.getByRole("button", { name: "Save variety" }));
+    await waitFor(() => expect(mocked.saveVariety).toHaveBeenCalled());
+    expect(mocked.saveVariety.mock.calls[0][0]).toMatchObject({
+      dry_matter_testing: "Yes", dry_matter_on: "Tuber", dry_matter_from_stage: "Tuber initiation", dry_matter_target_pct: 20,
+    });
+  });
+
+  it("a variety that says nothing follows the crop (blank is sent, not Yes or No)", async () => {
+    mocked.saveVariety.mockResolvedValue({ name: "Shangi" });
+    wrap(<VarietyDialog crop="Potatoes" accent="#2a7" variety={potato} protocols={[]} onClose={() => {}} onSaved={() => {}} />);
+    expect(screen.getByLabelText("Test dry matter")).toHaveTextContent("Crop default");
+    fireEvent.click(screen.getByRole("button", { name: "Save variety" }));
+    await waitFor(() => expect(mocked.saveVariety).toHaveBeenCalled());
+    expect(mocked.saveVariety.mock.calls[0][0]).toMatchObject({ dry_matter_testing: "", dry_matter_on: "", dry_matter_from_stage: "" });
+  });
 });
 
 describe("variety yield model", () => {

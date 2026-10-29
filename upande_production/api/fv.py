@@ -15,6 +15,7 @@ from frappe.utils import add_days, flt, get_datetime, getdate, nowdate
 
 from upande_production.api.envelope import as_dict, run
 from upande_production.production.logic import bands as band_logic
+from upande_production.production.logic.units import unit_filter
 
 CROP = "Fruits & Vegetables"
 
@@ -108,13 +109,13 @@ def _bounds(geoms):
 
 def pivot_tree(pivot=None):
 	"""[{name, area_ha, slices: [{name, area_ha, item}]}] for every pivot (or the one asked)."""
-	filters = {"unit_type": "Pivot", "status": ("!=", "Inactive")}
+	filters = {"unit_type": "Pivot", "status": ("not in", ["Inactive", "Retired"])}
 	if pivot:
 		filters["name"] = pivot
 	pivots = frappe.get_all("Production Unit", filters=filters, fields=["name", "area_ha", "crop"], order_by="name asc")
 	names = [p.name for p in pivots]
 	kids = frappe.get_all(
-		"Production Unit", filters={"parent_production_unit": ("in", names or [""])},
+		"Production Unit", filters={"parent_production_unit": ("in", names or [""]), "status": ("!=", "Retired")},
 		fields=["name", "area_ha", "parent_production_unit as parent"], order_by="name asc",
 	)
 	items, varieties = {}, {}
@@ -374,7 +375,7 @@ def compute_grading(logs, frm, to, grades=None):
 def grading(from_date=None, to_date=None, unit=None, item=None):
 	_need_read("Harvest Grading Log")
 	frm, to = _range(from_date, to_date)
-	filters = {"grading_date": ("between", [str(frm), str(to)])}
+	filters = unit_filter({"grading_date": ("between", [str(frm), str(to)])})
 	if unit:
 		filters["unit"] = unit
 	if item:
@@ -393,7 +394,7 @@ def grading(from_date=None, to_date=None, unit=None, item=None):
 	grades = grade_rules()
 	out = compute_grading(logs, frm, to, grades)
 	out["rows"] = [{**g, "class1_kg": round(sum(l["kg"] for l in g["lines"] if is_top_grade(l["grade"], grades)), 1)} for g in logs]
-	opts_rows = frappe.get_all("Harvest Grading Log", fields=["unit", "item"], limit_page_length=0)
+	opts_rows = frappe.get_all("Harvest Grading Log", filters=unit_filter(), fields=["unit", "item"], limit_page_length=0)
 	out.update({
 		"from_date": str(frm), "to_date": str(to), "unit": unit or None, "item": item or None,
 		"units": sorted({r.unit for r in opts_rows if r.unit}), "items": sorted({r.item for r in opts_rows if r.item}),
@@ -406,7 +407,7 @@ def grading(from_date=None, to_date=None, unit=None, item=None):
 def _grading_units():
 	"""Blocks that carry a crop cycle, with the item and cycle to default the dialog from."""
 	cycles = frappe.get_all(
-		"Production Crop Cycle", filters={"status": ("in", ["Active", "Harvesting"])},
+		"Production Crop Cycle", filters=unit_filter({"status": ("in", ["Active", "Harvesting"])}),
 		fields=["name", "unit", "item"], order_by="start_date desc",
 	)
 	seen, out = set(), []

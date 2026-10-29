@@ -9,6 +9,7 @@ from frappe import _
 from frappe.utils import flt, getdate
 
 from upande_production.production.logic import analytics, blockcost
+from upande_production.production.logic.units import retired_units, unit_filter
 
 
 def leaf_units(unit, crop=None):
@@ -21,7 +22,7 @@ def leaf_units(unit, crop=None):
 		if crop and row.crop != crop:
 			frappe.throw(_("{0} is not a {1} block").format(unit, crop), frappe.ValidationError)
 		return [row.name]
-	filters = {"is_group": 0, "lft": (">", row.lft), "rgt": ("<", row.rgt)}
+	filters = {"is_group": 0, "lft": (">", row.lft), "rgt": ("<", row.rgt), "status": ("!=", "Retired")}
 	if crop:
 		filters["crop"] = crop
 	return frappe.get_all(
@@ -155,7 +156,13 @@ def list_costs(crop, farm=None, can_see_pay=True):
 		for b in frappe.get_all("Block Establishment Cost Split", filters={"parent": ("in", [d.name for d in docs])},
 				fields=["parent", "unit", "share_pct", "amount"], order_by="idx"):
 			blocks.setdefault(b.parent, []).append({"unit": b.unit, "share_pct": b.share_pct, "amount": b.amount})
-	rows = [{**d, "blocks": blocks.get(d.name, [])} for d in docs]
+	gone = retired_units()
+	rows = []
+	for d in docs:
+		live = [b for b in blocks.get(d.name, []) if b["unit"] not in gone]
+		if blocks.get(d.name) and not live:
+			continue  # a cost that only touched retired blocks
+		rows.append({**d, "blocks": live})
 
 	units = [u for u in analytics.crop_units(crop) if not u.is_group]
 	if farm:
@@ -196,7 +203,7 @@ def save_cost(data):
 
 
 def list_opening_balances(crop):
-	rows = frappe.get_all("Block Opening Balance", filters={"crop": crop},
+	rows = frappe.get_all("Block Opening Balance", filters=unit_filter({"crop": crop}),
 		fields=["unit", "as_of_date", "setup_cost", "running_costs_to_date", "value_recovered_to_date", "planted_on", "note"],
 		order_by="unit asc")
 	return {"rows": rows}

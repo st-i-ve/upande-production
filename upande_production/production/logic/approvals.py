@@ -11,6 +11,7 @@ from frappe import _
 from frappe.utils import add_days, cint, now_datetime, today
 
 from upande_production.production.logic import work
+from upande_production.production.logic.units import retired_sql
 from upande_production.production.logic.settings import (
 	can_see_pay, get_stale_days, is_manager, is_supervisor,
 )
@@ -131,7 +132,7 @@ def list_approvals(
 	pay = can_see_pay()
 	stale_days = get_stale_days()
 
-	cond, args = ["docstatus < 2"], {}
+	cond, args = ["docstatus < 2", "unit not in %(retired)s"], {"retired": retired_sql()}
 	for col, val in (("crop", crop), ("unit", unit), ("operation", operation), ("submitted_by", supervisor)):
 		if val:
 			cond.append(f"{col} = %({col})s")
@@ -258,8 +259,9 @@ def approval_counts() -> dict:
 	rows = frappe.db.sql(
 		"""select crop, plan_task, unit, operation, work_date, submitted_by, min(creation) as created
 		from `tabValue Adder Work` where docstatus = 0 and approval_status = 'Pending' and ifnull(crop, '') != ''
+		and unit not in %(retired)s
 		group by crop, plan_task, unit, operation, work_date, submitted_by""",
-		as_dict=True,
+		{"retired": retired_sql()}, as_dict=True,
 	)
 	seen, per = set(), {}
 	for r in rows:

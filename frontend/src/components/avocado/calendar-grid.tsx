@@ -15,10 +15,11 @@ const STATE_TONE: Record<BlockState, string> = {
   unsampled: "bg-[var(--sd-bg-soft)] text-[var(--sd-quiet)]",
 };
 
-export function Chip({ children, className, title }: { children: React.ReactNode; className?: string; title?: string }) {
+export function Chip({ children, className, title, "data-testid": testId }: { children: React.ReactNode; className?: string; title?: string; "data-testid"?: string }) {
   return (
     <span
       title={title}
+      data-testid={testId}
       className={cn(
         "inline-flex items-center whitespace-nowrap rounded-[var(--sd-radius-pill)] px-2 py-0.5 text-[11px] font-medium tabular-nums",
         className,

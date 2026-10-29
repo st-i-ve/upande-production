@@ -106,3 +106,8 @@ class ProductionVariety(Document):
 			seen.add(s.stage)
 		if sum(1 for s in self.stages if s.is_harvest) > 1:
 			frappe.throw(_("Only one stage can be the harvest stage"), frappe.ValidationError)
+		if self.get("dry_matter_from_stage") and self.stages and self.dry_matter_from_stage not in seen:
+			frappe.throw(_("Sample from stage {0} is not a stage of this variety").format(self.dry_matter_from_stage),
+				frappe.ValidationError)
+		if flt(self.get("dry_matter_target_pct")) < 0 or flt(self.get("dry_matter_target_pct")) >= 100:
+			frappe.throw(_("The dry matter target is a percentage between 0 and 100"), frappe.ValidationError)

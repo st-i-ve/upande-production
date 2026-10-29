@@ -144,14 +144,16 @@
   {
    "fieldname": "dry_matter_testing",
    "fieldtype": "Check",
-   "label": "Dry Matter Testing"
+   "label": "Dry Matter Testing",
+   "description": "The default for the crop's varieties; a variety can switch it on or off."
   },
   {
    "fieldname": "dry_matter_on",
    "fieldtype": "Select",
    "label": "Dry Matter On",
-   "options": "Fruit\nTuber",
-   "depends_on": "dry_matter_testing"
+   "options": "Fruit\nTuber\nBulb\nHead\nLeaf",
+   "depends_on": "dry_matter_testing",
+   "description": "The default part sampled; a variety can say otherwise."
   },
   {
    "fieldname": "dry_matter_target_pct",

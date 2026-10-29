@@ -738,8 +738,9 @@ Example (Avocado Block A, Hass): `{"variety": "Hass", "current_stage": "Harvest"
 
 ## productionDryMatterTests  (read only)
 
-Dry matter tests of a crop that has `dry_matter_testing` on (not avocado, which keeps its Maturity Test), newest
-first (max 500). Params: `crop` (required), `unit` (optional). Tests are entered on the desk.
+Dry matter tests of a crop that tests dry matter (the crop's default is on, or one of its varieties says Yes;
+not avocado, which keeps its Maturity Test), newest first (max 500). Whether to test, on which part, to what target and
+from which stage is set per variety (the crop is the default). Retired blocks are left out. Params: `crop` (required), `unit` (optional). Tests are entered on the desk.
 
 ```json
 [
@@ -751,6 +752,7 @@ first (max 500). Params: `crop` (required), `unit` (optional). Tests are entered
     "variety": "Tommy",
     "test_date": "2026-10-05",
     "tested_on": "Fruit",
+    "stage": "Maturity",
     "tested_by": "user@example.com",
     "avg_pct": 21.83,
     "target_pct": 21.0,
@@ -760,7 +762,8 @@ first (max 500). Params: `crop` (required), `unit` (optional). Tests are entered
 ]
 ```
 
-`ready` is average at or above target (variety target, else crop target). Missing `crop` fails with an error;
+`stage` is the cycle's growth stage on the test date (null without a cycle or a variety timeline); `tested_on` is
+Fruit, Tuber, Bulb, Head or Leaf. `ready` is average at or above target (variety target, else crop target). Missing `crop` fails with an error;
 no read permission on Dry Matter Test is a permission error.
 
 ## Harvest store (mark ready for collection)

@@ -225,8 +225,8 @@ class TestVarieties(IntegrationTestCase):
 			self.assertEqual(frappe.db.get_value("Production Protocol", c.protocol, "variety"), c.variety, c.name)
 			if c.status != "Closed":
 				self.assertTrue(c.current_stage, c.name)
-		self.assertEqual(frappe.db.get_value("Production Crop Cycle", {"unit": "Avocado Block A", "status": "Harvesting"}, "variety"), "Hass")
-		self.assertEqual(frappe.db.get_value("Production Crop Cycle", {"unit": "Avocado Block B", "status": "Harvesting"}, "variety"), "Fuerte")
+		self.assertEqual(frappe.db.get_value("Production Crop Cycle", {"unit": "PH1-B1", "status": "Harvesting"}, "variety"), "Hass")
+		self.assertEqual(frappe.db.get_value("Production Crop Cycle", {"unit": "PH1-B3", "status": "Harvesting"}, "variety"), "Fuerte")
 		self.assertFalse(frappe.get_all("Production Operation", filters={"category": ("is", "not set")}, pluck="name"))
 		self.assertFalse(frappe.get_all("Pond Stocking", filters={"strain": ("is", "not set")}, pluck="name"))
 

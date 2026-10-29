@@ -14,6 +14,8 @@ const blk = (block: string, state: string, dm: number | null) => ({
   sample_date: dm != null ? "2026-10-12" : null, samples: dm != null ? 2 : 0, gain_pct_per_week: dm != null ? 0.8 : null, gain_basis: null,
   weeks_to_minimum: state === "rising" ? 3 : null, ready_date: null, sample_age_weeks: dm != null ? 2 : null,
   needs: state === "never_sampled" ? "A first dry matter test." : null, measured_on: dm != null ? "block" : null,
+  stage: dm != null ? "Fruit development" : "Flowering", sample_from_stage: "Maturity",
+  sampling: dm != null ? "due" : "not_yet", days_since_test: dm != null ? 16 : null,
   trend: dm != null ? [{ date: "2026-09-28", dry_matter_pct: dm - 1.5, measured_on: "block" }, { date: "2026-10-12", dry_matter_pct: dm, measured_on: "block" }] : [],
 });
 const payload = () => ({
@@ -26,8 +28,9 @@ const payload = () => ({
   },
   minimum_pct: 24, maximum_pct: 32,
   blocks: [blk("Block A", "rising", 22.5), blk("Block B", "never_sampled", null)],
-  summary: { blocks: 2, ready: 0, rising: 1, stale: 0, never_sampled: 1 },
-  recent_visits: [{ test_date: "2026-10-12", where: "Block A", measured_on: "block", week_number: 42, sizes: [], average_dry_matter: 22.5, ready: false }],
+  summary: { blocks: 2, due: 1, ready: 0, rising: 1, stale: 0, never_sampled: 1 },
+  retest_days: 7,
+  recent_visits: [{ test_date: "2026-10-12", where: "Block A", measured_on: "block", week_number: 42, stage: "Fruit development", sizes: [], average_dry_matter: 22.5, ready: false }],
   units: {},
 });
 
@@ -55,6 +58,16 @@ describe("DryMatter", () => {
     expect(b).toHaveTextContent("Never sampled");
     expect(b).toHaveTextContent("A first dry matter test.");
     expect(screen.getByText("Earlier tests")).toBeInTheDocument();
+  });
+
+  it("shows the stage on each test and which blocks are due for sampling", async () => {
+    renderPage(<DryMatter />);
+    const a = await screen.findByTestId("dm-card-Block A");
+    expect(within(a).getByTestId("dm-sampling-Block A")).toHaveTextContent("Due for sampling");
+    expect(within(a).getByTestId("dm-stage-Block A")).toHaveTextContent("Fruit development");
+    expect(screen.getByTestId("dm-sampling-Block B")).toHaveTextContent("Not yet sampling: from Maturity");
+    expect(screen.getByTestId("dm-visit-stage")).toHaveTextContent("Fruit development");
+    expect(screen.getByText("Due for sampling", { selector: "div" })).toBeInTheDocument();
   });
 
   it("validates before saving, with a live preview from the moisture", async () => {

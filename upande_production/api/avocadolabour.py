@@ -223,10 +223,12 @@ def build_plan(forecast_rows, projection, windows, harvests, model, crew_availab
 
 
 def read_harvests():
-	return (frappe.get_all(HARVEST_DOCTYPE,
-						   fields=["orchard_block", "harvest_date", "total_kg",
-								   "pickers_count", "bins_harvested", "client_ref"],
-						   limit_page_length=0)
+	from upande_production.api.avocadoapi import _live
+
+	return (_live(frappe.get_all(HARVEST_DOCTYPE,
+								 fields=["orchard_block", "harvest_date", "total_kg",
+										 "pickers_count", "bins_harvested", "client_ref"],
+								 limit_page_length=0), "orchard_block")
 			if frappe.db.exists("DocType", HARVEST_DOCTYPE) else [])
 
 

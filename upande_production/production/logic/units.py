@@ -57,3 +57,32 @@ def subtree(unit_name: str) -> list[str]:
 	return frappe.get_all(
 		"Production Unit", filters={"lft": (">=", lft), "rgt": ("<=", rgt)}, pluck="name", order_by="lft"
 	)
+
+
+# -- retired units -------------------------------------------------------------
+# A retired unit (a demo block, a decommissioned pond) stays in the database with its history
+# but never shows on a page, map, API or KPI. Every reader goes through these.
+
+def retired_units() -> set[str]:
+	"""Names of the units whose status is Retired."""
+	return set(frappe.get_all("Production Unit", filters={"status": "Retired"}, pluck="name", limit_page_length=0))
+
+
+def not_retired(names):
+	"""`names` (units) without the retired ones, order kept."""
+	gone = retired_units()
+	return [n for n in names if n not in gone]
+
+
+def retired_sql() -> tuple:
+	"""A tuple for `unit not in %(retired)s` (never empty, which SQL would reject)."""
+	return tuple(retired_units()) or ("",)
+
+
+def unit_filter(filters: dict | None = None, field: str = "unit") -> dict:
+	"""`filters` plus `field not in <retired units>` for a frappe.get_all on a unit-bearing doctype."""
+	out = dict(filters or {})
+	gone = retired_units()
+	if gone:
+		out[field] = ("not in", list(gone))
+	return out

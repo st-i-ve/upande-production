@@ -13,7 +13,9 @@ import random
 import frappe
 from frappe.utils import add_days, cint, flt, getdate, nowdate
 
+from upande_production.production.demo import real_blocks
 from upande_production.production.logic import cycle_chain, stages
+from upande_production.production.logic.units import unit_filter
 
 PHI_BY_PRODUCT = "phi_days"
 
@@ -30,16 +32,17 @@ DEMO = {
 	},
 	# sets of blocks costed together (one cost per activity, split by area): (crop, label, date, units)
 	"sets": [
-		("Avocado", "avocado", "2023-03-15", ["Avocado Block A", "Avocado Block B"]),
+		("Avocado", "phase-1-2018", "2018-03-15", "PH1_OLD"),
+		("Avocado", "phase-1-2023", "2023-03-20", "PH1_NEW"),
+		("Avocado", "phase-2-2020", "2020-03-10", "PH2_OLD"),
+		("Avocado", "phase-2-2024", "2024-03-18", "PH2_NEW"),
 		("Fruits & Vegetables", "pivot-1", "2026-02-20", ["Pivot 1"]),
 		("Fruits & Vegetables", "pivot-2", "2026-02-27", ["Pivot 2"]),
-		("Fruits & Vegetables", "pivot-3", "2026-03-06", ["Pivot 3"]),
-		("Fruits & Vegetables", "pivot-4", "2026-02-10", ["Pivot 4"]),
 	],
 	# explicit costs: (crop, label, operation, date, amount, units, split method)
 	"fixed": [
 		("Fruits & Vegetables", "irrigation", "Irrigation system installation", "2026-01-20", 2400000,
-			["Pivot 1", "Pivot 2", "Pivot 3", "Pivot 4"], "By area"),
+			["Pivot 1", "Pivot 2"], "By area"),
 		("Aquaculture", "ponds", "Pond excavation", "2025-11-10", 720000, ["Pond 1", "Pond 2", "Pond 3", "Pond 4"], "By area"),
 		("Aquaculture", "ponds", "Pond liner", "2025-11-25", 380000, ["Pond 1", "Pond 2", "Pond 3", "Pond 4"], "By area"),
 		("Aquaculture", "ponds", "Inlet and outlet works", "2025-12-05", 160000, ["Pond 1", "Pond 2", "Pond 3", "Pond 4"], "By area"),
@@ -49,15 +52,13 @@ DEMO = {
 		("Apiary", "hives", "Apiary fencing", "2025-10-02", 70000, ["Hive Group North", "Hive Group South"], "Manual"),
 	],
 	# mature blocks: setup cost = their establishment costs, plus history to the as-of date
-	"opening_balances": {
-		"Avocado Block A": {"as_of_date": "2026-01-01", "planted_on": "2023-04-10", "running_costs_to_date": 1850000,
-			"value_recovered_to_date": 2600000, "note": "Opened from the paper records before the system went live."},
-		"Avocado Block B": {"as_of_date": "2026-01-01", "planted_on": "2023-05-02", "running_costs_to_date": 1480000,
-			"value_recovered_to_date": 1900000, "note": "Opened from the paper records before the system went live."},
-	},
+	# (the opening balances are derived from the bearing avocado blocks: see seed_opening_balances)
+	"old_planting_to": 2021,  # avocado planted up to this year is the old cohort of its phase
+	"opening": {"as_of_date": "2026-01-01", "running_cost_per_ha": (190000, 230000), "value_per_ha": (260000, 320000),
+		"planted_offset_days": (10, 40), "note": "Opened from the paper records before the system went live."},
 	# Active protocols by item (variety items map to their product): buffers and extra activities.
 	# phi days: avocado 21; potatoes, cabbage, onion 14; passion fruit 7. establishment weeks for spraying 2.
-	"phi_days": {"Hass Avocado": 21, "Fuerte Avocado": 21, "Potatoes": 14, "Cabbage": 14, "Onion": 14, "Passion Fruit": 7},
+	"phi_days": {"Hass Avocado": 21, "Fuerte Avocado": 21, "Potatoes": 14, "Cabbage": 14, "Onion": 14, "Passion Fruit": 7, "Maize": 14},
 	"spray_establishment_weeks": 2,
 	# product -> key rows (operation, week, repeats, description)
 	"key": {
@@ -67,6 +68,7 @@ DEMO = {
 			("Earthing Up", 4, "Every cycle", None)],
 		"Cabbage": [("Gap filling", 2, "First cycle only", "Replace dead transplants")],
 		"Onion": [("Gap filling", 2, "First cycle only", "Replace dead transplants")],
+		"Maize": [("Gap filling", 2, "First cycle only", "Replace missed seed")],
 		"Passion Fruit": [("Gap filling", 2, "First cycle only", "Replace dead seedlings"),
 			("Seedling support (staking)", 3, "First cycle only", "Stake and tie the young vines")],
 	},
@@ -82,6 +84,8 @@ DEMO = {
 		"Cabbage": [("Spraying", "Interval", 2, 2, None), ("Weeding", "Interval", 3, 0, None),
 			("Irrigating", "Interval", 1, 0, None), ("Pest management", "As needed", None, 0, None)],
 		"Onion": [("Spraying", "Interval", 2, 2, None), ("Weeding", "Interval", 3, 0, None),
+			("Irrigating", "Interval", 1, 0, None), ("Pest management", "As needed", None, 0, None)],
+		"Maize": [("Spraying", "Interval", 2, 2, None), ("Weeding", "Interval", 3, 0, None),
 			("Irrigating", "Interval", 1, 0, None), ("Pest management", "As needed", None, 0, None)],
 		"Passion Fruit": [("Spraying", "Interval", 2, 2, None), ("Weeding", "Interval", 3, 0, None),
 			("Irrigating", "Interval", 1, 0, None), ("Mulching", "As needed", None, 0, None),
@@ -99,16 +103,17 @@ DEMO = {
 			("Aerator installation", 650000)],
 	},
 	"planting_material": {"Hass Avocado": 120000, "Fuerte Avocado": 120000, "Potatoes": 90000, "Cabbage": 60000,
-		"Onion": 80000, "Passion Fruit": 110000},
-	# potato blocks tested over the last 3 weeks: unit -> (dry matter % 3 weeks ago, gain per week).
-	# The older blocks reach the 20% target, the young ones are still rising.
-	"dry_matter": {"P2-B3": (17.8, 1.3), "P1-B2": (15.2, 0.9), "P1-B1": (13.9, 0.8), "P2-B4": (13.1, 0.7)},
+		"Onion": 80000, "Passion Fruit": 110000, "Maize": 30000},
+	# dry matter by product: (start % low, start % high, gain per week low, gain per week high). The variety's
+	# own settings (test?, part, target, sampling stage) decide which blocks are tested at all.
 	"dm_visits": 3,
 	"dm_samples": 5,
-	# Actual flowering as weeks after the expected date. Block A is three weeks late (the plan's case; an
-	# avocado first cycle is anchored on flowering, so it has no flowering flag of its own); the passion
-	# blocks are recorded too (P4-B1 three weeks late: one manager flag), so only that one is off protocol.
-	"flowering_actuals": {"Avocado Block A": 3, "Avocado Block B": 0, "P4-B1": 3, "P4-B2": 0, "P4-B3": -1, "P4-B4": 1},
+	"dm_ranges": {"Potatoes": (13.0, 18.5, 0.7, 1.3), "Onion": (7.0, 10.0, 0.4, 0.7), "Cabbage": (5.0, 7.0, 0.3, 0.5)},
+	# Actual flowering as weeks after the expected date, for the non-anchored blocks (passion fruit): one
+	# block three weeks late gives the manager one flag. An avocado first cycle is anchored on flowering, so
+	# it has no flowering flag of its own; the first active avocado block is three weeks late (the plan's case).
+	"flowering_actuals": {"P1-B11": 3, "P2-B8": 0, "P2-B11": -1},
+	"avocado_flowering_late": {"PH1-B1": 3},
 }
 
 
@@ -133,10 +138,22 @@ def _make_cost(ref, crop, op, date, amount, units, method):
 	return True
 
 
+def _set_units(units):
+	"""A set's units: a list of unit names, or one of the avocado cohort keys (phase + planting-year group)."""
+	if isinstance(units, str):
+		phase, which = units.split("_")
+		phase_name = f"Phase {phase[2]}"
+		old = DEMO["old_planting_to"]
+		return [b["name"] for b in real_blocks.avocado_blocks()
+			if b["phase"] == phase_name and (b["planting_year"] <= old) == (which == "OLD")]
+	return units
+
+
 def seed_costs():
 	made = 0
 	for crop, label, date, units in DEMO["sets"]:
-		if not all(frappe.db.exists("Production Unit", u) for u in units):
+		units = _set_units(units)
+		if not units or not all(frappe.db.exists("Production Unit", u) for u in units):
 			continue
 		area = sum(flt(frappe.db.get_value("Production Unit", u, "area_ha")) for u in units)
 		for op, per_ha in DEMO["per_ha"][crop]:
@@ -148,17 +165,27 @@ def seed_costs():
 
 
 def seed_opening_balances():
+	"""Mature (bearing, picking) avocado blocks open with paper-record history; figures are per ha of the
+	block's survey area, a stable pick per block."""
 	from upande_production.production.logic import establishment
 
+	cfg = DEMO["opening"]
 	made = 0
-	for unit, vals in DEMO["opening_balances"].items():
+	for b in real_blocks.active_avocado():
+		unit = b["name"]
 		if not frappe.db.exists("Production Unit", unit):
 			continue
+		r = random.Random(f"{DEMO['seed']}:open:{unit}")
 		setup = sum(establishment.cost_by_unit([unit]).values())
-		data = {**vals, "setup_cost": round(setup, 2),
-			"crop": frappe.db.get_value("Production Unit", unit, "crop")}
+		planted = add_days(getdate(f"{b['planting_year']}-04-01"), r.randint(*cfg["planted_offset_days"]))
+		data = {"as_of_date": cfg["as_of_date"], "planted_on": planted,
+			"running_costs_to_date": round(b["area"] * r.uniform(*cfg["running_cost_per_ha"]), -3),
+			"value_recovered_to_date": round(b["area"] * r.uniform(*cfg["value_per_ha"]), -3), "note": cfg["note"],
+			"setup_cost": round(setup, 2), "crop": frappe.db.get_value("Production Unit", unit, "crop")}
 		if frappe.db.exists("Block Opening Balance", unit):
 			doc = frappe.get_doc("Block Opening Balance", unit)
+			if str(doc.as_of_date) == cfg["as_of_date"] and doc.running_costs_to_date:
+				continue  # already opened: the seed leaves a block's balance alone
 			doc.update(data)
 			doc.save(ignore_permissions=True)
 		else:
@@ -245,30 +272,44 @@ def extend_protocols():
 # ------------------------------------------------------------------ dry matter tests
 
 def seed_dry_matter_tests():
-	"""Potato slice tests, weekly, rising to target. The tests of the demo potato blocks are replaced
-	on every run: their dates are relative to today."""
+	"""Tests on the blocks whose variety is tested and whose cycle has reached the sampling stage: weekly,
+	rising toward the variety's target. Every fifth such block has never been sampled and every third was
+	last sampled a week ago, so the Dry Matter pages show blocks that are due. Test dates are relative to
+	today: the seed's tests on these blocks that fall on other dates are replaced; a second run on the
+	same day changes nothing."""
+	from upande_production.production.logic import drymatter
+
 	crop = "Fruits & Vegetables"
-	if not frappe.db.get_value("Production Crop", crop, "dry_matter_testing"):
-		return 0
-	units = [u for u in DEMO["dry_matter"] if frappe.db.exists("Production Unit", u)]
-	for n in frappe.get_all("Dry Matter Test", filters={"unit": ("in", units)}, pluck="name", limit_page_length=0):
-		frappe.delete_doc("Dry Matter Test", n, force=True, ignore_permissions=True)
-	made = 0
+	rows = [r for r in drymatter.due_rows(crop)["rows"] if r["state"] != "not_yet"]
+	rows.sort(key=lambda r: r["unit"])
 	today = getdate(nowdate())
-	for unit in units:
-		start, gain = DEMO["dry_matter"][unit]
-		cycle = frappe.db.get_value("Production Crop Cycle", {"unit": unit, "status": ("in", ["Active", "Harvesting"])},
-			["name", "variety"], as_dict=True)
-		rng = random.Random(f"{DEMO['seed']}:dm:{unit}")
-		for i in range(DEMO["dm_visits"]):
-			mean = start + gain * i
-			samples = [{"sample_no": k + 1, "dry_matter_pct": round(mean + rng.uniform(-0.6, 0.6), 1)}
-				for k in range(DEMO["dm_samples"])]
-			frappe.get_doc({"doctype": "Dry Matter Test", "unit": unit, "cycle": cycle.name if cycle else None,
-				"variety": cycle.variety if cycle else None, "crop": crop,
-				"test_date": add_days(today, -7 * (DEMO["dm_visits"] - 1 - i)), "samples": samples,
-			}).insert(ignore_permissions=True)
-			made += 1
+	wanted = {}
+	for i, r in enumerate(rows):
+		if i % 5 == 4:
+			continue  # never sampled
+		product = stages.product_item(frappe.db.get_value("Production Crop Cycle", r["cycle"], "item"))
+		rng = random.Random(f"{DEMO['seed']}:dm:{r['unit']}")
+		lo, hi, glo, ghi = DEMO["dm_ranges"][product]
+		start, gain = rng.uniform(lo, hi), rng.uniform(glo, ghi)
+		shift = 7 if i % 3 == 0 else 0
+		for v in range(DEMO["dm_visits"]):
+			mean = start + gain * v
+			samples = [round(mean + rng.uniform(-0.6, 0.6), 1) for _ in range(DEMO["dm_samples"])]
+			wanted[(r["unit"], str(add_days(today, -7 * (DEMO["dm_visits"] - 1 - v) - shift)))] = (r, samples)
+	units = {r["unit"] for r in rows}
+	for t in frappe.get_all("Dry Matter Test", filters={"unit": ("in", list(units) or [""])},
+			fields=["name", "unit", "test_date"], limit_page_length=0):
+		if (t.unit, str(t.test_date)) not in wanted:
+			frappe.delete_doc("Dry Matter Test", t.name, force=True, ignore_permissions=True)
+	made = 0
+	for (unit, date), (r, samples) in wanted.items():
+		if frappe.db.exists("Dry Matter Test", {"unit": unit, "test_date": date}):
+			continue
+		frappe.get_doc({"doctype": "Dry Matter Test", "unit": unit, "cycle": r["cycle"], "variety": r["variety"],
+			"crop": crop, "test_date": date,
+			"samples": [{"sample_no": k + 1, "dry_matter_pct": v} for k, v in enumerate(samples)],
+		}).insert(ignore_permissions=True)
+		made += 1
 	return made
 
 
@@ -313,7 +354,7 @@ def align_cycles():
 	harvest stage falls on the first recorded pick; an avocado season (anchored on flowering) starts at
 	the flowering of the season its picks belong to, and records the flowering `late_weeks` after that."""
 	changed = 0
-	for cy in frappe.get_all("Production Crop Cycle", filters={"status": "Harvesting", "variety": ("is", "set")},
+	for cy in frappe.get_all("Production Crop Cycle", filters=unit_filter({"status": "Harvesting", "variety": ("is", "set")}),
 			fields=["name", "unit", "variety"]):
 		first = _first_pick(cy)
 		spec = next((v for v in __import__("upande_production.production.demo.varieties_seed",
@@ -322,7 +363,7 @@ def align_cycles():
 		if not (first and hs):
 			continue
 		anchored = spec["anchor"] == "Flowering"
-		late = DEMO["flowering_actuals"].get(cy.unit, 0)  # later stages move with the flowering actual
+		late = {**DEMO["flowering_actuals"], **DEMO["avocado_flowering_late"]}.get(cy.unit, 0)  # later stages move with the flowering actual
 		start = add_days(getdate(first), -hs[1] - late * 7)
 		doc = frappe.get_doc("Production Crop Cycle", cy.name)
 		dirty = getdate(doc.start_date) != start

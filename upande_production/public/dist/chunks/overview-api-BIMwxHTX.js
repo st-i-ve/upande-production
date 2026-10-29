@@ -1,0 +1,1 @@
+import{I as a}from"../production-CRcCG2e7.js";const i=e=>a("upande_production.api.overview.get_overview_extras",{crop:e}),v=(e,t,o,r)=>a("upande_production.api.overview.value_adder_detail",{crop:e,employee:t,from_date:o,to_date:r});export{v as a,i as g};

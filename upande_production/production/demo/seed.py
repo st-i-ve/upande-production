@@ -11,10 +11,12 @@ from datetime import datetime, time, timedelta
 import frappe
 from frappe.utils import add_days, getdate, now_datetime, today
 
+from upande_production.production.demo import real_blocks
 from upande_production.production.demo.config import DEMO
 from upande_production.patches import convert_protocol_steps
 from upande_production.production.logic import cycles as cycles_logic, plans, work
 from upande_production.production.logic.stages import product_item
+from upande_production.production.logic.units import unit_filter, retired_units
 from upande_production.production.logic.weeks import iso_of
 
 C = Counter()
@@ -188,32 +190,41 @@ def seed_units_and_cycles():
 			vals["expected_harvest_end"] = add_days(start, harvest_off + 35)
 		return _insert(vals).name
 
-	# avocado
-	for b in DEMO["avocado_blocks"]:
-		u = unit(b["name"], "Avocado", "Orchard Block", area_ha=b["area"], plant_count=b["trees"], avocado_block_code=b["code"])
+	# The farm's avocado and pivot blocks are the surveyed units (never created or reshaped here). Retire the
+	# demo-only units and take the outlines from the warehouses first.
+	real_blocks.run()
+
+	# avocado: every real block gets its master record; the bearing ones also a cycle
+	for b in real_blocks.avocado_blocks():
+		u = b["name"]
+		frappe.db.set_value("Production Unit", u, {"avocado_block_code": b["code"], "plant_count": b["trees"]},
+			update_modified=False)
+		vals = {"farm": farm, "variety": b["variety"], "status": "Active", "area_ha": b["area"], "total_trees": b["trees"],
+			"live_trees": b["live"], "bearing_trees": b["bearing"], "sick_trees": b["sick"], "to_infill": b["infill"],
+			"planting_year": b["planting_year"], "trees_per_ha": DEMO["avocado"]["trees_per_ha"]}
 		if not frappe.db.exists("Avocado Yield Block", b["code"]):
-			_insert({"doctype": "Avocado Yield Block", "block_code": b["code"], "farm": farm, "variety": b["variety"],
-				"status": "Active", "area_ha": b["area"], "total_trees": b["trees"], "live_trees": b["trees"],
-				"bearing_trees": b["trees"], "planting_year": 2018})
-		cycle(u, "Avocado", "Season", b["item"], b["start_ago"], "Harvesting", "Avocado Season", plant_count=b["trees"], harvest_off=80)
+			_insert({"doctype": "Avocado Yield Block", "block_code": b["code"], **vals})
+		if b["active"]:
+			cycle(u, "Avocado", "Season", b["item"], DEMO["avocado"]["start_ago"], "Harvesting", "Avocado Season",
+				plant_count=b["trees"], harvest_off=80)
 	frappe.db.commit()
 
-	# fruits & vegetables
+	# fruits & vegetables: one cycle per real pivot block, with the previous crop's closed cycle behind it
 	proto_item = {p: v[1] for p, v in DEMO["protocols"].items()}
-	harvest_off = {"Potato": 100, "Cabbage": 85, "Onion": 120, "Passion": 0}
-	for pname, area in DEMO["pivots"]:
-		unit(pname, "Fruits & Vegetables", "Pivot", is_group=1, area_ha=area)
-		n = pname.split()[1]
-		for i in range(1, 5):
-			bname = f"P{n}-B{i}"
-			proto, ago, status, prev_item = DEMO["fv_cycles"][bname]
-			plants = int(area / 4 * 1600) if proto == "Passion" else None
-			u = unit(bname, "Fruits & Vegetables", "Pivot Block", parent_production_unit=pname, area_ha=area / 4, plant_count=plants)
-			prev = None
-			if prev_item:
-				prev = cycle(u, "Fruits & Vegetables", "Planting", prev_item, ago + 260, "Closed", None, plant_count=None)
-			cycle(u, "Fruits & Vegetables", "Season" if proto == "Passion" else "Planting", proto_item[proto], ago,
-				status, proto, harvest_off=harvest_off[proto], plant_count=plants, prev=prev)
+	harvest_off = {"Potato": 100, "Cabbage": 85, "Onion": 120, "Passion": 0, "Maize": 110}
+	for blk in real_blocks.fv_blocks():
+		bname = blk["name"]
+		if bname not in DEMO["fv_cycles"]:
+			continue
+		proto, ago, status, prev_item, _variety = DEMO["fv_cycles"][bname]
+		plants = int(blk["area"] * 1600) if proto == "Passion" else None
+		if plants:
+			frappe.db.set_value("Production Unit", bname, "plant_count", plants, update_modified=False)
+		prev = None
+		if prev_item:
+			prev = cycle(bname, "Fruits & Vegetables", "Planting", prev_item, ago + 260, "Closed", None, plant_count=None)
+		cycle(bname, "Fruits & Vegetables", "Season" if proto == "Passion" else "Planting", proto_item[proto], ago,
+			status, proto, harvest_off=harvest_off[proto], plant_count=plants, prev=prev)
 	frappe.db.commit()
 
 	for pond, ago, status in DEMO["ponds"]:
@@ -245,8 +256,9 @@ def _process_plan(plan_name, current, vas, supers):
 	cfg = DEMO["status_mix"]
 	td = getdate(today())
 	doc = frappe.get_doc("Production Work Plan", plan_name)
+	gone = retired_units()
 	todo = [(t.name, t.protocol_ref, getdate(t.due_date), float(t.planned_qty or 1))
-		for t in doc.tasks if t.status == "Open" and not t.done_qty]
+		for t in doc.tasks if t.status == "Open" and not t.done_qty and t.unit not in gone]
 	adjust = {}
 	for tname, ref, due, planned in todo:
 		if due > td:
@@ -357,7 +369,8 @@ def seed_avocado_history():
 	crew = _avocado_crew()
 	_keep_to_crew(crop, crew)
 	last = add_days(td, -cfg["last_day_ago"])
-	for b in DEMO["avocado_blocks"]:
+	worked = DEMO["avocado"]["worked"]
+	for b in [b for b in real_blocks.active_avocado() if b["name"] in worked]:
 		unit = b["name"]
 		cycle = frappe.db.get_value("Production Crop Cycle", {"unit": unit, "crop": crop}, "name")
 		for k in range(cfg["weeks"], 0, -1):
@@ -405,7 +418,8 @@ def seed_approvals():
 	users = DEMO["keying_users"]
 	rows = frappe.db.sql(
 		"""select name, docstatus, approval_status, plan, plan_task, crop, unit, operation, work_date
-		from `tabValue Adder Work` where docstatus < 2 order by work_date, name""", as_dict=True)
+		from `tabValue Adder Work` where docstatus < 2 and unit not in %s order by work_date, name""",
+		(tuple(retired_units()) or ("",),), as_dict=True)
 	groups = {}
 	for r in rows:
 		groups.setdefault(r.plan_task or f"{r.unit}|{r.operation}|{r.work_date}", []).append(r)
@@ -438,7 +452,7 @@ def seed_approvals():
 		_backdate(names, datetime.combine(day, time(16, 0)))
 		C[f"VAW {status.lower()}"] += len(names)
 
-	mixed = frappe.db.exists("Value Adder Work", {"approval_status": "Sent Back"})
+	mixed = frappe.db.exists("Value Adder Work", {"approval_status": "Sent Back", "unit": ("not in", list(retired_units()) or [""])})
 	recent_cut = add_days(td, -cfg["stale_days"][1] - 1)
 	by_crop = {}
 	for k, g in groups.items():
@@ -501,8 +515,8 @@ def _ensure_pending(crop, want, stale_n):
 	td = getdate(today())
 	rows = frappe.db.sql(
 		"""select name, docstatus, approval_status, plan, plan_task, unit, operation, work_date
-		from `tabValue Adder Work` where crop = %s and docstatus < 2 order by work_date desc, name""",
-		(crop,), as_dict=True)
+		from `tabValue Adder Work` where crop = %s and docstatus < 2 and unit not in %s order by work_date desc, name""",
+		(crop, tuple(retired_units()) or ("",)), as_dict=True)
 	groups = {}
 	for r in rows:
 		groups.setdefault(r.plan_task or f"{r.unit}|{r.operation}|{r.work_date}", []).append(r)
@@ -536,7 +550,7 @@ def seed_production_data():
 	td = getdate(today())
 	mon = _monday(td)
 	prices = DEMO["prices"]
-	harvest_status = frappe.get_all("Production Crop Cycle", filters={"status": "Harvesting"},
+	harvest_status = frappe.get_all("Production Crop Cycle", filters=unit_filter({"status": "Harvesting"}),
 		fields=["name", "unit", "item", "crop"])
 	# Ponds and hives have no cycles: their output hangs off the unit alone.
 	for unit_name, item in (
@@ -581,7 +595,7 @@ def seed_production_data():
 	frappe.db.commit()
 
 	# yield samples
-	cycles = frappe.get_all("Production Crop Cycle", filters={"status": ("in", ["Active", "Harvesting"]), "crop": ("in", ["Avocado", "Fruits & Vegetables"])},
+	cycles = frappe.get_all("Production Crop Cycle", filters=unit_filter({"status": ("in", ["Active", "Harvesting"]), "crop": ("in", ["Avocado", "Fruits & Vegetables"])}),
 		fields=["unit", "item", "name"])
 	for cy in cycles:
 		prod = product_item(cy.item)
@@ -614,7 +628,8 @@ def seed_production_data():
 	frappe.db.commit()
 
 	# avocado fruit counts + forecasts
-	for b in DEMO["avocado_blocks"]:
+	sampled = DEMO["avocado"]["sampled"]
+	for b in [b for b in real_blocks.active_avocado() if b["name"] in sampled]:
 		code = b["code"]
 		for i in range(2):
 			d = td - timedelta(days=14 * (i + 1))
@@ -625,11 +640,11 @@ def seed_production_data():
 			fpt, wt = round(r.uniform(65, 95), 1), round(r.uniform(190, 240))
 			_insert({"doctype": "Avocado Fruit Count", "naming_series": "AFC-.YYYY.-.####", "orchard_block": code,
 				"count_date": d, "trees_counted": 40, "fruit_per_tree": fpt, "avg_fruit_weight_g": wt,
-				"drop_pct": 8, "est_kg_per_tree": round(fpt * wt / 1000, 1), "est_block_kg": round(fpt * wt / 1000 * b["trees"]),
-				"bearing_trees": b["trees"]})
+				"drop_pct": 8, "est_kg_per_tree": round(fpt * wt / 1000, 1), "est_block_kg": round(fpt * wt / 1000 * b["bearing"]),
+				"bearing_trees": b["bearing"]})
 		if not frappe.db.exists("Avocado Production Forecast", {"orchard_block": code, "season": mon.year}):
 			_insert({"doctype": "Avocado Production Forecast", "naming_series": "APF-.YYYY.-.####", "orchard_block": code,
-				"season": mon.year, "crop": "Whole Season", "entry_date": td, "expected_kg": b["trees"] * 60, "price_per_kg": 120})
+				"season": mon.year, "crop": "Whole Season", "entry_date": td, "expected_kg": b["bearing"] * 60, "price_per_kg": 120})
 	frappe.db.commit()
 
 
@@ -639,8 +654,7 @@ def seed_journals():
 	accts = [a for a in DEMO["journal_accounts"] if frappe.db.exists("Account", a)]
 	if not accts:
 		accts = frappe.get_all("Account", filters={"company": company, "root_type": "Expense", "is_group": 0}, pluck="name", limit=3)
-	blocks = [b["name"] for b in DEMO["avocado_blocks"]] + [
-		f"P{n}-B{i}" for n in range(1, 5) for i in range(1, 5)]
+	blocks = [b["name"] for b in real_blocks.active_avocado()] + [b["name"] for b in real_blocks.fv_blocks()]
 	for b in blocks:
 		tag = f"production-demo:{b}"
 		if frappe.db.exists("Journal Entry", {"user_remark": tag, "docstatus": 1}):

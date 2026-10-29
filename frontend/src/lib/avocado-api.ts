@@ -670,13 +670,24 @@ export interface DryMatterBlock {
   /** "block" | "cohort" (inherited from the planting year) | null */
   measured_on: string | null;
   trend: { date: ISODate; dry_matter_pct: number; measured_on: string }[];
+  /** The block's cycle stage today, the stage from which sampling is due, and where it stands. */
+  stage: string | null;
+  sample_from_stage: string | null;
+  sampling: SamplingState | null;
+  days_since_test: number | null;
 }
+
+/** due: in or past the sampling stage with no recent test; recent: tested inside the retest window;
+ *  not_yet: before the sampling stage; no_cycle: no open cycle on the block. */
+export type SamplingState = "due" | "recent" | "not_yet" | "no_cycle";
 
 export interface DryMatterVisit {
   test_date: ISODate;
   where: string;
   measured_on: "block" | "area";
   week_number: number | null;
+  /** The cycle's stage on the test date. */
+  stage?: string | null;
   sizes: { count_size: number; dry_matter_pct: number; moisture_pct: number }[];
   average_dry_matter: number;
   ready: boolean;
@@ -699,7 +710,9 @@ export interface DryMatterPage {
   minimum_pct: number;
   maximum_pct: number;
   blocks: DryMatterBlock[];
-  summary: { blocks: number; ready: number; rising: number; stale: number; never_sampled: number };
+  summary: { blocks: number; due?: number; ready: number; rising: number; stale: number; never_sampled: number };
+  /** Production Settings: a block is due when it has no test in this many days. */
+  retest_days?: number;
   recent_visits: DryMatterVisit[];
   units: Record<string, string>;
 }

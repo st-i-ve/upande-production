@@ -10,6 +10,7 @@ from frappe.utils import add_days, getdate, today
 
 from upande_production.production.logic import rules, schedule
 from upande_production.production.logic.cycles import crop_uses_cycles
+from upande_production.production.logic.units import retired_sql, unit_filter
 from upande_production.production.logic.weeks import iso_of
 
 
@@ -34,7 +35,7 @@ def _pay(v, can_see_pay):
 def crop_units(crop):
 	return frappe.get_all(
 		"Production Unit",
-		filters={"crop": crop},
+		filters={"crop": crop, "status": ("!=", "Retired")},
 		fields=[
 			"name", "unit_type", "parent_production_unit as parent", "is_group", "area_ha",
 			"plant_count", "cost_center", "status", "lft", "rgt",
@@ -62,7 +63,7 @@ def current_cycles(crop):
 		return {}
 	rows = frappe.get_all(
 		"Production Crop Cycle",
-		filters={"crop": crop, "status": ("in", ["Active", "Harvesting"])},
+		filters=unit_filter({"crop": crop, "status": ("in", ["Active", "Harvesting"])}),
 		fields=["name", "unit", "item", "start_date", "variety", "current_stage", "juvenile"],
 		order_by="start_date asc",
 	)
@@ -119,7 +120,7 @@ def _week_tasks(crop, year, week):
 		return []
 	return frappe.get_all(
 		"Production Plan Task",
-		filters={"parenttype": "Production Work Plan", "parent": ("in", plans)},
+		filters=unit_filter({"parenttype": "Production Work Plan", "parent": ("in", plans)}),
 		fields=["unit", "status", "deviation"],
 	)
 
@@ -150,8 +151,8 @@ def overview(crop, can_see_pay):
 	forecast_next4 = frappe.db.sql(
 		"""select sum(w.expected_qty) from `tabProduction Forecast Week` w
 		join `tabProduction Forecast` f on f.name = w.parent
-		where f.crop = %s and w.week_start between %s and %s""",
-		(crop, w_start, w_end),
+		where f.crop = %s and w.week_start between %s and %s and f.unit not in %s""",
+		(crop, w_start, w_end, retired_sql()),
 	)[0][0]
 	committed_next4 = frappe.db.sql(
 		"""select sum(committed_qty) from `tabBuyer Commitment`
@@ -247,9 +248,9 @@ def value_adder_summary(crop, from_date, to_date, group_by, can_see_pay):
 	data = frappe.db.sql(
 		f"""select {key}, {label}, uom, sum(qty), sum(hours), sum(pay_value), count(*)
 		from `tabValue Adder Work`
-		where docstatus = 1 and crop = %s and work_date between %s and %s
+		where docstatus = 1 and crop = %s and work_date between %s and %s and unit not in %s
 		group by {key}, uom order by {key}""",
-		(crop, frm, to),
+		(crop, frm, to, retired_sql()),
 	)
 	grouped = {}
 	for k, lab, uom, qty, hours, pay, n in data:
@@ -285,11 +286,11 @@ def deviations(crop, from_date, to_date):
 	if plans:
 		tasks = frappe.get_all(
 			"Production Plan Task",
-			filters={
+			filters=unit_filter({
 				"parenttype": "Production Work Plan", "parent": ("in", plans),
 				"deviation": ("in", ["Late", "Partial", "Skipped"]),
 				"due_date": ("between", [frm, to]),
-			},
+			}),
 			fields=[
 				"parent", "unit", "operation_name", "due_date", "deviation", "planned_qty",
 				"done_qty", "uom", "completed_at",
@@ -323,7 +324,7 @@ def _missed(crop, frm, to, op_names):
 		return []
 	cycles = frappe.get_all(
 		"Production Crop Cycle",
-		filters={"crop": crop, "status": ("in", ["Active", "Harvesting"]), "protocol": ("is", "set")},
+		filters=unit_filter({"crop": crop, "status": ("in", ["Active", "Harvesting"]), "protocol": ("is", "set")}),
 		fields=["name", "unit", "start_date", "protocol", "cycle_no"],
 	)
 	if not cycles:
@@ -392,6 +393,8 @@ def protocol_check(crop, year, week, unit=None):
 	filters = {"crop": crop, "status": ("in", ["Active", "Harvesting"]), "protocol": ("is", "set")}
 	if unit:
 		filters["unit"] = unit
+	else:
+		filters = unit_filter(filters)
 	cycles = frappe.get_all("Production Crop Cycle", filters=filters,
 		fields=["name", "unit", "start_date", "protocol", "cycle_no"], order_by="unit asc")
 	if not cycles:
@@ -472,14 +475,15 @@ def forecast_summary(crop, from_date, to_date):
 	fc = frappe.db.sql(
 		"""select w.week_start, f.unit, sum(w.expected_qty)
 		from `tabProduction Forecast Week` w join `tabProduction Forecast` f on f.name = w.parent
-		where f.crop = %s and w.week_start between %s and %s group by w.week_start, f.unit""",
-		(crop, frm, to),
+		where f.crop = %s and w.week_start between %s and %s and f.unit not in %s
+		group by w.week_start, f.unit""",
+		(crop, frm, to, retired_sql()),
 	)
 	ac = frappe.db.sql(
 		"""select date_sub(harvest_date, interval weekday(harvest_date) day), unit, sum(qty)
-		from `tabProduction Harvest` where crop = %s and harvest_date between %s and %s
+		from `tabProduction Harvest` where crop = %s and harvest_date between %s and %s and unit not in %s
 		group by 1, 2""",
-		(crop, frm, to),
+		(crop, frm, to, retired_sql()),
 	)
 	cm = frappe.db.sql(
 		"""select week_start, sum(committed_qty) from `tabBuyer Commitment`
@@ -521,8 +525,8 @@ def forecast_summary(crop, from_date, to_date):
 		"committed": sum(wc.values()), "error_pct": _pct(actual_total, fc_to_date),
 	}
 	seasons = frappe.db.sql(
-		"select year(harvest_date), sum(qty) from `tabProduction Harvest` where crop = %s group by 1 order by 1",
-		(crop,),
+		"select year(harvest_date), sum(qty) from `tabProduction Harvest` where crop = %s and unit not in %s group by 1 order by 1",
+		(crop, retired_sql()),
 	)
 	return {
 		"uom": uom, "weeks": weeks, "units": units, "totals": totals,

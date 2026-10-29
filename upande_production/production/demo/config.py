@@ -12,7 +12,7 @@ DEMO = {
 		{"name": "Apiary", "key": "apiary", "accent": "#c99a1b", "icon": "hive", "parent": "", "unit": "Hive Group", "sub": "Hive", "uom": "Kg", "sort": 4, "cycle_type": "Hive Season", "cycles": 0},
 	],
 	"uoms": ["Kg", "Hectare", "Tree", "Crate", "Bed", "Plant", "Pond", "Hive", "Fingerlings (x1000)"],
-	"items": ["Hass Avocado", "Fuerte Avocado", "Potatoes", "Cabbage", "Onion", "Passion Fruit", "Tilapia", "Honey"],
+	"items": ["Hass Avocado", "Fuerte Avocado", "Potatoes", "Cabbage", "Onion", "Passion Fruit", "Maize", "Tilapia", "Honey"],
 	# crop -> [(operation, work_uom, default_rate, category, is_harvest)]
 	"operations": {
 		"Avocado": [
@@ -52,38 +52,65 @@ DEMO = {
 			("Harvest", 120, 0, 1, 350)]),
 		"Passion": ("Fruits & Vegetables", "Passion Fruit", [
 			("Passion Pruning", 0, 90, 4, 600), ("Spraying", 0, 30, 12, 6), ("Harvest", 0, 14, 26, 150)]),
+		"Maize": ("Fruits & Vegetables", "Maize", [
+			("Land Preparation", -7, 0, 1, 6), ("Planting", 0, 0, 1, 120), ("Weeding", 21, 21, 2, 120),
+			("Top Dressing", 35, 0, 1, 120), ("Spraying", 21, 14, 4, 6), ("Harvest", 110, 0, 1, 400)]),
 		"Pond Cycle": ("Aquaculture", "Tilapia", [
 			("Stocking", 0, 0, 1, 20), ("Feeding", 0, 7, 26, 80), ("Water Quality Check", 0, 7, 26, 1),
 			("Harvest", 180, 0, 1, 500)]),
 		"Hive Season": ("Apiary", "Honey", [
 			("Hive Inspection", 0, 14, 12, 400), ("Treatment", 30, 0, 1, 400), ("Honey Harvest", 90, 0, 1, 200)]),
 	},
-	"avocado_blocks": [
-		{"name": "Avocado Block A", "code": "A", "area": 6.5, "trees": 1040, "variety": "Hass", "item": "Hass Avocado", "start_ago": 85},
-		{"name": "Avocado Block B", "code": "B", "area": 5.2, "trees": 832, "variety": "Fuerte, Hass", "item": "Fuerte Avocado", "start_ago": 100},
-	],
-	"pivots": [("Pivot 1", 24), ("Pivot 2", 22), ("Pivot 3", 21), ("Pivot 4", 20)],
-	# block -> (protocol, active cycle start_ago, status, previous crop item)
+	# The real avocado blocks come from the survey (Phase 1 / Phase 2); these are the farm's figures about them.
+	# `active` blocks are bearing and picking: cycles, plans, work, harvests, dry matter and counts.
+	# The rest are young plantings with trees and a master record but no crop yet.
+	"avocado": {
+		"active": ["PH1-B1", "PH1-B2", "PH1-B3", "PH1-B4", "PH1-B5", "PH1-B6", "PH1-B7", "PH1-B8", "PH1-B9",
+			"PH2-B1", "PH2-B2", "PH2-B3"],
+		"sampled": ["PH1-B1", "PH1-B2", "PH1-B3", "PH1-B4", "PH1-B5", "PH1-B6", "PH2-B1", "PH2-B2"],  # dry matter and counts
+		"worked": ["PH1-B1", "PH1-B2", "PH1-B3", "PH1-B4", "PH1-B5", "PH2-B1"],  # unplanned work history
+		"fuerte": ["PH1-B3", "PH1-B7", "PH2-B2"],
+		# (blocks, planting year); anything else is default_planted
+		"planted": [
+			(("PH1-B1", "PH1-B2", "PH1-B3", "PH1-B4", "PH1-B5", "PH1-B6", "PH1-B7", "PH1-B8", "PH1-B9"), 2018),
+			(("PH2-B1", "PH2-B2", "PH2-B3"), 2020),
+			(("PH1-B10", "PH1-B11", "PH1-B12", "PH1-B13", "PH1-B14", "PH1-B15", "PH1-B16"), 2023),
+		],
+		"default_planted": 2024,
+		"bearing_from_planted": 2021,
+		"trees_per_ha": 160, "live_share": 0.97, "bearing_share": 0.95, "sick_share": 0.03, "infill_share": 0.02,
+		"start_ago": 85,  # cycle start days before today
+		"kg_per_tree": {"year_2024": (58, 72), "late_2025": (36, 46), "early_2026": (52, 62)},
+		"early_estimate_share": 0.89, "typed_forecast_share": 1.0,
+		"dm_start": (18.4, 20.2), "dm_gain": (0.55, 0.72),  # blocks start below the floor; some cross 24
+		"fruit_count": {"per_tree": (320, 375), "weight_g": (205, 225), "drop_pct": 8},
+	},
+	# Pivot blocks: crop cycle per block -> (protocol, active cycle start_ago, status, previous crop item, variety).
+	# The first eight blocks keep the cycles they had before the survey replaced the demo outlines.
 	"fv_cycles": {
-		"P1-B1": ("Potato", 45, "Active", "Cabbage"), "P1-B2": ("Potato", 62, "Active", "Onion"),
-		"P1-B3": ("Cabbage", 50, "Active", "Potatoes"), "P1-B4": ("Cabbage", 95, "Harvesting", "Onion"),
-		"P2-B1": ("Onion", 40, "Active", "Potatoes"), "P2-B2": ("Onion", 128, "Harvesting", "Cabbage"),
-		"P2-B3": ("Potato", 105, "Harvesting", "Cabbage"), "P2-B4": ("Potato", 30, "Active", "Onion"),
-		"P3-B1": ("Cabbage", 66, "Active", "Onion"), "P3-B2": ("Cabbage", 28, "Active", "Potatoes"),
-		"P3-B3": ("Onion", 70, "Active", "Potatoes"), "P3-B4": ("Onion", 110, "Active", "Cabbage"),
-		"P4-B1": ("Passion", 190, "Harvesting", None), "P4-B2": ("Passion", 200, "Harvesting", None),
-		"P4-B3": ("Passion", 185, "Harvesting", None), "P4-B4": ("Passion", 195, "Harvesting", None),
+		"P1-B1": ("Potato", 45, "Active", "Cabbage", "Shangi"), "P1-B2": ("Potato", 62, "Active", "Onion", "Dutch Robjin"),
+		"P1-B3": ("Cabbage", 50, "Active", "Potatoes", "Gloria F1"), "P1-B4": ("Cabbage", 95, "Harvesting", "Onion", "Copenhagen Market"),
+		"P2-B1": ("Onion", 40, "Active", "Potatoes", "Red Creole"), "P2-B2": ("Onion", 128, "Harvesting", "Cabbage", "Red Creole"),
+		"P2-B3": ("Potato", 105, "Harvesting", "Cabbage", "Markies"), "P2-B4": ("Potato", 30, "Active", "Onion", "Shangi"),
+		"P1-B5": ("Onion", 55, "Active", "Potatoes", "Red Creole"), "P1-B6": ("Onion", 112, "Harvesting", "Cabbage", "Red Pinoy F1"),
+		"P1-B7": ("Potato", 98, "Harvesting", "Onion", "Markies"), "P1-B8": ("Potato", 20, "Active", "Cabbage", "Shangi"),
+		"P1-B9": ("Maize", 70, "Active", "Potatoes", "H513"), "P1-B10": ("Cabbage", 34, "Active", "Onion", "Gloria F1"),
+		"P1-B11": ("Passion", 190, "Harvesting", None, "Purple"), "P1-B12": ("Onion", 75, "Active", "Cabbage", "Red Creole"),
+		"P2-B5": ("Cabbage", 72, "Active", "Potatoes", "Copenhagen Market"), "P2-B6": ("Cabbage", 82, "Harvesting", "Onion", "Gloria F1"),
+		"P2-B7": ("Potato", 66, "Active", "Cabbage", "Dutch Robjin"), "P2-B8": ("Passion", 200, "Harvesting", None, "Sweet Yellow"),
+		"P2-B9": ("Maize", 105, "Harvesting", "Onion", "H513"), "P2-B10": ("Potato", 48, "Active", "Cabbage", "Shangi"),
+		"P2-B11": ("Passion", 185, "Harvesting", None, "Purple"), "P2-B12": ("Onion", 100, "Active", "Potatoes", "Red Pinoy F1"),
 	},
 	"ponds": [("Pond 1", 60, "Active"), ("Pond 2", 45, "Active"), ("Pond 3", 176, "Harvesting"), ("Pond 4", 90, "Active")],
 	"hives": [("Hive Group North", 40, "Active"), ("Hive Group South", 55, "Harvesting")],
 	"prices": {"Hass Avocado": 120, "Fuerte Avocado": 120, "Potatoes": 45, "Cabbage": 30, "Onion": 70,
-		"Passion Fruit": 110, "Tilapia": 400, "Honey": 900},
+		"Passion Fruit": 110, "Maize": 40, "Tilapia": 400, "Honey": 900},
 	# weekly harvest per unit by item: kg per ha (or per tree / per unit)
-	"weekly_yield": {"Potatoes": 1500, "Cabbage": 1800, "Onion": 1200, "Passion Fruit": 380,
+	"weekly_yield": {"Potatoes": 1500, "Cabbage": 1800, "Onion": 1200, "Passion Fruit": 380, "Maize": 900,
 		"Tilapia": 320, "Honey": 70, "Hass Avocado": 1.3, "Fuerte Avocado": 1.1},
 	# item -> (basis, sample_size, sampled_yield per sample)
 	"samples": {"Potatoes": ("Square Metres", 10, 38), "Cabbage": ("Square Metres", 10, 29),
-		"Onion": ("Square Metres", 10, 31), "Passion Fruit": ("Plants", 20, 62),
+		"Onion": ("Square Metres", 10, 31), "Passion Fruit": ("Plants", 20, 62), "Maize": ("Square Metres", 10, 12),
 		"Hass Avocado": ("Trees", 10, 580), "Fuerte Avocado": ("Trees", 10, 520)},
 	"status_mix": {"done": 0.80, "late": 0.88, "partial": 0.94},  # cumulative
 	"journal_accounts": ["Cost of Goods Sold - MUT", "Miscellaneous Expenses - MUT", "Utility Expenses - MUT", "Office Maintenance Expenses - MUT"],

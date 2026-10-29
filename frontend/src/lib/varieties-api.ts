@@ -24,6 +24,8 @@ export interface VarietyStage {
 export type StageAnchor = "Planting" | "Flowering" | "Stocking";
 
 export type HarvestPattern = "Once" | "Continuous" | "Interval";
+export type DryMatterPart = "Fruit" | "Tuber" | "Bulb" | "Head" | "Leaf";
+export const DRY_MATTER_PARTS: DryMatterPart[] = ["Fruit", "Tuber", "Bulb", "Head", "Leaf"];
 export const HARVEST_PATTERNS: HarvestPattern[] = ["Once", "Continuous", "Interval"];
 
 /** Weeks to first harvest of a flowering variety: weeks to first flowering + weeks flowering to harvest. */
@@ -97,6 +99,11 @@ export interface Variety {
   harvest_window_weeks?: number | null;
   plants_per_m2?: number | null;
   dry_matter_target_pct?: number | null;
+  /** Blank follows the crop. */
+  dry_matter_testing?: "Yes" | "No" | "" | null;
+  dry_matter_on?: DryMatterPart | "" | null;
+  /** The variety stage from which dry matter sampling is due. */
+  dry_matter_from_stage?: string | null;
   notes?: string | null;
   stages: VarietyStage[];
 }

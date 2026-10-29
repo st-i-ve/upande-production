@@ -5,6 +5,7 @@ from frappe.utils import add_days, getdate
 from upande_production.production.logic import rules
 from upande_production.production.logic.cycles import crop_uses_cycles
 from upande_production.production.logic import schedule
+from upande_production.production.logic.units import unit_filter
 from upande_production.production.logic.weeks import iso_week_bounds
 
 
@@ -38,7 +39,7 @@ def generate_week_detail(plan_name: str) -> dict:
 		return {"created": 0, "skipped": skipped}
 	cycles = frappe.get_all(
 		"Production Crop Cycle",
-		filters={"status": ("in", ["Active", "Harvesting"]), "crop": plan.crop, "protocol": ("is", "set")},
+		filters=unit_filter({"status": ("in", ["Active", "Harvesting"]), "crop": plan.crop, "protocol": ("is", "set")}),
 		fields=["name", "unit", "start_date", "protocol", "variety", "cycle_no", "expected_harvest_start"],
 	)
 	with rules.call_cache():

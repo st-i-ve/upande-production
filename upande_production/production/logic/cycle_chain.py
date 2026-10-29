@@ -11,6 +11,7 @@ import frappe
 from frappe.utils import add_days, cint, getdate, today
 
 from upande_production.production.logic import stages
+from upande_production.production.logic.units import unit_filter
 
 CYCLE_DT = "Production Crop Cycle"
 FLAG_STATUSES = ("Active", "Harvesting")
@@ -467,7 +468,7 @@ def refresh_flags_all() -> int:
 
 
 def flag_rows(crop) -> list[dict]:
-	rows = frappe.get_all(CYCLE_DT, filters={"crop": crop, "status": ("in", FLAG_STATUSES), "flag_count": (">", 0)},
+	rows = frappe.get_all(CYCLE_DT, filters=unit_filter({"crop": crop, "status": ("in", FLAG_STATUSES), "flag_count": (">", 0)}),
 		fields=["name", "unit", "variety", "protocol_flags"], order_by="start_date desc")
 	return [{"cycle": r.name, "unit": r.unit, "variety": r.variety,
 		"flags": [f for f in (r.protocol_flags or "").split("\n") if f]} for r in rows]

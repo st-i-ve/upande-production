@@ -27,6 +27,20 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
+const SAMPLING_LABEL: Record<string, string> = {
+  due: "Due for sampling",
+  recent: "Sampled recently",
+  not_yet: "Not yet sampling",
+  no_cycle: "No open cycle",
+};
+
+const SAMPLING_TONE: Record<string, string> = {
+  due: "bg-[var(--sd-alert-warn)] text-[var(--sd-sev-high)]",
+  recent: "bg-[var(--sd-alert-ok)] text-[var(--sd-sev-moderate)]",
+  not_yet: "bg-[var(--sd-bg-soft)] text-[var(--sd-quiet)]",
+  no_cycle: "bg-[var(--sd-bg-soft)] text-[var(--sd-quiet)]",
+};
+
 export function BlockCard({ b, minimum, accent }: { b: DryMatterBlock; minimum: number; accent: string }) {
   const gain = b.gain_pct_per_week;
   return (
@@ -77,6 +91,17 @@ export function BlockCard({ b, minimum, accent }: { b: DryMatterBlock; minimum: 
             planting-area reading
           </Chip>
         )}
+        {b.sampling && (
+          <Chip
+            data-testid={`dm-sampling-${b.block}`}
+            className={SAMPLING_TONE[b.sampling]}
+            title={b.sample_from_stage ? `Sampling is due from ${b.sample_from_stage}` : "Sampling is due from the start"}
+          >
+            {SAMPLING_LABEL[b.sampling]}
+            {b.sampling === "not_yet" && b.sample_from_stage ? `: from ${b.sample_from_stage}` : ""}
+          </Chip>
+        )}
+        {b.stage && <span data-testid={`dm-stage-${b.block}`}>Stage: {b.stage}</span>}
         {b.samples > 0 && <span>{b.samples} test{b.samples === 1 ? "" : "s"}</span>}
         {b.gain_basis && <span>· {b.gain_basis}</span>}
       </div>
