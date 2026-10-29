@@ -41,15 +41,15 @@ These must be in place across planning and recording, desk and mobile.
 - Scope (most specific wins; all that match apply): `crop` Link Production Crop (reqd),
   `variety` Link Production Variety (optional), `stage` Data (optional; must be a stage name of the
   variety/crop),
-- `operation` Link Production Operation (optional) and/or `operation_category` Select
+- `operation` Link Field Activity (optional) and/or `operation_category` Select
   (Spraying / Weeding / Fertilising / Irrigation / Harvesting / Pruning / Feeding / Other) — the rule
   applies to the operation or to every operation of that category,
 - `rule_type` Select: `Not in stage` | `Only in stage` | `Not within days before harvest` |
   `Not within days after operation`,
-- `days` Int (for the "within days" types), `other_operation` Link Production Operation /
+- `days` Int (for the "within days" types), `other_operation` Link Field Activity /
   `other_category` Select (same options) for "after operation",
 - `enforcement` Select `Block` | `Warn` (reqd), `reason` Small Text (shown to the user), `enabled` Check.
-- Production Operation gains `category` Select (same options as `operation_category`).
+- Field Activity gains `category` Select (same options as `operation_category`).
 
 ### Changes to existing doctypes
 - **Production Crop Cycle**: `variety` Link Production Variety; `current_stage` Data (read-only,

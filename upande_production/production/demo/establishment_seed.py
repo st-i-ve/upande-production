@@ -118,7 +118,7 @@ DEMO = {
 
 
 def _op(crop, name):
-	return frappe.db.get_value("Production Operation", {"crop": crop, "operation_name": name}, "name")
+	return frappe.db.get_value("Field Activity", {"crop": crop, "operation_name": name}, "name")
 
 
 # ------------------------------------------------------------------ establishment costs

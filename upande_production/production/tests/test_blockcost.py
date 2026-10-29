@@ -134,7 +134,7 @@ class TestBlockCost(IntegrationTestCase):
 		u = self._unit("BC Labour")
 		emp = _make("Employee", first_name="BCWorker", gender="Male", date_of_birth="1990-01-01",
 			date_of_joining="2020-01-01", company=self.company)
-		op = _make("Production Operation", crop=self.crop.name, operation_name="BC Weeding", category="Other", work_uom="Kg")
+		op = _make("Field Activity", crop=self.crop.name, operation_name="BC Weeding", category="Other", work_uom="Kg")
 		frappe.get_doc({"doctype": "Value Adder Work", "name": "BC-VAW-1", "work_date": today(), "employee": emp.name,
 			"unit": u.name, "operation": op.name, "qty": 3, "uom": "Kg", "pay_value": 300, "docstatus": 1}).db_insert()
 		res = B.breakdown(u.name, None, None, True)
@@ -196,7 +196,7 @@ class TestBlockCost(IntegrationTestCase):
 		self._gl(u.name, 7000, d=fy[1].replace(year=fy[1].year - 1))  # last year: out
 		emp = _make("Employee", first_name="BCActual", gender="Male", date_of_birth="1990-01-01",
 			date_of_joining="2020-01-01", company=self.company)
-		op = _make("Production Operation", crop=self.crop.name, operation_name="BC Actual Op", category="Other", work_uom="Kg")
+		op = _make("Field Activity", crop=self.crop.name, operation_name="BC Actual Op", category="Other", work_uom="Kg")
 		frappe.get_doc({"doctype": "Value Adder Work", "name": "BC-VAW-ACT", "work_date": today(), "employee": emp.name,
 			"unit": u.name, "operation": op.name, "qty": 1, "uom": "Kg", "pay_value": 300, "docstatus": 1}).db_insert()
 		frappe.get_doc({"doctype": "Budget", "budget_against": "Cost Center", "company": self.company,

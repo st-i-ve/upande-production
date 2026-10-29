@@ -26,9 +26,9 @@ def convert(doc) -> dict:
 	starts = {}
 	if doc.get("variety"):
 		starts = {s.stage: cint(s.start_day) for s in frappe.get_doc("Production Variety", doc.variety).stages}
-	names = dict(frappe.get_all("Production Operation", filters={"name": ["in", [s.operation for s in doc.steps]]},
+	names = dict(frappe.get_all("Field Activity", filters={"name": ["in", [s.operation for s in doc.steps]]},
 		fields=["name", "operation_name"], as_list=True))
-	types = dict(frappe.get_all("Production Operation", filters={"name": ["in", [s.operation for s in doc.steps]]},
+	types = dict(frappe.get_all("Field Activity", filters={"name": ["in", [s.operation for s in doc.steps]]},
 		fields=["name", "activity_type"], as_list=True))
 	key, cultural, capital = [], [], []
 	for s in doc.steps:

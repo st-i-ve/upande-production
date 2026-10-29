@@ -36,7 +36,7 @@ class TestApi(IntegrationTestCase):
 			"Production Crop", crop_name="API Empty Crop", crop_key="api-empty", unit_label="Block", yield_uom="Kg"
 		)
 		cls.op = _make(
-			"Production Operation", crop=cls.crop.name, operation_name="API Weeding",
+			"Field Activity", crop=cls.crop.name, operation_name="API Weeding",
 			category="Other", work_uom="Kg", default_rate=40,
 		)
 		cls.emp = _make(
@@ -160,13 +160,13 @@ class TestApi(IntegrationTestCase):
 		self.assertEqual(rate, 55)
 		# a supervisor cannot change an operation default rate
 		api.save_operation({"name": self.op.name, "default_rate": 99})
-		self.assertEqual(frappe.db.get_value("Production Operation", self.op.name, "default_rate"), 40)
+		self.assertEqual(frappe.db.get_value("Field Activity", self.op.name, "default_rate"), 40)
 		frappe.set_user("api_mgr@example.com")
 		res = api.save_operation({"name": self.op.name, "default_rate": 45})
 		self.assertNotIn("error", res)
-		self.assertEqual(frappe.db.get_value("Production Operation", self.op.name, "default_rate"), 45)
+		self.assertEqual(frappe.db.get_value("Field Activity", self.op.name, "default_rate"), 45)
 		frappe.set_user("Administrator")
-		frappe.db.set_value("Production Operation", self.op.name, "default_rate", 40)
+		frappe.db.set_value("Field Activity", self.op.name, "default_rate", 40)
 
 	def test_missed_protocol_deviation(self):
 		unit = self._unit("API MissedUnit")

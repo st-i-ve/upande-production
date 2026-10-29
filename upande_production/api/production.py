@@ -110,7 +110,7 @@ def _plants_replaced(crop):
 	"""Approved Gap filling work (uom Plant) per unit."""
 	rows = frappe.db.sql(
 		"""select w.unit, sum(w.qty) from `tabValue Adder Work` w
-		join `tabProduction Operation` o on o.name = w.operation
+		join `tabField Activity` o on o.name = w.operation
 		where w.crop = %s and w.docstatus < 2 and w.approval_status = 'Approved' and w.uom = 'Plant'
 		and o.operation_name = 'Gap filling' group by w.unit""",
 		(crop,),
@@ -295,7 +295,7 @@ def get_plan(crop, farm, year, week):
 		if sup
 		else {}
 	)
-	colors = dict(frappe.get_all("Production Operation", fields=["name", "color"], as_list=True))
+	colors = dict(frappe.get_all("Field Activity", fields=["name", "color"], as_list=True))
 	for t in tasks:
 		t["color"] = colors.get(t.operation) or None
 		t["rate"] = _pay(t["rate"], pay)
@@ -337,7 +337,7 @@ def save_plan_tasks(crop, farm, year, week, tasks, override_reason=None):
 		else:
 			if vals.get("operation") and not (vals.get("uom") and vals.get("rate")):
 				op = frappe.db.get_value(
-					"Production Operation", vals["operation"], ["work_uom", "default_rate"], as_dict=True
+					"Field Activity", vals["operation"], ["work_uom", "default_rate"], as_dict=True
 				)
 				vals.setdefault("uom", op.work_uom)
 				if vals.get("rate") in (None, ""):
@@ -510,9 +510,9 @@ def save_commitment(data):
 @frappe.whitelist(methods=["POST"])
 @run
 def list_operations(crop):
-	_need("Production Operation")
+	_need("Field Activity")
 	pay = _can_see_pay()
-	rows = frappe.get_all("Production Operation", filters={"crop": crop}, fields=["*"], order_by="operation_name asc")
+	rows = frappe.get_all("Field Activity", filters={"crop": crop}, fields=["*"], order_by="operation_name asc")
 	for r in rows:
 		r["default_rate"] = _pay(r.get("default_rate"), pay)
 	return {"rows": rows}
@@ -521,7 +521,7 @@ def list_operations(crop):
 @frappe.whitelist(methods=["POST"])
 @run
 def save_operation(data):
-	return {"name": _save("Production Operation", data).name}
+	return {"name": _save("Field Activity", data).name}
 
 
 @frappe.whitelist(methods=["POST"])

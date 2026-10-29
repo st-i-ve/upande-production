@@ -43,8 +43,8 @@ class TestCoverageMap(IntegrationTestCase):
 			if not frappe.db.exists("UOM", u):
 				_make("UOM", uom_name=u)
 		cls.crop = _make("Production Crop", crop_name="Cov Crop", crop_key="cov-crop", unit_label="Block", yield_uom="Kg")
-		cls.op1 = _make("Production Operation", crop=cls.crop.name, operation_name="Cov Weeding", category="Other", work_uom="Kg", default_rate=1)
-		cls.op2 = _make("Production Operation", crop=cls.crop.name, operation_name="Cov Spraying", category="Spraying", work_uom="Bed", default_rate=1)
+		cls.op1 = _make("Field Activity", crop=cls.crop.name, operation_name="Cov Weeding", category="Other", work_uom="Kg", default_rate=1)
+		cls.op2 = _make("Field Activity", crop=cls.crop.name, operation_name="Cov Spraying", category="Spraying", work_uom="Bed", default_rate=1)
 		gj = {"type": "Feature", "properties": {}, "geometry": {"type": "Polygon", "coordinates": [[[36.7, 0.0], [36.8, 0.0], [36.8, 0.1], [36.7, 0.0]]]}}
 		cls.units = {}
 		for n in ("A", "B", "C", "D", "E"):
@@ -120,8 +120,8 @@ class TestCoverageMap(IntegrationTestCase):
 
 	def test_coverage_activity_colour(self):
 		U = self.units
-		frappe.db.set_value("Production Operation", self.op1.name, "color", "#112233")
-		frappe.db.set_value("Production Operation", self.op2.name, "color", "#445566")
+		frappe.db.set_value("Field Activity", self.op1.name, "color", "#112233")
+		frappe.db.set_value("Field Activity", self.op2.name, "color", "#445566")
 		self._plan(2098, 10, [
 			self._row(U["A"], self.op1, 10, 0, "Open", "2098-03-04"),
 			self._row(U["B"], self.op2, 6, 0, "In Progress", "2098-03-05", "Bed"),

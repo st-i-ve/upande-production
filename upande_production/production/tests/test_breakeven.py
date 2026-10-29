@@ -27,7 +27,7 @@ class TestBreakEven(IntegrationTestCase):
 		cls.farm = _make("Farm", farm_name="BE Farm", company=cls.company, abbreviation="BEF",
 			farm_type=[{"farm_type": "Has Blocks"}])
 		cls.crop = _make("Production Crop", crop_name="BE Crop", crop_key="be-crop", unit_label="Block", yield_uom="Kg")
-		cls.op = _make("Production Operation", crop=cls.crop.name, operation_name="BE Land Prep",
+		cls.op = _make("Field Activity", crop=cls.crop.name, operation_name="BE Land Prep",
 			category="Other", work_uom="Kg", activity_type="Capital")
 		cls.accounts = frappe.get_all("Account", filters={"company": cls.company, "root_type": "Expense", "is_group": 0},
 			pluck="name", limit=2)

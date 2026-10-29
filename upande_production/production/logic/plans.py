@@ -63,7 +63,7 @@ def _generate_cycle(plan, cy, start, end, existing, skipped, count) -> int:
 		ref, due, operation = item["ref"], item["due_date"], item["operation"]
 		if ref in existing or schedule.legacy_match(legacy, operation, due):
 			continue
-		op = frappe.db.get_value("Production Operation", operation, ["work_uom", "default_rate"], as_dict=True)
+		op = frappe.db.get_value("Field Activity", operation, ["work_uom", "default_rate"], as_dict=True)
 		breaches = rules.check(cycle=cy.name, unit=cy.unit, operation=operation, on_date=due)
 		flag = rules.worst(breaches)
 		if flag == "Block":
@@ -87,7 +87,7 @@ def _note_skipped(plan, skipped):
 	"""Leave a comment on the plan for each step an activity rule kept out (once per step and message)."""
 	for s in skipped:
 		text = _("Not planned: {0} on {1} ({2}). {3}").format(
-			frappe.db.get_value("Production Operation", s["operation"], "operation_name") or s["operation"],
+			frappe.db.get_value("Field Activity", s["operation"], "operation_name") or s["operation"],
 			s["due_date"], s["unit"], s["message"])
 		if not frappe.db.exists("Comment", {"reference_doctype": "Production Work Plan", "reference_name": plan.name,
 			"comment_type": "Info", "content": text}):

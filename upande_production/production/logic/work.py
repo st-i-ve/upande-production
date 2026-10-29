@@ -102,7 +102,7 @@ def record_task_work(plan, task, status, entries, note="", work_date=None, overr
 def record_unplanned_work(unit, operation, entries, work_date, note="", override_reason=None) -> list[str]:
 	work_date = work_date or today()
 	stamp = rules.enforce(rules.check(unit=unit, operation=operation, on_date=work_date), override_reason)
-	op = frappe.db.get_value("Production Operation", operation, ["work_uom", "default_rate"], as_dict=True)
+	op = frappe.db.get_value("Field Activity", operation, ["work_uom", "default_rate"], as_dict=True)
 	return [
 		_insert_vaw(e, work_date, unit, operation, op.work_uom, op.default_rate, stamp=stamp)
 		for e in entries

@@ -33,7 +33,7 @@ class TestMobileApi(IntegrationTestCase):
 			"Production Crop", crop_name="TM Crop", crop_key="tm-crop", unit_label="Block", yield_uom="Kg"
 		)
 		cls.op = _make(
-			"Production Operation", crop=cls.crop.name, operation_name="TM Weeding",
+			"Field Activity", crop=cls.crop.name, operation_name="TM Weeding",
 			category="Other", work_uom="Kg", default_rate=40,
 		)
 		cls.emp = _make(
@@ -67,7 +67,7 @@ class TestMobileApi(IntegrationTestCase):
 			("Production Crop Cycle", {"unit": unit}),
 			("Production Protocol", {"crop": crop}),
 			("Production Unit", {"name": unit}),
-			("Production Operation", {"crop": crop}),
+			("Field Activity", {"crop": crop}),
 			("Production Crop", {"name": crop}),
 			("Employee", {"name": cls.emp.name}),
 			("Farm", {"name": cls.farm.name}),

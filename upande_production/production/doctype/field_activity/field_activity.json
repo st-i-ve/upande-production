@@ -74,7 +74,7 @@
  "modified": "2026-10-28 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Production",
- "name": "Production Operation",
+ "name": "Field Activity",
  "owner": "Administrator",
  "states": [],
  "autoname": "OP-.#####",

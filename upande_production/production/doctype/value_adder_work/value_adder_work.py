@@ -15,7 +15,7 @@ from upande_production.production.logic.units import ensure_unit_cost_center
 class ValueAdderWork(Document):
 	def validate(self):
 		if not self.rate:
-			self.rate = frappe.db.get_value("Production Operation", self.operation, "default_rate") or 0
+			self.rate = frappe.db.get_value("Field Activity", self.operation, "default_rate") or 0
 		self.pay_value = pay_value(self.qty, self.rate)
 		self.crop = frappe.db.get_value("Production Unit", self.unit, "crop")
 		if not self.cost_center:

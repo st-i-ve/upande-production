@@ -17,7 +17,7 @@ def _types(rows):
 	ops = {_row(r, "operation") for r in rows if _row(r, "operation")}
 	if not ops:
 		return {}
-	return dict(frappe.get_all("Production Operation", filters={"name": ["in", list(ops)]},
+	return dict(frappe.get_all("Field Activity", filters={"name": ["in", list(ops)]},
 		fields=["name", "activity_type"], as_list=True))
 
 

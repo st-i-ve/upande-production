@@ -130,7 +130,7 @@ export interface CoverageArgs {
   year: number;
   week: number;
   farm?: string | null;
-  /** Production Operation name (OP-…) limiting the tasks counted. */
+  /** Field Activity name (OP-…) limiting the tasks counted. */
   operation?: string | null;
   /** Keep only blocks in this state. */
   status?: CoverageState | null;

@@ -8,12 +8,12 @@ NEW = {"Spraying", "Weeding", "Fertilising", "Irrigation", "Harvesting", "Prunin
 
 
 def execute():
-	frappe.reload_doc("production", "doctype", "production_operation")
-	for op in frappe.get_all("Production Operation", fields=["name", "operation_name", "category"]):
+	frappe.reload_doc("production", "doctype", "field_activity")
+	for op in frappe.get_all("Field Activity", fields=["name", "operation_name", "category"]):
 		if op.category in NEW or not op.category:
 			continue
 		new = SIMPLE.get(op.category)
 		if not new:
 			low = (op.operation_name or "").lower()
 			new = next((c for frag, c in BY_NAME if frag in low), "Other")
-		frappe.db.set_value("Production Operation", op.name, "category", new, update_modified=False)
+		frappe.db.set_value("Field Activity", op.name, "category", new, update_modified=False)

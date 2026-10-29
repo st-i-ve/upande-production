@@ -58,8 +58,8 @@ def _ensure_operations():
 	for crop, name, uom, rate, cat in DEMO["operations"]:
 		if not frappe.db.exists("Production Crop", crop):
 			continue
-		if not frappe.db.exists("Production Operation", {"crop": crop, "operation_name": name}):
-			frappe.get_doc({"doctype": "Production Operation", "crop": crop, "operation_name": name,
+		if not frappe.db.exists("Field Activity", {"crop": crop, "operation_name": name}):
+			frappe.get_doc({"doctype": "Field Activity", "crop": crop, "operation_name": name,
 				"category": cat, "work_uom": uom, "default_rate": rate, "is_harvest": 0}).insert(ignore_permissions=True)
 
 
@@ -71,7 +71,7 @@ def _varieties(crop, product):
 
 
 def _operation(crop, name):
-	return frappe.db.get_value("Production Operation", {"crop": crop, "operation_name": name})
+	return frappe.db.get_value("Field Activity", {"crop": crop, "operation_name": name})
 
 
 def _make(spec, variety):

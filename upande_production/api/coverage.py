@@ -36,7 +36,7 @@ def _work_rows(crop, start, end, farm):
 	"""Value Adder Work (approved or pending) in the week, newest first."""
 	return frappe.db.sql(
 		"""select w.unit, w.operation, o.operation_name, o.color from `tabValue Adder Work` w
-		join `tabProduction Operation` o on o.name = w.operation
+		join `tabField Activity` o on o.name = w.operation
 		where w.crop = %(crop)s and w.docstatus < 2 and w.approval_status in ('Approved', 'Pending')
 		and w.work_date between %(s)s and %(e)s and w.unit not in %(retired)s
 		order by w.work_date desc, w.creation desc""",
@@ -172,7 +172,7 @@ def coverage_map(crop, year, week, farm=None, operation=None, status=None):
 	cycles = analytics.current_cycles(crop)
 	task_rows = _task_rows(crop, year, week, farm or None)
 
-	colors = dict(frappe.get_all("Production Operation", filters={"crop": crop}, fields=["name", "color"], as_list=True))
+	colors = dict(frappe.get_all("Field Activity", filters={"crop": crop}, fields=["name", "color"], as_list=True))
 	work_by_unit = {}
 	for w in _work_rows(crop, start, end, farm or None):
 		work_by_unit.setdefault(w.unit, []).append(w)

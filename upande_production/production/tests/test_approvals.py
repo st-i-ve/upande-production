@@ -34,7 +34,7 @@ class TestApprovals(IntegrationTestCase):
 		)
 		cls.crop = _make("Production Crop", crop_name="TA Crop", crop_key="ta-crop", unit_label="Block", yield_uom="Kg")
 		cls.op = _make(
-			"Production Operation", crop=cls.crop.name, operation_name="TA Weeding",
+			"Field Activity", crop=cls.crop.name, operation_name="TA Weeding",
 			category="Other", work_uom="Kg", default_rate=40,
 		)
 		cls.emps = [

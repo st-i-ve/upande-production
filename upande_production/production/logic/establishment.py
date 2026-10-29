@@ -136,9 +136,9 @@ def capital_activities(crop):
 				seen.add(r.operation)
 				rows.append({"operation": r.operation, "budget_per_ha": flt(r.budget_per_ha)})
 	if not rows:
-		for op in frappe.get_all("Production Operation", filters={"crop": crop, "activity_type": "Capital"}, pluck="name"):
+		for op in frappe.get_all("Field Activity", filters={"crop": crop, "activity_type": "Capital"}, pluck="name"):
 			rows.append({"operation": op, "budget_per_ha": None})
-	colors = dict(frappe.get_all("Production Operation", filters={"name": ("in", [r["operation"] for r in rows] or [""])},
+	colors = dict(frappe.get_all("Field Activity", filters={"name": ("in", [r["operation"] for r in rows] or [""])},
 		fields=["name", "color"], as_list=True))
 	return [{"operation": r["operation"], "color": colors.get(r["operation"]) or None,
 		"budget_per_ha": r["budget_per_ha"]} for r in rows]

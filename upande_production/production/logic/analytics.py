@@ -312,7 +312,7 @@ def deviations(crop, from_date, to_date):
 	# Deviations are plan tasks that ran late/partial/skipped plus protocol steps never planned.
 	# Unplanned work (one Value Adder Work row each) is extra output, not a deviation, so it is
 	# never counted here; Overview tile, recent list and the deviations endpoint all share this.
-	op_names = dict(frappe.get_all("Production Operation", filters={"crop": crop}, fields=["name", "operation_name"], as_list=True))
+	op_names = dict(frappe.get_all("Field Activity", filters={"crop": crop}, fields=["name", "operation_name"], as_list=True))
 	rows.extend(_missed(crop, frm, to, op_names))
 	rows.sort(key=lambda r: (str(r["due_date"]), r["kind"]))
 	return {"rows": rows}
@@ -347,7 +347,7 @@ def _missed(crop, frm, to, op_names):
 			due = it["due_date"]
 			out.append({
 				"kind": "Missed", "unit": cy.unit,
-				"operation_name": op_names.get(it["operation"]) or frappe.db.get_value("Production Operation", it["operation"], "operation_name"),
+				"operation_name": op_names.get(it["operation"]) or frappe.db.get_value("Field Activity", it["operation"], "operation_name"),
 				"due_date": due, "plan": None,
 				"detail": f"Protocol {cy.protocol} step due {due} was never planned",
 			})
@@ -409,7 +409,7 @@ def protocol_check(crop, year, week, unit=None):
 				"pending_qty", "uom", "due_date", "cycle", "operation"],
 		)
 	}
-	op_names = dict(frappe.get_all("Production Operation", filters={"crop": crop},
+	op_names = dict(frappe.get_all("Field Activity", filters={"crop": crop},
 		fields=["name", "operation_name"], as_list=True))
 	unit_names = dict(frappe.get_all("Production Unit", filters={"crop": crop},
 		fields=["name", "unit_name"], as_list=True))
@@ -429,7 +429,7 @@ def protocol_check(crop, year, week, unit=None):
 				status = _step_status(t, due, today_d)
 				breaches = rules.check(cycle=cy.name, unit=cy.unit, operation=operation, on_date=due,
 					exclude_task=t.name if t else None)
-				uom = t.uom if t else frappe.db.get_value("Production Operation", operation, "work_uom")
+				uom = t.uom if t else frappe.db.get_value("Field Activity", operation, "work_uom")
 				planned = float(t.planned_qty or 0) if t else float(it["planned_qty"] or 0)
 				done = float(t.done_qty or 0) if t else 0.0
 				steps.append({

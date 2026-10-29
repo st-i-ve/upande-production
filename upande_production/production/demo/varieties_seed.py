@@ -233,7 +233,7 @@ def _ensure_variety(v):
 # ------------------------------------------------------------------ protocols
 
 def _op(crop, name):
-	return frappe.db.get_value("Production Operation", {"crop": crop, "operation_name": name}, "name")
+	return frappe.db.get_value("Field Activity", {"crop": crop, "operation_name": name}, "name")
 
 
 def _protocol_for(v):
@@ -254,7 +254,7 @@ def _protocol_for(v):
 	timing = v.get("timing") or {}
 	steps = []
 	for s in src.steps:
-		opname = frappe.db.get_value("Production Operation", s.operation, "operation_name")
+		opname = frappe.db.get_value("Field Activity", s.operation, "operation_name")
 		if opname in drop:
 			continue
 		off, every, count = timing.get(opname, (s.day_offset, s.repeat_every_days, s.repeat_count))
@@ -280,8 +280,8 @@ def _protocol_for(v):
 def _set_categories():
 	cats = DEMO["operation_categories"]
 	n = 0
-	for op in frappe.get_all("Production Operation", fields=["name", "operation_name"]):
-		frappe.db.set_value("Production Operation", op.name, "category", cats.get(op.operation_name, "Other"),
+	for op in frappe.get_all("Field Activity", fields=["name", "operation_name"]):
+		frappe.db.set_value("Field Activity", op.name, "category", cats.get(op.operation_name, "Other"),
 			update_modified=False)
 		n += 1
 	return n

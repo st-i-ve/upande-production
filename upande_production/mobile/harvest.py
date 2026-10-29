@@ -464,7 +464,7 @@ def _plan_total(start, end) -> int:
 	"""Crates the work plans schedule for the period (tasks of a crate harvest operation)."""
 	row = frappe.db.sql(
 		"""select sum(t.planned_qty) from `tabProduction Plan Task` t
-		join `tabProduction Operation` o on o.name = t.operation
+		join `tabField Activity` o on o.name = t.operation
 		where o.is_harvest = 1 and t.uom = 'Crate' and t.due_date between %s and %s""", (start, end))
 	return int(flt(row[0][0]) if row and row[0] else 0)
 

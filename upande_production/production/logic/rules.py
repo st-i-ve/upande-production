@@ -74,7 +74,7 @@ def op_info(operation) -> dict:
 	"""{name, label, categories} of an operation; categories is the set of rule categories it belongs to."""
 	if not operation:
 		return {"name": None, "label": "", "categories": set()}
-	row = frappe.db.get_value("Production Operation", operation, ["operation_name", "category"], as_dict=True)
+	row = frappe.db.get_value("Field Activity", operation, ["operation_name", "category"], as_dict=True)
 	if not row:
 		return {"name": operation, "label": operation, "categories": set()}
 	cats = {row.category} if row.category else set()
@@ -446,7 +446,7 @@ def rule_check(protocol) -> list:
 				break
 			steps.append({"operation": r.operation, "k": k, "day": day, "info": op_info(r.operation)})
 	if harvest_day is None:
-		hs = [s["day"] for s in steps if frappe.db.get_value("Production Operation", s["operation"], "is_harvest")]
+		hs = [s["day"] for s in steps if frappe.db.get_value("Field Activity", s["operation"], "is_harvest")]
 		harvest_day = min(hs) if hs else None
 	harvest_start = _BASE + timedelta(days=harvest_day) if harvest_day is not None else None
 	out = []

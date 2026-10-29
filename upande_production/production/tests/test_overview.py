@@ -65,7 +65,7 @@ class TestOverviewExtras(IntegrationTestCase):
 		for uom in uoms:
 			if not frappe.db.exists("UOM", uom):
 				_make("UOM", uom_name=uom)
-			ops.append(_make("Production Operation", crop=self.crop.name, operation_name=f"OV {uom} {unit.name}",
+			ops.append(_make("Field Activity", crop=self.crop.name, operation_name=f"OV {uom} {unit.name}",
 				category="Other", work_uom=uom, default_rate=10))
 		return unit, emps, ops, work
 

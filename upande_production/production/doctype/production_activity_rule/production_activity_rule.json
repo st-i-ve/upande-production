@@ -64,7 +64,7 @@
    "fieldname": "operation",
    "fieldtype": "Link",
    "label": "Operation",
-   "options": "Production Operation",
+   "options": "Field Activity",
    "in_list_view": 1
   },
   {
@@ -100,7 +100,7 @@
    "fieldname": "other_operation",
    "fieldtype": "Link",
    "label": "Other Operation",
-   "options": "Production Operation",
+   "options": "Field Activity",
    "depends_on": "eval:doc.rule_type=='Not within days after operation'"
   },
   {

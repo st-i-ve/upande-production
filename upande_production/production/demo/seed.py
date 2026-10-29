@@ -78,15 +78,15 @@ def seed_masters():
 		frappe.db.set_value("Production Crop", {"crop_name": crop["name"]}, "uses_crop_cycles", crop.get("cycles", 1))
 	for crop, ops in DEMO["operations"].items():
 		for name, uom, rate, cat, harvest in ops:
-			if not frappe.db.exists("Production Operation", {"crop": crop, "operation_name": name}):
-				_insert({"doctype": "Production Operation", "crop": crop, "operation_name": name,
+			if not frappe.db.exists("Field Activity", {"crop": crop, "operation_name": name}):
+				_insert({"doctype": "Field Activity", "crop": crop, "operation_name": name,
 					"category": cat, "work_uom": uom, "default_rate": rate, "is_harvest": harvest})
 	for pname, (crop, item, steps) in DEMO["protocols"].items():
 		if frappe.db.exists("Production Protocol", pname):
 			continue
 		rows = []
 		for op, off, every, count, qty in steps:
-			rows.append({"operation": frappe.db.get_value("Production Operation", {"crop": crop, "operation_name": op}),
+			rows.append({"operation": frappe.db.get_value("Field Activity", {"crop": crop, "operation_name": op}),
 				"day_offset": off, "repeat_every_days": every, "repeat_count": count, "planned_qty": qty})
 		doc = _insert({"doctype": "Production Protocol", "protocol_name": pname, "crop": crop, "item": item, "steps": rows})
 		convert_protocol_steps.convert(doc)  # key and cultural rows from the demo steps
@@ -104,17 +104,17 @@ def seed_activities():
 	for crop, acts in wanted.items():
 		if not frappe.db.exists("Production Crop", crop):
 			continue
-		used = {c for c in frappe.get_all("Production Operation", filters={"crop": crop}, pluck="color") if c}
+		used = {c for c in frappe.get_all("Field Activity", filters={"crop": crop}, pluck="color") if c}
 		free = [c for c in palette if c not in used]
 		for name, typ, cat, uom in acts:
-			existing = frappe.db.get_value("Production Operation", {"crop": crop, "operation_name": name},
+			existing = frappe.db.get_value("Field Activity", {"crop": crop, "operation_name": name},
 				["name", "activity_type"], as_dict=True)
 			if existing:
 				if existing.activity_type != typ and existing.activity_type in (None, "", "Cultural"):
-					frappe.db.set_value("Production Operation", existing.name, "activity_type", typ, update_modified=False)
+					frappe.db.set_value("Field Activity", existing.name, "activity_type", typ, update_modified=False)
 				continue
-			color = free.pop(0) if free else palette[C["Production Operation"] % len(palette)]
-			_insert({"doctype": "Production Operation", "crop": crop, "operation_name": name, "category": cat,
+			color = free.pop(0) if free else palette[C["Field Activity"] % len(palette)]
+			_insert({"doctype": "Field Activity", "crop": crop, "operation_name": name, "category": cat,
 				"work_uom": uom if frappe.db.exists("UOM", uom) else None, "default_rate": 0,
 				"is_harvest": 0, "activity_type": typ, "color": color})
 	frappe.db.commit()
@@ -376,7 +376,7 @@ def seed_avocado_history():
 		for k in range(cfg["weeks"], 0, -1):
 			mon = _monday(td) - timedelta(weeks=k)
 			for op_name, (prob, picks, (lo, hi), step) in cfg["jobs"].items():
-				op = frappe.db.get_value("Production Operation", {"crop": crop, "operation_name": op_name}, "name")
+				op = frappe.db.get_value("Field Activity", {"crop": crop, "operation_name": op_name}, "name")
 				if not op:
 					continue
 				r = _rng(f"avh:{unit}:{k}:{op_name}")
@@ -706,7 +706,7 @@ def seed_protocol_versions():
 	def bump_rate(doc):
 		rows = list(doc.cultural_activities) + list(doc.key_activities)
 		for r in rows:
-			if "fert" in (frappe.db.get_value("Production Operation", r.operation, "operation_name") or "").lower():
+			if "fert" in (frappe.db.get_value("Field Activity", r.operation, "operation_name") or "").lower():
 				r.planned_qty = (r.planned_qty or 1) * 1.2
 				r.description = "Fertiliser rate +20% after the leaf analysis"
 				return

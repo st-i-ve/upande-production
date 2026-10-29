@@ -32,7 +32,7 @@ class TestRules(IntegrationTestCase):
 		cls.crop = _make("Production Crop", crop_name="TR Crop", crop_key="tr-crop", unit_label="Block", yield_uom="Kg").name
 
 		def op(name, cat, harvest=0):
-			return _make("Production Operation", crop=cls.crop, operation_name=name, category=cat,
+			return _make("Field Activity", crop=cls.crop, operation_name=name, category=cat,
 				work_uom="Kg", default_rate=10, is_harvest=harvest).name
 
 		cls.spray = op("TR Spraying", "Spraying")
@@ -148,7 +148,7 @@ class TestRules(IntegrationTestCase):
 		if not frappe.db.exists("Production Crop", fish):
 			_make("Production Crop", crop_name=fish, crop_key="aquaculture", unit_label="Pond", yield_uom="Kg",
 				uses_crop_cycles=0)
-		feed = _make("Production Operation", crop=fish, operation_name="TR Feeding", category="Feeding",
+		feed = _make("Field Activity", crop=fish, operation_name="TR Feeding", category="Feeding",
 			work_uom="Kg", default_rate=1).name
 		# operation-specific, so it wins over any crop-wide feeding rule already seeded
 		r = _make("Production Activity Rule", crop=fish, operation=feed, rule_type=BEFORE, days=1,
@@ -287,8 +287,8 @@ class TestRules(IntegrationTestCase):
 	# -- protocol buffers (establishment period, pre-harvest interval) ---------------
 
 	def _buffer_cycle(self, ago=14, harvest_in=9, **row):
-		op = frappe.db.get_value("Production Operation", {"crop": self.crop, "operation_name": "TR Buffer Op"}) or _make(
-			"Production Operation", crop=self.crop, operation_name="TR Buffer Op", category="Other",
+		op = frappe.db.get_value("Field Activity", {"crop": self.crop, "operation_name": "TR Buffer Op"}) or _make(
+			"Field Activity", crop=self.crop, operation_name="TR Buffer Op", category="Other",
 			work_uom="Kg", default_rate=10).name
 		proto = _make("Production Protocol", protocol_name=frappe.generate_hash(length=6), crop=self.crop,
 			version_status="Active", cultural_activities=[{"operation": op, "schedule": "Interval", "interval_weeks": 1,
@@ -340,8 +340,8 @@ class TestRules(IntegrationTestCase):
 
 	def _legacy(self):
 		from frappe.utils import getdate
-		op = frappe.db.get_value("Production Operation", {"crop": self.crop, "operation_name": "TR Legacy Op"}) or _make(
-			"Production Operation", crop=self.crop, operation_name="TR Legacy Op", category="Other",
+		op = frappe.db.get_value("Field Activity", {"crop": self.crop, "operation_name": "TR Legacy Op"}) or _make(
+			"Field Activity", crop=self.crop, operation_name="TR Legacy Op", category="Other",
 			work_uom="Kg", default_rate=10).name
 		proto = _make("Production Protocol", protocol_name=frappe.generate_hash(length=6), crop=self.crop,
 			version_status="Active", cultural_activities=[{"operation": op, "schedule": "Interval",

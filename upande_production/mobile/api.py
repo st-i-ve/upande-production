@@ -353,14 +353,14 @@ def productionListValueAdders():
 
 @frappe.whitelist()
 def productionListOperations():
-	if _denied(("Production Operation", "read")):
+	if _denied(("Field Activity", "read")):
 		return
 	data = _payload()
 	err = _require(data, "crop")
 	if err:
 		return _fail(err)
 	_run("productionListOperations", lambda: _strip_pay(frappe.get_all(
-		"Production Operation", filters={"crop": _s(data, "crop")},
+		"Field Activity", filters={"crop": _s(data, "crop")},
 		fields=["name", "operation_name", "category", "work_uom", "default_rate", "is_harvest", "activity_type", "color"],
 		order_by="operation_name asc",
 	), "default_rate"))
@@ -598,7 +598,7 @@ def productionAddTask():
 			frappe.throw("Planned quantity must be greater than zero.", frappe.ValidationError)
 		if frappe.db.get_value("Production Unit", unit, "crop") != crop:
 			frappe.throw("That block does not belong to this crop.", frappe.ValidationError)
-		op = frappe.db.get_value("Production Operation", operation, ["crop", "work_uom", "default_rate"], as_dict=True)
+		op = frappe.db.get_value("Field Activity", operation, ["crop", "work_uom", "default_rate"], as_dict=True)
 		if not op or op.crop != crop:
 			frappe.throw("That operation does not belong to this crop.", frappe.ValidationError)
 		due = getdate(_s(data, "due_date") or start)

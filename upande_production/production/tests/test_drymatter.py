@@ -77,7 +77,7 @@ class TestDryMatter(IntegrationTestCase):
 		self.assertEqual(len(rows[0]["samples"]), 1)
 
 	def test_blocks_show_plants_replaced(self):
-		op = _make("Production Operation", crop=self.crop.name, operation_name="Gap filling", category="Other",
+		op = _make("Field Activity", crop=self.crop.name, operation_name="Gap filling", category="Other",
 			work_uom="Plant", default_rate=1)
 		for qty, st in ((30, "Approved"), (5, "Pending")):
 			w = frappe.get_doc({

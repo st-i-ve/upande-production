@@ -189,8 +189,8 @@ def list_approvals(
 		)
 	}
 	unit_names = dict(frappe.get_all("Production Unit", fields=["name", "unit_name"], as_list=True))
-	op_names = dict(frappe.get_all("Production Operation", fields=["name", "operation_name"], as_list=True))
-	op_colors = dict(frappe.get_all("Production Operation", fields=["name", "color"], as_list=True))
+	op_names = dict(frappe.get_all("Field Activity", fields=["name", "operation_name"], as_list=True))
+	op_colors = dict(frappe.get_all("Field Activity", fields=["name", "color"], as_list=True))
 
 	out = []
 	for g in groups.values():

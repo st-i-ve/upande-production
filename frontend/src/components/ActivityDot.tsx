@@ -1,4 +1,4 @@
-/** A small dot in the operation's colour (Production Operation.color). Renders nothing without one. */
+/** A small dot in the operation's colour (Field Activity.color). Renders nothing without one. */
 export function ActivityDot({ color, label, className = "" }: { color?: string | null; label?: string; className?: string }) {
   if (!color) return null;
   return (

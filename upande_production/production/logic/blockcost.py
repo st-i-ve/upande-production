@@ -104,7 +104,7 @@ def _scope(unit: str):
 
 def _labour(units, frm, to, can_see_pay):
 	rows = frappe.db.sql("""select w.operation, o.operation_name, w.uom, sum(w.qty), count(distinct w.employee), sum(w.pay_value)
-		from `tabValue Adder Work` w left join `tabProduction Operation` o on o.name = w.operation
+		from `tabValue Adder Work` w left join `tabField Activity` o on o.name = w.operation
 		where w.docstatus = 1 and w.unit in %(u)s and w.work_date between %(f)s and %(t)s
 		group by w.operation, o.operation_name, w.uom""", {"u": tuple(units), "f": frm, "t": to})
 	ops: dict = {}

@@ -36,7 +36,7 @@ export function StatusChip({ status }: { status: VersionStatus }) {
 export interface OpOption {
   value: string;
   label: string;
-  /** Production Operation `activity_type`. */
+  /** Field Activity `activity_type`. */
   type: string;
 }
 

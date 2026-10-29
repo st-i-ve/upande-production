@@ -30,7 +30,7 @@ class TestVarieties(IntegrationTestCase):
 			farm_type=[{"farm_type": "Has Blocks"}])
 		cls.crop = _make("Production Crop", crop_name="TV Crop", crop_key="tv-crop", unit_label="Block", yield_uom="Kg")
 		cls.other_crop = _make("Production Crop", crop_name="TV Other", crop_key="tv-other", unit_label="Block", yield_uom="Kg")
-		cls.op = _make("Production Operation", crop=cls.crop.name, operation_name="TV Top Dress", category="Fertilising",
+		cls.op = _make("Field Activity", crop=cls.crop.name, operation_name="TV Top Dress", category="Fertilising",
 			work_uom="Kg", default_rate=10)
 		cls.unit = _make("Production Unit", unit_name="TV Unit", unit_type="Orchard Block", crop=cls.crop.name,
 			farm=cls.farm.name, company=cls.company)
@@ -227,7 +227,7 @@ class TestVarieties(IntegrationTestCase):
 				self.assertTrue(c.current_stage, c.name)
 		self.assertEqual(frappe.db.get_value("Production Crop Cycle", {"unit": "PH1-B1", "status": "Harvesting"}, "variety"), "Hass")
 		self.assertEqual(frappe.db.get_value("Production Crop Cycle", {"unit": "PH1-B3", "status": "Harvesting"}, "variety"), "Fuerte")
-		self.assertFalse(frappe.get_all("Production Operation", filters={"category": ("is", "not set")}, pluck="name"))
+		self.assertFalse(frappe.get_all("Field Activity", filters={"category": ("is", "not set")}, pluck="name"))
 		self.assertFalse(frappe.get_all("Pond Stocking", filters={"strain": ("is", "not set")}, pluck="name"))
 
 	# ---------------------------------------------------------------- desk api

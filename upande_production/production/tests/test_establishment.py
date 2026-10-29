@@ -24,7 +24,7 @@ class TestEstablishment(IntegrationTestCase):
 		cls.farm = _make("Farm", farm_name="EST Farm", company=cls.company, abbreviation="ESF",
 			farm_type=[{"farm_type": "Has Blocks"}])
 		cls.crop = _make("Production Crop", crop_name="EST Crop", crop_key="est-crop", unit_label="Block", yield_uom="Kg")
-		cls.op = _make("Production Operation", crop=cls.crop.name, operation_name="EST Land Prep",
+		cls.op = _make("Field Activity", crop=cls.crop.name, operation_name="EST Land Prep",
 			category="Other", work_uom="Kg", activity_type="Capital")
 		cls.group = cls._unit("EST Group", unit_type="Pivot", is_group=1)
 		cls.a = cls._unit("EST A", parent_production_unit=cls.group.name, area_ha=3)

@@ -2,7 +2,7 @@ import frappe
 from frappe.tests import IntegrationTestCase
 
 DOCTYPES = [
-	"Production Crop", "Production Unit", "Production Operation", "Production Protocol",
+	"Production Crop", "Production Unit", "Field Activity", "Production Protocol",
 	"Production Protocol Step", "Production Crop Cycle", "Production Work Plan", "Production Plan Task",
 	"Value Adder Work", "Production Harvest", "Yield Sample", "Production Forecast",
 	"Production Forecast Week", "Buyer Commitment",
@@ -27,7 +27,7 @@ NEW_DOCTYPES = [
 	"Block Opening Balance", "Dry Matter Test", "Dry Matter Sample", "Production Capital Account",
 ]
 NEW_FIELDS = {
-	"Production Operation": ["activity_type", "color"],
+	"Field Activity": ["activity_type", "color"],
 	"Production Crop": ["dry_matter_testing", "dry_matter_on", "dry_matter_target_pct"],
 	"Production Variety": [
 		"lifespan_years", "harvest_pattern", "harvest_interval_weeks", "is_flowering",

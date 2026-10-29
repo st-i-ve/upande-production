@@ -37,13 +37,13 @@
 ### Task 1: Schema — new and changed doctypes
 
 **Files:**
-- Modify (JSON in `upande_production/production/doctype/<name>/<name>.json`): `production_operation`, `production_crop`, `production_variety`, `production_protocol`, `production_crop_cycle`, `production_settings`
+- Modify (JSON in `upande_production/production/doctype/<name>/<name>.json`): `field_activity`, `production_crop`, `production_variety`, `production_protocol`, `production_crop_cycle`, `production_settings`
 - Create doctypes (module Production, folder per doctype with `.json`, `.py`, `__init__.py`):
   `production_protocol_capital_activity` (istable), `production_protocol_key_activity` (istable), `production_protocol_cultural_activity` (istable), `block_establishment_cost` (submittable), `block_establishment_cost_split` (istable), `block_opening_balance`, `dry_matter_test`, `dry_matter_sample` (istable), `production_capital_account` (istable, one field `account` Link Account)
 - Test: `upande_production/production/tests/test_doctypes.py`
 
 Fields exactly as the spec's Data model section, plus:
-- Production Operation: `activity_type` Select `Capital\nPlanting\nKey activity\nCultural\nHarvesting\nUprooting` default `Cultural`, in list view; `color` Color.
+- Field Activity: `activity_type` Select `Capital\nPlanting\nKey activity\nCultural\nHarvesting\nUprooting` default `Cultural`, in list view; `color` Color.
 - Production Crop: `dry_matter_testing` Check; `dry_matter_on` Select `Fruit\nTuber` (`depends_on: dry_matter_testing`); `dry_matter_target_pct` Float (`depends_on: dry_matter_testing`).
 - Production Variety: `lifespan_years` Float; `harvest_pattern` Select `Once\nContinuous\nInterval` default `Once`; `harvest_interval_weeks` Int (`depends_on: eval:doc.harvest_pattern!='Once'`); `is_flowering` Check; `weeks_to_first_flowering`, `weeks_flowering_to_harvest` Int (`depends_on: is_flowering`); `weeks_to_reflower_after_harvest` Int (`depends_on: eval:doc.is_flowering && doc.harvest_pattern!='Once'`); `weeks_to_first_harvest` Int (`read_only_depends_on: is_flowering`); `harvest_window_weeks` Int; `plants_per_m2` Float; `dry_matter_target_pct` Float. Existing `plants_per_ha`, `days_to_first_harvest`, `harvest_window_days` become `read_only: 1`.
 - Production Protocol: tables `capital_activities`, `key_activities` (with `description` "List key activities in the order of their week."), `cultural_activities`; existing `steps` gets `hidden: 1`. Read-only template fields fetched from variety: `lifespan_years`, `harvest_pattern`, `harvest_interval_weeks`, `is_flowering`, `weeks_to_first_flowering`, `weeks_flowering_to_harvest`, `weeks_to_reflower_after_harvest`, `plants_per_m2` (`fetch_from: variety.<field>`).

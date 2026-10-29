@@ -33,7 +33,7 @@ class TestProtocols(IntegrationTestCase):
 		cls.farm = _make("Farm", farm_name="TP Farm", company=cls.company, abbreviation="TPF",
 			farm_type=[{"farm_type": "Has Blocks"}])
 		cls.crop = _make("Production Crop", crop_name="TP Crop", crop_key="tp-crop", unit_label="Block", yield_uom="Kg")
-		cls.op = _make("Production Operation", crop=cls.crop.name, operation_name="TP Weeding",
+		cls.op = _make("Field Activity", crop=cls.crop.name, operation_name="TP Weeding",
 			category="Other", work_uom="Kg", default_rate=40)
 		cls.sup = _user("tp_supervisor@example.com", "Production Supervisor")
 		cls.mgr = _user("tp_manager@example.com", "Production Manager")
@@ -206,7 +206,7 @@ class TestProtocolTables(IntegrationTestCase):
 		if not frappe.db.exists("UOM", "Kg"):
 			_make("UOM", uom_name="Kg")
 		cls.crop = _make("Production Crop", crop_name="TPT Crop", crop_key="tpt-crop", unit_label="Block", yield_uom="Kg")
-		mk = lambda n, t: _make("Production Operation", crop=cls.crop.name, operation_name=n, category="Other",
+		mk = lambda n, t: _make("Field Activity", crop=cls.crop.name, operation_name=n, category="Other",
 			work_uom="Kg", default_rate=1, activity_type=t).name
 		cls.cap, cls.key, cls.cul = mk("TPT Excavate", "Capital"), mk("TPT Prune", "Key activity"), mk("TPT Weed", "Cultural")
 
@@ -254,11 +254,11 @@ class TestConvertSteps(IntegrationTestCase):
 		if not cls.crop:
 			cls.crop = _make("Production Crop", crop_name="TP Crop", crop_key="tp-crop", unit_label="Block",
 				yield_uom="Kg").name
-		cls.op = frappe.db.get_value("Production Operation", {"crop": cls.crop, "operation_name": "TC Spray"}) or _make(
-			"Production Operation", crop=cls.crop, operation_name="TC Spray", category="Spraying",
+		cls.op = frappe.db.get_value("Field Activity", {"crop": cls.crop, "operation_name": "TC Spray"}) or _make(
+			"Field Activity", crop=cls.crop, operation_name="TC Spray", category="Spraying",
 			work_uom="Kg", default_rate=1).name
-		cls.plant = frappe.db.get_value("Production Operation", {"crop": cls.crop, "operation_name": "Planting"}) or _make(
-			"Production Operation", crop=cls.crop, operation_name="Planting", category="Other",
+		cls.plant = frappe.db.get_value("Field Activity", {"crop": cls.crop, "operation_name": "Planting"}) or _make(
+			"Field Activity", crop=cls.crop, operation_name="Planting", category="Other",
 			work_uom="Kg", default_rate=1, activity_type="Planting").name
 
 	def _old(self, name):
@@ -314,8 +314,8 @@ class TestConvertSteps(IntegrationTestCase):
 		self.assertGreater(checked, 0)
 
 	def _cap(self):
-		return frappe.db.get_value("Production Operation", {"crop": self.crop, "operation_name": "TC Capex"}) or _make(
-			"Production Operation", crop=self.crop, operation_name="TC Capex", category="Other",
+		return frappe.db.get_value("Field Activity", {"crop": self.crop, "operation_name": "TC Capex"}) or _make(
+			"Field Activity", crop=self.crop, operation_name="TC Capex", category="Other",
 			work_uom="Kg", default_rate=1, activity_type="Capital").name
 
 	def test_patch_keeps_repeat_count_as_occurrences(self):

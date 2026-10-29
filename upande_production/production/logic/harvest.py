@@ -211,15 +211,15 @@ def ensure_harvest_warehouse(name: str = "Mutara Harvest Store", company: str | 
 
 def harvest_operation(crop: str) -> str:
 	"""The crop's crate harvest operation (existing one with uom Crate), else a new "Harvesting"."""
-	op = frappe.db.get_value("Production Operation", {"crop": crop, "is_harvest": 1, "work_uom": "Crate"})
+	op = frappe.db.get_value("Field Activity", {"crop": crop, "is_harvest": 1, "work_uom": "Crate"})
 	if op:
 		return op
-	op = frappe.db.get_value("Production Operation", {"crop": crop, "operation_name": "Harvesting"})
+	op = frappe.db.get_value("Field Activity", {"crop": crop, "operation_name": "Harvesting"})
 	if op:
 		return op
 	if not frappe.db.exists("UOM", "Crate"):
 		frappe.get_doc({"doctype": "UOM", "uom_name": "Crate"}).insert(ignore_permissions=True)
-	doc = frappe.get_doc({"doctype": "Production Operation", "crop": crop, "operation_name": "Harvesting",
+	doc = frappe.get_doc({"doctype": "Field Activity", "crop": crop, "operation_name": "Harvesting",
 		"category": "Harvesting", "work_uom": "Crate", "default_rate": DEFAULT_PICK_RATE, "is_harvest": 1})
 	doc.insert(ignore_permissions=True)
 	return doc.name

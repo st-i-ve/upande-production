@@ -92,7 +92,7 @@ Opus review, desk app on the SCP design, crop-scoped routes, no Co-Authored-By t
 
 ## Data model
 
-### Production Operation (existing — shown in the UI as "Production Activity")
+### Field Activity (existing — shown in the UI as "Production Activity")
 - `activity_type` Select: `Capital` / `Planting` / `Key activity` / `Cultural` / `Harvesting` /
   `Uprooting` (default Cultural). `is_harvest` stays and is set for Harvesting.
 - `color` Color (reqd for map use; seed gives each a distinct colour from the app palette).
@@ -142,7 +142,7 @@ Opus review, desk app on the SCP design, crop-scoped routes, no Co-Authored-By t
 
 ### Block Establishment Cost (new, module Production, submittable, desk only)
 - `crop` Link Production Crop (reqd), `farm` Link Farm, `posting_date` Date (reqd),
-  `operation` Link Production Operation (Capital or Uprooting type, reqd), `amount` Currency (reqd),
+  `operation` Link Field Activity (Capital or Uprooting type, reqd), `amount` Currency (reqd),
   `supplier` Link Supplier (optional) / `paid_to` Data, `reference` Data (invoice/receipt no.),
   `note` Small Text, attachments allowed.
 - `blocks` Table **Block Establishment Cost Split**: `unit` Link Production Unit, `area_ha` Float

@@ -117,7 +117,7 @@ class TestHarvest(IntegrationTestCase):
 		self.assertEqual({w.employee: w.qty for w in work}, {self.p1.name: 3, self.p2.name: 2})
 		for w in work:
 			self.assertEqual((w.uom, w.docstatus, w.approval_status, w.unit), ("Crate", 0, "Pending", self.unit.name))
-		self.assertEqual(frappe.db.get_value("Production Operation", work[0].operation, "work_uom"), "Crate")
+		self.assertEqual(frappe.db.get_value("Field Activity", work[0].operation, "work_uom"), "Crate")
 		# crates are batched
 		for r in batch.crates:
 			self.assertEqual(frappe.db.get_value("Harvest Crate Scan", r.crate_scan, ["status", "batch_id_ref"]), ("Batched", batch.name))
@@ -131,7 +131,7 @@ class TestHarvest(IntegrationTestCase):
 		self.assertEqual(res["estimated_kg"], 50)
 		row = frappe.get_doc("Stock Entry", res["stock_entry"]).items[0]
 		self.assertEqual(row.basic_rate, 5)  # Production Settings fallback: item has no valuation rate
-		self.assertEqual(frappe.get_doc("Production Operation", H.harvest_operation(self.crop.name)).work_uom, "Crate")
+		self.assertEqual(frappe.get_doc("Field Activity", H.harvest_operation(self.crop.name)).work_uom, "Crate")
 
 	def test_unassigned_crates_are_shared_over_the_team(self):
 		self.scan(4)

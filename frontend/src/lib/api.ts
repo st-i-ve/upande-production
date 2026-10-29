@@ -227,7 +227,7 @@ export interface PlanTask {
   deviation: string | null;
   protocol_ref: string | null;
   note: string | null;
-  /** The operation's colour (Production Operation.color), for the activity dot. */
+  /** The operation's colour (Field Activity.color), for the activity dot. */
   color?: string | null;
   /** Activity rule flag: OK, Warn (allowed with a reason) or Block. */
   rule_status?: RuleStatus | null;

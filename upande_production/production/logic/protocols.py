@@ -184,7 +184,7 @@ def diff(name) -> dict:
 	changes of all three tables are in `steps`, each with a `table` field."""
 	doc = _doc(name)
 	prev = frappe.get_doc(DT, doc.previous_version) if doc.previous_version else None
-	op_names = dict(frappe.get_all("Production Operation", fields=["name", "operation_name"], as_list=True))
+	op_names = dict(frappe.get_all("Field Activity", fields=["name", "operation_name"], as_list=True))
 	out = {"name": doc.name, "previous": prev.name if prev else None, "fields": [], "steps": [],
 		"rule_check": rules.rule_check(doc)}
 

@@ -36,9 +36,9 @@ class TestRetiredUnits(IntegrationTestCase):
 		cls.farm = _make("Farm", farm_name="RT Farm", company=cls.company, abbreviation="RTF",
 			farm_type=[{"farm_type": "Has Blocks"}])
 		cls.crop = _make("Production Crop", crop_name="RT Crop", crop_key="rt-crop", unit_label="Block", yield_uom="Kg")
-		cls.op = _make("Production Operation", crop=cls.crop.name, operation_name="RT Weeding", category="Other",
+		cls.op = _make("Field Activity", crop=cls.crop.name, operation_name="RT Weeding", category="Other",
 			work_uom="Kg", default_rate=5)
-		cls.cap = _make("Production Operation", crop=cls.crop.name, operation_name="RT Clearing", category="Other",
+		cls.cap = _make("Field Activity", crop=cls.crop.name, operation_name="RT Clearing", category="Other",
 			work_uom="Kg", default_rate=5, activity_type="Capital")
 		cls.proto = _make("Production Protocol", protocol_name="RT Proto", version_status="Active", crop=cls.crop.name,
 			key_activities=[{"operation": cls.op.name, "week": 1}])

@@ -13,7 +13,7 @@ import { cn, matchesQuery } from "@/lib/utils";
 /** Operation categories: the same list the activity rules use. */
 export const CATEGORIES: string[] = ["Spraying", "Weeding", "Fertilising", "Irrigation", "Harvesting", "Pruning", "Feeding", "Other"];
 
-/** Activity types of a Production Operation; the protocol tables pick from these. */
+/** Activity types of a Field Activity; the protocol tables pick from these. */
 export const ACTIVITY_TYPES = ["Capital", "Planting", "Key activity", "Cultural", "Harvesting", "Uprooting"] as const;
 const NO_COLOUR = "#9aa5a0";
 
