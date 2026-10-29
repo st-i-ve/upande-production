@@ -10,20 +10,38 @@ import { Switch } from "@/components/ui/switch";
 import { StageEditor, fromStageDrafts, stageProblem, toStageDrafts, type StageDraft } from "@/components/varieties/StageEditor";
 import { qty } from "@/lib/format";
 import { isError } from "@/lib/frappe";
-import { HARVEST_PATTERNS, firstHarvestWeeks, saveVariety, type HarvestPattern, type StageAnchor, type Variety } from "@/lib/varieties-api";
+import { FLOWERING_PATTERNS, HARVEST_PATTERNS, MONTHS, firstHarvestWeeks, saveVariety, type FloweringPattern, type FloweringSeason, type HarvestPattern, type StageAnchor, type Variety } from "@/lib/varieties-api";
 
 const ANCHORS: StageAnchor[] = ["Planting", "Flowering", "Stocking"];
 
 const numOrNull = (s: string) => (s.trim() === "" ? null : Number(s));
+/** A season row as typed; numbers stay strings until saved. */
+interface SeasonDraft { season_name: string; start_month: string; weeks: string; share: string }
+const toSeasonDrafts = (rows?: FloweringSeason[]): SeasonDraft[] =>
+  (rows ?? []).map((r) => ({ season_name: r.season_name, start_month: r.start_month, weeks: r.weeks_flowering_to_harvest == null ? "" : String(r.weeks_flowering_to_harvest), share: r.crop_share_pct == null ? "" : String(r.crop_share_pct) }));
+
+/** Sum of the shares typed, or null when none is set. */
+export const seasonShareTotal = (rows: SeasonDraft[]): number | null =>
+  rows.some((r) => r.share.trim() !== "") ? rows.reduce((a, r) => a + (Number(r.share) || 0), 0) : null;
+
 const text = (v: number | null | undefined) => (v == null ? "" : String(v));
 
 /** The first problem with a variety form, or null. Exported for the tests. */
-export function varietyProblem(f: { variety_name: string; item: string; days: string; window: string }, rows: StageDraft[]): string | null {
+export function varietyProblem(
+  f: { variety_name: string; item: string; days: string; window: string; pattern?: FloweringPattern | null; seasons?: SeasonDraft[]; intervalWeeks?: string },
+  rows: StageDraft[],
+): string | null {
   if (!f.variety_name.trim()) return "Give the variety a name.";
   if (!f.item.trim()) return "Choose the stock item this variety is sold as.";
   for (const [label, v] of [["Weeks to first harvest", f.days], ["Harvest window", f.window]] as const) {
     if (v.trim() !== "" && !(Number(v) >= 0)) return `${label} must be a number of weeks.`;
   }
+  if (f.pattern === "Seasonal") {
+    const seasons = f.seasons ?? [];
+    if (!seasons.length) return "Add at least one flowering season.";
+    if (seasons.some((r) => !r.season_name.trim() || !r.start_month || !(Number(r.weeks) > 0))) return "Each season needs a name, a start month and weeks from flowering to harvest.";
+  }
+  if (f.pattern === "Interval" && !(Number(f.intervalWeeks) > 0)) return "Give the weeks between flowerings.";
   return stageProblem(rows);
 }
 
@@ -55,7 +73,10 @@ export function VarietyDialog({
   const [flowering, setFlowering] = useState(!!Number(variety?.is_flowering ?? 0));
   const [toFlower, setToFlower] = useState(text(variety?.weeks_to_first_flowering));
   const [toHarvest, setToHarvest] = useState(text(variety?.weeks_flowering_to_harvest));
-  const [reflower, setReflower] = useState(text(variety?.weeks_to_reflower_after_harvest));
+  const [maturity, setMaturity] = useState(text(variety?.weeks_to_maturity));
+  const [floweringPattern, setFloweringPattern] = useState<string>(variety?.flowering_pattern ?? "Interval");
+  const [floweringInterval, setFloweringInterval] = useState(text(variety?.flowering_interval_weeks));
+  const [seasons, setSeasons] = useState<SeasonDraft[]>(() => toSeasonDrafts(variety?.flowering_seasons));
   const [perM2, setPerM2] = useState(text(variety?.plants_per_m2));
   const [dryMatter, setDryMatter] = useState(text(variety?.dry_matter_target_pct));
   const [yieldHa, setYieldHa] = useState(text(variety?.expected_yield_per_ha));
@@ -72,7 +93,16 @@ export function VarietyDialog({
   const repeats = pattern !== "Once";
   const computedFirst = firstHarvestWeeks(numOrNull(toFlower), numOrNull(toHarvest));
   const perHa = perM2.trim() === "" ? null : Number(perM2) * 10000;
-  const problem = varietyProblem({ variety_name: name, item, days: flowering ? "" : days, window }, rows);
+  const seasonal = flowering && floweringPattern === "Seasonal";
+  const interval_ = flowering && floweringPattern === "Interval";
+  const shareTotal = seasonShareTotal(seasons);
+  const shareOff = seasonal && shareTotal != null && Math.abs(shareTotal - 100) > 0.001;
+  const setSeason = (i: number, patch: Partial<SeasonDraft>) => setSeasons((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  const problem =
+    varietyProblem(
+      { variety_name: name, item, days: flowering ? "" : days, window, pattern: flowering ? (floweringPattern as FloweringPattern) : null, seasons, intervalWeeks: floweringInterval },
+      rows,
+    ) ?? (shareOff ? `Season shares total ${shareTotal}%; they must total 100%.` : null);
 
   async function save() {
     setBusy(true);
@@ -85,10 +115,15 @@ export function VarietyDialog({
       harvest_pattern: pattern as HarvestPattern,
       harvest_interval_weeks: repeats ? numOrNull(interval) : null,
       is_flowering: flowering ? 1 : 0,
-      weeks_to_first_flowering: flowering ? numOrNull(toFlower) : null,
-      weeks_flowering_to_harvest: flowering ? numOrNull(toHarvest) : null,
-      weeks_to_reflower_after_harvest: flowering && repeats ? numOrNull(reflower) : null,
-      weeks_to_first_harvest: flowering ? computedFirst : numOrNull(days),
+      weeks_to_maturity: numOrNull(maturity),
+      flowering_pattern: flowering ? (floweringPattern as FloweringPattern) : null,
+      flowering_seasons: seasonal
+        ? seasons.map((r) => ({ season_name: r.season_name.trim(), start_month: r.start_month, weeks_flowering_to_harvest: numOrNull(r.weeks), crop_share_pct: numOrNull(r.share) }))
+        : [],
+      flowering_interval_weeks: interval_ ? numOrNull(floweringInterval) : null,
+      weeks_to_first_flowering: interval_ ? numOrNull(toFlower) : null,
+      weeks_flowering_to_harvest: interval_ ? numOrNull(toHarvest) : null,
+      weeks_to_first_harvest: interval_ ? computedFirst : seasonal ? null : numOrNull(days),
       harvest_window_weeks: numOrNull(window),
       plants_per_m2: numOrNull(perM2),
       dry_matter_target_pct: numOrNull(dryMatter),
@@ -154,6 +189,12 @@ export function VarietyDialog({
             Flowering crop
           </label>
           {flowering && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="v-fpattern">Flowering pattern</Label>
+              <Picker id="v-fpattern" label="Flowering pattern" value={floweringPattern} onChange={setFloweringPattern} options={FLOWERING_PATTERNS} />
+            </div>
+          )}
+          {interval_ && (
             <>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="v-flower">Weeks to first flowering</Label>
@@ -163,14 +204,44 @@ export function VarietyDialog({
                 <Label htmlFor="v-flower-harvest">Weeks from flowering to harvest</Label>
                 <Input id="v-flower-harvest" inputMode="numeric" className="tabular-nums" value={toHarvest} onChange={(e) => setToHarvest(e.target.value)} />
               </div>
-              {repeats && (
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="v-reflower">Weeks to re-flower after harvest</Label>
-                  <Input id="v-reflower" inputMode="numeric" className="tabular-nums" value={reflower} onChange={(e) => setReflower(e.target.value)} />
-                </div>
-              )}
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="v-finterval">Weeks between flowerings</Label>
+                <Input id="v-finterval" inputMode="numeric" className="tabular-nums" value={floweringInterval} onChange={(e) => setFloweringInterval(e.target.value)} />
+              </div>
             </>
           )}
+          {seasonal && (
+            <div className="flex flex-col gap-2 sm:col-span-2" data-testid="seasons-editor">
+              <Label>Flowering seasons</Label>
+              {seasons.map((r, i) => (
+                <div key={i} className="grid grid-cols-[1.2fr_1fr_0.8fr_0.7fr_auto] items-center gap-2">
+                  <Input aria-label={`Season ${i + 1} name`} placeholder="Season" value={r.season_name} onChange={(e) => setSeason(i, { season_name: e.target.value })} />
+                  <Picker label={`Season ${i + 1} start month`} value={r.start_month} onChange={(v) => setSeason(i, { start_month: v })} options={[...MONTHS]} placeholder="Month" />
+                  <Input aria-label={`Season ${i + 1} weeks flowering to harvest`} inputMode="numeric" className="tabular-nums" placeholder="Weeks" value={r.weeks} onChange={(e) => setSeason(i, { weeks: e.target.value })} />
+                  <Input aria-label={`Season ${i + 1} crop share %`} inputMode="decimal" className="tabular-nums" placeholder="Share %" value={r.share} onChange={(e) => setSeason(i, { share: e.target.value })} />
+                  <Button type="button" variant="outline" aria-label={`Remove season ${i + 1}`} onClick={() => setSeasons((rs) => rs.filter((_, j) => j !== i))}>
+                    Remove
+                  </Button>
+                </div>
+              ))}
+              <div className="flex flex-wrap items-center gap-3">
+                <Button type="button" variant="outline" onClick={() => setSeasons((rs) => [...rs, { season_name: "", start_month: "", weeks: "", share: "" }])}>
+                  Add season
+                </Button>
+                {shareTotal != null && (
+                  <span data-testid="season-total" className={shareOff ? "text-[12px] text-[var(--sd-amber)]" : "text-[12px] text-[var(--sd-quiet)]"}>
+                    Shares total {shareTotal}%{shareOff ? " (should be 100%)" : ""}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="v-maturity">Weeks to maturity</Label>
+            <Input id="v-maturity" inputMode="numeric" className="tabular-nums" value={maturity} onChange={(e) => setMaturity(e.target.value)} />
+            <span className="text-[11.5px] text-[var(--sd-quiet)]">Weeks after planting before the crop gives yield; earlier cycles are juvenile.</span>
+          </div>
+          {!seasonal && (
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="v-days">Weeks to first harvest</Label>
             <Input
@@ -183,6 +254,7 @@ export function VarietyDialog({
             />
             {flowering && <span className="text-[11.5px] text-[var(--sd-quiet)]">Flowering weeks plus weeks from flowering to harvest.</span>}
           </div>
+          )}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="v-window">Harvest window (weeks)</Label>
             <Input id="v-window" inputMode="numeric" className="tabular-nums" value={window} onChange={(e) => setWindow(e.target.value)} />

@@ -50,4 +50,16 @@ describe("CycleGantt stage bands", () => {
     expect(screen.getByTestId("gantt-flower-actual-CY-1")).not.toHaveAttribute("data-late");
     expect(screen.queryByTestId("gantt-flags-CY-1")).toBeNull();
   });
+
+  it("shows season and juvenile", () => {
+    render(<CycleGantt cycles={[{ ...cycle, flowering_season: "Main", juvenile: 1 }]} accent="#2a7" unitLabel="Block" />);
+    expect(screen.getByTestId("gantt-season-CY-1")).toHaveTextContent("Main");
+    expect(screen.getByTestId("gantt-juvenile-CY-1")).toHaveTextContent("Juvenile");
+  });
+
+  it("shows neither season nor juvenile when absent", () => {
+    render(<CycleGantt cycles={[cycle]} accent="#2a7" unitLabel="Block" />);
+    expect(screen.queryByTestId("gantt-season-CY-1")).toBeNull();
+    expect(screen.queryByTestId("gantt-juvenile-CY-1")).toBeNull();
+  });
 });

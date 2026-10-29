@@ -135,6 +135,16 @@ export function CycleGantt({
                       Cycle {c.cycle_no}
                     </span>
                   )}
+                  {c.flowering_season && (
+                    <span data-testid={`gantt-season-${c.name}`} className="rounded-full bg-[var(--sd-bg-soft)] px-1.5 py-0.5 text-[10.5px] font-medium text-[var(--sd-muted)]">
+                      {c.flowering_season}
+                    </span>
+                  )}
+                  {!!Number(c.juvenile) && (
+                    <span data-testid={`gantt-juvenile-${c.name}`} title="Not yet at maturity: no yield is projected" className="rounded-full bg-[var(--sd-alert-warn)] px-2 py-0.5 text-[10.5px] font-medium text-[var(--sd-sev-high)]">
+                      Juvenile
+                    </span>
+                  )}
                   <StatusPill status={c.status} />
                   <StageChip stage={c.current_stage} accent={accent} />
                   {uproot && (

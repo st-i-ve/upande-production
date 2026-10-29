@@ -174,21 +174,53 @@ describe("Settings", () => {
     expect(screen.getByLabelText("Weeks from flowering to harvest")).toBeInTheDocument();
   });
 
-  it("hides reflower and interval when harvested once", async () => {
-    await openVariety({ is_flowering: 1, harvest_pattern: "Once" });
+  it("seasonal shows seasons table and hides interval", async () => {
+    await openVariety({ is_flowering: 1, flowering_pattern: "Seasonal", flowering_seasons: [{ season_name: "Main", start_month: "August", weeks_flowering_to_harvest: 36, crop_share_pct: 80 }] });
+    expect(screen.getByTestId("seasons-editor")).toBeInTheDocument();
+    expect(screen.getByLabelText("Season 1 name")).toHaveValue("Main");
+    expect(screen.queryByLabelText("Weeks between flowerings")).toBeNull();
+    expect(screen.queryByLabelText("Weeks to first flowering")).toBeNull();
     expect(screen.queryByLabelText("Weeks to re-flower after harvest")).toBeNull();
-    expect(screen.queryByLabelText("Harvest interval (weeks)")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Add season" }));
+    expect(screen.getByLabelText("Season 2 name")).toBeInTheDocument();
   });
 
-  it("shows reflower and interval when harvested more than once", async () => {
-    await openVariety({ is_flowering: 1, harvest_pattern: "Interval", harvest_interval_weeks: 6 });
-    expect(screen.getByLabelText("Weeks to re-flower after harvest")).toBeInTheDocument();
-    expect(screen.getByLabelText("Harvest interval (weeks)")).toHaveValue("6");
+  it("interval shows interval weeks", async () => {
+    await openVariety({ is_flowering: 1, flowering_pattern: "Interval", flowering_interval_weeks: 4 });
+    expect(screen.getByLabelText("Weeks between flowerings")).toHaveValue("4");
+    expect(screen.getByLabelText("Weeks to first flowering")).toBeInTheDocument();
+    expect(screen.queryByTestId("seasons-editor")).toBeNull();
+  });
+
+  it("season shares total warning", async () => {
+    await openVariety({
+      is_flowering: 1, flowering_pattern: "Seasonal",
+      flowering_seasons: [
+        { season_name: "Main", start_month: "August", weeks_flowering_to_harvest: 36, crop_share_pct: 80 },
+        { season_name: "Off", start_month: "February", weeks_flowering_to_harvest: 36, crop_share_pct: 10 },
+      ],
+    });
+    expect(screen.getByTestId("season-total")).toHaveTextContent("Shares total 90%");
+    expect(screen.getByRole("button", { name: "Save variety" })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Season 2 crop share %"), { target: { value: "20" } });
+    expect(screen.getByTestId("season-total")).toHaveTextContent("Shares total 100%");
+    expect(screen.getByRole("button", { name: "Save variety" })).toBeEnabled();
+  });
+
+  it("saves maturity and seasons", async () => {
+    vi.mocked(saveVariety).mockResolvedValue({ name: "Hass" });
+    await openVariety({ is_flowering: 1, flowering_pattern: "Seasonal", weeks_to_maturity: 130, flowering_seasons: [{ season_name: "Main", start_month: "August", weeks_flowering_to_harvest: 36, crop_share_pct: 100 }] });
+    fireEvent.click(screen.getByRole("button", { name: "Save variety" }));
+    await waitFor(() => expect(saveVariety).toHaveBeenCalled());
+    expect(vi.mocked(saveVariety).mock.calls[0][0]).toMatchObject({
+      weeks_to_maturity: 130, flowering_pattern: "Seasonal", flowering_interval_weeks: null,
+      flowering_seasons: [{ season_name: "Main", start_month: "August", weeks_flowering_to_harvest: 36, crop_share_pct: 100 }],
+    });
   });
 
   it("computes weeks to first harvest for flowering", async () => {
     vi.mocked(saveVariety).mockResolvedValue({ name: "Hass" });
-    await openVariety({ is_flowering: 1, weeks_to_first_flowering: 20, weeks_flowering_to_harvest: 30 });
+    await openVariety({ is_flowering: 1, flowering_interval_weeks: 4, weeks_to_first_flowering: 20, weeks_flowering_to_harvest: 30 });
     const first = screen.getByLabelText("Weeks to first harvest") as HTMLInputElement;
     expect(first).toHaveValue("50");
     expect(first.readOnly).toBe(true);
@@ -196,6 +228,6 @@ describe("Settings", () => {
     expect(first).toHaveValue("54");
     fireEvent.click(screen.getByRole("button", { name: "Save variety" }));
     await waitFor(() => expect(saveVariety).toHaveBeenCalled());
-    expect(vi.mocked(saveVariety).mock.calls[0][0]).toMatchObject({ is_flowering: 1, weeks_to_first_harvest: 54 });
+    expect(vi.mocked(saveVariety).mock.calls.at(-1)![0]).toMatchObject({ is_flowering: 1, weeks_to_first_harvest: 54 });
   });
 });

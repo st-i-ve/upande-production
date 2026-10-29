@@ -146,6 +146,10 @@ export interface Cycle {
   previous_cycle: string | null;
   cycle_no?: number;
   expected_flowering_date?: string | null;
+  /** Seasonal varieties: the season this cycle flowers in. */
+  flowering_season?: string | null;
+  /** Expected harvest falls before the block reaches maturity: no yield is projected. */
+  juvenile?: 0 | 1 | boolean;
   actual_flowering_date?: string | null;
   actual_harvest_start?: string | null;
   actual_harvest_end?: string | null;

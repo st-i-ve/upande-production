@@ -30,6 +30,18 @@ export const HARVEST_PATTERNS: HarvestPattern[] = ["Once", "Continuous", "Interv
 export const firstHarvestWeeks = (flowering: number | null | undefined, toHarvest: number | null | undefined): number =>
   (Number(flowering) || 0) + (Number(toHarvest) || 0);
 
+export const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"] as const;
+export type FloweringPattern = "Seasonal" | "Interval";
+export const FLOWERING_PATTERNS: FloweringPattern[] = ["Seasonal", "Interval"];
+
+/** A flowering season: it starts in `start_month`, harvest follows `weeks_flowering_to_harvest` later. */
+export interface FloweringSeason {
+  season_name: string;
+  start_month: string;
+  weeks_flowering_to_harvest: number | null;
+  crop_share_pct?: number | null;
+}
+
 export interface Variety {
   name: string;
   variety_name: string;
@@ -50,6 +62,10 @@ export interface Variety {
   harvest_pattern?: HarvestPattern | null;
   harvest_interval_weeks?: number | null;
   is_flowering?: 0 | 1 | boolean;
+  weeks_to_maturity?: number | null;
+  flowering_pattern?: FloweringPattern | null;
+  flowering_seasons?: FloweringSeason[];
+  flowering_interval_weeks?: number | null;
   weeks_to_first_flowering?: number | null;
   weeks_flowering_to_harvest?: number | null;
   weeks_to_reflower_after_harvest?: number | null;
