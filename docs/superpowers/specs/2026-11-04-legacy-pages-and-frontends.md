@@ -42,3 +42,8 @@ Not ours: "T&A Dashboard" (upande_ta).
 ## Propagation reference branch
 upande_propagation `marginpar` tracks `origin/james` (merged 699776c on 2026-11-04: plant consignments
 from outside propagators, Trough Setting, plan feedback). Merge `origin/james` again before each phase.
+
+## To-do (later, user 2026-11-04)
+- **Crop onboarding.** A new crop with no scene of its own uses the default loading animation (production,
+  planning and propagation all fall back to the generic loader). Later: an onboarding flow that sets up a new
+  crop end to end (Production Crop, varieties, units, its marks/loaders in all three apps).
