@@ -50,21 +50,20 @@ def _monday(d):
 
 # ---------------------------------------------------------------- sections
 
-def seed_masters():
+def seed_core():
+	"""The masters every crop seed and test assumes: UOMs, the farm, the settings company and the demo
+	crops (Avocado, Apiary, Aquaculture, Fruits & Vegetables...). Idempotent and never commits, so a
+	test class can build it inside its own transaction on a site that has none of the Mutara data."""
 	company = DEMO["company"]
+	if not frappe.db.exists("Company", company):  # a site that is not Mutara: build on whatever company it has
+		company = frappe.defaults.get_global_default("company") or frappe.db.get_value("Company", {}, "name")
 	farm = DEMO["farm"]
 	for uom in DEMO["uoms"]:
 		_ensure("UOM", {"uom_name": uom}) if not frappe.db.exists("UOM", uom) else None
-	_ensure("Item Group", {"item_group_name": "Products"}, {"parent_item_group": "All Item Groups"})
-	for item in DEMO["items"]:
-		if not frappe.db.exists("Item", item):
-			_insert({"doctype": "Item", "item_code": item, "item_name": item, "item_group": "Products",
-				"stock_uom": "Kg", "is_stock_item": 1, "include_item_in_manufacturing": 0})
-	for cust in DEMO["customers"]:
-		if not frappe.db.exists("Customer", {"customer_name": cust}):
-			_insert({"doctype": "Customer", "customer_name": cust, "customer_type": "Company",
-				"customer_group": "Commercial", "territory": "Kenya"})
 	if not frappe.db.exists("Farm", farm["name"]):
+		for t in ("Has Blocks", "Has Beds", "Has Orchard Trees"):
+			if not frappe.db.exists("Farm Type", t):
+				_insert({"doctype": "Farm Type", "name": t})
 		_insert({"doctype": "Farm", "farm_name": farm["name"], "company": company, "abbreviation": farm["abbr"],
 			"area": farm["area"], "farm_type": [{"farm_type": t} for t in ("Has Blocks", "Has Beds", "Has Orchard Trees")]})
 	if not frappe.db.get_single_value("Production Settings", "company"):
@@ -76,6 +75,21 @@ def seed_masters():
 			"yield_uom": crop["uom"], "default_cycle_type": crop["cycle_type"], "enabled": 1, "sort_order": crop["sort"],
 			"uses_crop_cycles": crop.get("cycles", 1)})
 		frappe.db.set_value("Production Crop", {"crop_name": crop["name"]}, "uses_crop_cycles", crop.get("cycles", 1))
+
+
+def seed_masters():
+	company = DEMO["company"]
+	farm = DEMO["farm"]
+	seed_core()
+	_ensure("Item Group", {"item_group_name": "Products"}, {"parent_item_group": "All Item Groups"})
+	for item in DEMO["items"]:
+		if not frappe.db.exists("Item", item):
+			_insert({"doctype": "Item", "item_code": item, "item_name": item, "item_group": "Products",
+				"stock_uom": "Kg", "is_stock_item": 1, "include_item_in_manufacturing": 0})
+	for cust in DEMO["customers"]:
+		if not frappe.db.exists("Customer", {"customer_name": cust}):
+			_insert({"doctype": "Customer", "customer_name": cust, "customer_type": "Company",
+				"customer_group": "Commercial", "territory": "Kenya"})
 	for crop, ops in DEMO["operations"].items():
 		for name, uom, rate, cat, harvest in ops:
 			if not frappe.db.exists("Field Activity", {"crop": crop, "operation_name": name}):

@@ -55,6 +55,17 @@ def _unit(name):
 	return frappe.db.get_value("Production Unit", {"unit_name": name, "crop": "Apiary"}, "name")
 
 
+def ensure_groups():
+	"""The demo hive groups as Production Units, made when the site has none (a site other than Mutara)."""
+	if not frappe.db.exists("Production Crop", "Apiary"):
+		return
+	farm = frappe.db.get_value("Farm", {}, "name")
+	for name in DEMO["groups"]:
+		if not _unit(name):
+			frappe.get_doc({"doctype": "Production Unit", "unit_name": name, "crop": "Apiary",
+				"unit_type": "Hive Group", "status": "Active", "farm": farm}).insert(ignore_permissions=True)
+
+
 def _clear_demo_rows():
 	"""Dates are relative to today (in the site time zone), so a key of unit + date matches
 	nothing after midnight and a second run would add a second, shifted set. The demo
@@ -84,6 +95,7 @@ def ensure_limits():
 def run(commit=True):
 	frappe.flags.in_demo_seed = True
 	ensure_limits()
+	ensure_groups()
 	_clear_demo_rows()
 	inspector = DEMO["inspector"] or frappe.db.get_value("Employee", {"status": "Active"}, "name")
 	made = {"inspections": 0, "harvests": 0}
