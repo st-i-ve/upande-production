@@ -132,6 +132,10 @@ export function viewLabel(view: View, crop?: Pick<Crop, "unit_label"> | null): s
       return "Harvesting";
     case "farm-map":
       return "Farm Map";
+    case "planting-calendars":
+      return "Planting Calendars";
+    case "protocol-versions":
+      return "Protocol Versions";
   }
 }
 

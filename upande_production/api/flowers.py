@@ -123,7 +123,8 @@ def flower_data(crop):
 	if block_mode:
 		wanted = set(by_unit)
 		for n, b in blocks.items():
-			if b.get("custom_is_summer_flower_block") or n in wanted:
+			# a flagged block with nothing in it (no cycle, no beds, no plants) is not part of the picture
+			if b.get("custom_is_summer_flower_block") and (b.get("number_of_beds") or b.get("number_of_plants")):
 				wanted.add(n)
 		for n in sorted(wanted):
 			b = blocks.get(n) or {}

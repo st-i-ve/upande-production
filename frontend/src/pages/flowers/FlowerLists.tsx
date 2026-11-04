@@ -199,6 +199,52 @@ const HARVESTING: ListConfig = {
   ],
 };
 
+const PLANTING_CALENDARS: ListConfig = {
+  title: "Planting Calendars",
+  doctype: "Planting Calendar",
+  description: "Each planting calendar puts one variety into the beds of one block, with its planned and actual dates.",
+  fields: ["name", "variety", "block", "farm", "calendar_status", "workflow_state", "planting_date", "actual_planting_date", "beds", "plants", "net_area_sqm", "expected_stems_life"],
+  order_by: "planting_date desc",
+  itemColumns: ["variety"],
+  columns: [
+    { key: "name", label: "Calendar" },
+    { key: "variety", label: "Variety" },
+    { key: "block", label: "Block" },
+    { key: "farm", label: "Farm" },
+    { key: "workflow_state", label: "Approval" },
+    { key: "calendar_status", label: "Status" },
+    { key: "planting_date", label: "Planting", fmt: date },
+    { key: "actual_planting_date", label: "Planted", fmt: date },
+    { key: "beds", label: "Beds", num: true },
+    { key: "plants", label: "Plants", num: true },
+    { key: "net_area_sqm", label: "Net m²", num: true },
+    { key: "expected_stems_life", label: "Stems over life", num: true },
+  ],
+};
+
+const PROTOCOL_VERSIONS: ListConfig = {
+  title: "Protocol Versions",
+  doctype: "Crop Protocol Version",
+  description: "Every approved snapshot of a crop protocol; the current one is what plans and cycles run on.",
+  fields: ["name", "variety", "farm", "version", "version_status", "workflow_state", "is_current", "effective_from", "plants_per_sqm_net", "total_weeks_in_ground", "total_stems_per_plant_life"],
+  order_by: "modified desc",
+  itemColumns: ["variety"],
+  columns: [
+    { key: "name", label: "Version" },
+    { key: "variety", label: "Variety" },
+    { key: "farm", label: "Farm" },
+    { key: "version", label: "No.", num: true },
+    { key: "version_status", label: "Status" },
+    { key: "is_current", label: "Current", fmt: (v) => (v ? "Yes" : "") },
+    { key: "effective_from", label: "From", fmt: date },
+    { key: "plants_per_sqm_net", label: "Plants /m²", num: true },
+    { key: "total_weeks_in_ground", label: "Weeks in ground", num: true },
+    { key: "total_stems_per_plant_life", label: "Stems /plant life", num: true },
+  ],
+};
+
+export const PlantingCalendars = () => <FlowerList cfg={PLANTING_CALENDARS} />;
+export const ProtocolVersions = () => <FlowerList cfg={PROTOCOL_VERSIONS} />;
 export const Protocols = () => <FlowerList cfg={PROTOCOLS} />;
 export const CutStages = () => <FlowerList cfg={CUT_STAGES} />;
 export const PlanForm = () => <FlowerList cfg={PLAN_FORMS} />;
