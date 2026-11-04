@@ -53,6 +53,9 @@ export const VIEWS = [
   "plan-form",
   "harvesting",
   "farm-map",
+  // Summer flowers (Crop Production): planting calendars and protocol versions, ported from the desk lists.
+  "planting-calendars",
+  "protocol-versions",
 ] as const;
 
 export type View = (typeof VIEWS)[number];

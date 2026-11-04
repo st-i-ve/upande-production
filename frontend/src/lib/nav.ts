@@ -79,11 +79,14 @@ const ICONS: Record<View, IconType> = {
   "plan-form": CalendarCheck,
   harvesting: PackageCheck,
   "farm-map": MapIcon,
+  "planting-calendars": CalendarRange,
+  "protocol-versions": ScrollText,
 };
 
 /** The screens a flower crop has (and only those): the Crop Production ones, ported. */
 export const FLOWER_VIEWS: View[] = [
   "flower-overview", "greenhouses", "flower-cycles", "protocols", "cut-stages", "plan-form", "harvesting", "farm-map",
+  "planting-calendars", "protocol-versions",
 ];
 
 /** The view a crop opens on. */
@@ -129,9 +132,9 @@ const GROUPS: { label: string; views: View[] }[] = [
 
 const FLOWER_GROUPS: { label: string; views: View[] }[] = [
   { label: "Overview", views: ["flower-overview"] },
-  { label: "Crop setup", views: ["protocols", "cut-stages"] },
+  { label: "Crop setup", views: ["protocols", "protocol-versions", "cut-stages"] },
   { label: "Planting and beds", views: ["greenhouses", "flower-cycles", "farm-map"] },
-  { label: "Planning and harvest", views: ["plan-form", "harvesting"] },
+  { label: "Planning and harvest", views: ["planting-calendars", "plan-form", "harvesting"] },
 ];
 
 export function viewAllowed(
