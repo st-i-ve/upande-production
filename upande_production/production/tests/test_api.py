@@ -155,7 +155,7 @@ class TestApi(IntegrationTestCase):
 		}])
 		self.assertNotIn("error", res)
 		rate = frappe.db.get_value(
-			"Production Plan Task", {"parent": res["name"], "unit": unit.name}, "rate"
+			"Work Plan Task", {"parent": res["name"], "unit": unit.name}, "rate"
 		)
 		self.assertEqual(rate, 55)
 		# a supervisor cannot change an operation default rate
@@ -188,7 +188,7 @@ class TestApi(IntegrationTestCase):
 		unit = self._unit("API FcUnit")
 		monday = _monday(add_days(today(), -14))
 		_make(
-			"Production Forecast", unit=unit.name, crop=self.crop.name, uom="Kg", source="Manual",
+			"Crop Forecast", unit=unit.name, crop=self.crop.name, uom="Kg", source="Manual",
 			weeks=[{"week_start": monday, "expected_qty": 100}],
 		)
 		_make("Production Harvest", harvest_date=add_days(monday, 2), unit=unit.name, crop=self.crop.name, qty=80, uom="Kg")
@@ -207,7 +207,7 @@ class TestApi(IntegrationTestCase):
 		monday = _monday(add_days(today(), -14))
 		future = _monday(add_days(today(), 14))
 		_make(
-			"Production Forecast", unit=unit.name, crop=self.crop.name, uom="Kg", source="Manual",
+			"Crop Forecast", unit=unit.name, crop=self.crop.name, uom="Kg", source="Manual",
 			weeks=[{"week_start": monday, "expected_qty": 100}, {"week_start": future, "expected_qty": 500}],
 		)
 		_make("Production Harvest", harvest_date=add_days(monday, 2), unit=unit.name, crop=self.crop.name, qty=80, uom="Kg")

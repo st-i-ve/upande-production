@@ -170,7 +170,7 @@ def list_approvals(
 
 	tasks = {
 		t.name: t for t in frappe.get_all(
-			"Production Plan Task",
+			"Work Plan Task",
 			filters={"name": ("in", list({r.plan_task for r in rows if r.plan_task}) or [""])},
 			fields=["name", "planned_qty", "done_qty", "pending_qty", "note", "status", "supervisor"],
 		)

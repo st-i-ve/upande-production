@@ -321,7 +321,7 @@ def seed_plans():
 			doc = plans.get_or_create_plan(crop, farm, y, w)
 			if not existed:
 				C["Production Work Plan"] += 1
-			C["Production Plan Task"] += plans.generate_week(doc.name)
+			C["Work Plan Task"] += plans.generate_week(doc.name)
 			_process_plan(doc.name, current, pool, supers)
 			frappe.db.commit()
 
@@ -562,7 +562,7 @@ def seed_production_data():
 	for cy in harvest_status:
 		if cy.crop == "Avocado":
 			# One source of truth: avocado_seed mirrors the Avocado Harvest Log / forecast into
-			# Production Harvest / Production Forecast. Nothing invented here.
+			# Production Harvest / Crop Forecast. Nothing invented here.
 			continue
 		u = frappe.db.get_value("Production Unit", cy.unit, ["area_ha", "plant_count"], as_dict=True)
 		prod = product_item(cy.item)  # varieties keep their product's figures
@@ -583,14 +583,14 @@ def seed_production_data():
 				"grade": "Class 1", "price_per_uom": prices[prod]})
 		# forecast: 6 weeks back + 6 forward
 		season = mon.year
-		if not frappe.db.exists("Production Forecast", {"unit": cy.unit, "season": season}):
+		if not frappe.db.exists("Crop Forecast", {"unit": cy.unit, "season": season}):
 			rows = []
 			for k in range(-6, 6):
 				r = _rng(f"fc:{cy.unit}:{k}")
 				sign = r.choice([-1, 1])
 				rows.append({"week_start": mon + timedelta(weeks=k),
 					"expected_qty": round(base * (1 + sign * r.uniform(0.05, 0.25)), 1)})
-			_insert({"doctype": "Production Forecast", "unit": cy.unit, "cycle": cy.name, "season": season,
+			_insert({"doctype": "Crop Forecast", "unit": cy.unit, "cycle": cy.name, "season": season,
 				"source": "Sample", "uom": "Kg", "weeks": rows})
 	frappe.db.commit()
 

@@ -172,7 +172,7 @@ def productionGetWeekPlan():
 		tasks = []
 		if name:
 			tasks = frappe.get_all(
-				"Production Plan Task", filters=unit_filter({"parent": name, "parenttype": "Production Work Plan"}),
+				"Work Plan Task", filters=unit_filter({"parent": name, "parenttype": "Production Work Plan"}),
 				fields=TASK_FIELDS, order_by="due_date asc, idx asc",
 			)
 			_strip_pay(tasks, "rate")
@@ -495,7 +495,7 @@ def productionListWeekPlans():
 		if mine:
 			task_filters["supervisor"] = emp or "\0no-employee"
 		tasks = frappe.get_all(
-			"Production Plan Task", filters=task_filters,
+			"Work Plan Task", filters=task_filters,
 			fields=["parent", "status", "deviation", "due_date", "pending_qty"],
 		)
 		by_plan = {}
@@ -546,7 +546,7 @@ def productionGetPlanDetail():
 		if mine:
 			# only the logged-in supervisor's own tasks (nothing when the user has no Employee link)
 			filters["supervisor"] = emp or "\0no-employee"
-		tasks = frappe.get_all("Production Plan Task", filters=filters, fields=PLAN_TASK_FIELDS,
+		tasks = frappe.get_all("Work Plan Task", filters=filters, fields=PLAN_TASK_FIELDS,
 			order_by="due_date asc, idx asc")
 		crew = _task_entries(name)
 		sup = [t.supervisor for t in tasks if t.supervisor]

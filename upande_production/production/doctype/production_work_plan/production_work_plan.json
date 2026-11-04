@@ -65,7 +65,7 @@
    "fieldname": "tasks",
    "fieldtype": "Table",
    "label": "Tasks",
-   "options": "Production Plan Task"
+   "options": "Work Plan Task"
   },
   {
    "fieldname": "notes",

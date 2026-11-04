@@ -161,18 +161,18 @@ def _events_split(unit, crop, capital):
 
 
 def _forecast_for(unit, cycle=None):
-	"""The one Production Forecast that counts for a unit: the current cycle's latest, else the unit's
+	"""The one Crop Forecast that counts for a unit: the current cycle's latest, else the unit's
 	latest (forecasts are re-made per cycle or season and overlap, so they must not be summed)."""
 	if cycle:
-		name = frappe.db.get_value("Production Forecast", {"unit": unit, "cycle": cycle.name}, "name",
+		name = frappe.db.get_value("Crop Forecast", {"unit": unit, "cycle": cycle.name}, "name",
 			order_by="modified desc, creation desc")
 		if name:
 			return name
-	return frappe.db.get_value("Production Forecast", {"unit": unit}, "name", order_by="modified desc, creation desc")
+	return frappe.db.get_value("Crop Forecast", {"unit": unit}, "name", order_by="modified desc, creation desc")
 
 
 def _forecast_value(units, crop):
-	"""Expected value over the next 12 months from Production Forecast, or None without one."""
+	"""Expected value over the next 12 months from Crop Forecast, or None without one."""
 	t = getdate(today())
 	end = _add_months(t.replace(day=1), 12)
 	total = 0.0
@@ -185,7 +185,7 @@ def _forecast_value(units, crop):
 		if not fname:
 			continue
 		qty = frappe.db.sql(
-			"""select sum(expected_qty) from `tabProduction Forecast Week`
+			"""select sum(expected_qty) from `tabCrop Forecast Week`
 			where parent = %s and week_start >= %s and week_start < %s""", (fname, t, end))[0][0]
 		if qty:
 			total += float(qty) * _unit_price(unit, crop)

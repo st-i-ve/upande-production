@@ -3,9 +3,9 @@ from frappe.tests import IntegrationTestCase
 
 DOCTYPES = [
 	"Production Crop", "Production Unit", "Field Activity", "Production Protocol",
-	"Production Protocol Step", "Production Crop Cycle", "Production Work Plan", "Production Plan Task",
-	"Value Adder Work", "Production Harvest", "Yield Sample", "Production Forecast",
-	"Production Forecast Week", "Buyer Commitment",
+	"Production Protocol Step", "Production Crop Cycle", "Production Work Plan", "Work Plan Task",
+	"Value Adder Work", "Production Harvest", "Yield Sample", "Crop Forecast",
+	"Crop Forecast Week", "Buyer Commitment",
 ]
 ROLES = ["Production Manager", "Production Supervisor", "Production Viewer"]
 

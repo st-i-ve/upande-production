@@ -289,7 +289,7 @@ def _others(unit, window_from, window_to, exclude_work=None, exclude_task=None) 
 		if w.name == exclude_work or (w.docstatus == 0 and w.approval_status == "Sent Back"):
 			continue
 		out.append({"operation": w.operation, "date": w.work_date, "key": w.operation})
-	tasks = frappe.get_all("Production Plan Task",
+	tasks = frappe.get_all("Work Plan Task",
 		filters={"parenttype": "Production Work Plan", "unit": unit, "status": ("in", ["Open", "In Progress"]),
 			"due_date": ("between", [window_from, window_to])},
 		fields=["name", "operation", "due_date"])

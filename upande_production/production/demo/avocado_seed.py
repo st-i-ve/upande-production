@@ -424,7 +424,7 @@ def _late_weeks(f):
 
 def mirror_forecast():
 	"""Weekly Avocado forecast (early estimate in its pick weeks, late crop from the outlook
-	schedule) into one Production Forecast per block for the season. Returns {week: kg}."""
+	schedule) into one Crop Forecast per block for the season. Returns {week: kg}."""
 	from upande_production.api import avocadoapi
 	f = avocadoapi.overview(price_per_kg=DEMO["price_per_kg"])
 	early, late = _early_weeks(), _late_weeks(f)
@@ -437,8 +437,8 @@ def mirror_forecast():
 		for src in (early.get(block, {}), late.get(block, {})):
 			for ws, kg in src.items():
 				weeks[ws] = weeks.get(ws, 0.0) + kg
-		name = frappe.db.exists("Production Forecast", {"unit": unit, "season": DEMO["season"]})
-		doc = frappe.get_doc("Production Forecast", name) if name else frappe.new_doc("Production Forecast")
+		name = frappe.db.exists("Crop Forecast", {"unit": unit, "season": DEMO["season"]})
+		doc = frappe.get_doc("Crop Forecast", name) if name else frappe.new_doc("Crop Forecast")
 		doc.update({"unit": unit, "crop": "Avocado", "cycle": _unit_cycle(unit), "season": DEMO["season"],
 					"source": "Manual", "uom": "Kg"})
 		doc.set("weeks", [])

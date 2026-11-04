@@ -55,8 +55,8 @@ def _forecast_weeks(crop):
 		monday = start + timedelta(days=7 * i)
 		sunday = monday + timedelta(days=6)
 		fc = frappe.db.sql(
-			"""select sum(w.expected_qty) from `tabProduction Forecast Week` w
-			join `tabProduction Forecast` f on f.name = w.parent
+			"""select sum(w.expected_qty) from `tabCrop Forecast Week` w
+			join `tabCrop Forecast` f on f.name = w.parent
 			where f.crop = %s and w.week_start between %s and %s and f.unit not in %s""",
 			(crop, monday, sunday, retired_sql()),
 		)[0][0]
@@ -75,7 +75,7 @@ def _operations(crop):
 	if not plans:
 		return []
 	rows = frappe.get_all(
-		"Production Plan Task",
+		"Work Plan Task",
 		filters=unit_filter({"parenttype": "Production Work Plan", "parent": ("in", plans)}),
 		fields=["operation_name", "uom", "planned_qty", "done_qty", "pending_qty", "status"],
 	)
@@ -98,7 +98,7 @@ def _upcoming(crop):
 	if not plans:
 		return []
 	return frappe.get_all(
-		"Production Plan Task",
+		"Work Plan Task",
 		filters=unit_filter({
 			"parenttype": "Production Work Plan", "parent": ("in", plans),
 			"status": ("in", ["Open", "In Progress"]), "due_date": (">=", getdate(today())),

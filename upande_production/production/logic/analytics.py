@@ -119,7 +119,7 @@ def _week_tasks(crop, year, week):
 	if not plans:
 		return []
 	return frappe.get_all(
-		"Production Plan Task",
+		"Work Plan Task",
 		filters=unit_filter({"parenttype": "Production Work Plan", "parent": ("in", plans)}),
 		fields=["unit", "status", "deviation"],
 	)
@@ -149,8 +149,8 @@ def overview(crop, can_see_pay):
 	w_start = _monday(t)
 	w_end = w_start + timedelta(days=27)
 	forecast_next4 = frappe.db.sql(
-		"""select sum(w.expected_qty) from `tabProduction Forecast Week` w
-		join `tabProduction Forecast` f on f.name = w.parent
+		"""select sum(w.expected_qty) from `tabCrop Forecast Week` w
+		join `tabCrop Forecast` f on f.name = w.parent
 		where f.crop = %s and w.week_start between %s and %s and f.unit not in %s""",
 		(crop, w_start, w_end, retired_sql()),
 	)[0][0]
@@ -285,7 +285,7 @@ def deviations(crop, from_date, to_date):
 	plans = frappe.get_all("Production Work Plan", filters={"crop": crop}, pluck="name")
 	if plans:
 		tasks = frappe.get_all(
-			"Production Plan Task",
+			"Work Plan Task",
 			filters=unit_filter({
 				"parenttype": "Production Work Plan", "parent": ("in", plans),
 				"deviation": ("in", ["Late", "Partial", "Skipped"]),
@@ -330,7 +330,7 @@ def _missed(crop, frm, to, op_names):
 	if not cycles:
 		return []
 	task_rows = frappe.get_all(
-		"Production Plan Task",
+		"Work Plan Task",
 		filters={"parenttype": "Production Work Plan", "cycle": ("in", [c.name for c in cycles]), "protocol_ref": ("is", "set")},
 		fields=["protocol_ref", "cycle", "operation", "due_date"],
 	)
@@ -402,7 +402,7 @@ def protocol_check(crop, year, week, unit=None):
 		return out
 	tasks = {
 		t.protocol_ref: t for t in frappe.get_all(
-			"Production Plan Task",
+			"Work Plan Task",
 			filters={"parenttype": "Production Work Plan", "cycle": ("in", [c.name for c in cycles]),
 				"protocol_ref": ("is", "set")},
 			fields=["name", "parent", "protocol_ref", "status", "deviation", "planned_qty", "done_qty",
@@ -474,7 +474,7 @@ def forecast_summary(crop, from_date, to_date):
 
 	fc = frappe.db.sql(
 		"""select w.week_start, f.unit, sum(w.expected_qty)
-		from `tabProduction Forecast Week` w join `tabProduction Forecast` f on f.name = w.parent
+		from `tabCrop Forecast Week` w join `tabCrop Forecast` f on f.name = w.parent
 		where f.crop = %s and w.week_start between %s and %s and f.unit not in %s
 		group by w.week_start, f.unit""",
 		(crop, frm, to, retired_sql()),

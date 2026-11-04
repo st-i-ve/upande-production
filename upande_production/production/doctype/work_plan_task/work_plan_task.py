@@ -4,5 +4,5 @@
 from frappe.model.document import Document
 
 
-class ProductionPlanTask(Document):
+class WorkPlanTask(Document):
 	pass
