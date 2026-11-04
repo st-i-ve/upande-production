@@ -9,7 +9,7 @@ import { EmptyNote, Panel } from "@/components/overview/Panel";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useCurrentCrop } from "@/lib/crops";
 import { isError } from "@/lib/frappe";
-import { classicDoc, classicList, getList, type Row } from "@/lib/flowers-api";
+import { classicDoc, classicList, getList, itemNames, type Row } from "@/lib/flowers-api";
 import { ClassicLink } from "./ClassicLink";
 
 interface Column {
@@ -31,6 +31,8 @@ interface ListConfig {
   classic?: string;
   /** The row's name column is a link to the classic form. */
   link?: boolean;
+  /** Columns holding item codes: shown by item_name, the code kept in the tooltip. */
+  itemColumns?: string[];
 }
 
 const num = (v: unknown) => (v == null || v === "" ? "—" : Number(v).toLocaleString("en-US", { maximumFractionDigits: 1 }));
@@ -42,15 +44,19 @@ function FlowerList({ cfg }: { cfg: ListConfig }) {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
+  const [names, setNames] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
     const r = await getList(cfg.doctype, cfg.fields, { filters: cfg.filters, order_by: cfg.order_by });
-    setLoading(false);
     if (isError(r)) {
+      setLoading(false);
       toast(r.error, "error");
       return;
     }
+    const codes = [...new Set((cfg.itemColumns ?? []).flatMap((k) => r.rows.map((x) => String(x[k] ?? ""))).filter(Boolean))];
+    setNames(await itemNames(codes));
+    setLoading(false);
     setRows(r.rows);
   }, [cfg, toast]);
 
@@ -98,7 +104,10 @@ function FlowerList({ cfg }: { cfg: ListConfig }) {
                   <TableRow key={String(r.name)}>
                     {cfg.columns.map((c, i) => {
                       const v = r[c.key];
-                      const cell = c.fmt ? c.fmt(v, r) : c.num ? num(v) : text(v);
+                      const isItem = cfg.itemColumns?.includes(c.key) && v;
+                      const cell = isItem ? (
+                        <span title={`Item ${String(v)}`}>{names[String(v)] || String(v)}</span>
+                      ) : c.fmt ? c.fmt(v, r) : c.num ? num(v) : text(v);
                       return (
                         <TableCell key={c.key} className={c.num ? "text-right tabular-nums" : ""}>
                           {i === 0 && cfg.link !== false ? (
@@ -124,49 +133,13 @@ function FlowerList({ cfg }: { cfg: ListConfig }) {
 
 const date = (v: unknown) => (v ? String(v).slice(0, 10) : "—");
 
-const GREENHOUSES: ListConfig = {
-  title: "Greenhouses",
-  doctype: "Greenhouse",
-  description: "Greenhouses and their beds, with the plants standing in them.",
-  fields: ["name", "farm", "number_of_beds", "number_of_plants", "area_planted", "gross_area", "varieties", "last_replanting_date"],
-  order_by: "name asc",
-  columns: [
-    { key: "name", label: "Greenhouse" },
-    { key: "farm", label: "Farm" },
-    { key: "number_of_beds", label: "Beds", num: true },
-    { key: "number_of_plants", label: "Plants", num: true },
-    { key: "area_planted", label: "Planted m²", num: true },
-    { key: "gross_area", label: "Gross m²", num: true },
-    { key: "varieties", label: "Varieties", num: true },
-    { key: "last_replanting_date", label: "Last replanting", fmt: date },
-  ],
-};
-
-const CYCLES: ListConfig = {
-  title: "Crop Cycles",
-  doctype: "Crop Cycle",
-  description: "Each cycle is one variety planted in one bed range of a greenhouse, from planting to uprooting.",
-  fields: ["name", "greenhouse", "farm", "variety", "status", "planting_date", "qty_planted", "plants_standing", "planted_area", "bed_range"],
-  order_by: "modified desc",
-  columns: [
-    { key: "name", label: "Cycle" },
-    { key: "greenhouse", label: "Greenhouse" },
-    { key: "variety", label: "Variety" },
-    { key: "status", label: "Status" },
-    { key: "planting_date", label: "Planted", fmt: date },
-    { key: "qty_planted", label: "Planted qty", num: true },
-    { key: "plants_standing", label: "Standing", num: true },
-    { key: "planted_area", label: "Area m²", num: true },
-    { key: "bed_range", label: "Beds" },
-  ],
-};
-
 const PROTOCOLS: ListConfig = {
   title: "Crop Protocols",
   doctype: "Crop Protocol",
   description: "What a variety should produce: density, weeks to bending, flushes and stems per plant.",
   fields: ["name", "variety_item", "crop_type", "plants_per_sqm", "weeks_to_first_bending", "productive_life_weeks", "weeks_between_cuts", "total_stems_per_plant_life"],
   order_by: "name asc",
+  itemColumns: ["variety_item"],
   columns: [
     { key: "name", label: "Protocol" },
     { key: "variety_item", label: "Variety" },
@@ -226,8 +199,6 @@ const HARVESTING: ListConfig = {
   ],
 };
 
-export const Greenhouses = () => <FlowerList cfg={GREENHOUSES} />;
-export const FlowerCycles = () => <FlowerList cfg={CYCLES} />;
 export const Protocols = () => <FlowerList cfg={PROTOCOLS} />;
 export const CutStages = () => <FlowerList cfg={CUT_STAGES} />;
 export const PlanForm = () => <FlowerList cfg={PLAN_FORMS} />;

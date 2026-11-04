@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ChartSkeleton, firstLoad } from "@/components/Loading";
 import { KpiCard, KpiGrid } from "@/components/KpiCard";
@@ -9,9 +9,10 @@ import { useToast } from "@/components/Toast";
 import { EmptyNote, Panel } from "@/components/overview/Panel";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useCurrentCrop } from "@/lib/crops";
-import { isError } from "@/lib/frappe";
-import { classicDoc, getDashboardData, type CycleRow, type GreenhouseRow } from "@/lib/flowers-api";
+import { classicDoc } from "@/lib/flowers-api";
+import { useFlowerData } from "@/lib/use-flower-data";
 import { ClassicLink } from "./ClassicLink";
+import { unitWord } from "./unit-words";
 
 const AXIS = { fontSize: 11, fill: "var(--sd-muted)" };
 const n = (v: number | null | undefined) => (v ?? 0).toLocaleString("en-US");
@@ -24,7 +25,7 @@ const STATUS_DOT: Record<string, string> = {
   Planned: "var(--sd-target)",
 };
 
-function BarsByLabel({ rows, color, unit }: { rows: { label: string; value: number }[]; color: string; unit: string }) {
+function BarsByLabel({ rows, color, unit }: { rows: { label: string; value: number; code?: string }[]; color: string; unit: string }) {
   if (!rows.length) return <EmptyNote>No data yet.</EmptyNote>;
   const h = Math.max(120, rows.length * 30 + 24);
   return (
@@ -36,7 +37,7 @@ function BarsByLabel({ rows, color, unit }: { rows: { label: string; value: numb
           <YAxis type="category" dataKey="label" tick={AXIS} axisLine={false} tickLine={false} width={120} />
           <Tooltip
             cursor={{ fill: "var(--sd-bg-soft)" }}
-            formatter={(v: number) => [`${n(v)} ${unit}`, ""]}
+            formatter={(v: number, _n: string, item: { payload?: { code?: string } }) => [`${n(v)} ${unit}`, item?.payload?.code ? `code ${item.payload.code}` : ""]}
             contentStyle={{ borderRadius: 12, border: "none", boxShadow: "var(--sd-shadow-2)", fontSize: 12 }}
           />
           <Bar dataKey="value" fill={color} radius={[0, 6, 6, 0]} maxBarSize={18} />
@@ -46,61 +47,39 @@ function BarsByLabel({ rows, color, unit }: { rows: { label: string; value: numb
   );
 }
 
-/** The Crop Cycle Dashboard block, rebuilt: plants standing, greenhouses, planted area, cycles and
- *  varieties; plants by farm; top varieties; cycles by status; the greenhouse table. */
+/** The Crop Cycle Dashboard, rebuilt: plants standing, blocks or greenhouses, planted area, cycles and
+ *  varieties; plants by farm; top varieties (by name); cycles by status; the unit table. Works for
+ *  greenhouse-based cycles (roses) and block-based ones (summer flowers). */
 export function FlowerOverview() {
   const crop = useCurrentCrop();
   const toast = useToast();
   const accent = crop.accent_color || "#3f7d3a";
-  const [ghs, setGhs] = useState<GreenhouseRow[] | null>(null);
-  const [ccs, setCcs] = useState<CycleRow[] | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, reload } = useFlowerData(crop.name, (m) => toast(m, "error"));
+  const waiting = firstLoad(loading, !!data);
+  const word = unitWord(data?.mode);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const r = await getDashboardData();
-    setLoading(false);
-    if (isError(r)) {
-      toast(r.error, "error");
-      return;
-    }
-    setGhs(r.greenhouses);
-    setCcs(r.cycles);
-  }, [toast]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const waiting = firstLoad(loading, !!ghs);
   const d = useMemo(() => {
-    const g = ghs ?? [];
-    const c = ccs ?? [];
-    const sum = (f: (x: GreenhouseRow) => number | null) => g.reduce((a, x) => a + (f(x) ?? 0), 0);
-    const plants = sum((x) => x.number_of_plants);
-    const beds = sum((x) => x.number_of_beds);
-    const planted = sum((x) => x.area_planted);
-    const gross = sum((x) => x.gross_area);
-    const varieties = new Set(c.map((x) => x.variety).filter(Boolean));
-    const active = c.filter((x) => x.status === "Active").length;
-    const byFarm = new Map<string, number>();
-    g.forEach((x) => byFarm.set(x.farm || "(no farm)", (byFarm.get(x.farm || "(no farm)") ?? 0) + (x.number_of_plants ?? 0)));
-    const byVar = new Map<string, number>();
-    c.forEach((x) => x.variety && byVar.set(x.variety, (byVar.get(x.variety) ?? 0) + (x.plants_standing || x.qty_planted || 0)));
+    const cycles = data?.cycles ?? [];
+    const byVar = new Map<string, { value: number; code: string }>();
+    cycles.forEach((c) => {
+      const k = c.variety_name || c.variety;
+      if (!k) return;
+      const cur = byVar.get(k) ?? { value: 0, code: c.variety ?? "" };
+      cur.value += c.plants;
+      byVar.set(k, cur);
+    });
     const status = new Map<string, number>();
-    c.forEach((x) => status.set(x.status || "Not set", (status.get(x.status || "Not set") ?? 0) + 1));
-    const cyclesBy = new Map<string, number>();
-    c.forEach((x) => x.greenhouse && cyclesBy.set(x.greenhouse, (cyclesBy.get(x.greenhouse) ?? 0) + 1));
-    const top = (m: Map<string, number>, k = 10) =>
-      [...m.entries()].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value).slice(0, k);
+    cycles.forEach((c) => status.set(c.status || "Not set", (status.get(c.status || "Not set") ?? 0) + 1));
     return {
-      plants, beds, planted, gross, varieties: varieties.size, active, cycles: c.length, houses: g.length,
-      farms: top(byFarm), vars: top(byVar), status: [...status.entries()].sort(), cyclesBy,
-      rows: g.slice().sort((a, b) => (b.number_of_plants ?? 0) - (a.number_of_plants ?? 0)),
+      vars: [...byVar.entries()].map(([label, v]) => ({ label, value: v.value, code: v.code })).sort((a, b) => b.value - a.value).slice(0, 10),
+      status: [...status.entries()].sort(),
+      farms: (data?.farms ?? []).map((f) => ({ label: f.farm, value: f.plants })),
+      rows: (data?.units ?? []).slice().sort((a, b) => b.plants - a.plants),
     };
-  }, [ghs, ccs]);
+  }, [data]);
 
-  const util = d.gross ? Math.round((d.planted / d.gross) * 100) : 0;
+  const t = data?.totals;
+  const util = t && t.gross_area ? Math.round((t.area_planted / t.gross_area) * 100) : 0;
   return (
     <PageShell
       title="Overview"
@@ -108,21 +87,21 @@ export function FlowerOverview() {
       actions={
         <>
           <ClassicLink href="/desk/greenhouse" />
-          <RefreshButton onClick={() => void load()} loading={loading} label="the greenhouses and crop cycles" />
+          <RefreshButton onClick={() => void reload()} loading={loading} label="the blocks, beds and crop cycles" />
         </>
       }
-      description={`${d.houses} greenhouses · ${compact(d.beds)} beds · ${d.cycles} crop cycles`}
+      description={t ? `${t.units} ${word.plural.toLowerCase()} · ${compact(t.beds)} beds · ${t.cycles} crop cycles` : undefined}
     >
       <KpiGrid cols={5}>
-        <KpiCard label="Plants standing" value={compact(d.plants)} hint={`${n(d.plants)} across all beds`} tone="accent" loading={waiting} />
-        <KpiCard label="Greenhouses" value={d.houses} hint={`${compact(d.beds)} beds`} loading={waiting} />
-        <KpiCard label="Planted area" value={`${compact(Math.round(d.planted))} m²`} hint={`${util}% of ${compact(Math.round(d.gross))} m² gross`} loading={waiting} />
-        <KpiCard label="Crop cycles" value={d.cycles} hint={`${d.active} active`} loading={waiting} />
-        <KpiCard label="Varieties in ground" value={d.varieties} hint="distinct, from crop cycles" loading={waiting} />
+        <KpiCard label="Plants standing" value={compact(t?.plants ?? 0)} hint={`${n(t?.plants)} across all beds`} tone="accent" loading={waiting} />
+        <KpiCard label={word.plural} value={t?.units ?? 0} hint={`${compact(t?.beds ?? 0)} beds`} loading={waiting} />
+        <KpiCard label="Planted area" value={`${compact(Math.round(t?.area_planted ?? 0))} m²`} hint={`${util}% of ${compact(Math.round(t?.gross_area ?? 0))} m² gross`} loading={waiting} />
+        <KpiCard label="Crop cycles" value={t?.cycles ?? 0} hint={`${t?.active ?? 0} active`} loading={waiting} />
+        <KpiCard label="Varieties in ground" value={t?.varieties ?? 0} hint="distinct, from crop cycles" loading={waiting} />
       </KpiGrid>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Panel title="Plants standing by farm" hint="From the beds in each greenhouse">
+        <Panel title="Plants standing by farm" hint={`From the beds in each ${word.singular.toLowerCase()}`}>
           {waiting ? <ChartSkeleton height={160} /> : <BarsByLabel rows={d.farms} color={accent} unit="plants" />}
         </Panel>
         <Panel title="Top varieties by plants" hint="Largest ten across the estate">
@@ -145,15 +124,15 @@ export function FlowerOverview() {
         )}
       </Panel>
 
-      <Panel title="Greenhouses" hint="Beds, plants and cycles per greenhouse">
+      <Panel title={word.plural} hint={`Beds, plants and cycles per ${word.singular.toLowerCase()}`}>
         {d.rows.length === 0 ? (
-          <EmptyNote>No greenhouses yet.</EmptyNote>
+          <EmptyNote>No {word.plural.toLowerCase()} yet.</EmptyNote>
         ) : (
           <ScrollTable>
             <Table>
               <TableHeader>
                 <TableRow>
-                  {["Greenhouse", "Farm", "Beds", "Plants", "Planted m²", "Gross m²", "Varieties", "Cycles"].map((h, i) => (
+                  {[word.singular, "Farm", "Beds", "Plants", "Planted m²", "Gross m²", "Varieties", "Cycles"].map((h, i) => (
                     <TableHead key={h} className={`${STICKY_HEAD} ${i > 1 ? "text-right" : ""}`}>{h}</TableHead>
                   ))}
                 </TableRow>
@@ -161,14 +140,14 @@ export function FlowerOverview() {
               <TableBody>
                 {d.rows.map((g) => (
                   <TableRow key={g.name}>
-                    <TableCell><a className="font-medium text-[var(--sd-ink)] hover:underline" href={classicDoc("Greenhouse", g.name)}>{g.name}</a></TableCell>
+                    <TableCell><a className="font-medium text-[var(--sd-ink)] hover:underline" href={classicDoc(word.doctype, g.name)}>{g.label}</a></TableCell>
                     <TableCell>{g.farm || "—"}</TableCell>
-                    <TableCell className="text-right tabular-nums">{n(g.number_of_beds)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{n(g.number_of_plants)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{n(Math.round(g.area_planted ?? 0))}</TableCell>
-                    <TableCell className="text-right tabular-nums">{n(Math.round(g.gross_area ?? 0))}</TableCell>
+                    <TableCell className="text-right tabular-nums">{n(g.beds)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{n(g.plants)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{n(Math.round(g.area_planted))}</TableCell>
+                    <TableCell className="text-right tabular-nums">{n(Math.round(g.gross_area))}</TableCell>
                     <TableCell className="text-right tabular-nums">{n(g.varieties)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{d.cyclesBy.get(g.name) ?? 0}</TableCell>
+                    <TableCell className="text-right tabular-nums">{g.cycles}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

@@ -43,10 +43,17 @@ export function cropUsesCycles(crop?: Pick<Crop, "crop_key" | "uses_crop_cycles"
 /** Flower crops (roses and summer flowers) run on the Crop Production screens: greenhouses and beds,
  *  stems. The Production Crop says so with `desk_launcher`; a server that does not send the field
  *  yet is read by its units (Greenhouse -> Bed). */
-export function isFlowerCrop(crop?: Pick<Crop, "desk_launcher" | "unit_label"> | null): boolean {
+export function isFlowerCrop(
+  crop?: (Pick<Crop, "unit_label"> & Partial<Pick<Crop, "desk_launcher" | "parent_unit_label" | "sub_unit_label">>) | null,
+): boolean {
   if (!crop) return false;
   if (crop.desk_launcher) return crop.desk_launcher === "Crop Production desk";
-  return crop.unit_label === "Greenhouse";
+  // Farm -> Greenhouse|Block -> Bed (Production Crop units), as roses and summer flowers are set up
+  return (
+    (crop.unit_label === "Greenhouse" || crop.unit_label === "Block") &&
+    crop.parent_unit_label === "Farm" &&
+    crop.sub_unit_label === "Bed"
+  ) || (crop.parent_unit_label === undefined && crop.unit_label === "Greenhouse");
 }
 
 export function pluralise(word: string): string {
@@ -112,7 +119,7 @@ export function viewLabel(view: View, crop?: Pick<Crop, "unit_label"> | null): s
     case "flower-overview":
       return "Overview";
     case "greenhouses":
-      return "Greenhouses";
+      return crop?.unit_label === "Block" ? "Blocks & Beds" : "Greenhouses";
     case "flower-cycles":
       return "Crop Cycles";
     case "protocols":

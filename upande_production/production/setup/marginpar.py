@@ -3,7 +3,8 @@
 bench --site marginpar.local execute upande_production.production.setup.marginpar.setup_marginpar
 
 Follows the model the F&V demo uses (see production/demo/varieties_seed.py: Potatoes -> Shangi):
-Production Crop -> Production Variety.product (an Item) -> Production Variety. Flowers are sold by
+Production Crop -> Production Variety.product (an Item) -> Production Variety (the varieties themselves are real data, not
+created here). Flowers are sold by
 the stem, so the yield UOM is Nos, the units are Greenhouse -> Bed, and nothing is packed in crates.
 Their launcher tiles open the Crop Production desk pages (desk_launcher), not the Production app.
 """
@@ -15,12 +16,15 @@ UOM = "Nos"
 PARENT = "Farm"
 
 CROPS = [
+	# No demo varieties: Margin Par's real varieties come with its data (the summer flowers carry 61 of them,
+	# their items named by the real codes), and a re-run must never recreate a stand-in such as "Orion".
 	{"name": "Standard Roses", "key": "standard-roses", "accent": "#b8335a", "icon": "rose", "sort": 1,
-	 "product": "Rose", "variety": "Candid"},
+	 "product": "Rose", "unit": "Greenhouse"},
 	{"name": "Spray Roses", "key": "spray-roses", "accent": "#d46a8c", "icon": "spray-rose", "sort": 2,
-	 "product": "Rose", "variety": None},
+	 "product": "Rose", "unit": "Greenhouse"},
+	# The summer flowers are planted per block of beds, not per greenhouse.
 	{"name": "Summer Flowers", "key": "summer-flowers", "accent": "#3b6fb6", "icon": "eryngium", "sort": 3,
-	 "product": "Eryngium", "variety": "Orion"},
+	 "product": None, "unit": "Block"},
 ]
 
 
@@ -49,7 +53,7 @@ def _ensure_uom():
 def _ensure_crop(c):
 	vals = {
 		"crop_key": c["key"], "accent_color": c["accent"], "icon_key": c["icon"],
-		"parent_unit_label": PARENT, "unit_label": "Greenhouse", "sub_unit_label": "Bed",
+		"parent_unit_label": PARENT, "unit_label": c["unit"], "sub_unit_label": "Bed",
 		"yield_uom": UOM, "uses_crop_cycles": 1, "default_cycle_type": "Planting",
 		"enabled": 1, "sort_order": c["sort"], "harvests_in_crates": 0, "desk_launcher": DESK,
 	}
@@ -65,28 +69,11 @@ def _ensure_crop(c):
 	return doc.name
 
 
-def _ensure_variety(crop, c):
-	if not c["variety"]:
-		return
-	item = _ensure_item(f"{c['product']} - {c['variety']}")
-	vals = {"crop": crop, "product": c["product"], "item": item, "enabled": 1, "stage_anchor": "Planting"}
-	if frappe.db.exists("Production Variety", c["variety"]):
-		doc = frappe.get_doc("Production Variety", c["variety"])
-		# never hijack a variety another crop already owns
-		if doc.crop != crop:
-			return
-		doc.update(vals)
-		doc.save(ignore_permissions=True)
-	else:
-		frappe.get_doc({"doctype": "Production Variety", "variety_name": c["variety"], **vals}).insert(
-			ignore_permissions=True)
-
-
 def setup_marginpar():
 	_ensure_uom()
 	for c in CROPS:
-		_ensure_item(c["product"])
-		crop = _ensure_crop(c)
-		_ensure_variety(crop, c)
+		if c["product"]:
+			_ensure_item(c["product"])
+		_ensure_crop(c)
 	frappe.db.commit()
 	return [c["name"] for c in CROPS]

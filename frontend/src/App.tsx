@@ -99,8 +99,8 @@ const DryMatter = page(() =>
 );
 
 const FlowerOverview = page(() => import("@/pages/flowers/FlowerOverview").then((m) => ({ default: m.FlowerOverview })));
-const Greenhouses = page(() => import("@/pages/flowers/FlowerLists").then((m) => ({ default: m.Greenhouses })));
-const FlowerCycles = page(() => import("@/pages/flowers/FlowerLists").then((m) => ({ default: m.FlowerCycles })));
+const Greenhouses = page(() => import("@/pages/flowers/FlowerUnits").then((m) => ({ default: m.Greenhouses })));
+const FlowerCycles = page(() => import("@/pages/flowers/FlowerUnits").then((m) => ({ default: m.FlowerCycles })));
 const Protocols = page(() => import("@/pages/flowers/FlowerLists").then((m) => ({ default: m.Protocols })));
 const CutStages = page(() => import("@/pages/flowers/FlowerLists").then((m) => ({ default: m.CutStages })));
 const PlanForm = page(() => import("@/pages/flowers/FlowerLists").then((m) => ({ default: m.PlanForm })));
