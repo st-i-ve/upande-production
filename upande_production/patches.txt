@@ -1,6 +1,7 @@
 [pre_model_sync]
 upande_production.patches.rename_production_operation_to_field_activity
 upande_production.patches.rename_forecast_and_plan_task_doctypes
+upande_production.patches.take_over_from_upande_agriculture
 # Patches added in this section will be executed before doctypes are migrated
 # Read docs to understand patches: https://frappeframework.com/docs/v14/user/en/database-migrations
 
@@ -24,3 +25,4 @@ upande_production.patches.seed_default_bands
 upande_production.patches.seed_avocado_model
 upande_production.patches.close_work_of_retired_units
 upande_production.patches.backfill_zero_value_harvests
+upande_production.patches.ensure_crop_production_defaults

@@ -146,6 +146,23 @@ doc_events = {
 	"Avocado Fruit Count": {
 		"after_insert": "upande_production.api.avocadoapi.notify_new_fruit_count",
 	},
+	# Field execution (ported from upande_agriculture). The Stock Entry forecast refresh
+	# is hooked by upande_crop_material_planning, which owns forecasts.
+	"Crop Cycle": {
+		"on_update": "upande_production.controllers.crop_cycle_on_update",
+		"on_trash": "upande_production.controllers.crop_cycle_on_trash",
+	},
+	"Greenhouse": {
+		"on_update": [
+			"upande_production.crop_production.doctype.greenhouse.greenhouse.sync_logs_to_crop_cycles",
+			"upande_production.crop_production.doctype.greenhouse.greenhouse.sync_bed_master",
+		],
+	},
+	"Production Plan Form": {
+		"before_save": "upande_production.controllers.production_plan_form_before_save",
+		"on_update": "upande_production.controllers.production_plan_form_on_update",
+		"on_trash": "upande_production.controllers.production_plan_form_on_trash",
+	},
 }
 
 # Fixtures
@@ -162,9 +179,14 @@ fixtures = [
 		"doctype": "Role",
 		"filters": [["name", "in", ["Production Manager", "Production Supervisor", "Production Viewer"]]],
 	},
+	{"doctype": "Workspace", "filters": [["module", "=", "Crop Production"]]},
+	# Per-farm scan-location routing createGradingStockEntry depends on for Standard Roses
+	# (Spray Roses are graded in place, no mapping needed). Master data, not code, but without
+	# a fixture it silently does not exist on a fresh deploy.
+	{"doctype": "Scan Location Mapping", "filters": [["name", "in", ["Simotwo-MAP", "Chepsito-MAP", "Kapkolia-MAP", "Karen-MAP", "Torongo-MAP", "Kaptumbo-MAP"]]]},
 	# The desk workspace's launcher (one section of app links per crop) and the
 	# desk-grid icon that opens that workspace.
-	{"doctype": "Custom HTML Block", "filters": [["name", "in", ["Production Navigation"]]]},
+	{"doctype": "Custom HTML Block", "filters": [["name", "in", ["Production Navigation", "Roses Production Navigation", "Crop Cycle Dashboard"]]]},
 	{"doctype": "Desktop Icon", "filters": [["name", "in", ["Production"]]]},
 ]
 
@@ -175,8 +197,49 @@ scheduler_events = {
 	"daily": [
 		"upande_production.production.logic.stages.refresh_all_open",
 		"upande_production.production.logic.cycle_chain.refresh_flags_all",
+		"upande_production.scheduled.release_stale_buckets",
+		"upande_production.scheduled.rollup_plan_tasks",
 	],
 }
+
+override_doctype_dashboards = {
+	"Stock Entry": "upande_production.stock_entry_connections.get_dashboard_data",
+}
+
+# The roses mobile app and desk JS still call the old upande_agriculture paths; they resolve here.
+# Budget/projection/week-summary paths are mapped by upande_crop_material_planning and the
+# seedling-request/propagation/trial paths by upande_propagation.
+override_whitelisted_methods = {
+	"upande_agriculture.api.mark_cycle_harvestable": "upande_production.api.crop_production.mark_cycle_harvestable",
+	"upande_agriculture.api.submit_production_plan": "upande_production.api.crop_production.submit_production_plan",
+	"upande_agriculture.api.list_active_cycles": "upande_production.api.crop_production.list_active_cycles",
+	"upande_agriculture.plan.week_plan": "upande_production.plan.week_plan",
+	"upande_agriculture.plan.house_tasks": "upande_production.plan.house_tasks",
+	"upande_agriculture.plan.live_operations": "upande_production.plan.live_operations",
+	"upande_agriculture.plan.house_bed_load": "upande_production.plan.house_bed_load",
+	"upande_agriculture.plan.set_task_status": "upande_production.plan.set_task_status",
+	"upande_agriculture.plan.update_task": "upande_production.plan.update_task",
+	"upande_agriculture.plan.delete_task": "upande_production.plan.delete_task",
+	"upande_agriculture.plan.task_options": "upande_production.plan.task_options",
+	"upande_agriculture.plan.add_task": "upande_production.plan.add_task",
+	"upande_agriculture.farm_map.map_payload": "upande_production.farm_map.map_payload",
+	"upande_agriculture.farm_map.bed_geometry": "upande_production.farm_map.bed_geometry",
+	"upande_agriculture.farm_map.weather_now": "upande_production.farm_map.weather_now",
+}
+MOBILE_ENDPOINTS = (
+	"createGradingStockEntry", "createHarvestStockEntry", "fetchBucketContents", "getBucketStatus",
+	"amendHarvestEntry", "getGreenhouseData", "productionCreateCropCycle", "productionGetGreenhouseSpec",
+	"productionGetPlanForm", "productionHarvestReport", "productionGreenhouseVarietyBreakdown",
+	"productionListCropCycles", "productionListFarms", "productionListGreenhouseSpecs",
+	"productionListGreenhouses", "productionListPlanForms", "productionListRejectionReasons",
+	"productionListVarieties", "productionRecordReplant", "productionRecordUproot", "productionSavePlanForm",
+	"productionSetGreenhouseGrower", "productionUpdatePlanTask", "reportDeviceTelemetry", "submitFieldRejects",
+)
+override_whitelisted_methods.update({
+	f"upande_agriculture.mobile.api.{name}": f"upande_production.mobile.crop_production.{name}"
+	for name in MOBILE_ENDPOINTS
+})
+del MOBILE_ENDPOINTS
 
 # scheduler_events = {
 # 	"all": [

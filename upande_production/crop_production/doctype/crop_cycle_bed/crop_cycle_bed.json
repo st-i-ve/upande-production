@@ -1,0 +1,98 @@
+{
+ "actions": [],
+ "creation": "2026-07-26 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "istable": 1,
+ "editable_grid": 1,
+ "module": "Crop Production",
+ "name": "Crop Cycle Bed",
+ "owner": "Administrator",
+ "description": "A bed this cycle occupies. Area comes from upande_core.Bed.",
+ "field_order": [
+  "bed",
+  "bed_length",
+  "bed_width",
+  "bed_area",
+  "fraction_planted",
+  "plants",
+  "plants_remaining",
+  "status"
+ ],
+ "fields": [
+  {
+   "fieldname": "bed",
+   "fieldtype": "Link",
+   "label": "Bed",
+   "options": "Bed",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 4
+  },
+  {
+   "fieldname": "bed_length",
+   "fieldtype": "Float",
+   "label": "Length (m)",
+   "read_only": 1,
+   "fetch_from": "bed.bed_length",
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "bed_width",
+   "fieldtype": "Float",
+   "label": "Width (m)",
+   "read_only": 1,
+   "fetch_from": "bed.bed_width",
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "bed_area",
+   "fieldtype": "Float",
+   "label": "Area (m\u00b2)",
+   "read_only": 1,
+   "fetch_from": "bed.bed_area",
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "fraction_planted",
+   "fieldtype": "Float",
+   "label": "Fraction Planted",
+   "default": "1.0",
+   "description": "1.0 for a whole bed. Set by a decimal in the range (22.5 -> 0.5), or override it and the plant count below directly for an odd partial bed."
+  },
+  {
+   "fieldname": "plants",
+   "fieldtype": "Int",
+   "label": "Plants",
+   "description": "Auto-filled from bed area x density; type a real count for a partial bed instead. This is the original planting and never shrinks -- that stays the investment for costing."
+  },
+  {
+   "fieldname": "plants_remaining",
+   "fieldtype": "Int",
+   "label": "Plants Remaining",
+   "read_only": 1,
+   "in_list_view": 1,
+   "columns": 2,
+   "description": "Plants (a share of the row's Uproot Log entries, split across beds by how much each still had standing) after every logged uproot on this bed. Recomputed every save."
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Standing\nPartially Uprooted\nUprooted",
+   "default": "Standing",
+   "in_list_view": 1,
+   "read_only": 1,
+   "description": "Recomputed from Uproot Log every save."
+  }
+ ],
+ "permissions": [],
+ "links": [],
+ "modified": "2026-07-26 00:00:00",
+ "modified_by": "Administrator",
+ "sort_field": "idx",
+ "sort_order": "ASC"
+}

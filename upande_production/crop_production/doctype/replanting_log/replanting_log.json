@@ -1,0 +1,104 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-07-17 13:30:56.362808",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "replant_date",
+  "from_bed",
+  "to_bed",
+  "qty_replanted",
+  "column_break_1",
+  "new_variety",
+  "seedling_source",
+  "propagation_batch",
+  "cost_of_replanting",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "fieldname": "replant_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Date",
+   "reqd": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "from_bed",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "From Bed",
+   "reqd": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "to_bed",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "To Bed",
+   "reqd": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "qty_replanted",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Qty Replanted",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "new_variety",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "New Variety",
+   "options": "Item"
+  },
+  {
+   "fieldname": "seedling_source",
+   "fieldtype": "Select",
+   "label": "Seedling Source",
+   "options": "\nPurchased from Breeder\nIn-house Propagation"
+  },
+  {
+   "fieldname": "propagation_batch",
+   "fieldtype": "Link",
+   "label": "Propagation Batch",
+   "options": "Propagation Batch"
+  },
+  {
+   "columns": 1,
+   "fieldname": "cost_of_replanting",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Cost"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-07-17 18:34:30.992455",
+ "modified_by": "james@upande.com",
+ "module": "Crop Production",
+ "name": "Replanting Log",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
