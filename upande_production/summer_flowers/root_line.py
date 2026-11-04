@@ -214,7 +214,7 @@ def compare_ways(plan, returns_per_plant=None, split=None):
 	than a choice between two: {"TC": 80, "Roots": 20}.
 	"""
 	from upande_production.summer_flowers import crop_protocol as cp
-	from upande_production.summer_flowers.upstream import sourcing
+	from upande_production.summer_flowers import sourcing
 
 	v = frappe.get_cached_doc("Crop Protocol Version", plan.protocol)
 	need = _plants_needed(plan)
@@ -893,7 +893,7 @@ def _survival(form="Tissue Culture", version=None):
 	whichever loses more. tc_supply owns the lookup so the two engines cannot
 	read different provisions for the same material.
 	"""
-	from upande_production.summer_flowers.upstream import tc_supply as ts
+	from upande_production.summer_flowers import tc_supply as ts
 
 	return max(0.01, ts.survival(form, version=version))
 
@@ -1166,7 +1166,7 @@ def _tc_share(rows):
 
 def _ways_in(version):
 	"""The stages this crop's material is bought at, biggest share first."""
-	from upande_production.summer_flowers.upstream import sourcing
+	from upande_production.summer_flowers import sourcing
 
 	try:
 		ways = sourcing.entry_ways(version) or []
@@ -1191,7 +1191,7 @@ def _own_stock(plan, v, rows, primary, units_needed):
 	needs a crop on the farm, and the plan said "nothing is bought" without ever
 	asking whether there was anything to take it from.
 	"""
-	from upande_production.summer_flowers.upstream import sourcing
+	from upande_production.summer_flowers import sourcing
 	from upande_production.summer_flowers.crop_protocol import ROUTE_ENTRY
 	import upande_production.summer_flowers.stages as _st
 
@@ -1973,7 +1973,7 @@ def how_it_is_raised(production_plan):
 	"""
 	if frappe.session.user == "Guest":
 		frappe.throw(_("Please sign in."), frappe.PermissionError)
-	from upande_production.summer_flowers.upstream import sourcing
+	from upande_production.summer_flowers import sourcing
 
 	protocol = frappe.db.get_value("Summer Flower Production Plan",
 	                               production_plan, "protocol")

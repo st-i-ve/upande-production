@@ -390,6 +390,12 @@ del MOBILE_ENDPOINTS
 
 # Old upande_summer_flowers paths keep working: every whitelisted method it had that production now owns.
 SUMMER_FLOWERS_OVERRIDES = {
+	"upande_summer_flowers.summer_flowers.sourcing.entry_options": "upande_production.summer_flowers.sourcing.entry_options",
+	"upande_summer_flowers.summer_flowers.sourcing.harvest_chain": "upande_production.summer_flowers.sourcing.harvest_chain",
+	"upande_summer_flowers.summer_flowers.sourcing.order_schedule": "upande_production.summer_flowers.sourcing.order_schedule",
+	"upande_summer_flowers.summer_flowers.sourcing.route_plan": "upande_production.summer_flowers.sourcing.route_plan",
+	"upande_summer_flowers.summer_flowers.tc_supply.batches_for": "upande_production.summer_flowers.tc_supply.batches_for",
+	"upande_summer_flowers.summer_flowers.tc_supply.tc_suppliers": "upande_production.summer_flowers.tc_supply.tc_suppliers",
 	"upande_summer_flowers.mobile.api.delivery_schedule": "upande_production.mobile.summer_flowers_api.delivery_schedule",
 	"upande_summer_flowers.mobile.api.draft_plant_receipt": "upande_production.mobile.summer_flowers_api.draft_plant_receipt",
 	"upande_summer_flowers.mobile.api.farm_plan": "upande_production.mobile.summer_flowers_api.farm_plan",

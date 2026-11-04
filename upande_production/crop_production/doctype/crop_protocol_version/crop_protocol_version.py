@@ -455,7 +455,7 @@ class CropProtocolVersion(Document):
 		weeks_to_max_pc where only that was filled in, so a protocol written before
 		the profile existed still ramps instead of jumping to 100%.
 		"""
-		from upande_production.summer_flowers.upstream.lifecycle_sim import parse_ramp
+		from upande_production.summer_flowers.lifecycle_sim import parse_ramp
 
 		return parse_ramp(self.ramp_profile,
 		                  cint(self.ramp_weeks) or cint(self.weeks_to_max_pc))

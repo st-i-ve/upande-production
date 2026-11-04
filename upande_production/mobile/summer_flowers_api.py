@@ -26,7 +26,7 @@ from frappe import _
 from upande_production.summer_flowers import crop_protocol as _protocol
 from upande_production.summer_flowers.upstream import plant_receipt as _receipt
 from upande_production.summer_flowers.upstream import planning_api as _planning
-from upande_production.summer_flowers.upstream import tc_supply as _supply
+from upande_production.summer_flowers import tc_supply as _supply
 
 
 def _guard():
