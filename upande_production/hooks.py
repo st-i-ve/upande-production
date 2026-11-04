@@ -30,6 +30,9 @@ add_to_apps_screen = [
 app_include_js = [
 	"/assets/upande_production/js/production_desk.js",
 	"/assets/upande_production/js/upande_tile_logo.js",
+	# Summer flowers (ported from upande_summer_flowers): planting calendar and the form walkthrough
+	"/assets/upande_production/js/sf_calendar.js",
+	"/assets/upande_production/js/sf_walkthrough.js",
 ]
 
 # include js, css files in header of web template
@@ -47,8 +50,15 @@ app_include_js = [
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-# doctype_js = {"doctype" : "public/js/doctype.js"}
-# doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
+doctype_js = {
+	"Crop Protocol": [
+		"public/js/crop_protocol_walkthrough.js",
+		"public/js/crop_protocol_ways.js",
+		"public/js/crop_protocol_flush_shares.js",
+	],
+	"Crop Cycle": "public/js/crop_cycle_planting.js",
+}
+doctype_list_js = {"Block": "public/js/block_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
 
@@ -152,6 +162,21 @@ doc_events = {
 		"on_update": "upande_production.controllers.crop_cycle_on_update",
 		"on_trash": "upande_production.controllers.crop_cycle_on_trash",
 	},
+	# Summer flowers (ported from upande_summer_flowers). The Crop Cycle class override below runs the lifecycle.
+	"Crop Protocol": {
+		"before_validate": "upande_production.summer_flowers.crop_protocol.before_validate",
+		"validate": "upande_production.summer_flowers.crop_protocol.validate",
+		"on_update": "upande_production.summer_flowers.crop_protocol.on_update",
+	},
+	"Block": {
+		"validate": "upande_production.summer_flowers.block.validate_block",
+		"autoname": "upande_production.summer_flowers.bed_naming.block_autoname",
+	},
+	"Bed": {
+		"validate": "upande_production.summer_flowers.bed.validate_bed",
+		"autoname": "upande_production.summer_flowers.bed_naming.bed_autoname",
+		"before_validate": "upande_production.summer_flowers.bed_naming.bed_farm_from_block",
+	},
 	"Greenhouse": {
 		"on_update": [
 			"upande_production.crop_production.doctype.greenhouse.greenhouse.sync_logs_to_crop_cycles",
@@ -163,6 +188,17 @@ doc_events = {
 		"on_update": "upande_production.controllers.production_plan_form_on_update",
 		"on_trash": "upande_production.controllers.production_plan_form_on_trash",
 	},
+}
+
+before_migrate = "upande_production.summer_flowers.customization_check.before_migrate"
+after_migrate = [
+	"upande_production.summer_flowers.protocol_merge.after_migrate",
+	"upande_production.summer_flowers.tours.sync_form_tours",
+]
+# The summer flower lifecycle rides on Crop Cycle (gated on custom_is_summer_flower_cycle) and Bed.
+override_doctype_class = {
+	"Bed": "upande_production.summer_flowers.bed.SummerFlowerBed",
+	"Crop Cycle": "upande_production.summer_flowers.crop_cycle.SummerFlowerCropCycle",
 }
 
 # Fixtures
@@ -177,9 +213,13 @@ fixtures = [
 	},
 	{
 		"doctype": "Role",
-		"filters": [["name", "in", ["Production Manager", "Production Supervisor", "Production Viewer"]]],
+		"filters": [["name", "in", ["Production Manager", "Production Supervisor", "Production Viewer", "Agriculture Manager", "Agriculture User"]]],
 	},
 	{"doctype": "Workspace", "filters": [["module", "=", "Crop Production"]]},
+	# Summer flowers approvals (ported from upande_summer_flowers)
+	{"doctype": "Workflow State", "filters": [["name", "in", ["Draft", "Pending Approval", "Approved", "Rejected", "Active", "Superseded", "Planted", "Uprooted", "Cancelled"]]]},
+	{"doctype": "Workflow Action Master", "filters": [["name", "in", ["Submit for Approval", "Approve", "Reject", "Reopen", "Revise", "Mark Planted", "Mark Uprooted", "Cancel Planting"]]]},
+	{"doctype": "Workflow", "filters": [["name", "in", ["Planting Calendar Approval", "Crop Protocol Approval"]]]},
 	# Per-farm scan-location routing createGradingStockEntry depends on for Standard Roses
 	# (Spray Roses are graded in place, no mapping needed). Master data, not code, but without
 	# a fixture it silently does not exist on a fresh deploy.
@@ -348,3 +388,101 @@ del MOBILE_ENDPOINTS
 # List of apps whose translatable strings should be excluded from this app's translations.
 # ignore_translatable_strings_from = []
 
+# Old upande_summer_flowers paths keep working: every whitelisted method it had that production now owns.
+SUMMER_FLOWERS_OVERRIDES = {
+	"upande_summer_flowers.mobile.api.delivery_schedule": "upande_production.mobile.summer_flowers_api.delivery_schedule",
+	"upande_summer_flowers.mobile.api.draft_plant_receipt": "upande_production.mobile.summer_flowers_api.draft_plant_receipt",
+	"upande_summer_flowers.mobile.api.farm_plan": "upande_production.mobile.summer_flowers_api.farm_plan",
+	"upande_summer_flowers.mobile.api.motherstock_batches": "upande_production.mobile.summer_flowers_api.motherstock_batches",
+	"upande_summer_flowers.mobile.api.motherstock_line": "upande_production.mobile.summer_flowers_api.motherstock_line",
+	"upande_summer_flowers.mobile.api.motherstock_plan": "upande_production.mobile.summer_flowers_api.motherstock_plan",
+	"upande_summer_flowers.mobile.api.open_plant_orders": "upande_production.mobile.summer_flowers_api.open_plant_orders",
+	"upande_summer_flowers.mobile.api.production_plans": "upande_production.mobile.summer_flowers_api.production_plans",
+	"upande_summer_flowers.mobile.api.propagation_detail": "upande_production.mobile.summer_flowers_api.propagation_detail",
+	"upande_summer_flowers.mobile.api.propagation_plans": "upande_production.mobile.summer_flowers_api.propagation_plans",
+	"upande_summer_flowers.mobile.api.propagation_schedule": "upande_production.mobile.summer_flowers_api.propagation_schedule",
+	"upande_summer_flowers.mobile.api.propagation_units": "upande_production.mobile.summer_flowers_api.propagation_units",
+	"upande_summer_flowers.mobile.api.propagation_varieties": "upande_production.mobile.summer_flowers_api.propagation_varieties",
+	"upande_summer_flowers.mobile.api.protocol_detail": "upande_production.mobile.summer_flowers_api.protocol_detail",
+	"upande_summer_flowers.mobile.api.record_propagation_actual": "upande_production.mobile.summer_flowers_api.record_propagation_actual",
+	"upande_summer_flowers.mobile.api.save_protocol": "upande_production.mobile.summer_flowers_api.save_protocol",
+	"upande_summer_flowers.mobile.api.submit_protocol_for_approval": "upande_production.mobile.summer_flowers_api.submit_protocol_for_approval",
+	"upande_summer_flowers.mobile.api.tc_suppliers": "upande_production.mobile.summer_flowers_api.tc_suppliers",
+	"upande_summer_flowers.summer_flowers.api.block_coverage": "upande_production.summer_flowers.api.block_coverage",
+	"upande_summer_flowers.summer_flowers.api.filters": "upande_production.summer_flowers.api.filters",
+	"upande_summer_flowers.summer_flowers.api.monthly_series": "upande_production.summer_flowers.api.monthly_series",
+	"upande_summer_flowers.summer_flowers.api.on_ground": "upande_production.summer_flowers.api.on_ground",
+	"upande_summer_flowers.summer_flowers.api.overview": "upande_production.summer_flowers.api.overview",
+	"upande_summer_flowers.summer_flowers.api.protocol_comparison": "upande_production.summer_flowers.api.protocol_comparison",
+	"upande_summer_flowers.summer_flowers.bed.backfill_bed_area": "upande_production.summer_flowers.bed.backfill_bed_area",
+	"upande_summer_flowers.summer_flowers.block.beds_for_range": "upande_production.summer_flowers.block.beds_for_range",
+	"upande_summer_flowers.summer_flowers.block.create_from_beds": "upande_production.summer_flowers.block.create_from_beds",
+	"upande_summer_flowers.summer_flowers.block.link_beds_to_block": "upande_production.summer_flowers.block.link_beds_to_block",
+	"upande_summer_flowers.summer_flowers.block.revise_area": "upande_production.summer_flowers.block.revise_area",
+	"upande_summer_flowers.summer_flowers.crop_cycle_api.bed_work": "upande_production.summer_flowers.crop_cycle_api.bed_work",
+	"upande_summer_flowers.summer_flowers.crop_cycle_api.biological_assets": "upande_production.summer_flowers.crop_cycle_api.biological_assets",
+	"upande_summer_flowers.summer_flowers.crop_cycle_api.cycle": "upande_production.summer_flowers.crop_cycle_api.cycle",
+	"upande_summer_flowers.summer_flowers.crop_cycle_api.cycles": "upande_production.summer_flowers.crop_cycle_api.cycles",
+	"upande_summer_flowers.summer_flowers.crop_cycle_api.scope": "upande_production.summer_flowers.crop_cycle_api.scope",
+	"upande_summer_flowers.summer_flowers.crop_cycle_ops.bed_work_action": "upande_production.summer_flowers.crop_cycle_ops.bed_work_action",
+	"upande_summer_flowers.summer_flowers.crop_cycle_ops.create_bed_work": "upande_production.summer_flowers.crop_cycle_ops.create_bed_work",
+	"upande_summer_flowers.summer_flowers.crop_cycle_ops.log_bed_progress": "upande_production.summer_flowers.crop_cycle_ops.log_bed_progress",
+	"upande_summer_flowers.summer_flowers.crop_cycle_ops.set_biological_asset": "upande_production.summer_flowers.crop_cycle_ops.set_biological_asset",
+	"upande_summer_flowers.summer_flowers.crop_cycle_ops.set_cycle_scope": "upande_production.summer_flowers.crop_cycle_ops.set_cycle_scope",
+	"upande_summer_flowers.summer_flowers.crop_protocol.active_versions": "upande_production.summer_flowers.crop_protocol.active_versions",
+	"upande_summer_flowers.summer_flowers.crop_protocol.submit_for_approval": "upande_production.summer_flowers.crop_protocol.submit_for_approval",
+	"upande_summer_flowers.summer_flowers.crop_routes.classify": "upande_production.summer_flowers.crop_routes.classify",
+	"upande_summer_flowers.summer_flowers.crop_routes.provision": "upande_production.summer_flowers.crop_routes.provision",
+	"upande_summer_flowers.summer_flowers.crop_routes.spread_season": "upande_production.summer_flowers.crop_routes.spread_season",
+	"upande_summer_flowers.summer_flowers.delivery_confirmation.confirm": "upande_production.summer_flowers.delivery_confirmation.confirm",
+	"upande_summer_flowers.summer_flowers.delivery_confirmation.confirm_and_raise": "upande_production.summer_flowers.delivery_confirmation.confirm_and_raise",
+	"upande_summer_flowers.summer_flowers.delivery_confirmation.save_requirements": "upande_production.summer_flowers.delivery_confirmation.save_requirements",
+	"upande_summer_flowers.summer_flowers.delivery_confirmation.save_schedule": "upande_production.summer_flowers.delivery_confirmation.save_schedule",
+	"upande_summer_flowers.summer_flowers.delivery_confirmation.schedule_for": "upande_production.summer_flowers.delivery_confirmation.schedule_for",
+	"upande_summer_flowers.summer_flowers.doctype.crop_protocol_version.crop_protocol_version.current_version": "upande_production.crop_production.doctype.crop_protocol_version.crop_protocol_version.current_version",
+	"upande_summer_flowers.summer_flowers.doctype.crop_protocol_version.crop_protocol_version.resolve_version": "upande_production.crop_production.doctype.crop_protocol_version.crop_protocol_version.resolve_version",
+	"upande_summer_flowers.summer_flowers.doctype.planting_calendar.planting_calendar.calendar_events": "upande_production.crop_production.doctype.planting_calendar.planting_calendar.calendar_events",
+	"upande_summer_flowers.summer_flowers.operations_api.act": "upande_production.summer_flowers.operations_api.act",
+	"upande_summer_flowers.summer_flowers.operations_api.add_demand_weeks": "upande_production.summer_flowers.operations_api.add_demand_weeks",
+	"upande_summer_flowers.summer_flowers.operations_api.agree_motherstock_line": "upande_production.summer_flowers.operations_api.agree_motherstock_line",
+	"upande_summer_flowers.summer_flowers.operations_api.assign_all_blocks": "upande_production.summer_flowers.operations_api.assign_all_blocks",
+	"upande_summer_flowers.summer_flowers.operations_api.block_options": "upande_production.summer_flowers.operations_api.block_options",
+	"upande_summer_flowers.summer_flowers.operations_api.budget_detail": "upande_production.summer_flowers.operations_api.budget_detail",
+	"upande_summer_flowers.summer_flowers.operations_api.chain_status": "upande_production.summer_flowers.operations_api.chain_status",
+	"upande_summer_flowers.summer_flowers.operations_api.create_production_plan": "upande_production.summer_flowers.operations_api.create_production_plan",
+	"upande_summer_flowers.summer_flowers.operations_api.create_propagation_plan": "upande_production.summer_flowers.operations_api.create_propagation_plan",
+	"upande_summer_flowers.summer_flowers.operations_api.crop_cycle_detail": "upande_production.summer_flowers.operations_api.crop_cycle_detail",
+	"upande_summer_flowers.summer_flowers.operations_api.crop_cycles": "upande_production.summer_flowers.operations_api.crop_cycles",
+	"upande_summer_flowers.summer_flowers.operations_api.end_cycle_on": "upande_production.summer_flowers.operations_api.end_cycle_on",
+	"upande_summer_flowers.summer_flowers.operations_api.motherstock_commitment": "upande_production.summer_flowers.operations_api.motherstock_commitment",
+	"upande_summer_flowers.summer_flowers.operations_api.plan_action": "upande_production.summer_flowers.operations_api.plan_action",
+	"upande_summer_flowers.summer_flowers.operations_api.plan_preview": "upande_production.summer_flowers.operations_api.plan_preview",
+	"upande_summer_flowers.summer_flowers.operations_api.plan_transitions": "upande_production.summer_flowers.operations_api.plan_transitions",
+	"upande_summer_flowers.summer_flowers.operations_api.process_overview": "upande_production.summer_flowers.operations_api.process_overview",
+	"upande_summer_flowers.summer_flowers.operations_api.propose_horizon": "upande_production.summer_flowers.operations_api.propose_horizon",
+	"upande_summer_flowers.summer_flowers.operations_api.record_cuttings_on": "upande_production.summer_flowers.operations_api.record_cuttings_on",
+	"upande_summer_flowers.summer_flowers.operations_api.record_harvest": "upande_production.summer_flowers.operations_api.record_harvest",
+	"upande_summer_flowers.summer_flowers.operations_api.reset_targets": "upande_production.summer_flowers.operations_api.reset_targets",
+	"upande_summer_flowers.summer_flowers.operations_api.review_queue": "upande_production.summer_flowers.operations_api.review_queue",
+	"upande_summer_flowers.summer_flowers.operations_api.set_actual_pinch": "upande_production.summer_flowers.operations_api.set_actual_pinch",
+	"upande_summer_flowers.summer_flowers.operations_api.set_block": "upande_production.summer_flowers.operations_api.set_block",
+	"upande_summer_flowers.summer_flowers.operations_api.set_weekly_target": "upande_production.summer_flowers.operations_api.set_weekly_target",
+	"upande_summer_flowers.summer_flowers.protocol_split.move": "upande_production.summer_flowers.protocol_split.move",
+	"upande_summer_flowers.summer_flowers.protocol_split.move_back": "upande_production.summer_flowers.protocol_split.move_back",
+	"upande_summer_flowers.summer_flowers.root_line.agree_material_plan": "upande_production.summer_flowers.root_line.agree_material_plan",
+	"upande_summer_flowers.summer_flowers.root_line.arrivals_for": "upande_production.summer_flowers.root_line.arrivals_for",
+	"upande_summer_flowers.summer_flowers.root_line.how_it_is_raised": "upande_production.summer_flowers.root_line.how_it_is_raised",
+	"upande_summer_flowers.summer_flowers.root_line.plan_for": "upande_production.summer_flowers.root_line.plan_for",
+	"upande_summer_flowers.summer_flowers.root_line.propagation_overview": "upande_production.summer_flowers.root_line.propagation_overview",
+	"upande_summer_flowers.summer_flowers.root_line.propagation_units": "upande_production.summer_flowers.root_line.propagation_units",
+	"upande_summer_flowers.summer_flowers.root_line.raising_choices": "upande_production.summer_flowers.root_line.raising_choices",
+	"upande_summer_flowers.summer_flowers.root_line.selling_choices": "upande_production.summer_flowers.root_line.selling_choices",
+	"upande_summer_flowers.summer_flowers.root_line.set_propagation_unit": "upande_production.summer_flowers.root_line.set_propagation_unit",
+	"upande_summer_flowers.summer_flowers.root_line.set_raising": "upande_production.summer_flowers.root_line.set_raising",
+	"upande_summer_flowers.summer_flowers.root_line.set_selling": "upande_production.summer_flowers.root_line.set_selling",
+	"upande_summer_flowers.summer_flowers.root_line.ways_for": "upande_production.summer_flowers.root_line.ways_for",
+	"upande_summer_flowers.summer_flowers.route_methods.apply_catalogue": "upande_production.summer_flowers.route_methods.apply_catalogue",
+	"upande_summer_flowers.summer_flowers.route_ways.route_info": "upande_production.summer_flowers.route_ways.route_info",
+	"upande_summer_flowers.summer_flowers.route_ways.route_stages": "upande_production.summer_flowers.route_ways.route_stages",
+}
+override_whitelisted_methods.update(SUMMER_FLOWERS_OVERRIDES)

@@ -1,0 +1,1627 @@
+# Copyright (c) 2026, James Kiruga and contributors
+# For license information, please see license.txt
+"""The one place a summer flower protocol is edited.
+
+Crop Protocol belongs to upande_agriculture and is the variety master. The summer
+flower parameters live on it as custom_sf_ fields, with nine natives reused where
+they already mean the same thing -- plants per m², weeks to pinch, the flush
+interval, the life totals -- so those stop reading zero for these varieties.
+
+Crop Protocol Version is no longer edited. It is written as a read-only snapshot
+when a change here is approved, and every plan, planting and crop cycle keeps
+pointing at the snapshot it was built on. That is what makes "this cycle ran under
+these numbers" true even after the protocol moves on.
+
+The derivation is not reimplemented here. An unsaved Crop Protocol Version is
+loaded with these values and run through its own controller, then the results are
+read back. One set of maths, used by the thing being edited and the snapshot alike,
+so the two cannot disagree.
+"""
+
+import frappe
+from frappe import _
+from frappe.utils import add_days, cint, flt, getdate, now_datetime, nowdate
+
+# Natives the protocol is EDITED in. Read from, never written back to: they are the
+# inputs. Writing to them is what wiped a brand-new protocol's variety, because the
+# version derives its own variety from its parent protocol and on a first insert that
+# parent does not exist yet, so the write-back put None over what had just been typed.
+INPUT_NATIVE = {"farm", "variety", "plants_per_sqm", "weeks_to_pinch",
+                "weeks_between_flushes", "yield_stems_per_ha"}
+# Natives the protocol DERIVES into. These sat at zero for summer flowers before.
+DERIVED_NATIVE = {"total_weeks_in_ground", "total_flushes",
+                  "total_stems_per_plant_life", "life_expectancy_years"}
+
+# our field name  ->  where it lives on Crop Protocol
+NATIVE = {
+	"farm": "farm",
+	"variety": "variety",
+	"plants_per_sqm_net": "plants_per_sqm",
+	"weeks_to_pinch": "weeks_to_pinch",
+	"flush_interval_weeks": "weeks_between_flushes",
+	"total_weeks_in_ground": "total_weeks_in_ground",
+	"total_flushes": "total_flushes",
+	"total_stems_per_plant_life": "total_stems_per_plant_life",
+	"life_expectancy_years": "life_expectancy_years",
+	"stated_yield_stems_per_ha": "yield_stems_per_ha",
+	# The grading loss. Native to Crop Protocol and named plainly there, so the
+	# snapshot takes it under the same name rather than inventing a summer
+	# flower copy of a field every crop already has.
+	"reject_pct": "reject_pct",
+	# The rest of Crop Protocol, taken under the name it already has there.
+	# A version is the protocol as approved, so every field the protocol
+	# carries has a field behind it here -- the only ones left behind are the
+	# five that describe the VERSIONING itself (which version is current, what
+	# is unapproved, how many there are), because a snapshot recording which
+	# snapshot is current says nothing and ages badly.
+	# Three are renamed because the name was already taken by a summer flower
+	# field that means something else: the protocol's own flush_schedule is
+	# the generic one, while the version's holds custom_sf_flush_schedule.
+	"actual_stems_per_cut": "actual_stems_per_cut",
+	"breeder": "breeder",
+	"color": "color",
+	"crop_flush_interval_weeks": "flush_interval_weeks",
+	"crop_flush_schedule": "flush_schedule",
+	"crop_type": "crop_type",
+	"grade_mix": "grade_mix",
+	"growth_stages": "growth_stages",
+	"is_summer_flower": "custom_is_summer_flower",
+	"max_stems_per_plant_per_cut": "max_stems_per_plant_per_cut",
+	"productive_life_weeks": "productive_life_weeks",
+	"productive_life_years": "productive_life_years",
+	"protocol_name": "protocol_name",
+	"stems_per_cut": "stems_per_cut",
+	"stems_per_plant_first_harvest": "stems_per_plant_first_harvest",
+	"variety_item": "variety_item",
+	"weeks_between_cuts": "weeks_between_cuts",
+	"weeks_to_first_bending": "weeks_to_first_bending",
+	"weeks_to_first_flush": "weeks_to_first_flush",
+	"weeks_to_second_bending": "weeks_to_second_bending",
+}
+# The doctype this app's protocol lives on. Back on upande_agriculture's Crop
+# Protocol: variety and farm are re-declared as Custom Fields from this app, so
+# the naming rule this app already shipped -- format:{variety}-{farm} -- resolves
+# again, and one doctype holds every protocol whatever the crop. The summer
+# flower fields are hidden behind custom_is_summer_flower, which is what keeps a
+# rose protocol from showing a hundred fields that mean nothing to it.
+# Named once here so nothing has to know twice.
+PROTOCOL_DOCTYPE = "Crop Protocol"
+
+SKIP = ("Section Break", "Column Break", "Tab Break", "HTML")
+# Machinery that belongs to the snapshot, never to the editable protocol.
+MACHINERY = {
+	"crop_protocol", "version", "version_status", "workflow_state", "effective_from",
+	"effective_to", "is_current", "supersedes", "superseded_by", "change_reason",
+	"approved_by", "approved_on", "naming_series",
+	# The snapshot's own heading. It carries the version number, so copying it
+	# back would put "... v1" on the protocol, and the protocol writes its own.
+	"title",
+	# Worked out by the version's own controller, not copied from anywhere, so
+	# a parity check should not look for a protocol field behind them. There is
+	# none and none is meant: route_summary is built by route_summary(), and
+	# bed_area_assumed is set in set_geometry() from whether a bed area had to
+	# be assumed. Everything else on the version does come from the protocol.
+	"route_summary", "bed_area_assumed",
+}
+
+
+def _fields():
+	"""Every Crop Protocol Version field that carries protocol data."""
+	return [f for f in frappe.get_meta("Crop Protocol Version").fields
+	        if f.fieldtype not in SKIP and f.fieldname not in MACHINERY]
+
+
+def multiplication_factor(cycles, per_cycle=0):
+	"""What one plantlet becomes after `cycles` multiplications.
+
+	Counting starts at zero and each round doubles what is standing: no
+	multiplication buys the whole order, one halves it, two halve the half, and
+	so on. 70,000 cuttings at the peak is 70,000 plantlets, then 35,000, then
+	17,500, then 8,750.
+
+	There were two formulas for this and they did not agree. The route wrote
+	`cycles x per_cycle` onto the motherstock row, which is 1.0 at no
+	multiplication AND 1.0 at one -- so turning the first multiplication on
+	changed nothing at all, and the order only began to move at two. The order
+	itself used `1 + cycles x per_cycle`, which halved once and then slowed to a
+	third, a quarter, a fifth: the right shape for counting generations
+	standing, the wrong one for what each round of multiplication does.
+
+	One function now, and both read it. `per_cycle` is what a single round
+	multiplies by where a variety gives more than double; anything at or below
+	one means it was never set, and the default is two.
+	"""
+	cycles = cint(cycles)
+	if cycles < 1:
+		return 1.0
+	each = flt(per_cycle)
+	return float((each if each > 1 else 2.0) ** cycles)
+
+
+def variety_name(variety):
+	"""What the farm calls this variety, falling back to its item code."""
+	if not variety:
+		return variety
+	try:
+		return frappe.get_cached_value("Item", variety, "item_name") or variety
+	except Exception:
+		return variety
+
+
+def variety_names(codes):
+	"""{item code: what the farm calls it} for a list of varieties.
+
+	A variety is an Item and an Item is named by its code, so every page that
+	showed a variety showed "15831" where the grower says Daucus carota 'Dara'.
+	Link FIELDS are fixed by Item carrying show_title_field_in_link; the pages
+	that print the value as plain text are not, and this is what they read.
+
+	One query for the lot: a map built a code at a time was a query a row.
+	"""
+	codes = sorted({c for c in (codes or []) if c})
+	if not codes:
+		return {}
+	rows = frappe.get_all("Item", filters={"name": ["in", codes]},
+	                      fields=["name", "item_name"])
+	out = {r.name: (r.item_name or r.name) for r in rows}
+	# A code with no Item behind it still has to render as something.
+	for c in codes:
+		out.setdefault(c, c)
+	return out
+
+
+def source_field(fieldname):
+	"""Where a version field's value is held on Crop Protocol."""
+	return NATIVE.get(fieldname, "custom_sf_" + fieldname)
+
+
+def is_summer_flower(doc):
+	return bool(cint(doc.get("custom_is_summer_flower")))
+
+
+# The one thing a user picks, and everything that used to be picked separately.
+SUMMER_FLOWER = "Summer Flowers"
+ROSES = "Roses"
+
+
+def before_validate(doc, method=None):
+	"""Derive the discriminators from crop_type, for every crop.
+
+	Three fields used to say what kind of crop this was -- crop_type,
+	custom_is_summer_flower and custom_sf_crop_class -- and nothing kept them
+	agreeing, so a protocol could be a summer flower by one and a rose by
+	another. crop_type is now the only one anyone sets: a two-option Select,
+	Roses or Summer Flowers, chosen straight after the farm. The other two are
+	derived here and hidden on the form.
+
+	custom_is_summer_flower stays because every guard in this module reads it,
+	and every field on the form shows or hides on an eval of crop_type. Deriving
+	one from the other is what lets both be true at once.
+
+	Runs for roses too -- it has to, or a rose would keep whatever flag it was
+	last saved with -- so it must not depend on is_summer_flower() itself.
+	"""
+	ct = doc.get("crop_type")
+	if ct in (SUMMER_FLOWER, ROSES):
+		doc.custom_is_summer_flower = 1 if ct == SUMMER_FLOWER else 0
+		doc.custom_sf_crop_class = "Summer Flower" if ct == SUMMER_FLOWER else "Rose"
+
+	# variety and variety_item are the same Item under two labels, which is why
+	# the form read "Variety" twice. variety is the one that is typed and the one
+	# the naming rule uses; variety_item is filled from it because
+	# upande_agriculture reads that name.
+	# Two fields the SNAPSHOT used to invent and the protocol did not have, so a
+	# version came out holding a company and a build-up profile its protocol left
+	# blank -- and the two then read as different documents. They are derived here
+	# instead, on the protocol, which is the thing a person edits and the thing
+	# the version is a copy of.
+	#
+	# The company is the farm's. A protocol is approved for a variety at a farm
+	# and a farm belongs to one company, so there is nothing to choose. It used
+	# to arrive from whatever Company the session happened to default to, which
+	# is not an answer, just a habit.
+	if doc.get("farm") and not doc.get("custom_sf_company"):
+		doc.custom_sf_company = frappe.db.get_value("Farm", doc.get("farm"), "company")
+	# The build-up profile carried a default on the version field and none on the
+	# protocol, so every version said 25,50,75,100 over a protocol that said
+	# nothing. Same value, written where it can be seen and changed.
+	if not doc.get("custom_sf_ramp_profile"):
+		doc.custom_sf_ramp_profile = "25,50,75,100"
+	# An empty Select reads as NULL on rows written before the field existed and
+	# as "" on anything Frappe has inserted since -- it fills an unset Select
+	# with the first option, which is blank. The two mean the same thing and
+	# compared as different, so a snapshot of an untouched protocol came back
+	# reporting three fields changed. Said one way here.
+	for f in doc.meta.fields:
+		if f.fieldtype == "Select" and doc.get(f.fieldname) is None:
+			doc.set(f.fieldname, "")
+
+	if doc.get("variety") and not doc.get("variety_item"):
+		doc.variety_item = doc.get("variety")
+	elif doc.get("variety_item") and not doc.get("variety"):
+		doc.variety = doc.get("variety_item")
+
+	# What this protocol is called, as against what it is named. The document is
+	# named after the variety's item CODE -- 110402-Carzan Ks -- because every
+	# plan, cycle and version links to it by that name and renaming them is not
+	# worth the churn. But a form headed "110402-Carzan Ks" names a crop nobody
+	# on the farm calls that, so the heading, and every link to it, reads the
+	# name instead.
+	variety = doc.get("variety") or doc.get("variety_item")
+	if variety:
+		doc.custom_sf_title = " - ".join(
+			x for x in (variety_name(variety), doc.get("farm")) if x)
+
+	# Early, so that everything downstream -- the derivation, the native mirror,
+	# the snapshot a version is taken from -- reads one set of flush figures.
+	spread_life_over_flushes(doc)
+
+
+def spread_life_over_flushes(doc):
+	"""Type the lifetime yield and the flushes follow it.
+
+	A flush is a share of what a plant gives, and the share is the stable thing
+	about it. A variety that hands back 12% of its life in its third flush still
+	does that when the life itself is revised from 13.34 stems to 15 -- what
+	changes is the stems, in every row at once. Until now the lifetime total was
+	an output only: it could be typed, and on a table whose rows already carried
+	stems nothing happened to them, so the figure sat there disagreeing with the
+	eight rows underneath it until someone worked each one out by hand.
+
+	So all three are inputs, and whichever was touched wins:
+
+	  type the life          -> every row's stems are rewritten from its share
+	  type a share           -> likewise, against the life as it stands
+	  type a row's stems     -> the life goes back to being the sum of the rows
+
+	The shares are then always re-read off the stems, so the table cannot hold a
+	percentage that its own stems contradict.
+	"""
+	if not is_summer_flower(doc):
+		return
+	rows = doc.get("custom_sf_flush_schedule") or []
+	if not rows:
+		return
+
+	before = None if doc.is_new() else doc.get_latest()
+	def _was(row):
+		if not before:
+			return None
+		for r in (before.get("custom_sf_flush_schedule") or []):
+			if cint(r.flush_number) == cint(row.flush_number):
+				return r
+		return None
+
+	stated = flt(doc.get("custom_sf_stated_stems_per_plant_life"))
+	stems_now = sum(flt(r.stems_per_plant) for r in rows)
+	life_typed = bool(before) and _moved(
+		stated, flt(before.get("custom_sf_stated_stems_per_plant_life")))
+	share_typed = any(_moved(flt(r.pct_of_life), flt((_was(r) or {}).get("pct_of_life")))
+	                  for r in rows)
+
+	# A life of nothing is the field left blank, not an instruction to empty the
+	# table, and a table that states no shares has nothing to spread a life over.
+	# A table stating shares and no stems is the harvest's shape known before its
+	# size, which is how a protocol is often first written down. It is spread
+	# without waiting to be touched, or it would sit at nothing until someone
+	# retyped a figure that was already there.
+	shares = [flt(r.pct_of_life) for r in rows]
+	if (life_typed or share_typed or not stems_now) and stated > 0 and sum(shares) > 0:
+		total_share = sum(shares)
+		for row, share in zip(rows, shares):
+			row.stems_per_plant = stated * share / total_share
+		stems_now = sum(flt(r.stems_per_plant) for r in rows)
+	elif stems_now:
+		# Nobody touched the life or the shares, so it is the sum of its flushes.
+		doc.custom_sf_stated_stems_per_plant_life = stems_now
+
+	cumulative = 0.0
+	for row in rows:
+		if stems_now:
+			row.pct_of_life = flt(row.stems_per_plant) / stems_now * 100.0
+		cumulative += flt(row.pct_of_life)
+		row.cumulative_pct = cumulative
+
+
+def _moved(a, b):
+	"""Did a figure actually change, allowing for the slop in a repeating share?"""
+	if b is None:
+		return bool(a)
+	return abs(flt(a) - flt(b)) > 1e-6
+
+
+# The stages material can be bought at, and the one every route has to end on.
+# A route that starts halfway through nothing, or stops before a plant exists, is
+# a route that cannot be costed or scheduled.
+# Cuttings (Own) is deliberately absent. A cutting comes off a motherstock and the
+# motherstock was tissue culture, so a route cannot start at one -- calling it a
+# start hid where the material actually came from and made a crop look as though
+# it bought nothing, when what it had was a pool bought in an earlier season.
+# A route starts at one of these. "Roots" is bought roots, not roots lifted off our
+# own crop -- Eryngium buys them from a root supplier alongside its tissue culture,
+# 1.7m plants of 9.5m in the 2026 order, and until this listed them a protocol
+# could not say so: Roots existed only as a step in the middle of a TC route.
+# What each stage is lives on its Material Stage record (see stages.py); these are
+# live views of those records, not lists written here.
+from upande_production.summer_flowers import stages as _stages
+
+ROUTE_ENTRY = _stages.StageSet((_stages.BOUGHT, _stages.TAKEN))
+ROUTE_END = _stages.end_stage()
+READY_TO_PLANT = _stages.StageSet(flag="ready_to_plant")
+ROOTING_LOSSES = _stages.StageSet(flag="takes_rooting_losses")
+
+
+def route_rows(doc):
+	"""Every row of the route in order, stages and the steps inside them.
+
+	A Crop Protocol keeps it on a custom field and a Crop Protocol Version on a
+	native one. Reading whichever is there means route_chains and everything built
+	on it work on both -- without it, asking a version for its chains got the
+	protocol's fieldname, found nothing, and reported a route with no beginning.
+	"""
+	rows = doc.get("custom_sf_material_route") or doc.get("material_route") or []
+	return [r for r in rows if (r.get("stage") or r.get("step"))]
+
+
+def route_chains(doc):
+	"""The route as one or more chains, each [(stage row, [step rows]), ...].
+
+	A variety is not always bought one way. Eryngium is bought as tissue culture
+	from two labs AND as roots from a root supplier, in the same year, for the same
+	variety -- 1.7m plants of 9.5m in the 2026 order -- and the two are seven and
+	fifteen weeks of supplier lead apart, so an order placed on one lead time is
+	eight weeks wrong for the other.
+
+	A chain starts wherever a row is an entry stage, because that is what an entry
+	stage means. No extra column groups them: putting a second TC row halfway down
+	the table IS the act of saying "and some of it is bought this way too".
+	"""
+	return _chains_of(route_blocks(doc))
+
+
+def _chains_of(blocks):
+	"""Split a built block list into chains at each entry stage."""
+	chains, current = [], []
+	for stage, steps in blocks:
+		if current and stage.stage in ROUTE_ENTRY:
+			chains.append(current)
+			current = []
+		current.append((stage, steps))
+	if current:
+		chains.append(current)
+	return chains
+
+
+def chain_share(chain):
+	"""What share of the order this chain carries, 0-100. One chain takes it all."""
+	return flt(chain[0][0].get("share_pct")) if chain else 0.0
+
+
+def is_step(row):
+	return (row.get("row_type") or "Stage") == "Step"
+
+
+def route_blocks(doc):
+	"""The route as [(stage row, [its step rows])], in order.
+
+	A step belongs to the stage above it. Membership is the ordering and nothing
+	else: a column naming the parent would be the same fact written twice, and
+	dragging a step under another stage IS the act of moving it.
+	"""
+	blocks, current = [], None
+	for row in route_rows(doc):
+		if is_step(row):
+			if current:
+				current[1].append(row)
+		else:
+			current = (row, [])
+			blocks.append(current)
+	return blocks
+
+
+def block_weeks(stage, steps):
+	"""How long a stage lasts: its steps if it has any, else what it says itself."""
+	return sum(cint(s.weeks) for s in steps) if steps else cint(stage.weeks)
+
+
+def survival(rows):
+	"""What is left after these rows, as a fraction.
+
+	Losses compound, they do not add: 12% then 5% leaves 83.6%, not 83%. Every
+	loss appears on exactly one row and is applied on exactly one walk, which is
+	the point of keeping them here rather than as percentages on the protocol that
+	two different simulators each helped themselves to.
+	"""
+	out = 1.0
+	for r in rows:
+		out *= 1.0 - flt(r.get("loss_pct")) / 100.0
+	return out
+
+
+def route_summary(doc):
+	"""The route as one line: "TC -> Motherstock -> Plants".
+
+	Derived, never stored on Crop Protocol. That table is at MariaDB's row limit
+	with the custom fields it already carries, and a string that can be read off
+	the stages in one pass is the last thing that should occupy a column. The
+	version snapshot does keep it, because a snapshot is a record of what was
+	approved and has to read without walking a child table.
+	"""
+	return " -> ".join(r.stage for r, _steps in route_blocks(doc))
+
+
+def farm_bed_geometry(farm):
+	"""The bed and block a farm actually has, read off its own records.
+
+	A protocol describes a variety: how densely it is planted and the smallest block
+	worth planting. How big a bed is, and how many of them a block holds, are facts
+	about the farm's ground -- they are already on the Bed and Block records, in 114
+	different bed sizes across twenty-five thousand beds. Asserting one number for
+	them on the protocol made every variety at a farm claim the same carpentry, and
+	made a change of protocol look like a change of ground.
+	"""
+	if not farm:
+		return None, None
+	# A bed reaches its farm two ways: its own `farm` field, and the greenhouse
+	# it sits in. Only 4,789 of 25,457 beds on this site carry the first, so
+	# reading it alone returned nothing for most farms -- and a missing bed size
+	# makes the production plan report 0 ha of ground required, which reads as
+	# "needs no land" rather than "we do not know". plan_preview already joins
+	# through the greenhouse; this now agrees with it, and falls back to the
+	# bed's own farm so neither route is lost.
+	area = frappe.db.sql(
+		"""select avg(b.bed_area) from tabBed b
+		   left join tabWarehouse w on w.name = b.greenhouse
+		   where ifnull(b.bed_area, 0) > 0
+		     and (w.custom_farm = %(farm)s or b.farm = %(farm)s)""",
+		{"farm": farm})[0][0]
+	beds = frappe.db.sql(
+		"""select avg(custom_total_beds) from tabBlock
+		   where farm=%s and ifnull(custom_total_beds,0)>0""", farm)[0][0]
+	return (round(flt(area), 4) or None), (cint(round(flt(beds))) or None)
+
+
+def set_farm_geometry(doc):
+	"""Fill the bed figures from the farm. NOT called when a protocol is saved.
+
+	A protocol is what a variety does; beds and blocks are the ground it is planted
+	in. This is here for whatever plans against real ground and needs to know how
+	many plants a bed of that farm holds.
+	"""
+	if not is_summer_flower(doc):
+		return
+	area, beds = farm_bed_geometry(doc.get("farm"))
+	if area:
+		doc.custom_sf_sqm_net_per_bed = area
+	if beds:
+		doc.custom_sf_beds_per_block = beds
+
+
+def number_flushes(doc):
+	"""Number the harvest rows by where they sit.
+
+	The rows are already in order; asking anyone to also type 1, 2, 3 beside them is
+	asking them to repeat what the table has just said, and to renumber by hand the
+	moment a row is inserted in the middle.
+	"""
+	for i, row in enumerate(doc.get("custom_sf_flush_schedule") or [], start=1):
+		row.flush_number = i
+
+
+def check_route(doc):
+	"""A route has to begin somewhere real, end in a plant, and keep its levels straight."""
+	all_rows = route_rows(doc)
+	if not all_rows:
+		return
+	if is_step(all_rows[0]):
+		frappe.throw(
+			_("A route opens with a stage. {0} is a step, and a step belongs to the "
+			  "stage above it.").format(frappe.bold(all_rows[0].get("step") or "")),
+			title=_("Route starts on a step"))
+	for row in all_rows:
+		if not is_step(row):
+			continue
+		# A step is the same material standing still. Anything that multiplies it or
+		# buys it is a stage by definition, and letting a step do either would put
+		# the same multiplication on two rows.
+		if flt(row.get("yields_per_unit") or 1) != 1:
+			frappe.throw(
+				_("{0} is a step, and a step cannot multiply material. A row that "
+				  "turns one unit into several is a stage.").format(
+					frappe.bold(row.get("step") or "")),
+				title=_("A step that multiplies"))
+		if cint(row.get("is_purchase")):
+			frappe.throw(
+				_("{0} is a step. Material is bought at a stage -- you buy a thing, "
+				  "not a part of the wait for it.").format(
+					frappe.bold(row.get("step") or "")),
+				title=_("A step that is bought"))
+	# A stage that carries steps lasts as long as they do, so it is not typed twice.
+	for stage, steps in route_blocks(doc):
+		if steps:
+			stage.weeks = block_weeks(stage, steps)
+
+	chains = route_chains(doc)
+	for chain in chains:
+		rows = [r for r, _steps in chain]
+		if rows[0].stage not in ROUTE_ENTRY:
+			frappe.throw(
+				_("A route starts with the material that is bought or taken: {0}. "
+				  "{1} cannot be the first stage.").format(
+					", ".join(ROUTE_ENTRY), frappe.bold(rows[0].stage)),
+				title=_("Route has no beginning"))
+		if rows[-1].stage != ROUTE_END:
+			frappe.throw(
+				_("Every route ends at {0}, because that is what goes in the ground. "
+				  "The route starting at {1} ends at {2}.").format(
+					frappe.bold(ROUTE_END), frappe.bold(rows[0].stage),
+					frappe.bold(rows[-1].stage)),
+				title=_("Route has no end"))
+		# Bought-in Plants IS the plant, so it needs no stages after it.
+		if rows[0].stage in READY_TO_PLANT and len(rows) > 2:
+			frappe.throw(
+				_("Plants bought ready to plant do not pass through {0}. The route is "
+				  "Bought-in Plants then Plants, or the material is not bought as "
+				  "plants.").format(
+					", ".join(r.stage for r in rows[1:-1])),
+				title=_("Route buys plants and then grows them"))
+
+	# Shares only mean anything when there is more than one way in. With one chain
+	# the share is the whole order whatever the box says, so it is left alone
+	# rather than demanded.
+	if len(chains) > 1:
+		entries = [c[0][0] for c in chains]
+		total = sum(flt(e.get("share_pct")) for e in entries)
+		if abs(total - 100) > 0.01:
+			frappe.throw(
+				_("This protocol buys the material {0} ways, so each has to carry its "
+				  "share of the order. {1} comes to {2}%, not 100%.").format(
+					len(chains),
+					" + ".join("%s %s%%" % (e.stage, flt(e.get("share_pct")))
+					           for e in entries),
+					total),
+				title=_("The shares do not add up"))
+		if len({e.stage for e in entries}) < len(entries):
+			frappe.throw(
+				_("Two routes here start at the same stage. Buying twice from one "
+				  "form is one line with one share, not two."),
+				title=_("The same way in, twice"))
+
+
+# ---------------------------------------------------------------------------
+# What the route costs in material, worked out from the protocol
+# ---------------------------------------------------------------------------
+
+# A stage that is established once and cut from week after week. It is not
+# consumed by a planting, so one of them supplies every cohort in a plan and is
+# sized from the busiest week rather than from the season's total. Getting this
+# wrong is not a rounding error: ordering a motherstock per cohort over-buys by
+# as many times as there are cohorts.
+STANDING_STAGES = _stages.StageSet((_stages.MOTHERSTOCK,))
+
+# Material that comes from outside the farm. A route that starts at one of these
+# is a route that buys, and saying so is not a judgement call -- it is what the
+# stage IS. Asking someone to tick a box to confirm that tissue culture is bought
+# was a question with one answer, and a procurement plan refused to build until
+# somebody answered it.
+BOUGHT_STAGES = _stages.StageSet((_stages.BOUGHT,))
+
+# Material the farm takes off its own crop. Nothing is ordered for these.
+# The one definition: sourcing and route_methods import it rather than keeping
+# their own copies, which is how Cuttings (Own) came to be own material in two
+# of the three lists and bought in the third.
+TAKEN_STAGES = _stages.StageSet((_stages.TAKEN,))
+
+
+# Where each stage's numbers live on the protocol. The route used to hold its own
+# copy and the two disagreed by a factor of forty-five -- the plan's TC block said
+# 3,024 plantlets and the procurement plan said 136,851 for the same crop, because
+# one multiplied through the motherstock and the other did not. The protocol owns
+# these facts; the route shows them.
+def _n(doc, field, default=0.0, native=False):
+	name = field if native else source_field(field)
+	return flt(doc.get(name) or default)
+
+
+
+def _native_blocks(rows):
+	"""route_blocks() for a Crop Protocol Version, whose route is not custom_sf_."""
+	blocks, current = [], None
+	for row in (rows or []):
+		if (row.get("row_type") or "Stage") == "Step":
+			if current:
+				current[1].append(row)
+		else:
+			current = (row, [])
+			blocks.append(current)
+	return blocks
+
+
+def set_route_quantities(doc, native=False):
+	"""Write the protocol's own arithmetic onto the route's quantity columns.
+
+	Nothing here is typed on the route. A stage that multiplies says so because the
+	protocol says how many cycles it runs; a stage that loses material loses what
+	the protocol's loss fields say it loses. The columns stay visible, because a
+	route that showed only stage names could not be checked by eye -- but they are
+	read-only, and they cannot drift from the fields they came from.
+	"""
+	# A Crop Protocol holds these under custom_sf_*; the Version that snapshots it
+	# holds them natively. Same arithmetic either way, so a version approved before
+	# this existed can be brought up to date without a second copy of it.
+	cycles = cint(_n(doc, "max_multiplication_cycles", native=native))
+	per_cycle = _n(doc, "multiplication_factor_per_cycle", native=native)
+	factor = multiplication_factor(cycles, per_cycle)
+	rooting = _n(doc, "rooting_success_pct", 100, native=native) / 100.0
+	establishment = _n(doc, "field_establishment_pct", 100, native=native) / 100.0
+	rows = (doc.get("material_route") or []) if native else None
+
+	# Weeks each stage takes, off the protocol's own timings. They were typed on the
+	# route as well, which asked for the tray and pot weeks twice and let the two
+	# copies disagree.
+	establish = (cint(_n(doc, "weeks_on_tray", native=native))
+	             + cint(_n(doc, "weeks_on_pot", native=native)))
+	hardening = cint(_n(doc, "hardening_weeks", native=native))
+	cycle_time = cint(_n(doc, "cycle_time_weeks", native=native))
+	to_planting = cint(_n(doc, "sticking_to_planting_weeks", native=native))
+
+	blocks = _native_blocks(rows) if native else route_blocks(doc)
+	names = [st.stage for st, _s in blocks]
+	# The first stage from outside the farm, in EACH chain. It used to be the first
+	# in the whole table, on the reasoning that a farm does not buy one crop two
+	# ways -- which Eryngium does: tissue culture from two labs and roots from a
+	# root supplier, same variety, same year, 1.7m plants of 9.5m. The second
+	# chain's entry came back unticked, so nothing downstream could see it.
+	bought_in_chain = set()
+	for chain in _chains_of(blocks):
+		entry = next((st for st, _s in chain if st.stage in BOUGHT_STAGES), None)
+		if entry:
+			bought_in_chain.add(id(entry))
+
+	# With one way in, every stage figure comes off the protocol's own fields and
+	# the route is derived whole. With two, one field cannot serve both: Eryngium
+	# hardens tissue culture for seven weeks and roots for fifteen, and
+	# sticking_to_planting_weeks is a single number. So on a route bought more than
+	# one way, a figure typed on the row wins and the derivation fills only what is
+	# left blank.
+	# Weeks typed against each way's stages are also honoured on a single route:
+	# they are the only place those weeks are entered now (see route_ways).
+	multi = len(_chains_of(blocks)) > 1 or bool(not native and doc.flags.sf_typed_weeks)
+
+	for stage, steps in blocks:
+		name = stage.stage
+		standing = 1 if name in STANDING_STAGES else 0
+		stage.is_purchase = 1 if id(stage) in bought_in_chain else 0
+		typed_weeks = cint(stage.get("weeks")) if multi else 0
+		if not native and doc.flags.sf_typed_weeks and standing:
+			# A motherstock's weeks are its tray and pot weeks, not typed against the way.
+			typed_weeks = 0
+		# And how long it takes. A stage with steps under it is the sum of them --
+		# check_route already sets that -- so only the ones without are derived here.
+		if not steps:
+			if typed_weeks and name != ROUTE_END:
+				stage.weeks = typed_weeks
+			elif name == ROUTE_END:
+				stage.weeks = 0
+			elif standing:
+				# Plantlet to first cutting off the pool it becomes.
+				stage.weeks = establish + (hardening if cint(_n(
+					doc, "establishment_includes_hardening", native=native)) else 0)
+			elif cint(stage.is_purchase):
+				# The material arriving takes no time; the wait is the supplier's,
+				# and that is lead_weeks. This is checked BEFORE the stage-name
+				# branch below, because Roots is both a thing you buy and a thing
+				# that takes time: as an entry it is 0 and the weeks it needs are
+				# the Propagation row after it, and counting both gave bought roots
+				# 22 weeks to the ground where the tracker says 15.
+				stage.weeks = 0
+			elif name in ROOTING_LOSSES:
+				# Stuck to plantable.
+				stage.weeks = to_planting or establish
+			elif cycle_time:
+				stage.weeks = cycle_time
+		stage.is_standing = standing
+		stage.yields_per_week = (_n(doc, "cuttings_per_plant_per_week", native=native)
+		                         if standing else 0)
+		if name == ROUTE_END:
+			# Planting out. The end of the road multiplies nothing, but it is not
+			# free: what is put in the ground does not all take, and that is true
+			# of a crop however its material was got.
+			#
+			# This used to hang on the stage that HANDS OVER the plant, which
+			# meant it only happened on a route with a raising stage. Four of the
+			# seven routes have none -- plants bought ready, tubers off the farm's
+			# own crop, tissue culture planted straight out, anything through a
+			# motherstock -- and those crops lost nothing to establishment at
+			# all, while the planting calendar grossed their plantings up for it
+			# anyway. One is the ground's business and every route reaches it.
+			stage.yields_per_unit = 1
+			stage.loss_pct = round((1 - establishment) * 100, 4)
+			continue
+		if standing:
+			# One plantlet becomes `factor` mother plants over its cycles, and each
+			# mother then hands on yields_per_week cuttings for as long as it stands.
+			# The two are different facts and the second is not a multiplier on a
+			# single pass through the route -- see sourcing.requirement().
+			stage.yields_per_unit = factor
+			# No loss here. What a pool loses is cuttings that fail to root, and
+			# that is the rooting stage's business; the cutting reject is a
+			# grading loss on harvested stems and is taken off the yield.
+			stage.loss_pct = 0
+		elif cint(stage.is_purchase):
+			# The allowance on the order itself: order the requirement exactly and
+			# it arrives short by the supplier's own loss rate. True of every
+			# bought stage -- seeds, roots, tubers, budwood, plants -- and not
+			# only of tissue culture, which is the one the field was named after.
+			#
+			# Asked BEFORE the raising question, because a stage can be both. Roots
+			# are bought AND take rooting losses, and answering the second first
+			# charged them the rooting loss on arrival and again at the Rooting
+			# stage that follows -- 0.88 twice over for one rooting -- while the
+			# order allowance they should have carried was never applied at all.
+			# What is bought is an arrival; the raising is the stage after it.
+			stage.yields_per_unit = 1
+			stage.loss_pct = _n(doc, "tc_order_loss_pct", native=native)
+		elif name in ROOTING_LOSSES:
+			# Raising bought or cut material to something plantable. What is lost
+			# here is what fails to root; what fails to establish is the ground's
+			# and is taken at planting out, so that a route without a raising
+			# stage still carries it.
+			stage.yields_per_unit = 1
+			stage.loss_pct = round((1 - rooting) * 100, 4)
+		else:
+			stage.yields_per_unit = 1
+		for step in steps:
+			# A step is the same material standing still; check_route already refuses
+			# one that multiplies.
+			step.yields_per_unit = 1
+			step.is_standing = 0
+			step.yields_per_week = 0
+
+
+def to_version(doc, version=None):
+	"""Load a Crop Protocol's values onto an (unsaved) Crop Protocol Version."""
+	v = version or frappe.new_doc("Crop Protocol Version")
+	for f in _fields():
+		src = source_field(f.fieldname)
+		if f.fieldtype == "Table":
+			v.set(f.fieldname, [])
+			for row in (doc.get(src) or []):
+				v.append(f.fieldname, {
+					k: row.get(k) for k in row.as_dict()
+					if k not in ("name", "parent", "parenttype", "parentfield",
+					             "doctype", "idx", "owner", "creation", "modified",
+					             "modified_by", "docstatus")
+				})
+			continue
+		v.set(f.fieldname, doc.get(src))
+	# Derived on the protocol, stored on the snapshot: see route_summary().
+	v.route_summary = route_summary(doc)
+	v.crop_protocol = doc.name
+	return v
+
+
+def derive(doc):
+	"""Compute every derived figure by running the version's own controller."""
+	if not is_summer_flower(doc):
+		return
+	if not doc.get("plants_per_sqm"):
+		# The version controller throws without it, and a half-filled protocol
+		# should be savable while it is being filled in.
+		return
+
+	probe = to_version(doc)
+	probe.version = 1
+	probe.effective_from = frappe.utils.nowdate()
+	probe.change_reason = "derivation probe"
+	probe.flags.from_protocol_snapshot = True   # it is never saved; the lock would
+	probe.flags.ignore_permissions = True       # otherwise refuse the validate call
+	probe.flags.ignore_mandatory = True
+	probe.run_method("validate")
+
+	for f in _fields():
+		if not f.read_only or f.fieldtype == "Table":
+			continue
+		target = source_field(f.fieldname)
+		# Only our own fields and the four natives this protocol is meant to derive.
+		# Anything else on Crop Protocol belongs to whoever typed it.
+		if target in INPUT_NATIVE or (
+			not target.startswith("custom_sf_") and target not in DERIVED_NATIVE
+		):
+			continue
+		doc.set(target, probe.get(f.fieldname))
+	# The flush interval is typed as a seed for blank offsets, and read back off the
+	# rows once they carry their own. Without this it was derived on the snapshot and
+	# never returned, so a crop cutting every week showed a blank interval on the very
+	# form that had just worked it out.
+	# ... and returned whenever the rows settle it, not only when the form was
+	# left blank. The snapshot reads the interval off the flush rows every time,
+	# so a protocol still holding a typed value the rows disagree with was the
+	# one case where a version could not match the protocol it came from: the
+	# rows said 13 weeks between flushes and the form went on saying 1. The
+	# rows win in both places now, which is what the snapshot already meant by
+	# "not a second, stale opinion".
+	if cint(probe.flush_interval_weeks):
+		doc.weeks_between_flushes = cint(probe.flush_interval_weeks)
+
+	# The flush rows gain their derived columns too.
+	rows = {cint(r.flush_number): r for r in probe.flush_schedule}
+	for row in (doc.get("custom_sf_flush_schedule") or []):
+		p = rows.get(cint(row.flush_number))
+		if p:
+			row.weeks_from_planting = p.weeks_from_planting
+			row.harvest_week_of_year = p.harvest_week_of_year
+			# The share of the life this flush is, and everything gathered by the end
+			# of it. Worked out on the version from the stems; useless there if it
+			# does not come back to the protocol people actually read.
+			row.pct_of_life = p.pct_of_life
+			row.cumulative_pct = p.cumulative_pct
+			# And the stems themselves, when the flush was entered as a percentage
+			# and the version turned it into stems.
+			row.stems_per_plant = p.stems_per_plant
+
+
+# Before routes existed the propagation half of the timeline was this: six fixed
+# rows with their boundaries worked out from the establishment scalars. It only
+# ever described one route -- Matricaria is never stuck, Dahlia never sees a pot,
+# and a crop bought as plants has no propagation at all. It is kept for the few
+# protocols that carry no route yet, and for nothing else.
+LEGACY_PROP_STAGES = [
+	# label,                  from week expression,        to week expression
+	("Sticking to rooting", "0", "weeks_on_tray"),
+	("Rooted, on pot", "weeks_on_tray", "weeks_on_tray + weeks_on_pot"),
+	("Hardening", "weeks_on_tray + weeks_on_pot",
+	 "weeks_on_tray + weeks_on_pot + hardening_weeks"),
+]
+
+
+def _legacy_prop_stages(doc):
+	env = {
+		"weeks_on_tray": cint(doc.get("custom_sf_weeks_on_tray")),
+		"weeks_on_pot": cint(doc.get("custom_sf_weeks_on_pot")),
+		"hardening_weeks": cint(doc.get("custom_sf_hardening_weeks")),
+	}
+	out = []
+	for label, frm, to in LEGACY_PROP_STAGES:
+		try:
+			a, b = int(eval(frm, {}, env)), int(eval(to, {}, env))
+		except Exception:
+			continue
+		if b > a:
+			out.append((label, a, b))
+	return out
+
+
+def _route_prop_stages(doc):
+	"""The propagation half, read straight off the route.
+
+	One row per leaf: a stage that carries steps is told by its steps, a stage
+	without them speaks for itself, and neither is counted twice. The walk stops
+	at Plants, because everything past that is the field clock below.
+	"""
+	out, at = [], 0
+	for stage, steps in route_blocks(doc):
+		if stage.stage == ROUTE_END:
+			break
+		for leaf in (steps or [stage]):
+			weeks = cint(leaf.get("weeks"))
+			if weeks <= 0:
+				continue
+			label = leaf.get("step") or leaf.get("stage") or ""
+			if steps and stage.stage:
+				label = "%s: %s" % (stage.stage, label)
+			out.append((label, at, at + weeks))
+			at += weeks
+	return out
+
+
+def _field_stages(doc):
+	"""The half that starts when the plant goes in the ground.
+
+	Named for what the crop actually does. A crop that is not pinched does not get
+	a pinch boundary, which the fixed list used to hand it anyway.
+	"""
+	pinch = cint(doc.get("weeks_to_pinch"))
+	first = cint(doc.get("custom_sf_first_harvest_offset_weeks"))
+	life = cint(doc.get("total_weeks_in_ground"))
+	out = []
+	if pinch and first > pinch:
+		out.append(("Planted to pinch", 0, pinch))
+		out.append(("Pinch to first harvest", pinch, first))
+	elif first:
+		out.append(("Planted to first harvest", 0, first))
+	if life > first:
+		out.append(("Harvesting to uproot", first, life))
+	turn = cint(doc.get("custom_sf_turnaround_weeks"))
+	if life and turn:
+		out.append(("Uproot to replant", life, life + turn))
+	return out
+
+
+def set_growth_stages(doc):
+	"""Fill the growth stage table from the route and the field timeline.
+
+	Derived, not typed in: every boundary is already written somewhere that drives
+	the planner, so the stages cannot drift from the weeks that do the work. The
+	two halves are on two different clocks -- the route is counted from the day
+	material is started, the field stages from the day it is planted -- and saying
+	so on each row is the only thing that stops them being read as one line.
+	"""
+	if not is_summer_flower(doc):
+		return
+	prop = _route_prop_stages(doc) or _legacy_prop_stages(doc)
+	field = _field_stages(doc)
+	if not prop and not field:
+		return
+
+	# Write whichever columns this site's child doctype actually has. The boundary
+	# pair days_from/days_to/weeks gave way to a single mandatory days_to_harvest
+	# in upande_agriculture, and writing neither set blind is how a mandatory field
+	# nobody here knew about stopped a protocol being approved.
+	child = doc.meta.get_field("growth_stages").options
+	stage_meta = frappe.get_meta(child)
+	has_span = stage_meta.has_field("days_from") and stage_meta.has_field("days_to")
+	has_to_harvest = stage_meta.has_field("days_to_harvest")
+
+	rows = []
+	for order, (label, a, b, clock) in enumerate(
+		[(l, a, b, "propagation") for l, a, b in prop]
+		+ [(l, a, b, "field") for l, a, b in field], start=1
+	):
+		row = {
+			"stage_name": label,
+			"stage_order": order,
+			"description": _("Weeks {0} to {1} {2}").format(
+				a, b,
+				_("from the start of propagation") if clock == "propagation"
+				else _("from planting")),
+		}
+		if has_span:
+			row["days_from"] = a * 7
+			row["days_to"] = b * 7
+			if stage_meta.has_field("weeks"):
+				row["weeks"] = b - a
+		if has_to_harvest:
+			row["days_to_harvest"] = b * 7
+		rows.append(row)
+
+	doc.set("growth_stages", [])
+	for r in rows:
+		doc.append("growth_stages", r)
+
+
+def set_length_distribution(doc):
+	"""Deliberately does nothing: the native table is not the same thing.
+
+	Crop Protocol Length Distribution.stem_length is a Link to the Stem Length
+	master, whose records are 57, 62, 72, 82 and 92cm -- measured sampling bands
+	against a controlled list. Our grade split is 50/60/70/80cm with a price per
+	stem, a commercial allocation. Mirroring one into the other either invents
+	records in another app's master or writes dangling links, which is what it did
+	before this was reverted.
+
+	The grade split therefore stays in the summer flower grade table, which is the
+	one and only place it is authored and the one every consumer reads.
+	"""
+	return
+
+
+def set_native_flush_schedule(doc):
+	"""Mirror the flush schedule into the protocol's own native table, if it has one.
+
+	It had one while these fields lived on upande_agriculture's Crop Protocol: that
+	doctype has a flush_schedule of its own, and leaving it empty showed a blank
+	schedule in the standard layout while the real eight rows sat in the custom
+	table below it.
+
+	Summer Flower Protocol has no such table. custom_sf_flush_schedule IS the flush
+	schedule there, so there is nothing to mirror into and nothing to keep in step
+	-- which was the point of separating. Guarded rather than deleted because a
+	protocol still on Crop Protocol has to keep working until every site has moved.
+	"""
+	if not is_summer_flower(doc):
+		return
+	if not doc.meta.has_field("flush_schedule"):
+		return
+	rows = sorted((doc.get("custom_sf_flush_schedule") or []),
+	              key=lambda r: cint(r.flush_number))
+	if not rows:
+		return
+	doc.set("flush_schedule", [])
+	prev = 0
+	for r in rows:
+		frm_pinch = cint(r.weeks_from_pinch)
+		doc.append("flush_schedule", {
+			"flush_number": cint(r.flush_number),
+			"stems_per_plant": flt(r.stems_per_plant),
+			# Crop Protocol Flush measures the gap from the flush before it; the first
+			# gap is from the pinch, which is where our schedule starts counting.
+			"weeks_after_previous": frm_pinch - prev,
+		})
+		prev = frm_pinch
+
+
+def fill_native_gaps(doc):
+	"""Give the natives our own numbers instead of leaving them at zero.
+
+	These are Crop Protocol's own fields that a rose protocol fills in by hand. For
+	a summer flower they are all derivable, and leaving them at zero beside our
+	populated ones is the repetition that makes the form unreadable.
+	"""
+	if not is_summer_flower(doc):
+		return
+	rows = sorted((doc.get("custom_sf_flush_schedule") or []),
+	              key=lambda r: cint(r.flush_number))
+	if rows:
+		# The native field asks for pinch to first harvest, which is our first
+		# flush's own offset from the pinch.
+		doc.weeks_pinch_to_first_harvest = cint(rows[0].weeks_from_pinch)
+	grades = doc.get("custom_sf_grade_allocation") or []
+	total = sum(flt(g.allocation_pct) for g in grades)
+	if grades and total:
+		# Weighted mean of the grade bands: 60cm at 30%, 70 at 40%, 80 at 30% is 71.
+		acc = 0.0
+		for g in grades:
+			digits = "".join(ch for ch in (g.grade or "") if ch.isdigit())
+			if digits:
+				acc += float(digits) * flt(g.allocation_pct)
+		doc.average_stem_length_cm = round(acc / total, 2) if acc else 0
+	# Weeks to max PC and the build-up are the same span; the build-up is the one typed.
+	if cint(doc.get("custom_sf_ramp_weeks")):
+		doc.custom_sf_weeks_to_max_pc = cint(doc.get("custom_sf_ramp_weeks"))
+
+
+# ---------------------------------------------------------------------------
+# What the plant does in the field
+# ---------------------------------------------------------------------------
+
+ACTIVITY_FIELD = "custom_sf_field_activities"
+# Rows the system keeps in the table and dates itself. Planting is week 0 by
+# definition; harvesting and uprooting are read off the flush schedule.
+FIXED_ROLES = ("Planting", "Harvesting", "Uprooting")
+
+
+def _activity_for(role):
+	return frappe.db.get_value("Field Activity", {"role": role}, "name")
+
+
+def _activity_rows(doc):
+	rows = doc.get(ACTIVITY_FIELD) or []
+	for r in rows:
+		# fetch_from only fills on the client; a row added in code has no role yet.
+		if r.activity and not r.role:
+			r.role = frappe.db.get_value("Field Activity", r.activity, "role") or ""
+	return rows
+
+
+def set_pinch_from_activities(doc):
+	"""Not every crop is pinched -- some are bent, most are planted and cut -- so
+	what a plant does in the field is a table, and weeks to pinch is read off its
+	Pinching row. Everything downstream still reads weeks_to_pinch.
+
+	A protocol from before the table is given rows from the figures it already
+	holds, so its pinch survives the first save.
+	"""
+	if not doc.get(ACTIVITY_FIELD):
+		seed_field_activities(doc)
+	pinches = sorted((r for r in _activity_rows(doc) if r.role == "Pinching"),
+	                 key=lambda r: cint(r.weeks_from_planting))
+	doc.weeks_to_pinch = cint(pinches[0].weeks_from_planting) if pinches else 0
+
+
+def seed_field_activities(doc):
+	for role, weeks in (("Planting", 0),
+	                    ("Pinching", cint(doc.get("weeks_to_pinch"))),
+	                    ("Harvesting", cint(doc.get("custom_sf_first_harvest_offset_weeks"))),
+	                    ("Uprooting", cint(doc.get("total_weeks_in_ground")))):
+		if role == "Pinching" and not weeks:
+			continue
+		activity = _activity_for(role)
+		if activity:
+			doc.append(ACTIVITY_FIELD, {"activity": activity, "role": role,
+			                            "weeks_from_planting": weeks})
+
+
+def fill_field_activities(doc):
+	"""Date the rows the system owns, after derive() has worked out the harvest."""
+	rows = list(_activity_rows(doc))
+	weeks = {"Planting": 0,
+	         "Harvesting": cint(doc.get("custom_sf_first_harvest_offset_weeks")),
+	         "Uprooting": cint(doc.get("total_weeks_in_ground"))}
+	for role in FIXED_ROLES:
+		mine = [r for r in rows if r.role == role]
+		if not mine:
+			activity = _activity_for(role)
+			if not activity:
+				continue
+			mine = [doc.append(ACTIVITY_FIELD, {"activity": activity, "role": role})]
+			rows.append(mine[0])
+		for r in mine:
+			r.weeks_from_planting = weeks[role]
+	# In the order they happen; planting first and uprooting last on a tie.
+	rank = {"Planting": 0, "Uprooting": 2}
+	rows.sort(key=lambda r: (cint(r.weeks_from_planting), rank.get(r.role, 1)))
+	for i, r in enumerate(rows, start=1):
+		r.idx = i
+	doc.set(ACTIVITY_FIELD, rows)
+
+
+def on_update(doc, method=None):
+	"""When the workflow reaches Approved, write the snapshot.
+
+	The workflow drives custom_sf_protocol_status, but moving a field to "Approved"
+	is not the same as approving: the history only exists once a snapshot is written.
+	Without this the next save would see the protocol still differing from the old
+	snapshot and set the status back to Draft, so the workflow button would appear to
+	do nothing.
+	"""
+	if not is_summer_flower(doc):
+		return
+	# A bulk move is not an edit. This guard used to live on the
+	# SummerFlowerProtocol class, which the merge back onto Crop Protocol
+	# retires; without it, copying a protocol that was already approved tries to
+	# snapshot it again and is refused for having changed nothing -- the right
+	# answer to the wrong question.
+	if frappe.flags.get("sf_protocol_move"):
+		return
+	if doc.get("custom_sf_protocol_status") != "Approved":
+		return
+	changed = diff_against_current(doc)
+	if changed is None or changed:
+		try:
+			approve(doc.name)
+		except frappe.ValidationError:
+			# approve() states its own reason -- no farm, no change reason. Leave the
+			# status where the workflow put it and let the message stand.
+			raise
+
+
+def validate(doc, method=None):
+	# Crop Protocol now holds every crop, so this runs on rose and chrysanthemum
+	# protocols too, and none of what follows means anything to them: the whole
+	# derivation is worked out from summer flower parameters that are zero on a
+	# rose, and it throws outright on the first of them -- Crop Protocol Version
+	# refuses to derive without a net m2 per bed. So leave early, exactly as
+	# on_update does, and let upande_agriculture's own controller be the only
+	# thing that validates a rose.
+	if not is_summer_flower(doc):
+		return
+	# The ramp drives weeks-to-max-PC, and the establishment total is built from
+	# that, so it is squared away before anything is derived.
+	if cint(doc.get("custom_sf_ramp_weeks")):
+		doc.custom_sf_weeks_to_max_pc = cint(doc.get("custom_sf_ramp_weeks"))
+	from upande_production.summer_flowers import route_methods as rm
+	from upande_production.summer_flowers import route_ways as rw
+
+	# The ways in are what the user enters. A protocol from before them still has
+	# its methods and route, and gets its ways read off those once.
+	if not rw.has_ways(doc):
+		rm.check_shares(doc)
+		rm.sync_route_from_methods(doc)
+		rw.ways_from_route(doc)
+	if rw.has_ways(doc):
+		rw.sync_route_from_ways(doc)
+	set_pinch_from_activities(doc)
+	number_flushes(doc)
+	derive(doc)
+	check_route(doc)
+	set_raised_from_pool(doc)
+	set_row_types(doc)
+	set_harvest_is_scheduled(doc)
+	check_lifts(doc)
+	set_route_quantities(doc)
+	rm.sync_methods_from_route(doc)
+	rw.fill_way_stages(doc)
+	fill_native_gaps(doc)
+	set_status(doc)
+	set_growth_stages(doc)
+	set_length_distribution(doc)
+	set_native_flush_schedule(doc)
+	fill_field_activities(doc)
+
+# ---------------------------------------------------------------------------
+# Approval, and the snapshot it writes
+# ---------------------------------------------------------------------------
+
+def approver_roles():
+	"""Who may approve a protocol: Summer Flower Settings, else the managers."""
+	from upande_production.summer_flowers.settings import approver_roles as _roles
+
+	return _roles()
+
+
+def _has_role():
+	return bool(set(approver_roles()) & set(frappe.get_roles(frappe.session.user)))
+
+
+def _comparable(doc_or_version, from_protocol):
+	"""The protocol's INPUTS, flattened, so two of them can be compared.
+
+	Derived figures are left out on purpose. They cannot move unless an input moves,
+	and they are stored at different precisions on the two doctypes -- life
+	expectancy is 2.13 on the protocol against 2.134615 on the snapshot -- so
+	including them reported a change on every protocol that had not been touched.
+	"""
+	out = {}
+	for f in _fields():
+		if f.read_only:
+			continue
+		name = source_field(f.fieldname) if from_protocol else f.fieldname
+		val = doc_or_version.get(name)
+		if f.fieldtype == "Table":
+			out[f.fieldname] = [
+				tuple(round(flt(r.get(k)), 4) if isinstance(r.get(k), (int, float))
+				      else r.get(k)
+				      for k in sorted(r.as_dict())
+				      if k not in ("name", "parent", "parenttype", "parentfield",
+				                   "doctype", "idx", "owner", "creation", "modified",
+				                   "modified_by", "docstatus"))
+				for r in (val or [])
+			]
+		elif isinstance(val, float):
+			out[f.fieldname] = round(val, 4)
+		else:
+			out[f.fieldname] = val
+	return out
+
+
+def diff_against_current(doc):
+	"""Which fields differ from the snapshot in force."""
+	current = doc.get("custom_sf_current_version")
+	if not current or not frappe.db.exists("Crop Protocol Version", current):
+		return None
+	v = frappe.get_doc("Crop Protocol Version", current)
+	mine, theirs = _comparable(doc, True), _comparable(v, False)
+	return sorted(k for k in mine if mine[k] != theirs[k])
+
+
+POOL_STAGES = STANDING_STAGES + TAKEN_STAGES
+
+# A lift profile may miss a hundred by this much and still be rounding: three
+# equal lifts are 33.3 each.
+def lift_slack():
+	"""How far lift shares may be off 100%: Summer Flower Settings, else half a percent."""
+	from upande_production.summer_flowers.settings import lift_share_tolerance
+
+	return lift_share_tolerance()
+
+
+def set_raised_from_pool(doc):
+	"""Whether this crop is cut from a pool of its own, or handed its material.
+
+	Derived from the route rather than asked for, because the route already
+	says it. Everything about pots, benches, cuttings per mother plant and
+	multiplication cycles only means something when it is on -- and on a crop
+	that is bought rooted those fields sat on the form at zero, which reads as
+	a measurement nobody has taken rather than a question that does not apply.
+	"""
+	rows = route_rows(doc) or []
+	doc.custom_sf_raised_from_pool = 1 if any(
+		(r.get("stage") or "") in POOL_STAGES for r in rows) else 0
+
+
+def check_grades(doc):
+	"""A protocol cannot be approved without saying what it grades out as.
+
+	Required to APPROVE, not to save. Thirty-nine of the forty-four summer
+	flower protocols on the first site this ran on had no grades at all, so
+	demanding them on save would have made every one of them unsaveable
+	including the ones already approved -- and a draft is allowed to be
+	half-finished. An approved protocol is different: it is what plans are
+	built on, and a revenue budget prices a stem by its grade, so an approval
+	with no grade mix is an approval nobody can cost.
+	"""
+	rows = doc.get("custom_sf_grade_allocation") or []
+	if not rows:
+		frappe.throw(_(
+			"{0} has no grade allocation. A protocol is approved so plans and "
+			"budgets can be built on it, and a stem is priced by its grade, so "
+			"say what this crop grades out as before approving it."
+		).format(doc.name), title=_("No grades"))
+	total = sum(flt(r.get("allocation_pct")) for r in rows)
+	if abs(total - 100) > 0.5:
+		frappe.throw(_(
+			"The grades on {0} come to {1}%. Every stem lands in one grade or "
+			"another, so they have to make a hundred -- {2}."
+		).format(doc.name, round(total, 2),
+		         _("take {0}% off").format(round(total - 100, 2)) if total > 100
+		         else _("another {0}% is unaccounted for").format(
+			         round(100 - total, 2))),
+			title=_("Grades do not make a whole"))
+	seen = set()
+	for r in rows:
+		if not r.get("grade"):
+			frappe.throw(_("A grade row on {0} names no grade.").format(doc.name))
+		if r.get("grade") in seen:
+			frappe.throw(_("{0} is listed twice on {1}.").format(
+				r.get("grade"), doc.name))
+		seen.add(r.get("grade"))
+
+
+def set_row_types(doc):
+	"""A row that names a step IS a step. Nothing else can say it.
+
+	The grid used to carry three columns to answer one question -- a row type,
+	a stage and a step -- and the row type was the one nothing could tell you
+	from the others. It is worked out now, so the route reads as what it is:
+	a stage, with any phases of it named underneath.
+	"""
+	for row in (doc.get("custom_sf_material_route") or []):
+		row.row_type = "Step" if (row.get("step") or "").strip() else "Stage"
+		if row.row_type == "Step":
+			# A step is a phase of the stage above, so it cannot also BE one.
+			row.stage = None
+
+
+def set_harvest_is_scheduled(doc):
+	"""Whether the harvest is entered rather than seeded.
+
+	Weeks to first cut, stems per plant per week and the two season curves
+	exist to GENERATE a flush schedule for a crop that has none. Once the rows
+	are there they are read and those fields are not, so a protocol with 52
+	flush rows was showing four inputs that change nothing.
+	"""
+	doc.custom_sf_harvest_is_scheduled = 1 if (
+		doc.get("custom_sf_flush_schedule") or []) else 0
+
+
+def check_lifts(doc):
+	"""Each lift adds its two halves, and each form's shares make a whole.
+
+	The week a lift reaches the farm is not typed: it is the weeks on the
+	trough plus
+	weeks rooting. Eryngium roots sit 8, 10 and 12 weeks in the trough and root
+	for 7, so they reach the farm at 15, 17 and 19 -- and writing 15 straight in is
+	how the two halves come to disagree with the total the next time somebody
+	changes one of them.
+	"""
+	rows = doc.get("custom_sf_lifts") or []
+	if not rows:
+		return
+	from upande_production.summer_flowers.route_ways import LIFT_FORM, ROUTES
+
+	groups = {}
+	for r in rows:
+		# The route already says which material is being lifted -- a route that
+		# starts at TC hands over tissue culture, one that starts at Roots hands
+		# over roots. The card adds lifts against a route and has no column for
+		# the form, so demanding it refused a save over a question with only one
+		# possible answer and nowhere to give it.
+		if not r.form and r.route:
+			r.form = LIFT_FORM.get((ROUTES.get(r.route) or [None])[0])
+		if not r.form:
+			frappe.throw(_("Row {0} of the lifts is not against a route, so there "
+			               "is nothing to say which material it hands over. Add it "
+			               "from the route it belongs to.").format(r.idx))
+		r.weeks_after_arrival = cint(r.trough_weeks) + cint(r.rooting_weeks)
+		groups.setdefault(r.form, []).append(r)
+
+	for form, mine in sorted(groups.items()):
+		total = sum(flt(r.share_pct) for r in mine)
+		if total > 100 + lift_slack():
+			frappe.throw(_(
+				"The {0} lifts come to {1}%. A consignment cannot hand over more "
+				"than all of itself, so take {2}% off somewhere."
+			).format(form, round(total, 2), round(total - 100, 2)),
+				title=_("More than a whole consignment"))
+		if total < 100 - lift_slack():
+			frappe.throw(_(
+				"The {0} lifts come to {1}%, so {2}% of every consignment is "
+				"never handed over. Add a lift for it, or raise the shares."
+			).format(form, round(total, 2), round(100 - total, 2)),
+				title=_("Less than a whole consignment"))
+
+		seen = {}
+		for r in sorted(mine, key=lambda x: cint(x.lift_no)):
+			n = cint(r.lift_no)
+			if not n:
+				frappe.throw(_("Number the {0} lifts: 1, 2, 3.").format(form))
+			if n in seen:
+				frappe.throw(_("There are two {0} lift {1}s.").format(form, n))
+			if flt(r.share_pct) <= 0:
+				frappe.throw(_("{0} lift {1} takes no share of the consignment. "
+				               "Give it one or remove it.").format(form, n))
+			seen[n] = r
+		order = [seen[k] for k in sorted(seen)]
+		for a, b in zip(order, order[1:]):
+			if cint(b.weeks_after_arrival) <= cint(a.weeks_after_arrival):
+				frappe.throw(_(
+					"{0} lift {1} reaches the farm {2} weeks after the "
+					"consignment arrives and lift {3} reaches it at {4}. A "
+					"later lift comes "
+					"off later, so give it more weeks on the trough."
+				).format(form, cint(b.lift_no), cint(b.weeks_after_arrival),
+				         cint(a.lift_no), cint(a.weeks_after_arrival)))
+
+
+def protocol_lifts(doc, form):
+	"""[(weeks after arrival, share), ...] this protocol states for `form`."""
+	rows = [r for r in (doc.get("custom_sf_lifts") or doc.get("lifts") or [])
+	        if (r.get("form") or "") == form]
+	if not rows:
+		return []
+	rows.sort(key=lambda r: cint(r.get("lift_no")))
+	total = sum(flt(r.get("share_pct")) for r in rows) or 1.0
+	scale = 100.0 if abs(total - 100.0) <= lift_slack() else total
+	return [(cint(r.get("weeks_after_arrival"))
+	         or cint(r.get("trough_weeks")) + cint(r.get("rooting_weeks")),
+	         flt(r.get("share_pct")) / scale) for r in rows]
+
+
+def set_status(doc):
+	"""Say plainly whether this protocol matches what was last approved."""
+	if not is_summer_flower(doc):
+		return
+	changed = diff_against_current(doc)
+	if changed is None:
+		doc.custom_sf_protocol_status = doc.get("custom_sf_protocol_status") or "Draft"
+		doc.custom_sf_pending_changes = None if doc.get("custom_sf_current_version") \
+			else _("Never approved. Approving writes the first snapshot.")
+		return
+	if changed:
+		# Anything unapproved puts it back to Draft: an approved status with different
+		# numbers behind it is the lie this whole restructure exists to prevent.
+		#
+		# Two states are exempt. Pending Approval is a real state with unapproved
+		# changes behind it by definition. And the workflow moving this save's status
+		# INTO Approved is the approval itself -- on_update writes the snapshot
+		# immediately after, which is what makes the status true. Resetting it here
+		# meant the Approve button set Approved, this reset it to Draft, and on_update
+		# then saw Draft and did nothing, so the button appeared dead.
+		status = doc.get("custom_sf_protocol_status")
+		was = frappe.db.get_value(doc.doctype, doc.name,
+		                          "custom_sf_protocol_status") if not doc.is_new() else None
+		approving_now = status == "Approved" and was != "Approved"
+		if status != "Pending Approval" and not approving_now:
+			doc.custom_sf_protocol_status = "Draft"
+		doc.custom_sf_pending_changes = _("Differs from {0} in: {1}").format(
+			doc.get("custom_sf_current_version"), ", ".join(changed))
+	else:
+		# Matching the version again does not approve a protocol. Editing a number and
+		# then putting it back leaves nothing to approve, but the workflow owns this
+		# field and declares no Draft -> Approved move, so writing "Approved" here
+		# raised WorkflowPermissionError and the edit could not be saved at all.
+		#
+		# Lowering to Draft is this function's job because an approved status with
+		# different numbers behind it is a lie. Raising is the workflow's, because an
+		# approval is somebody deciding, not an equality test.
+		if doc.get("custom_sf_protocol_status") == "Approved":
+			doc.custom_sf_pending_changes = None
+			return
+		doc.custom_sf_pending_changes = _(
+			"Nothing differs from {0}. Approving is still a decision someone makes, so "
+			"this stays where the workflow left it."
+		).format(doc.get("custom_sf_current_version")) \
+			if doc.get("custom_sf_current_version") else None
+
+
+@frappe.whitelist()
+def submit_for_approval(protocol):
+	doc = frappe.get_doc(PROTOCOL_DOCTYPE, protocol)
+	if not is_summer_flower(doc):
+		frappe.throw(_("Not a summer flower protocol."))
+	if not doc.get("custom_sf_change_reason"):
+		frappe.throw(_("Give a reason for the change before submitting it."))
+	doc.db_set("custom_sf_protocol_status", "Pending Approval")
+	return doc.get("custom_sf_protocol_status")
+
+
+@frappe.whitelist()
+def active_versions(doc):
+	"""Every Active version of this protocol, the newest first.
+
+	Keyed on the protocol, because (variety, farm) is not a stable identity.
+	The October item merge repointed protocols onto numbered items, and a
+	version snapshotted before it still carries the variety NAME: looking for
+	what was in force under the item code simply did not see it, superseded
+	nothing, and left two rows at is_current = 1. The farm spelling moves too --
+	3359-Bondet-v2 and 3359-Kariki Nanyuki-v1 are one protocol at one farm under
+	two names -- so both keys are asked and the answers merged.
+
+	Newest first is by version, then by the date it takes effect, so the caller
+	can take [0] as the one being replaced and retire the whole list.
+	"""
+	seen, out = set(), []
+	# The farm is on both keys. A protocol is approved for a variety AT A FARM,
+	# and some rows carry a crop_protocol belonging to a different farm, so
+	# asking by the protocol alone would retire another farm's live version.
+	for f in ({"crop_protocol": doc.name, "farm": doc.get("farm"),
+	           "version_status": "Active"},
+	          {"variety": doc.get("variety"), "farm": doc.get("farm"),
+	           "version_status": "Active"}):
+		if not all(v for v in f.values()):
+			continue
+		for r in frappe.get_all("Crop Protocol Version", filters=f,
+		                        fields=["name", "version", "effective_from"]):
+			if r.name not in seen:
+				seen.add(r.name)
+				out.append(r)
+	out.sort(key=lambda r: (cint(r.version), str(r.effective_from or "")),
+	         reverse=True)
+	return out
+
+
+def approve(protocol):
+	"""Approve the protocol, which is the only thing that writes a version.
+
+	The snapshot is a full copy taken at this moment, marked Active and current, and
+	the one it replaces is superseded and dated closed. Plans, plantings and crop
+	cycles keep pointing at whichever snapshot they were built on, so approving here
+	never rewrites what an approved plan says it was built on.
+	"""
+	doc = frappe.get_doc(PROTOCOL_DOCTYPE, protocol)
+	if not is_summer_flower(doc):
+		frappe.throw(_("Not a summer flower protocol."))
+	if not _has_role():
+		frappe.throw(_("Only an Agriculture Manager or Farm Manager can approve a "
+		               "protocol."), frappe.PermissionError)
+	if not doc.get("farm"):
+		frappe.throw(_("Set the farm. A protocol is approved for a variety at a farm, "
+		               "because the same variety runs differently elsewhere."))
+	check_grades(doc)
+	changed = diff_against_current(doc)
+	if changed == []:
+		frappe.throw(_("Nothing has changed since {0} was approved.").format(
+			doc.get("custom_sf_current_version")))
+
+	priors = active_versions(doc)
+	prior = priors[0] if priors else None
+	prior_name = prior.name if prior else None
+
+	# A reason records what moved, so there has to be something it moved from. The
+	# first approval of a protocol supersedes nothing and has no history to explain;
+	# asking for one there is asking someone to justify writing a variety down.
+	if prior_name and not doc.get("custom_sf_change_reason"):
+		frappe.throw(_("A reason is required: it is what the history records. "
+		               "{0} is in force, so say what this changes.").format(prior_name))
+	# Over the same scope the priors were found in. Numbering off (variety, farm)
+	# alone restarted at 1 for a protocol whose variety link had been repointed,
+	# so a second v1 was created beside the first.
+	last = frappe.db.sql("""select ifnull(max(version), 0) from `tabCrop Protocol Version`
+		where crop_protocol = %s or (variety = %s and farm = %s)""",
+		(doc.name, doc.variety, doc.farm))[0][0]
+
+	v = to_version(doc)
+	v.version = cint(last) + 1
+	v.farm = doc.farm
+	v.variety = doc.variety
+	# The version doctype requires each one to take effect after the one before it,
+	# and a version can legitimately be dated ahead -- v2 here starts 2027-01-01 --
+	# so a snapshot taken today would otherwise be refused.
+	effective = getdate(nowdate())
+	if prior and prior.effective_from and getdate(prior.effective_from) >= effective:
+		effective = add_days(getdate(prior.effective_from), 1)
+	v.effective_from = effective
+	v.change_reason = doc.get("custom_sf_change_reason")
+	v.supersedes = prior_name
+	v.version_status = "Active"
+	# No workflow_state: the version's workflow is retired, and setting a state its
+	# transitions do not allow is what refused the snapshot.
+	v.is_current = 1
+	v.approved_by = frappe.session.user
+	v.approved_on = now_datetime()
+	v.flags.from_protocol_snapshot = True
+	v.flags.ignore_permissions = True
+	v.flags.ignore_mandatory = True
+	v.insert()
+
+	# EVERY one of them, not the one a get_value happened to return. Two rows
+	# left standing as Active is how a protocol goes on reporting the older of
+	# them as in force after the newer was approved.
+	for row in priors:
+		p = frappe.get_doc("Crop Protocol Version", row.name)
+		p.db_set("superseded_by", v.name, update_modified=False)
+		p.db_set("version_status", "Superseded", update_modified=False)
+		p.db_set("is_current", 0, update_modified=False)
+		p.db_set("effective_to", add_days(effective, -1), update_modified=False)
+
+	doc.db_set("custom_sf_current_version", v.name, update_modified=False)
+	doc.db_set("custom_sf_protocol_status", "Approved", update_modified=False)
+	doc.db_set("custom_sf_approved_by", frappe.session.user, update_modified=False)
+	doc.db_set("custom_sf_approved_on", now_datetime(), update_modified=False)
+	doc.db_set("custom_sf_pending_changes", None, update_modified=False)
+	doc.db_set("custom_version_count", cint(last) + 1, update_modified=False)
+	frappe.db.commit()
+	return {"version": v.name, "version_no": v.version, "supersedes": prior_name,
+	        "effective_from": str(effective),
+	        "changed": changed}

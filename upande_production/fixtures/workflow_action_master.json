@@ -1,0 +1,58 @@
+[
+ {
+  "docstatus": 0,
+  "doctype": "Workflow Action Master",
+  "modified": "2026-07-30 22:38:26.248056",
+  "name": "Mark Planted",
+  "workflow_action_name": "Mark Planted"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow Action Master",
+  "modified": "2026-07-30 22:38:26.253818",
+  "name": "Mark Uprooted",
+  "workflow_action_name": "Mark Uprooted"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow Action Master",
+  "modified": "2026-07-30 22:38:26.255540",
+  "name": "Cancel Planting",
+  "workflow_action_name": "Cancel Planting"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow Action Master",
+  "modified": "2026-07-29 14:14:25.929584",
+  "name": "Reopen",
+  "workflow_action_name": "Reopen"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow Action Master",
+  "modified": "2026-08-04 23:35:42.992302",
+  "name": "Revise",
+  "workflow_action_name": "Revise"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow Action Master",
+  "modified": "2025-05-27 14:04:58.512721",
+  "name": "Submit for Approval",
+  "workflow_action_name": "Submit for Approval"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow Action Master",
+  "modified": "2025-05-25 16:47:23.705376",
+  "name": "Approve",
+  "workflow_action_name": "Approve"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow Action Master",
+  "modified": "2025-05-25 16:47:23.706248",
+  "name": "Reject",
+  "workflow_action_name": "Reject"
+ }
+]

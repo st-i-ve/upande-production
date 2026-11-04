@@ -1,0 +1,711 @@
+{% extends "templates/web.html" %}
+
+{% block title %}{{ _("Summer Flowers — How Planning Works") }}{% endblock %}
+
+{% block page_content %}
+<div class="fl-root" id="fl-root">
+
+  <header class="fl-head">
+    <h1>{{ _("How Summer Flower planning works") }}</h1>
+    <p class="fl-sub">{{ _("From what the market asked for, back to the week you stick a cutting. One variety at one farm, end to end.") }}</p>
+    <nav class="fl-jump" aria-label="{{ _('Jump to') }}">
+      <a href="#flow">{{ _("The flow") }}</a>
+      <a href="#guide">{{ _("Step by step") }}</a>
+      <a href="#example">{{ _("Worked example") }}</a>
+      <a href="#doctypes">{{ _("Doctypes") }}</a>
+      <a href="#test">{{ _("What to test") }}</a>
+      <a href="#effects">{{ _("Change one thing") }}</a>
+      <a href="#gaps">{{ _("Not built yet") }}</a>
+    </nav>
+  </header>
+
+  <!-- ─────────────────────────────────────────────── the flow ── -->
+  <section id="flow" class="fl-sec">
+    <h2>{{ _("The flow") }}</h2>
+    <p class="fl-lede">{{ _("Planning runs backwards. The market names a week it wants stems; everything else is that week minus a number the protocol states.") }}</p>
+
+    <ol class="fl-chart" role="list">
+
+      <li class="fl-node" data-step="1">
+        <span class="fl-badge">1</span>
+        <div class="fl-body">
+          <h3>{{ _("Market Demand") }}</h3>
+          <p>{{ _("One register per variety per farm. Stems wanted, week by week, plus the grade split.") }}</p>
+          <p class="fl-dt"><code>Summer Flower Market Demand</code> · <code>Summer Flower Demand Week</code> · <code>Summer Flower Demand Grade</code></p>
+        </div>
+      </li>
+
+      <li class="fl-node" data-step="2">
+        <span class="fl-badge">2</span>
+        <div class="fl-body">
+          <h3>{{ _("Crop Protocol → Version") }}</h3>
+          <p>{{ _("The variety's characteristics at that farm: density, weeks to first cut, the flush schedule, the material route. Approving a protocol freezes a Version, and the plan is built against that frozen snapshot.") }}</p>
+          <p class="fl-dt"><code>Crop Protocol</code> · <code>Crop Protocol Version</code> · <code>Crop Material Stage</code> · <code>Summer Flower Protocol Flush</code></p>
+        </div>
+      </li>
+
+      <li class="fl-node fl-accent" data-step="3">
+        <span class="fl-badge">3</span>
+        <div class="fl-body">
+          <h3>{{ _("Production Plan") }}</h3>
+          <p>{{ _("One button on the register. Walks the season week by week, and for every week still short proposes a planting sized to close it — then credits that planting's later flushes forward so it does not plant twice for the same gap.") }}</p>
+          <p class="fl-dt"><code>Summer Flower Production Plan</code> · <code>Summer Flower Plan Block</code> · <code>Summer Flower Plan Week</code></p>
+        </div>
+      </li>
+
+      <li class="fl-fork" aria-hidden="true"></li>
+
+      <li class="fl-split" role="list">
+        <div class="fl-node fl-branch" data-step="4a">
+          <span class="fl-badge">4a</span>
+          <div class="fl-body">
+            <h3>{{ _("Plan the procurement") }}</h3>
+            <p>{{ _("The route says where material is bought and how long it takes to become a plant in the ground. Buying and propagating are not alternatives: Aster is bought as tissue culture AND raised here, so approving the procurement plan raises the orders and the propagation plan together. Only a crop taken off the farm's own stock buys nothing.") }}</p>
+            <p class="fl-dt"><code>Summer Flower Procurement Plan</code> → <code>Material Request</code> → <code>Purchase Order</code> → <code>Purchase Receipt</code></p>
+            <p class="fl-dt"><code>Summer Flower Propagation Plan</code> · <code>Summer Flower Motherstock Batch</code></p>
+          </div>
+        </div>
+        <div class="fl-node fl-branch" data-step="4b">
+          <span class="fl-badge">4b</span>
+          <div class="fl-body">
+            <h3>{{ _("Give it ground") }}</h3>
+            <p>{{ _("Allocation, not planning. The plan states what the market needs whether or not a block is free; blocks are assigned afterwards and a planting too big for one block is split.") }}</p>
+            <p class="fl-dt"><code>Block</code> · <code>Bed</code> · <code>Planting Calendar</code> · <code>Bed Work Order</code></p>
+          </div>
+        </div>
+      </li>
+
+      <li class="fl-join" aria-hidden="true"></li>
+
+      <li class="fl-node" data-step="5">
+        <span class="fl-badge">5</span>
+        <div class="fl-body">
+          <h3>{{ _("Plant, and record what happened") }}</h3>
+          <p>{{ _("The plan is an intention. A Crop Cycle is the actual planting in the actual bed, and harvest is recorded against it.") }}</p>
+          <p class="fl-dt"><code>Crop Cycle</code> · <code>Stock Entry</code> (harvest)</p>
+        </div>
+      </li>
+
+      <li class="fl-node" data-step="6">
+        <span class="fl-badge">6</span>
+        <div class="fl-body">
+          <h3>{{ _("Budget") }}</h3>
+          <p>{{ _("Approving the plan values it: stems by grade, at the register's price per stem, per month and per block.") }}</p>
+          <p class="fl-dt"><code>Summer Flower Budget</code> · <code>Block Production Budget</code></p>
+        </div>
+      </li>
+    </ol>
+
+    <p class="fl-note">{{ _("Protocol governs actuals. Change the protocol and every plan built from it changes on the next regenerate — which is why a Version is frozen at approval rather than read live.") }}</p>
+  </section>
+
+  <!-- ─────────────────────────────────────────── step by step ── -->
+  <section id="guide" class="fl-sec">
+    <h2>{{ _("Step by step") }}</h2>
+
+    <div class="fl-step">
+      <h3>{{ _("1. Enter the demand") }}</h3>
+      <p><b>{{ _("You do:") }}</b> {{ _("Open Summer Flower Market Demand → New. Name the variety and the farm — together they name the register. Fill the weekly stems, and the grade split as percentages.") }}</p>
+      <p><b>{{ _("Watch for:") }}</b> {{ _("One register per variety per farm. The same variety at a second farm is a second register, not a duplicate. If the horizon is short of your target years, Extend Horizon seeds the missing weeks from last year's shape.") }}</p>
+      <p><b>{{ _("The ⓘ icon") }}</b> {{ _("on the form runs a walkthrough of every field, so the form itself stays clean.") }}</p>
+    </div>
+
+    <div class="fl-step">
+      <h3>{{ _("2. Make sure a protocol is in force") }}</h3>
+      <p><b>{{ _("You do:") }}</b> {{ _("Open the Crop Protocol for that variety and farm and approve it. Approval writes a Crop Protocol Version — a frozen snapshot — and the plan is built against that.") }}</p>
+      <p><b>{{ _("What it must state:") }}</b> {{ _("plants per bed, weeks from planting to first cut, weeks from sticking to planting, weeks in ground, turnaround, the flush schedule, and the material route.") }}</p>
+      <p><b>{{ _("Minimum planting size is entered as area, not as plants") }}</b> — {{ _("the system rounds it up to whole beds, because a bed is the unit that gets planted.") }}</p>
+    </div>
+
+    <div class="fl-step">
+      <h3>{{ _("3. Build the plan") }}</h3>
+      <p><b>{{ _("You do:") }}</b> {{ _("On the register, click Create Production Plan and pick the season. The farm is not asked for — the register already names it.") }}</p>
+      <p><b>{{ _("You get first:") }}</b> {{ _("a preview. It tells you what would be built, what would block it, and the date the first order is already due, before anything is written.") }}</p>
+      <p><b>{{ _("A season") }}</b> {{ _("runs 1 July to 30 June. Week 27 onward belongs to the year it starts in.") }}</p>
+    </div>
+
+    <div class="fl-step">
+      <h3>{{ _("4. Order the material, allocate the ground") }}</h3>
+      <p><b>{{ _("Order:") }}</b> {{ _("the plan states what to buy and the last date it can be ordered, worked back through the route from the stage the material is bought at.") }}</p>
+      <p><b>{{ _("Allocate:") }}</b> {{ _("blocks are assigned after the plan exists. A plan with no ground still builds, and says how many plantings are waiting on a block.") }}</p>
+    </div>
+
+    <div class="fl-step">
+      <h3>{{ _("5. Approve") }}</h3>
+      <p><b>{{ _("You do:") }}</b> {{ _("Submit for Approval → Approve. Approving produces the budget, and nothing else: how the material is got is the procurement plan's question, and answering it here gave every plan a propagation plan whether or not the farm propagates.") }}</p>
+    </div>
+
+    <div class="fl-step">
+      <h3>{{ _("6. Plan the procurement") }}</h3>
+      <p><b>{{ _("You do:") }}</b> {{ _("Actions → Plan Procurement on the production plan. The protocol's route supplies the method and the stage bought; the only thing left to pick is which buyable stage, and only where the protocol marks more than one.") }}</p>
+      <p><b>{{ _("Approving it:") }}</b> {{ _("raises the material requests, builds the propagation plan for a crop raised here, and writes the planting calendar. A motherstock is bought once and sized from the busiest sticking week, netted against what is already standing — not once per cohort.") }}</p>
+    </div>
+  </section>
+
+  <!-- ────────────────────────────────────────── worked example ── -->
+  <section id="example" class="fl-sec">
+    <h2>{{ _("Worked example") }}</h2>
+    <p class="fl-lede">{{ _("Aster (Novi-belgii Grp) Double Date Pink at Carzan St, season 2027. Every figure below is from the live record.") }}</p>
+
+    <h3>{{ _("What the market asked for") }}</h3>
+    <div class="fl-scroll">
+      <table class="fl-table">
+        <caption>{{ _("Week 27, as the sheet states it") }}</caption>
+        <thead><tr><th>{{ _("Grade") }}</th><th class="fl-num">{{ _("Share") }}</th><th class="fl-num">{{ _("Stems, W27") }}</th></tr></thead>
+        <tbody>
+          <tr><td>56 cm</td><td class="fl-num">9.09%</td><td class="fl-num">6,600</td></tr>
+          <tr><td>60 cm</td><td class="fl-num">27.27%</td><td class="fl-num">19,800</td></tr>
+          <tr><td>70 cm</td><td class="fl-num">31.82%</td><td class="fl-num">23,100</td></tr>
+          <tr><td>80 cm</td><td class="fl-num">31.82%</td><td class="fl-num">23,100</td></tr>
+        </tbody>
+        <tfoot><tr><th>{{ _("Total") }}</th><th class="fl-num">100%</th><th class="fl-num">72,600</th></tr></tfoot>
+      </table>
+    </div>
+    <p class="fl-note">{{ _("The register covers 52 weeks and 4,464,900 stems, peaking at 108,900 a week.") }}</p>
+
+    <h3>{{ _("What the protocol states") }}</h3>
+    <div class="fl-scroll">
+      <table class="fl-table">
+        <tbody>
+          <tr><th>{{ _("Growing cycle") }}</th><td>{{ _("Perennial — distinct flushes") }}</td></tr>
+          <tr><th>{{ _("Plants per bed") }}</th><td>1,000 <span class="fl-dim">({{ _("50 m² net per bed") }})</span></td></tr>
+          <tr><th>{{ _("Planting → first cut") }}</th><td>19 {{ _("weeks") }}</td></tr>
+          <tr><th>{{ _("Sticking → planting") }}</th><td>3 {{ _("weeks") }}</td></tr>
+          <tr><th>{{ _("Weeks in ground") }}</th><td>103 <span class="fl-dim">({{ _("turnaround 0") }})</span></td></tr>
+          <tr><th>{{ _("Flushes") }}</th><td>{{ _("weeks 19, 31, 43, 55, 67, 79, 91, 103 from planting — 2.6, 3.1, 3.1, 3.1, 2.6, 2.6, 2.6, 2.6 stems a plant") }}</td></tr>
+          <tr><th>{{ _("Material route") }}</th><td>TC <span class="fl-dim">({{ _("bought") }})</span> → Motherstock → Plants</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>{{ _("The arithmetic, for week 27") }}</h3>
+    <pre class="fl-calc"><code>deficit  = 72,600 stems            <span class="fl-cmt">← nothing projected for W27 yet</span>
+beds     = ceil(72,600 ÷ (2.6 × 1,000))  = 28 beds
+plants   = 28 × 1,000                    = 28,000
+planting = W27 Monday − 19 weeks         = 2027-W08  (22 Feb 2027)
+sticking = planting − 3 weeks            = 2027-W05
+uproot   = planting + 103 weeks</code></pre>
+    <p>{{ _("Then flushes at weeks 31, 43, 55… of this planting are credited forward, so those weeks are already partly covered when the loop reaches them.") }}</p>
+
+    <h3>{{ _("What the plan produced") }}</h3>
+    <div class="fl-scroll">
+      <table class="fl-table">
+        <thead><tr><th>{{ _("Stick") }}</th><th>{{ _("Plant") }}</th><th>{{ _("Date") }}</th><th>{{ _("First cut") }}</th><th class="fl-num">{{ _("Beds") }}</th><th class="fl-num">{{ _("Plants") }}</th></tr></thead>
+        <tbody>
+          <tr><td>2027-W05</td><td>2027-W08</td><td>22 Feb 2027</td><td>2027-W27</td><td class="fl-num">28</td><td class="fl-num">28,000</td></tr>
+          <tr><td>2027-W06</td><td>2027-W09</td><td>1 Mar 2027</td><td>2027-W28</td><td class="fl-num">28</td><td class="fl-num">28,000</td></tr>
+          <tr><td>2027-W07</td><td>2027-W10</td><td>8 Mar 2027</td><td>2027-W29</td><td class="fl-num">28</td><td class="fl-num">28,000</td></tr>
+          <tr><td>2027-W08</td><td>2027-W11</td><td>15 Mar 2027</td><td>2027-W30</td><td class="fl-num">28</td><td class="fl-num">28,000</td></tr>
+          <tr><td colspan="6" class="fl-dim">{{ _("…16 more") }}</td></tr>
+        </tbody>
+        <tfoot><tr><th colspan="4">{{ _("20 plantings") }}</th><th class="fl-num">464</th><th class="fl-num">464,000</th></tr></tfoot>
+      </table>
+    </div>
+
+    <dl class="fl-kv">
+      <div><dt>{{ _("Demand") }}</dt><dd>4,464,900 {{ _("stems") }}</dd></div>
+      <div><dt>{{ _("Projected production") }}</dt><dd>5,589,600 {{ _("stems") }}</dd></div>
+      <div><dt>{{ _("Coverage") }}</dt><dd>125%</dd></div>
+      <div><dt>{{ _("Waiting on a block") }}</dt><dd>20 {{ _("of 20") }}</dd></div>
+      <div><dt>{{ _("TC to order") }}</dt><dd>42,000 {{ _("by") }} 19 Oct 2026</dd></div>
+    </dl>
+    <p class="fl-note">{{ _("Coverage is over 100 because a planting is rounded up to whole beds and its later flushes land in weeks that were already covered. Every planting is waiting on a block because Carzan St has no summer flower blocks defined yet — the plan still states what the market needs.") }}</p>
+  </section>
+
+  <!-- ───────────────────────────────────────────────── doctypes ── -->
+  <section id="doctypes" class="fl-sec">
+    <h2>{{ _("The doctypes, and what each is for") }}</h2>
+    <div class="fl-scroll">
+      <table class="fl-table">
+        <thead><tr><th>{{ _("Doctype") }}</th><th>{{ _("App") }}</th><th>{{ _("Holds") }}</th></tr></thead>
+        <tbody>
+          <tr><td><code>Summer Flower Market Demand</code></td><td>{{ _("summer flowers") }}</td><td>{{ _("one farm's order book for one variety") }}</td></tr>
+          <tr><td><code>Summer Flower Demand Week</code></td><td>{{ _("child") }}</td><td>{{ _("stems wanted in one ISO week; firm or forecast") }}</td></tr>
+          <tr><td><code>Summer Flower Demand Grade</code></td><td>{{ _("child") }}</td><td>{{ _("the split by stem length, as percentages") }}</td></tr>
+          <tr><td><code>Crop Protocol</code></td><td>{{ _("agriculture") }}</td><td>{{ _("the variety's characteristics, edited here") }}</td></tr>
+          <tr><td><code>Crop Protocol Version</code></td><td>{{ _("summer flowers") }}</td><td>{{ _("the frozen snapshot a plan is built against") }}</td></tr>
+          <tr><td><code>Crop Material Stage</code></td><td>{{ _("child") }}</td><td>{{ _("one stage of the route: weeks, loss, multiplication, bought or not") }}</td></tr>
+          <tr><td><code>Summer Flower Protocol Flush</code></td><td>{{ _("child") }}</td><td>{{ _("weeks from planting, stems a plant, share of lifetime yield") }}</td></tr>
+          <tr><td><code>Summer Flower Production Plan</code></td><td>{{ _("summer flowers") }}</td><td>{{ _("one farm's commitment for one season") }}</td></tr>
+          <tr><td><code>Summer Flower Plan Block</code></td><td>{{ _("child") }}</td><td>{{ _("one proposed planting: beds, plants, sticking, planting, first cut") }}</td></tr>
+          <tr><td><code>Summer Flower Propagation Plan</code></td><td>{{ _("summer flowers") }}</td><td>{{ _("what to stick, week by week, to meet the plantings") }}</td></tr>
+          <tr><td><code>Summer Flower Motherstock Batch</code></td><td>{{ _("summer flowers") }}</td><td>{{ _("the mother plants the cuttings come off") }}</td></tr>
+          <tr><td><code>Planting Calendar</code></td><td>{{ _("summer flowers") }}</td><td>{{ _("what to plant where and when, for the farm to work from") }}</td></tr>
+          <tr><td><code>Block</code> · <code>Bed</code></td><td>{{ _("propagation / core") }}</td><td>{{ _("the ground, and what is standing in it") }}</td></tr>
+          <tr><td><code>Crop Cycle</code></td><td>{{ _("agriculture") }}</td><td>{{ _("the actual planting — the plan's counterpart in the real world") }}</td></tr>
+          <tr><td><code>Summer Flower Budget</code></td><td>{{ _("summer flowers") }}</td><td>{{ _("the approved plan valued by grade and month") }}</td></tr>
+          <tr><td><code>Material Request</code> → <code>Purchase Order</code> → <code>Purchase Receipt</code></td><td>{{ _("erpnext") }}</td><td>{{ _("buying and receiving plant material as stock") }}</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+
+  <!-- ──────────────────────────────────────────── what to test ── -->
+  <section id="test" class="fl-sec">
+    <h2>{{ _("What to test") }}</h2>
+    <p class="fl-lede">{{ _("Work down the list. Each case says what to do, what should happen, and what it would mean if it did not — so a failure can be reported as more than \"it did not work\".") }}</p>
+
+    <div class="fl-callout">
+      <h3>{{ _("Before you start") }}</h3>
+      <p>{{ _("A test needs four things to exist, in this order. If one is missing, cases below it will fail for that reason and not for a real one.") }}</p>
+      <ol class="fl-ol">
+        <li><b>{{ _("A Farm") }}</b> — {{ _("and, for anything to be placed, a Block with Beds on it. Most farms have none yet; Karen does.") }}</li>
+        <li><b>{{ _("An Item") }}</b> {{ _("for the variety, in item group Summer Flowers.") }}</li>
+        <li><b>{{ _("A Crop Protocol") }}</b> {{ _("for that variety at that farm, with plants per bed, weeks to first cut, weeks in ground and a flush schedule filled in.") }}</li>
+        <li><b>{{ _("An Active Crop Protocol Version") }}</b> — {{ _("the frozen snapshot. Without one the plan refuses, and says so.") }}</li>
+      </ol>
+    </div>
+
+    <table class="fl-cases">
+      <tbody>
+        <tr>
+          <th scope="row">1</th>
+          <td>
+            <h4>{{ _("A register is one variety at one farm") }}</h4>
+            <p class="fl-do">{{ _("Create a Summer Flower Market Demand. Fill variety and farm, add a few weeks.") }}</p>
+            <p class="fl-exp">{{ _("It saves, and is named") }} <code>variety-farm</code>. {{ _("Farm is mandatory and editable.") }}</p>
+            <p class="fl-why">{{ _("Proves the register is keyed the way the market sheet states it.") }}</p>
+          </td>
+        </tr>
+        <tr>
+          <th scope="row">2</th>
+          <td>
+            <h4>{{ _("Duplicates are refused, second farms are not") }}</h4>
+            <p class="fl-do">{{ _("Try a second register for the same variety at the same farm. Then try the same variety at a different farm.") }}</p>
+            <p class="fl-exp">{{ _("The first is refused by name. The second saves.") }}</p>
+            <p class="fl-why">{{ _("A variety grown at two farms is two order books. This is the check that used to block that.") }}</p>
+          </td>
+        </tr>
+        <tr>
+          <th scope="row">3</th>
+          <td>
+            <h4>{{ _("The walkthrough opens") }}</h4>
+            <p class="fl-do">{{ _("Click the ⓘ icon on the Market Demand form, and again on a Crop Protocol.") }}</p>
+            <p class="fl-exp">{{ _("A step-by-step tour highlights each field in turn.") }}</p>
+            <p class="fl-why">{{ _("The field descriptions were removed from the forms; the tour is where that wording went. If the icon is missing, the app's assets did not deploy.") }}</p>
+          </td>
+        </tr>
+        <tr>
+          <th scope="row">4</th>
+          <td>
+            <h4>{{ _("The plan previews before it writes") }}</h4>
+            <p class="fl-do">{{ _("On the register click Create Production Plan, pick a season, click Check first.") }}</p>
+            <p class="fl-exp">{{ _("A summary appears. It does not ask which farm. Anything blocking is listed before anything is created.") }}</p>
+            <p class="fl-why">{{ _("The farm comes from the register. Being asked for it again is the bug this replaced.") }}</p>
+          </td>
+        </tr>
+        <tr>
+          <th scope="row">5</th>
+          <td>
+            <h4>{{ _("Check the arithmetic by hand") }}</h4>
+            <p class="fl-do">{{ _("Take the first week the register asks for, and the first planting the plan proposed. Work it out yourself:") }}</p>
+            <pre class="fl-calc fl-calc-sm"><code>beds     = ceil(stems wanted ÷ (stems per plant at first flush × plants per bed))
+plants   = beds × plants per bed
+planting = the harvest week's Monday − weeks to first cut
+sticking = planting − sticking weeks</code></pre>
+            <p class="fl-exp">{{ _("Your numbers and the plan's match exactly.") }}</p>
+            <p class="fl-why">{{ _("This is the whole planner in four lines. If it disagrees, the protocol is being read wrongly — check which Version the plan names.") }}</p>
+          </td>
+        </tr>
+        <tr>
+          <th scope="row">6</th>
+          <td>
+            <h4>{{ _("Later flushes are not planted for twice") }}</h4>
+            <p class="fl-do">{{ _("Find a week that falls on a later flush of an earlier planting — for a 12-week flush interval, 12 weeks after a first cut.") }}</p>
+            <p class="fl-exp">{{ _("That week has a smaller planting than the first one, or none at all.") }}</p>
+            <p class="fl-why">{{ _("A planting keeps producing. If every week gets a full planting, the credit-forward step is broken and the plan is several times too big.") }}</p>
+          </td>
+        </tr>
+        <tr>
+          <th scope="row">7</th>
+          <td>
+            <h4>{{ _("The same demand gives the same plan") }}</h4>
+            <p class="fl-do">{{ _("Click Regenerate on a draft plan. Compare plantings, beds and plants.") }}</p>
+            <p class="fl-exp">{{ _("Identical, every time.") }}</p>
+            <p class="fl-why">{{ _("If it changes, something outside the register is being read — usually a different protocol Version.") }}</p>
+          </td>
+        </tr>
+        <tr>
+          <th scope="row">8</th>
+          <td>
+            <h4>{{ _("No ground does not stop a plan") }}</h4>
+            <p class="fl-do">{{ _("Plan a farm that has no blocks — Carzan St, for instance.") }}</p>
+            <p class="fl-exp">{{ _("The plan still builds, every planting is sized, and it reports how many are waiting on a block.") }}</p>
+            <p class="fl-why">{{ _("Demand states what the market needs. Trimming it to fit the ground answers a smaller question than the one asked.") }}</p>
+          </td>
+        </tr>
+        <tr>
+          <th scope="row">9</th>
+          <td>
+            <h4>{{ _("Approval produces the budget") }}</h4>
+            <p class="fl-do">{{ _("Submit for Approval, then Approve as an Agriculture Manager.") }}</p>
+            <p class="fl-exp">{{ _("A budget appears, valued at the register's price per stem. No propagation plan yet — that waits on the procurement plan, which is where the route is read.") }}</p>
+            <p class="fl-why">{{ _("Approving is what commits the plan. Nothing downstream should exist before it, and nothing that depends on how the material is got should exist before that has been settled.") }}</p>
+          </td>
+        </tr>
+        <tr>
+          <th scope="row">10</th>
+          <td>
+            <h4>{{ _("The sheet importer will not guess a farm") }}</h4>
+            <p class="fl-do">{{ _("On the planning dashboard, upload a demand file for a variety that has registers at two farms, without picking a farm.") }}</p>
+            <p class="fl-exp">{{ _("It refuses and names the farms.") }}</p>
+            <p class="fl-why">{{ _("Guessing writes one farm's sheet into another farm's register, and nothing would say so.") }}</p>
+          </td>
+        </tr>
+        <tr>
+          <th scope="row">11</th>
+          <td>
+            <h4>{{ _("Run the automated check") }}</h4>
+            <p class="fl-do">{{ _("From the bench:") }}</p>
+            <pre class="fl-calc fl-calc-sm"><code>bench --site &lt;site&gt; execute \
+  upande_production.summer_flowers.console.e2e_planning_check.main</code></pre>
+            <p class="fl-exp">{{ _("It runs three crops — continuous, distinct flushes, single flush — from register to order schedule, and prints a pass/fail tally. It builds everything inside a savepoint and rolls back, so it is safe on live data.") }}</p>
+            <p class="fl-why">{{ _("Two failures are expected and known; see below. Anything else is new.") }}</p>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="fl-callout fl-warnbox">
+      <h3>{{ _("Do not raise these as bugs") }}</h3>
+      <p>{{ _("They are known, and already written down. Raising them again costs someone an afternoon.") }}</p>
+      <ul class="fl-list">
+        <li><b>{{ _("Crop Protocol has no approval workflow.") }}</b>
+            {{ _("The workflow named \"Crop Protocol Approval\" is attached to Summer Flower Protocol — a retired doctype holding 88 old records — not to Crop Protocol, where the 181 live protocols are. So Submit for Approval and Revise do not appear there. 180 of 181 protocols still read Draft.") }}</li>
+        <li><b>{{ _("The order is sized as tissue culture whatever the route says.") }}</b>
+            {{ _("A crop bought as plants, or raised from seed, is still told to order TC plantlets.") }}</li>
+        <li><b>{{ _("Most farms have no blocks or beds") }}</b>, {{ _("so their plantings cannot be placed.") }}</li>
+        <li><b>{{ _("Harvest actuals are not scored against the plan.") }}</b></li>
+      </ul>
+    </div>
+
+    <div class="fl-callout">
+      <h3>{{ _("When something fails") }}</h3>
+      <ol class="fl-ol">
+        <li>{{ _("Read the preview's blocking list first — most refusals are stated there in words.") }}</li>
+        <li>{{ _("Check which Crop Protocol Version the plan names, and that it is the Active one. A plan built on an old version is the commonest surprise.") }}</li>
+        <li>{{ _("Look in Error Log for the minute it happened.") }}</li>
+        <li>{{ _("Report it as: what you did, what you expected, what happened, and the names of the register, plan and version. Without those three names nobody can reproduce it.") }}</li>
+      </ol>
+    </div>
+  </section>
+
+
+  <!-- ─────────────────────────────── change one thing, see what moves ── -->
+  <section id="effects" class="fl-sec">
+    <h2>{{ _("Change one thing, and check what moves") }}</h2>
+    <p class="fl-lede">{{ _("The protocol governs the plan, so the sharpest test is to change one number and see exactly what follows. Some of these do not move what you would expect, which is the point of testing them.") }}</p>
+
+    <div class="fl-callout">
+      <h3>{{ _("Nothing changes until all four steps happen") }}</h3>
+      <ol class="fl-ol">
+        <li>{{ _("Edit the Crop Protocol") }}</li>
+        <li>{{ _("Approve it — this writes a new Crop Protocol Version") }}</li>
+        <li>{{ _("Open the Production Plan and point it at the new Version") }}</li>
+        <li>{{ _("Regenerate") }}</li>
+      </ol>
+      <p>{{ _("An approved plan keeps the Version it was built on. That is deliberate — a plan is a commitment, not a live query — but it means \"I changed the protocol and nothing happened\" is usually step 3 or 4 missing, not a bug. Test that too: change the protocol and confirm an existing plan does NOT move until you regenerate it.") }}</p>
+    </div>
+
+    <h3>{{ _("Geometry: bed area, spacing, and yield") }}</h3>
+    <p>{{ _("Three inputs, and they do different jobs. Plants per bed is not typed in — it is derived, because three numbers where two will do is three numbers that can disagree.") }}</p>
+    <pre class="fl-calc"><code>plants per bed = bed area (m² net) × density (plants per m²)
+plants needed  = stems wanted ÷ stems per plant at that flush
+beds           = ceil(plants needed ÷ plants per bed)
+plants         = beds × plants per bed
+ground         = beds × bed area</code></pre>
+
+    <p>{{ _("Here is every one of them changed, against the same week: 72,600 stems at 2.6 stems a plant. Baseline is a 50 m² bed at 20 plants per m².") }}</p>
+    <div class="fl-scroll">
+      <table class="fl-table">
+        <thead>
+          <tr><th>{{ _("Change") }}</th><th class="fl-num">{{ _("Plants/bed") }}</th><th class="fl-num">{{ _("Beds") }}</th><th class="fl-num">{{ _("Plants") }}</th><th class="fl-num">{{ _("Ground") }}</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="fl-base">{{ _("baseline — 50 m², 20/m²") }}</td><td class="fl-num">1,000</td><td class="fl-num">28</td><td class="fl-num">28,000</td><td class="fl-num">1,400 m²</td></tr>
+          <tr><td>{{ _("bed 50 → 100 m²") }}</td><td class="fl-num fl-up">2,000</td><td class="fl-num fl-dn">14</td><td class="fl-num">28,000</td><td class="fl-num">1,400 m²</td></tr>
+          <tr><td>{{ _("bed 50 → 25 m²") }}</td><td class="fl-num fl-dn">500</td><td class="fl-num fl-up">56</td><td class="fl-num">28,000</td><td class="fl-num">1,400 m²</td></tr>
+          <tr><td>{{ _("density 20 → 40 /m² (tighter spacing)") }}</td><td class="fl-num fl-up">2,000</td><td class="fl-num fl-dn">14</td><td class="fl-num">28,000</td><td class="fl-num fl-dn">700 m²</td></tr>
+          <tr><td>{{ _("density 20 → 10 /m² (wider spacing)") }}</td><td class="fl-num fl-dn">500</td><td class="fl-num fl-up">56</td><td class="fl-num">28,000</td><td class="fl-num fl-up">2,800 m²</td></tr>
+          <tr><td>{{ _("stems per plant 2.6 → 1.3") }}</td><td class="fl-num">1,000</td><td class="fl-num fl-up">56</td><td class="fl-num fl-up">56,000</td><td class="fl-num fl-up">2,800 m²</td></tr>
+          <tr><td>{{ _("stems per plant 2.6 → 5.2") }}</td><td class="fl-num">1,000</td><td class="fl-num fl-dn">14</td><td class="fl-num fl-dn">14,000</td><td class="fl-num fl-dn">700 m²</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="fl-callout fl-warnbox">
+      <h3>{{ _("Read that table before reporting a bug") }}</h3>
+      <ul class="fl-list">
+        <li><b>{{ _("Bigger beds do add plants per bed") }}</b> — {{ _("50 m² × 20 = 1,000; 100 m² × 20 = 2,000. That part works as you would expect.") }}</li>
+        <li><b>{{ _("But the plan's total plants does not change") }}</b>, {{ _("because the plan sizes to stems, not to area. Bigger beds mean fewer of them for the same crop.") }}</li>
+        <li><b>{{ _("Spacing moves the ground, not the plant count.") }}</b> {{ _("Planting twice as tight grows the same plants in half the space.") }}</li>
+        <li><b>{{ _("Stems per plant is the only one that moves the plant count.") }}</b> {{ _("Halve the yield and you need twice the plants — that is the number to change if a plan looks the wrong size.") }}</li>
+      </ul>
+    </div>
+
+    <h3>{{ _("Minimum planting area") }}</h3>
+    <p>{{ _("Entered as area, never as plants. It rounds up to whole beds and acts as a floor: a week needing three beds' worth gets the minimum instead if the minimum is larger.") }}</p>
+    <p class="fl-do">{{ _("Set the minimum to something large, regenerate, and check the small weeks grew to it — and that coverage went over 100% as a result.") }}</p>
+
+    <h3>{{ _("Timing: the dates all hang off the protocol") }}</h3>
+    <div class="fl-scroll">
+      <table class="fl-table">
+        <thead><tr><th>{{ _("Change this") }}</th><th>{{ _("And this moves") }}</th></tr></thead>
+        <tbody>
+          <tr><td>{{ _("Weeks planting → first cut") }}</td><td>{{ _("the planting date, and the sticking date with it. Add a week and everything shifts a week earlier.") }}</td></tr>
+          <tr><td>{{ _("Weeks sticking → planting") }}</td><td>{{ _("the sticking week only. The planting date stays where the market put it.") }}</td></tr>
+          <tr><td>{{ _("Flush schedule") }}</td><td>{{ _("which weeks a planting covers — so how many plantings the season needs at all.") }}</td></tr>
+          <tr><td>{{ _("Weeks in ground") }}</td><td>{{ _("when the block frees up, and whether a second planting can follow in the season.") }}</td></tr>
+          <tr><td>{{ _("Turnaround weeks") }}</td><td>{{ _("the fallow gap after uprooting. On a crop replanted several times a year this is the difference between a workable rotation and a double-booked bed.") }}</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>{{ _("Acquisition method: when you have to order") }}</h3>
+    <p>{{ _("The planting date does not move when you change how material is acquired — the market decides that. What moves is how far ahead you must commit, how many units you buy, and who you buy from.") }}</p>
+    <pre class="fl-calc"><code>order by = planting date − (weeks to get it into the ground + supplier lead time)</code></pre>
+    <div class="fl-scroll">
+      <table class="fl-table">
+        <caption>{{ _("Real routes on this site") }}</caption>
+        <thead><tr><th>{{ _("Buy at") }}</th><th class="fl-num">{{ _("Weeks to ground") }}</th><th class="fl-num">{{ _("Lead") }}</th><th class="fl-num">{{ _("Notice needed") }}</th><th>{{ _("Units") }}</th></tr></thead>
+        <tbody>
+          <tr><td>{{ _("Dahlia — tubers") }}</td><td class="fl-num">8</td><td class="fl-num">8</td><td class="fl-num"><b>16 {{ _("weeks") }}</b></td><td>{{ _("1 tuber → 4.53 plants") }}</td></tr>
+          <tr><td>{{ _("Bupleurum — seed") }}</td><td class="fl-num">7</td><td class="fl-num">6</td><td class="fl-num"><b>13 {{ _("weeks") }}</b></td><td>{{ _("1.58 seeds per plant") }}</td></tr>
+          <tr><td>{{ _("Ready plants") }}</td><td class="fl-num">0</td><td class="fl-num">{{ _("lead only") }}</td><td class="fl-num"><b>{{ _("lead only") }}</b></td><td>{{ _("1 plant → 1 plant") }}</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="fl-do">{{ _("Take one planting. Change which stage of the route is marked as bought, and watch the order-by date move while the planting date stays put. Buying ready plants is ordered latest and costs most; buying tissue culture is ordered earliest and means you carry the propagation yourself.") }}</p>
+    <p class="fl-note">{{ _("Known gap: the plan's own order box is still sized as tissue culture whatever the route says. The route-aware figure is correct in sourcing and on the dashboard — check it there, and do not report the plan's TC box as a new bug.") }}</p>
+
+    <h3>{{ _("What a propagation plan should contain") }}</h3>
+    <p>{{ _("It answers one question: to plant those beds on those dates, what has to be stuck, when, and off how many mother plants. From a real one on this site:") }}</p>
+    <div class="fl-scroll">
+      <table class="fl-table">
+        <tbody>
+          <tr><th>{{ _("Weeks of sticking") }}</th><td>38 {{ _("rows — each with the week it is stuck and the week it will be planted") }}</td></tr>
+          <tr><th>{{ _("Plants to stick") }}</th><td>550,000 {{ _("over the season") }}</td></tr>
+          <tr><th>{{ _("Cuttings required") }}</th><td>550,000 <span class="fl-dim">({{ _("plants to stick × cuttings per plant") }})</span></td></tr>
+          <tr><th>{{ _("Peak week") }}</th><td>37,000 {{ _("cuttings in 2028-W12") }}</td></tr>
+          <tr><th>{{ _("Mother plants required") }}</th><td>37,000 <span class="fl-dim">({{ _("sized on the peak week, not the season total") }})</span></td></tr>
+          <tr><th>{{ _("Bench space at peak") }}</th><td>298.4 m²</td></tr>
+          <tr><th>{{ _("Ramp") }}</th><td>4 {{ _("weeks before a new mother plant yields fully") }}</td></tr>
+          <tr><th>{{ _("Sources") }}</th><td>{{ _("Existing motherstock 34,223 + new motherstock from TC 37,000") }}</td></tr>
+          <tr><th>{{ _("TC to order") }}</th><td>10,278 {{ _("by") }} 30 Nov 2026 <span class="fl-dim">({{ _("first sticking 24 Jan 2028") }})</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="fl-callout">
+      <h3>{{ _("Test it like this") }}</h3>
+      <ul class="fl-list">
+        <li>{{ _("Every sticking week equals its planting week minus the protocol's sticking weeks. Check one row by hand.") }}</li>
+        <li><b>{{ _("Mother plants follow the peak week, never the total.") }}</b> {{ _("Cuttings cannot be banked — a mother plant yields what it yields that week. Flatten the demand curve and the mother plant count should fall even though the season total has not changed. That is the single best test of this document.") }}</li>
+        <li>{{ _("Raise cuttings per plant and the mother plants required should fall in proportion.") }}</li>
+        <li>{{ _("Add existing motherstock and the TC order should shrink by what it covers — not the plants to stick, which the market decides.") }}</li>
+        <li>{{ _("The ramp is why the TC order date is more than a year before the first sticking. Shorten the ramp and that date should move later.") }}</li>
+        <li><b>{{ _("Multiplying is a trade, not a saving.") }}</b> {{ _("The line is renewed from tissue culture on motherstock one's clock — 1.2 comes out when 1 comes out — so every cycle past the first is an establishment spent out of the same window. Raise the cycles and the plantlets should fall while the cutting weeks fall with them. On a 52-week line with a 15-week establishment, four cycles is a quarter of the plantlets and seven cutting weeks; six is a pool that is full the week it is pulled out. If the cutting weeks do not move when the cycles do, this is broken.") }}</li>
+        <li>{{ _("The procurement plan is what raises this document, and only for a crop the farm actually propagates. Approve one for a crop bought as plants ready to go and no propagation plan should appear at all.") }}</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ───────────────────────────────────────────── not built yet ── -->
+  <section id="gaps" class="fl-sec fl-gaps">
+    <h2>{{ _("Not built yet") }}</h2>
+    <p class="fl-lede">{{ _("Stated plainly, so nobody plans around something that is not there.") }}</p>
+    <ul class="fl-list">
+      <li><b>{{ _("The order is sized as tissue culture whatever the route says.") }}</b>
+          {{ _("Correct for Aster, which is a TC crop. Wrong for a crop bought as plants or raised from seed — those are told to order TC plantlets they will never use. The route-aware sourcing exists and gets it right; the plan does not yet ask it.") }}</li>
+      <li><b>{{ _("The supplier is not on the route.") }}</b>
+          {{ _("Which farm a supplier ships to is decided at allocation, but the route does not yet name who is being bought from.") }}</li>
+      <li><b>{{ _("Most farms have no blocks or beds.") }}</b>
+          {{ _("Plans build and size correctly, but cannot be placed until the ground is defined.") }}</li>
+      <li><b>{{ _("Actuals are not fed back.") }}</b>
+          {{ _("Harvest is recorded against a Crop Cycle, but the plan is not yet re-scored against what was really cut.") }}</li>
+    </ul>
+  </section>
+
+  <footer class="fl-foot">
+    <p>{{ _("Protocol governs planning; planning governs ordering; allocation governs where. Each step states one fact once, and the next step reads it.") }}</p>
+  </footer>
+</div>
+
+<style>
+  .fl-root {
+    --fl-ink: #0b0b0b;
+    --fl-ink-2: #52514e;
+    --fl-dim: #898781;
+    --fl-line: #e1e0d9;
+    --fl-rule: #c3c2b7;
+    --fl-bg: #fbfaf7;
+    --fl-card: #ffffff;
+    --fl-accent: #0ca30c;
+    --fl-accent-soft: #eef7ee;
+    --fl-violet: #4a3aa7;
+    --fl-warn: #fab219;
+    max-width: 62rem;
+    margin: 0 auto;
+    padding: 0 1rem 4rem;
+    color: var(--fl-ink);
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  @media (prefers-color-scheme: dark) {
+    .fl-root {
+      --fl-ink: #ffffff; --fl-ink-2: #c3c2b7; --fl-dim: #898781;
+      --fl-line: #2c2c2a; --fl-rule: #383835;
+      --fl-bg: #141413; --fl-card: #1b1b19;
+      --fl-accent: #4ec44e; --fl-accent-soft: #17251a; --fl-violet: #9085e9;
+    }
+  }
+  .fl-head { padding: 2rem 0 1rem; border-bottom: 1px solid var(--fl-line); }
+  .fl-head h1 { font-size: 1.9rem; line-height: 1.2; margin: 0 0 .4rem; letter-spacing: -.01em; }
+  .fl-sub { color: var(--fl-ink-2); margin: 0 0 1rem; max-width: 46rem; }
+  .fl-jump { display: flex; flex-wrap: wrap; gap: .4rem .5rem; }
+  .fl-jump a {
+    font-size: .8rem; padding: .25rem .6rem; border: 1px solid var(--fl-line);
+    border-radius: 999px; color: var(--fl-ink-2); text-decoration: none;
+  }
+  .fl-jump a:hover { border-color: var(--fl-rule); color: var(--fl-ink); }
+
+  .fl-sec { padding: 2.25rem 0 .5rem; }
+  .fl-sec h2 { font-size: 1.3rem; margin: 0 0 .5rem; letter-spacing: -.01em; }
+  .fl-sec h3 { font-size: 1rem; margin: 1.6rem 0 .5rem; }
+  .fl-lede { color: var(--fl-ink-2); margin: 0 0 1.25rem; max-width: 46rem; }
+  .fl-note {
+    color: var(--fl-ink-2); font-size: .88rem; margin: 1rem 0 0;
+    border-left: 2px solid var(--fl-rule); padding-left: .75rem; max-width: 46rem;
+  }
+  .fl-dim { color: var(--fl-dim); }
+
+  /* the chart -------------------------------------------------- */
+  .fl-chart { list-style: none; margin: 0; padding: 0; }
+  .fl-node {
+    display: flex; gap: .85rem; align-items: flex-start;
+    background: var(--fl-card); border: 1px solid var(--fl-line);
+    border-radius: 10px; padding: .9rem 1rem;
+  }
+  .fl-node + .fl-node::before { content: none; }
+  .fl-chart > .fl-node:not(:first-child) { margin-top: 0; }
+  /* the connector between consecutive nodes */
+  .fl-chart > li + li:not(.fl-fork):not(.fl-join):not(.fl-split) { margin-top: 1.9rem; position: relative; }
+  .fl-chart > li + li:not(.fl-fork):not(.fl-join):not(.fl-split)::before {
+    content: ""; position: absolute; left: 1.55rem; top: -1.65rem;
+    width: 2px; height: 1.4rem; background: var(--fl-rule);
+  }
+  .fl-badge {
+    flex: 0 0 auto; width: 1.75rem; height: 1.75rem; border-radius: 50%;
+    display: grid; place-items: center; font-size: .78rem; font-weight: 600;
+    background: var(--fl-accent-soft); color: var(--fl-accent);
+    border: 1px solid var(--fl-accent);
+  }
+  .fl-body { min-width: 0; }
+  .fl-body h3 { margin: 0 0 .2rem; font-size: 1rem; }
+  .fl-body p { margin: 0 0 .35rem; color: var(--fl-ink-2); }
+  .fl-body p:last-child { margin-bottom: 0; }
+  .fl-dt { font-size: .8rem; color: var(--fl-dim) !important; }
+  .fl-dt code, .fl-table code {
+    background: var(--fl-bg); border: 1px solid var(--fl-line); border-radius: 4px;
+    padding: .05rem .3rem; font-size: .78rem; color: var(--fl-ink-2);
+  }
+  .fl-accent { border-color: var(--fl-accent); }
+
+  .fl-fork, .fl-join { height: 1.6rem; position: relative; list-style: none; }
+  .fl-fork::before, .fl-join::before {
+    content: ""; position: absolute; left: 1.55rem; top: 0; width: 2px;
+    height: 100%; background: var(--fl-rule);
+  }
+  .fl-split { list-style: none; display: grid; gap: 1rem; grid-template-columns: 1fr 1fr; }
+  .fl-branch { border-style: dashed; }
+  @media (max-width: 40rem) { .fl-split { grid-template-columns: 1fr; } }
+
+  /* guide ------------------------------------------------------ */
+  .fl-step {
+    border-top: 1px solid var(--fl-line); padding: 1.1rem 0;
+  }
+  .fl-step h3 { margin: 0 0 .4rem; }
+  .fl-step p { margin: 0 0 .45rem; color: var(--fl-ink-2); max-width: 46rem; }
+  .fl-step b { color: var(--fl-ink); font-weight: 600; }
+
+  /* tables ----------------------------------------------------- */
+  .fl-scroll { overflow-x: auto; margin: .5rem 0 0; }
+  .fl-table { border-collapse: collapse; width: 100%; font-size: .88rem; }
+  .fl-table caption { text-align: left; color: var(--fl-dim); font-size: .8rem; padding-bottom: .35rem; }
+  .fl-table th, .fl-table td {
+    border-bottom: 1px solid var(--fl-line); padding: .45rem .6rem; text-align: left;
+    vertical-align: top;
+  }
+  .fl-table thead th { color: var(--fl-dim); font-weight: 600; font-size: .78rem;
+    text-transform: uppercase; letter-spacing: .03em; }
+  .fl-table tbody th { font-weight: 600; white-space: nowrap; }
+  .fl-table tfoot th { border-top: 2px solid var(--fl-rule); border-bottom: none; }
+  .fl-num { text-align: right !important; font-variant-numeric: tabular-nums; }
+
+  .fl-calc {
+    background: var(--fl-bg); border: 1px solid var(--fl-line); border-radius: 8px;
+    padding: .85rem 1rem; overflow-x: auto; font-size: .84rem; line-height: 1.7;
+    margin: .5rem 0 .75rem;
+  }
+  .fl-calc code { background: none; border: none; padding: 0; color: var(--fl-ink); }
+  .fl-cmt { color: var(--fl-dim); }
+
+  .fl-kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: .75rem; margin: 1rem 0 0; padding: 0; }
+  .fl-kv div { border: 1px solid var(--fl-line); border-radius: 8px; padding: .6rem .75rem; }
+  .fl-kv dt { font-size: .75rem; color: var(--fl-dim); text-transform: uppercase;
+    letter-spacing: .03em; }
+  .fl-kv dd { margin: .15rem 0 0; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+
+
+  /* test cases ------------------------------------------------- */
+  .fl-callout {
+    border: 1px solid var(--fl-line); border-left: 3px solid var(--fl-rule);
+    border-radius: 8px; padding: .9rem 1rem; margin: 1.25rem 0;
+    background: var(--fl-card);
+  }
+  .fl-callout h3 { margin: 0 0 .4rem; font-size: .95rem; }
+  .fl-callout p { color: var(--fl-ink-2); margin: 0 0 .5rem; max-width: 46rem; }
+  .fl-warnbox { border-left-color: var(--fl-warn); }
+  .fl-ol { margin: 0; padding-left: 1.2rem; }
+  .fl-ol li { color: var(--fl-ink-2); margin-bottom: .35rem; }
+  .fl-ol b, .fl-list b { color: var(--fl-ink); }
+
+  .fl-cases { width: 100%; border-collapse: collapse; }
+  .fl-cases th[scope="row"] {
+    width: 2.2rem; text-align: left; vertical-align: top; padding: 1rem .5rem 1rem 0;
+    color: var(--fl-dim); font-variant-numeric: tabular-nums; font-size: .85rem;
+    border-top: 1px solid var(--fl-line);
+  }
+  .fl-cases td { padding: 1rem 0; border-top: 1px solid var(--fl-line); }
+  .fl-cases h4 { margin: 0 0 .35rem; font-size: .95rem; }
+  .fl-cases p { margin: 0 0 .3rem; color: var(--fl-ink-2); max-width: 46rem; }
+  .fl-do::before    { content: "Do "; }
+  .fl-exp::before   { content: "Expect "; }
+  .fl-why::before   { content: "Why "; }
+  .fl-do::before, .fl-exp::before, .fl-why::before {
+    display: inline-block; min-width: 3.6rem; font-size: .7rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .04em; color: var(--fl-dim);
+  }
+  .fl-exp { color: var(--fl-ink) !important; }
+  .fl-why { font-size: .88rem; }
+  .fl-calc-sm { font-size: .78rem; margin: .4rem 0 .5rem; }
+  @media (max-width: 34rem) {
+    .fl-do::before, .fl-exp::before, .fl-why::before { display: block; min-width: 0; }
+  }
+
+
+  .fl-base { color: var(--fl-dim); }
+  .fl-up { color: var(--fl-violet); font-weight: 600; }
+  .fl-dn { color: var(--fl-accent); font-weight: 600; }
+
+  .fl-gaps { border-top: 1px solid var(--fl-line); }
+  .fl-list { margin: 0; padding-left: 1.1rem; }
+  .fl-list li { margin-bottom: .7rem; color: var(--fl-ink-2); max-width: 46rem; }
+  .fl-list b { color: var(--fl-ink); }
+
+  .fl-foot { margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--fl-line);
+    color: var(--fl-dim); font-size: .85rem; }
+  .fl-foot p { margin: 0; }
+</style>
+{% endblock %}
