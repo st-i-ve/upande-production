@@ -34,7 +34,7 @@ function BarsByLabel({ rows, color, unit }: { rows: { label: string; value: numb
         <BarChart data={rows} layout="vertical" margin={{ top: 4, right: 12, left: 0, bottom: 0 }}>
           <CartesianGrid horizontal={false} stroke="var(--sd-line-soft)" />
           <XAxis type="number" tick={AXIS} axisLine={false} tickLine={false} tickFormatter={compact} />
-          <YAxis type="category" dataKey="label" tick={AXIS} axisLine={false} tickLine={false} width={120} />
+          <YAxis type="category" dataKey="label" tick={AXIS} axisLine={false} tickLine={false} width={190} tickFormatter={(v: string) => (v.length > 30 ? `${v.slice(0, 29)}…` : v)} />
           <Tooltip
             cursor={{ fill: "var(--sd-bg-soft)" }}
             formatter={(v: number, _n: string, item: { payload?: { code?: string } }) => [`${n(v)} ${unit}`, item?.payload?.code ? `code ${item.payload.code}` : ""]}
