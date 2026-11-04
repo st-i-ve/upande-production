@@ -57,9 +57,16 @@ def _crop_items(crop):
 	return mine, other
 
 
+def _empty():
+	return {"mode": "greenhouse", "units": [], "cycles": [], "farms": [], "totals": {
+		"units": 0, "beds": 0, "plants": 0, "area_planted": 0, "gross_area": 0, "cycles": 0, "active": 0, "varieties": 0}}
+
+
 @frappe.whitelist()
 def flower_data(crop):
 	"""{mode, units, cycles, farms, totals} for one flower Production Crop."""
+	if not frappe.db.exists("DocType", "Crop Cycle"):  # the Crop Production module is not on this site
+		return _empty()
 	frappe.has_permission("Crop Cycle", "read", throw=True)
 	mine, others = _crop_items(crop)
 
