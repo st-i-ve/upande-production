@@ -170,7 +170,7 @@ class TestBreakEven(IntegrationTestCase):
 		self._harvest(u.name, 1, add_days(today(), -100), price=10)
 		week = add_days(today(), 14)
 		for qty in (100, 300):
-			_make("Production Forecast", unit=u.name, crop=self.crop.name, uom="Kg", source="Manual",
+			_make("Crop Forecast", unit=u.name, crop=self.crop.name, uom="Kg", source="Manual",
 				weeks=[{"week_start": week, "expected_qty": qty}])
 		# latest forecast (300 kg at 10) is the one that counts, not 400 kg
 		self.assertEqual(B._forecast_value([u.name], self.crop.name), 3000)

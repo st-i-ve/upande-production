@@ -362,8 +362,8 @@ class TestCycleChain(IntegrationTestCase):
 		c.save()
 		self.assertEqual(c.reload().juvenile, 1)
 		self.assertEqual(analytics.current_cycles(self.crop.name)[u.name].juvenile, 1)
-		fc = _make("Production Forecast", unit=u.name, crop=self.crop.name, cycle=c.name,
-			weeks=[{"week_start": add_days(today(), 7), "expected_qty": 100}]) if frappe.db.exists("DocType", "Production Forecast") else None
+		fc = _make("Crop Forecast", unit=u.name, crop=self.crop.name, cycle=c.name,
+			weeks=[{"week_start": add_days(today(), 7), "expected_qty": 100}]) if frappe.db.exists("DocType", "Crop Forecast") else None
 		if fc:
 			self.assertIsNone(breakeven._forecast_value([u.name], self.crop.name))
 		old = frappe.get_doc("Production Crop Cycle", c.name)

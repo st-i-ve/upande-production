@@ -60,7 +60,7 @@ class TestRetiredUnits(IntegrationTestCase):
 		monday = _monday(today())
 		for u in (cls.live, cls.gone):
 			_make("Production Harvest", harvest_date=today(), unit=u, crop=cls.crop.name, qty=10, uom="Kg", price_per_uom=2)
-			_make("Production Forecast", unit=u, crop=cls.crop.name, uom="Kg", source="Manual", season=today()[:4],
+			_make("Crop Forecast", unit=u, crop=cls.crop.name, uom="Kg", source="Manual", season=today()[:4],
 				weeks=[{"week_start": monday, "expected_qty": 50}])
 
 	@classmethod
@@ -189,7 +189,7 @@ class TestRetireClosesOpenWork(IntegrationTestCase):
 		self.assertEqual(frappe.db.get_value("Production Crop Cycle", cyc.name, "status"), "Closed")
 		self.assertFalse(frappe.db.get_value("Production Crop Cycle", cyc.name, "proposed_next_cycle"))
 		self.assertFalse(frappe.db.exists("Production Crop Cycle", {"previous_cycle": cyc.name}))
-		t = frappe.get_all("Production Plan Task", filters={"unit": u}, fields=["status", "note"])
+		t = frappe.get_all("Work Plan Task", filters={"unit": u}, fields=["status", "note"])
 		self.assertEqual([x.status for x in t], ["Skipped"])
 		self.assertIn("unit retired", t[0].note)
 		self.assertEqual(units.close_open_work(u), {"cycles": 0, "tasks": 0})  # idempotent

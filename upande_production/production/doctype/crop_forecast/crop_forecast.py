@@ -7,7 +7,7 @@ from frappe.model.document import Document
 from upande_production.production.logic.weeks import iso_of
 
 
-class ProductionForecast(Document):
+class CropForecast(Document):
 	def validate(self):
 		if not self.crop:
 			self.crop = frappe.db.get_value("Production Unit", self.unit, "crop")

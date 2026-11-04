@@ -1,4 +1,4 @@
-"""Rewrite protocol_ref on Production Plan Tasks written before steps became key / cultural rows.
+"""Rewrite protocol_ref on Work Plan Tasks written before steps became key / cultural rows.
 
 Old refs were `{cycle}:{step.name}:{k}`; new ones are `{cycle}:{row.name}:{k}`. A task whose ref points at
 a row its cycle's protocol does not have is matched by operation and ISO week of its due date to the
@@ -13,7 +13,7 @@ from upande_production.production.logic import schedule
 
 
 def remap() -> dict:
-	tasks = frappe.get_all("Production Plan Task", filters={"parenttype": "Production Work Plan",
+	tasks = frappe.get_all("Work Plan Task", filters={"parenttype": "Production Work Plan",
 		"cycle": ("is", "set"), "protocol_ref": ("is", "set")},
 		fields=["name", "cycle", "operation", "due_date", "protocol_ref"])
 	by_cycle = {}
@@ -40,7 +40,7 @@ def remap() -> dict:
 			if not ref or ref in taken:
 				unmatched += 1
 				continue
-			frappe.db.set_value("Production Plan Task", t.name, "protocol_ref", ref, update_modified=False)
+			frappe.db.set_value("Work Plan Task", t.name, "protocol_ref", ref, update_modified=False)
 			taken.add(ref)
 			done += 1
 	return {"remapped": done, "unmatched": unmatched}

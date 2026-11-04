@@ -96,11 +96,11 @@ def close_open_work(unit: str) -> dict:
 	for c in cycles:
 		frappe.db.set_value("Production Crop Cycle", c, {"status": "Closed", "current_stage": None, "protocol_flags": "",
 			"flag_count": 0}, update_modified=False)
-	tasks = frappe.get_all("Production Plan Task", filters={"unit": unit, "status": ("in", ("Open", "In Progress"))},
+	tasks = frappe.get_all("Work Plan Task", filters={"unit": unit, "status": ("in", ("Open", "In Progress"))},
 		fields=["name", "note"])
 	for t in tasks:
 		note = f"{t.note}\n" if t.note else ""
-		frappe.db.set_value("Production Plan Task", t.name, {"status": "Skipped", "note": f"{note}unit retired"},
+		frappe.db.set_value("Work Plan Task", t.name, {"status": "Skipped", "note": f"{note}unit retired"},
 			update_modified=False)
 	return {"cycles": len(cycles), "tasks": len(tasks)}
 

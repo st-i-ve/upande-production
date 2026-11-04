@@ -4,5 +4,5 @@
 from frappe.model.document import Document
 
 
-class ProductionForecastWeek(Document):
+class CropForecastWeek(Document):
 	pass

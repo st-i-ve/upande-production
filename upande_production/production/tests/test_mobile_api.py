@@ -175,7 +175,7 @@ class TestMobileApi(IntegrationTestCase):
 		)
 
 		def drop_other():
-			frappe.db.delete("Production Plan Task", {"supervisor": other.name})
+			frappe.db.delete("Work Plan Task", {"supervisor": other.name})
 			frappe.delete_doc("Employee", other.name, force=True, ignore_permissions=True)
 
 		self.addCleanup(drop_other)
@@ -265,7 +265,7 @@ class TestMobileApi(IntegrationTestCase):
 					if d.docstatus == 1:
 						d.cancel()
 					frappe.delete_doc(dt, n, force=True, ignore_permissions=True)
-			frappe.db.sql("delete from `tabProduction Plan Task` where cycle = %s", cycle.name)
+			frappe.db.sql("delete from `tabWork Plan Task` where cycle = %s", cycle.name)
 			frappe.delete_doc("Production Crop Cycle", cycle.name, force=True, ignore_permissions=True)
 			frappe.delete_doc("Production Protocol", proto.name, force=True, ignore_permissions=True)
 			frappe.db.commit()

@@ -124,7 +124,7 @@ def delete_test_fixtures() -> int:
 					if doc.docstatus == 1:
 						doc.cancel()
 					frappe.delete_doc(dt, d, force=True, ignore_permissions=True)
-			for plan in frappe.get_all("Production Plan Task", filters={"unit": name}, pluck="parent"):
+			for plan in frappe.get_all("Work Plan Task", filters={"unit": name}, pluck="parent"):
 				frappe.delete_doc("Production Work Plan", plan, force=True, ignore_permissions=True)
 			frappe.delete_doc("Production Unit", name, force=True, ignore_permissions=True)
 			n += 1

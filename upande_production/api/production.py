@@ -270,7 +270,7 @@ def get_plan(crop, farm, year, week):
 		return out
 	pay = _can_see_pay()
 	tasks = frappe.get_all(
-		"Production Plan Task",
+		"Work Plan Task",
 		filters=unit_filter({"parent": name, "parenttype": "Production Work Plan"}),
 		fields=[
 			"name", "unit", "cycle", "operation", "operation_name", "planned_qty", "done_qty", "pending_qty", "uom",
@@ -423,7 +423,7 @@ def deviations(crop, from_date=None, to_date=None):
 @frappe.whitelist(methods=["POST"])
 @run
 def forecast_summary(crop, from_date=None, to_date=None):
-	_need("Production Forecast")
+	_need("Crop Forecast")
 	return {**analytics.forecast_summary(crop, from_date, to_date), "bands": bands.get_bands()}
 
 

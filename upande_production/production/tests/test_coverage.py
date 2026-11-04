@@ -107,11 +107,11 @@ class TestCoverageMap(IntegrationTestCase):
 		self.assertEqual(len(res["operations"]), 2)  # filter list ignores the operation filter
 
 	def test_pending_approval_when_field_present(self):
-		if not frappe.get_meta("Production Plan Task").has_field("pending_qty"):
+		if not frappe.get_meta("Work Plan Task").has_field("pending_qty"):
 			self.skipTest("pending_qty not added yet")
 		U = self.units
 		plan = self._plan(2099, 11, [self._row(U["E"], self.op1, 10, 4, "In Progress", "2099-03-11")])
-		frappe.db.set_value("Production Plan Task", plan.tasks[0].name, "pending_qty", 6)
+		frappe.db.set_value("Work Plan Task", plan.tasks[0].name, "pending_qty", 6)
 		res = coverage.coverage_map(self.crop.name, 2099, 11)
 		e = next(u for u in res["units"] if u["name"] == U["E"])
 		self.assertEqual(e["state"], "pending_approval")

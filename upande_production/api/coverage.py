@@ -15,7 +15,7 @@ CLOSED = ("Done", "Skipped")
 
 
 def _has_pending_qty():
-	return frappe.get_meta("Production Plan Task").has_field("pending_qty")
+	return frappe.get_meta("Work Plan Task").has_field("pending_qty")
 
 
 def _task_rows(crop, year, week, farm):
@@ -24,7 +24,7 @@ def _task_rows(crop, year, week, farm):
 	return frappe.db.sql(
 		f"""select t.unit, t.operation, t.operation_name, t.planned_qty, t.done_qty, t.uom, t.status,
 		t.due_date{extra}
-		from `tabProduction Plan Task` t join `tabProduction Work Plan` p on p.name = t.parent
+		from `tabWork Plan Task` t join `tabProduction Work Plan` p on p.name = t.parent
 		where p.crop = %(crop)s and p.plan_year = %(year)s and p.plan_week = %(week)s {farm_sql}
 		order by t.idx""",
 		{"crop": crop, "year": int(year), "week": int(week), "farm": farm},

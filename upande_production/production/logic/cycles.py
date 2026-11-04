@@ -3,10 +3,10 @@
 import frappe
 
 CYCLE_LINKS = [
-	("Production Plan Task", "cycle"),
+	("Work Plan Task", "cycle"),
 	("Value Adder Work", "cycle"),
 	("Production Harvest", "cycle"),
-	("Production Forecast", "cycle"),
+	("Crop Forecast", "cycle"),
 	("Yield Sample", "cycle"),
 ]
 
