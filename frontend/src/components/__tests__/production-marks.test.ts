@@ -12,7 +12,8 @@ describe("production marks", () => {
   it("includes the productivity mark and a scene per crop", () => {
     const names = Object.keys(MARKS).map((p) => p.split("/").pop());
     for (const n of ["production_logo.svg", "production_logo_avocado.svg", "production_logo_fruits-vegetables.svg",
-      "production_logo_aquaculture.svg", "production_logo_apiary.svg"]) {
+      "production_logo_aquaculture.svg", "production_logo_apiary.svg",
+      "production_logo_standard-roses.svg", "production_logo_spray-roses.svg", "production_logo_summer-flowers.svg"]) {
       expect(names).toContain(n);
     }
   });

@@ -17,6 +17,7 @@
   "uses_crop_cycles",
   "default_cycle_type",
   "enabled",
+  "desk_launcher",
   "sort_order",
   "harvests_in_crates",
   "avg_kg_per_crate",
@@ -116,6 +117,14 @@
    "fieldtype": "Check",
    "label": "Enabled",
    "default": "1"
+  },
+  {
+   "default": "Production App",
+   "description": "Where this crop's launcher tiles on the Production workspace open: the Production app pages, or the Crop Production desk pages (roses and other flower crops: Crop Cycles, Greenhouses, Crop Protocols, Cut Stages, Production Plan Form, Harvesting, Farm Map, Agriculture Settings).",
+   "fieldname": "desk_launcher",
+   "fieldtype": "Select",
+   "label": "Launcher Opens",
+   "options": "Production App\nCrop Production desk"
   },
   {
    "fieldname": "sort_order",
@@ -318,7 +327,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-29 15:00:00.000000",
+ "modified": "2026-11-04 09:00:00.000000",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production Crop",

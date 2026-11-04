@@ -46,10 +46,56 @@
 		});
 	}
 
+	// Same tab. Frappe turns every External desktop icon (the Production, Crop Material
+	// Planning and Propagation tiles on the apps screen) into window.location.origin + link
+	// and sets target="_blank" on it, so each module opens in a new tab. Take any same-origin
+	// link of that kind back into the current tab: /app and /desk paths go through
+	// frappe.set_route (SPA, no reload, as Frappe's own handler does); anything else is a
+	// page load behind the cover. Other origins, downloads, file/API URLs and modified or
+	// middle clicks are left alone.
+	var FILE_PATHS = /^\/(files|private|api|assets|backups)(\/|$)/;
+
+	function sameTabTarget(a) {
+		var raw = a.getAttribute("href") || "";
+		if (!raw || raw.charAt(0) === "#" || a.hasAttribute("download")) return null;
+		var url;
+		try {
+			url = new URL(raw, window.location.href);
+		} catch (_) {
+			return null;
+		}
+		if (url.origin !== window.location.origin) return null;
+		if (FILE_PATHS.test(url.pathname)) return null;
+		// a relative link without a target already navigates in this tab (Frappe's handler
+		// routes /app links itself); only act on a new-tab target or an absolute URL
+		var absolute = /^[a-z][a-z0-9+.-]*:|^\/\//i.test(raw);
+		if (!absolute && a.getAttribute("target") !== "_blank") return null;
+		return url;
+	}
+
+	function go(url) {
+		var path = url.pathname;
+		var spa = /^\/(app|desk)(\/|$)/.test(path);
+		if (spa && window.frappe && frappe.set_route) {
+			if (url.search) {
+				frappe.route_options = {};
+				new URLSearchParams(url.search).forEach(function (v, k) {
+					frappe.route_options[k] = v;
+				});
+			}
+			if (url.hash) frappe.route_hash = url.hash;
+			frappe.set_route(path);
+			return;
+		}
+		var target = path + url.search + url.hash;
+		if (path.indexOf("/production_app") === 0) leave(target);
+		else window.location.href = target;
+	}
+
 	document.addEventListener(
 		"click",
 		function (e) {
-			if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+			if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
 			var path = typeof e.composedPath === "function" ? e.composedPath() : [e.target];
 			var a = null;
 			for (var i = 0; i < path.length; i++) {
@@ -65,7 +111,13 @@
 				e.preventDefault();
 				e.stopPropagation();
 				leave(href);
+				return;
 			}
+			var url = sameTabTarget(a);
+			if (!url) return;
+			e.preventDefault();
+			e.stopPropagation();
+			go(url);
 		},
 		true
 	);

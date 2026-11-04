@@ -215,7 +215,7 @@ def write(key: str, scene) -> None:
 def main(only: list[str] | None = None):
     FRONTEND_ASSETS.mkdir(parents=True, exist_ok=True)
     for mod in pkgutil.iter_modules(logo_scenes.__path__):
-        if mod.name == "common":
+        if mod.name == "common" or mod.name.startswith("_"):  # shared helpers, not scenes
             continue
         key = mod.name.replace("_", "-")
         if only and key not in only:
