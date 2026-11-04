@@ -5,6 +5,7 @@ from frappe.tests import IntegrationTestCase
 from frappe.utils import add_days, nowdate
 
 from upande_production.api import aquaculture as api
+from upande_production.production.demo import aquaculture_seed, seed
 from upande_production.production.logic import aquaculture as logic
 
 
@@ -68,9 +69,8 @@ class TestAquacultureApi(IntegrationTestCase):
 	def setUpClass(cls):
 		super().setUpClass()
 		frappe.set_user("Administrator")
-		if not frappe.db.exists("Production Crop", "Aquaculture"):
-			frappe.get_doc({"doctype": "Production Crop", "crop_name": "Aquaculture", "crop_key": "aquaculture",
-							"unit_label": "Pond", "yield_uom": "Kg"}).insert()
+		seed.seed_core()  # the Aquaculture crop, built here when the site has none
+		aquaculture_seed.ensure_limits()  # its water bands and limits
 		cls.pond = frappe.get_doc({"doctype": "Production Unit", "unit_name": "TEST Pond A", "crop": "Aquaculture",
 								   "unit_type": "Pond", "status": "Active"}).insert().name
 

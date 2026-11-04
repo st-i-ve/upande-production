@@ -10,11 +10,14 @@ bearing ones ("active") carry the history, harvests, dry matter and counts.
 import contextlib
 from unittest import mock
 
+import unittest
+
 import frappe
 from frappe.tests import IntegrationTestCase
 from frappe.utils import nowdate
 
 from upande_production.api import avocado as api
+from upande_production.production.demo import real_blocks
 from upande_production.production.demo import avocado_seed
 from upande_production.production.demo.avocado_seed import DEMO
 
@@ -56,6 +59,8 @@ class TestAvocadoApi(IntegrationTestCase):
 	def setUpClass(cls):
 		super().setUpClass()
 		frappe.set_user("Administrator")
+		if not real_blocks.avocado_blocks():
+			raise unittest.SkipTest("the Mutara avocado survey (Phase blocks) is absent; this class checks the seeded figures")
 		avocado_seed.run(commit=False)
 
 	def setUp(self):

@@ -5,7 +5,7 @@ from frappe.tests import IntegrationTestCase
 from frappe.utils import add_days, flt, nowdate
 
 from upande_production.api import apiary as api
-from upande_production.production.demo import apiary_seed
+from upande_production.production.demo import apiary_seed, seed
 from upande_production.production.demo.apiary_seed import DEMO
 
 NORTH, SOUTH = "Hive Group North", "Hive Group South"
@@ -20,7 +20,13 @@ class TestApiary(IntegrationTestCase):
 	def setUpClass(cls):
 		super().setUpClass()
 		frappe.set_user("Administrator")
+		seed.seed_core()
 		apiary_seed.run(commit=False)
+
+	def setUp(self):
+		# an endpoint that answers {"error"} rolls the class transaction back; rebuild the masters it dropped
+		seed.seed_core()
+		apiary_seed.ensure_groups()
 
 	def test_inspection_kpis_and_groups(self):
 		r = api.hive_inspections(*_rng())
@@ -59,6 +65,7 @@ class TestApiary(IntegrationTestCase):
 		self.assertIn("error", api.save_hive_inspection({"unit": unit, "colonies_inspected": 5,
 														 "inspection_date": str(add_days(nowdate(), 3))}))
 		self.assertIn("error", api.save_hive_inspection({"unit": "Nope", "colonies_inspected": 5}))
+		self.setUp()  # the refused saves above rolled the masters back
 		ok = api.save_hive_inspection({"unit": unit, "colonies_inspected": 4, "colonies_queenright": 4,
 									   "varroa_per_100": "2.5", "inspection_date": nowdate()})
 		self.assertTrue(ok["ok"])

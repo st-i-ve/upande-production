@@ -16,6 +16,7 @@ from frappe.tests import IntegrationTestCase
 
 from upande_production.api import avocado as api
 from upande_production.api import avocado_model, avocadoapi
+from upande_production.production.demo import real_blocks
 from upande_production.production.demo import avocado_seed
 
 APP = Path(__file__).resolve().parents[2]
@@ -53,6 +54,8 @@ class TestAvocadoModel(IntegrationTestCase):
 	def setUpClass(cls):
 		super().setUpClass()
 		frappe.set_user("Administrator")
+		if not real_blocks.avocado_blocks():
+			raise unittest.SkipTest("the Mutara avocado survey (Phase blocks) is absent; this class checks the seeded figures")
 		avocado_seed.run(commit=False)
 
 	def setUp(self):
@@ -219,6 +222,8 @@ class TestCropModelApi(IntegrationTestCase):
 	def setUpClass(cls):
 		super().setUpClass()
 		frappe.set_user("Administrator")
+		if not real_blocks.avocado_blocks():
+			raise unittest.SkipTest("the Mutara avocado survey (Phase blocks) is absent; this class checks the seeded figures")
 		avocado_seed.run(commit=False)
 
 	def setUp(self):

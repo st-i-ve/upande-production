@@ -9,7 +9,7 @@ from frappe.utils import add_days, nowdate
 
 from upande_production.api import apiary, aquaculture, fv
 from upande_production.api import production as production_api
-from upande_production.production.demo import apiary_seed, aquaculture_seed, bands_seed, fv_seed
+from upande_production.production.demo import apiary_seed, aquaculture_seed, bands_seed, fv_seed, seed
 from upande_production.production.logic import aquaculture as aqua_logic
 from upande_production.production.logic import bands
 
@@ -56,6 +56,7 @@ class TestBandSettings(Isolated):
 	def setUpClass(cls):
 		super().setUpClass()
 		frappe.set_user("Administrator")
+		seed.seed_core()
 		bands_seed.run(commit=False)
 
 	def test_get_bands_endpoint_returns_every_set(self):
@@ -90,6 +91,7 @@ class TestApiaryLimits(Isolated):
 	def setUpClass(cls):
 		super().setUpClass()
 		frappe.set_user("Administrator")
+		seed.seed_core()
 		apiary_seed.run(commit=False)
 
 	def _rng(self):
@@ -130,6 +132,7 @@ class TestAquacultureLimits(Isolated):
 	def setUpClass(cls):
 		super().setUpClass()
 		frappe.set_user("Administrator")
+		seed.seed_core()
 		aquaculture_seed.ensure_limits()
 
 	def test_reading_flags_use_the_bands_given_and_none_means_no_flags(self):
@@ -188,6 +191,7 @@ class TestFvLimits(Isolated):
 	def setUpClass(cls):
 		super().setUpClass()
 		frappe.set_user("Administrator")
+		seed.seed_core()
 		fv_seed.ensure_limits()
 
 	def test_weekly_target_variety_then_crop(self):
@@ -195,7 +199,9 @@ class TestFvLimits(Isolated):
 		self.assertEqual(fv.weekly_target_mm(), 25.0)
 		frappe.db.set_value("Production Crop", crop, "irrigation_mm_week", 30)
 		self.assertEqual(fv.weekly_target_mm(), 30.0)
-		variety = frappe.db.get_value("Production Variety", {"crop": crop}, "name")
+		variety = frappe.db.get_value("Production Variety", {"crop": crop}, "name") or frappe.get_doc(
+			{"doctype": "Production Variety", "variety_name": "TB Variety", "crop": crop,
+			"item": frappe.db.get_value("Item", {}, "name")}).insert().name
 		frappe.db.set_value("Production Variety", variety, "irrigation_mm_week", 18)
 		self.assertEqual(fv.weekly_target_mm(variety), 18.0)
 		frappe.db.set_value("Production Variety", variety, "irrigation_mm_week", 0)
@@ -247,6 +253,7 @@ class TestVarietyDialogApi(Isolated):
 	def test_water_bands_and_irrigation_round_trip(self):
 		from upande_production.api import varieties as vapi
 
+		seed.seed_core()
 		aquaculture_seed.ensure_limits()
 		strain = frappe.db.get_value("Production Variety", {"crop": "Aquaculture"}, "name")
 		if not strain:

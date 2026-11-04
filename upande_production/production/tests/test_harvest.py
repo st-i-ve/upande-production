@@ -3,6 +3,8 @@ from frappe.tests import IntegrationTestCase
 from frappe.utils import flt, today
 
 from upande_production.mobile import harvest as api
+from upande_production.production import avocado_defaults
+from upande_production.production.demo import seed
 from upande_production.production.logic import harvest as H
 
 
@@ -19,6 +21,11 @@ class TestHarvest(IntegrationTestCase):
 	def setUpClass(cls):
 		super().setUpClass()
 		frappe.set_user("Administrator")
+		seed.seed_core()  # the Avocado crop the avocado-block tests look up, built when the site has none
+		avocado = frappe.db.get_value("Production Crop", {"crop_key": "avocado"})
+		avocado_defaults.apply_to_crop(avocado)
+		if not frappe.db.get_value("Production Crop", avocado, "avg_kg_per_crate"):
+			frappe.db.set_value("Production Crop", avocado, {"avg_kg_per_crate": 10, "harvests_in_crates": 1})
 		cls.company = frappe.defaults.get_global_default("company") or frappe.db.get_value("Company", {}, "name")
 		for uom in ("Kg", "Crate"):
 			if not frappe.db.exists("UOM", uom):
@@ -62,6 +69,17 @@ class TestHarvest(IntegrationTestCase):
 		cls.n = 0
 
 	@classmethod
+	def _root_group(cls):
+		"""The company's top group warehouse, found before any other top-level group exists."""
+		return frappe.db.get_value("Warehouse", {"company": cls.company, "is_group": 1, "parent_warehouse": ("is", "not set"),
+			"warehouse_name": ("!=", "Production Blocks")})
+
+	@classmethod
+	def _farm_field(cls):
+		"""Another app on the site (upande_core) makes Warehouse.custom_farm mandatory."""
+		return {"custom_farm": cls.farm.name} if frappe.get_meta("Warehouse").has_field("custom_farm") else {}
+
+	@classmethod
 	def _emp(cls, first):
 		return _make("Employee", first_name=first, gender="Male", date_of_birth="1990-01-01",
 			date_of_joining="2020-01-01", company=cls.company)
@@ -69,6 +87,7 @@ class TestHarvest(IntegrationTestCase):
 	def setUp(self):
 		# tests share the class transaction: start each with no scans of ours
 		frappe.db.delete("Harvest Crate Scan", {"crate_id": ("like", "HVC-%")})
+		frappe.db.set_single_value("Production Settings", "harvest_warehouse", self.warehouse)
 
 	def crates(self, n):
 		out = []
@@ -352,7 +371,7 @@ class TestHarvest(IntegrationTestCase):
 		pivot = self._store("HV SCP Pivot WH")
 		frappe.db.set_value("Warehouse", pivot, "warehouse_type", "Pivot")
 		group = frappe.get_doc({"doctype": "Warehouse", "warehouse_name": "Production Blocks", "company": self.company,
-			"is_group": 1}) if not frappe.db.exists("Warehouse", {"warehouse_name": "Production Blocks", "company": self.company}) else None
+			"is_group": 1, "parent_warehouse": self._root_group(), **self._farm_field()}) if not frappe.db.exists("Warehouse", {"warehouse_name": "Production Blocks", "company": self.company}) else None
 		if group:
 			group.insert()
 		gname = frappe.db.get_value("Warehouse", {"warehouse_name": "Production Blocks", "company": self.company})
@@ -368,7 +387,8 @@ class TestHarvest(IntegrationTestCase):
 		"""The phone's store list must not need Warehouse permission (supervisors do not have it)."""
 		gname = frappe.db.get_value("Warehouse", {"warehouse_name": "Production Blocks", "company": self.company})
 		if not gname:
-			gname = _make("Warehouse", warehouse_name="Production Blocks", company=self.company, is_group=1).name
+			gname = _make("Warehouse", warehouse_name="Production Blocks", company=self.company, is_group=1,
+				parent_warehouse=self._root_group(), **self._farm_field()).name
 		child = self._store("HV Sup Under Blocks WH")
 		frappe.db.set_value("Warehouse", child, "parent_warehouse", gname)
 		frappe.get_doc("Warehouse", child).save()
