@@ -7,6 +7,10 @@ import {
   Fish,
   FlaskConical,
   Hexagon,
+  Home,
+  Scissors,
+  ScrollText,
+  PackageCheck,
   Landmark,
   TrendingUp,
   Scale,
@@ -25,7 +29,7 @@ import {
   Users,
 } from "lucide-react";
 import type { Crop } from "@/lib/api";
-import { viewLabel } from "@/lib/crops";
+import { isFlowerCrop, viewLabel } from "@/lib/crops";
 import type { View } from "@/lib/router";
 
 type IconType = React.ComponentType<{ className?: string }>;
@@ -67,7 +71,25 @@ const ICONS: Record<View, IconType> = {
   feeding: Utensils,
   irrigation: Waves,
   grading: Scale,
+  "flower-overview": LayoutDashboard,
+  greenhouses: Home,
+  "flower-cycles": Repeat,
+  protocols: ScrollText,
+  "cut-stages": Scissors,
+  "plan-form": CalendarCheck,
+  harvesting: PackageCheck,
+  "farm-map": MapIcon,
 };
+
+/** The screens a flower crop has (and only those): the Crop Production ones, ported. */
+export const FLOWER_VIEWS: View[] = [
+  "flower-overview", "greenhouses", "flower-cycles", "protocols", "cut-stages", "plan-form", "harvesting", "farm-map",
+];
+
+/** The view a crop opens on. */
+export function landingView(crop?: Pick<Crop, "desk_launcher" | "unit_label"> | null): View {
+  return isFlowerCrop(crop) ? "flower-overview" : "overview";
+}
 
 /** Views only some crops have, keyed by view. Everything else is every crop's. */
 const ONLY_FOR: Partial<Record<View, string[]>> = {
@@ -105,7 +127,22 @@ const GROUPS: { label: string; views: View[] }[] = [
   { label: "Setup", views: ["settings"] },
 ];
 
-export function viewAllowed(view: View, cropKey: string, crop?: Pick<Crop, "dry_matter_testing"> | null): boolean {
+const FLOWER_GROUPS: { label: string; views: View[] }[] = [
+  { label: "Overview", views: ["flower-overview"] },
+  { label: "Crop setup", views: ["protocols", "cut-stages"] },
+  { label: "Planting and beds", views: ["greenhouses", "flower-cycles", "farm-map"] },
+  { label: "Planning and harvest", views: ["plan-form", "harvesting"] },
+];
+
+export function viewAllowed(
+  view: View,
+  cropKey: string,
+  crop?: (Pick<Crop, "dry_matter_testing"> & Partial<Pick<Crop, "desk_launcher" | "unit_label">>) | null,
+): boolean {
+  // Flower crops have their own screens and none of the others; nobody else has theirs.
+  const flower = isFlowerCrop(crop as Pick<Crop, "desk_launcher" | "unit_label"> | null);
+  if (FLOWER_VIEWS.includes(view)) return flower;
+  if (flower) return false;
   // Dry matter tests follow the crop's setting; avocado keeps its own Dry Matter page.
   if (view === "dry-matter-tests") return cropKey !== "avocado" && !!Number(crop?.dry_matter_testing);
   const only = ONLY_FOR[view];
@@ -115,7 +152,7 @@ export function viewAllowed(view: View, cropKey: string, crop?: Pick<Crop, "dry_
 
 /** The sidebar for one crop: the app is scoped to a single crop at a time. */
 export function navForCrop(crop: Crop): NavGroup[] {
-  return GROUPS.map((g) => ({
+  return (isFlowerCrop(crop) ? FLOWER_GROUPS : GROUPS).map((g) => ({
     label: g.label,
     items: g.views
       .filter((v) => viewAllowed(v, crop.crop_key, crop))

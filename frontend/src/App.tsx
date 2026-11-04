@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { CropProvider, useCrops } from "@/lib/crops";
 import { approvalCounts, type ApprovalCounts } from "@/lib/approvals-api";
 import { isError } from "@/lib/frappe";
-import { viewAllowed } from "@/lib/nav";
+import { landingView, viewAllowed } from "@/lib/nav";
 import { replaceRoute, useRoute, type View } from "@/lib/router";
 
 /**
@@ -98,6 +98,15 @@ const DryMatter = page(() =>
   import("@/pages/avocado/DryMatter").then((m) => ({ default: m.DryMatter })),
 );
 
+const FlowerOverview = page(() => import("@/pages/flowers/FlowerOverview").then((m) => ({ default: m.FlowerOverview })));
+const Greenhouses = page(() => import("@/pages/flowers/FlowerLists").then((m) => ({ default: m.Greenhouses })));
+const FlowerCycles = page(() => import("@/pages/flowers/FlowerLists").then((m) => ({ default: m.FlowerCycles })));
+const Protocols = page(() => import("@/pages/flowers/FlowerLists").then((m) => ({ default: m.Protocols })));
+const CutStages = page(() => import("@/pages/flowers/FlowerLists").then((m) => ({ default: m.CutStages })));
+const PlanForm = page(() => import("@/pages/flowers/FlowerLists").then((m) => ({ default: m.PlanForm })));
+const Harvesting = page(() => import("@/pages/flowers/FlowerLists").then((m) => ({ default: m.Harvesting })));
+const FarmMap = page(() => import("@/pages/flowers/FarmMap").then((m) => ({ default: m.FarmMap })));
+
 const DryMatterTests = page(() =>
   import("@/pages/fruits-vegetables/DryMatterTests").then((m) => ({ default: m.DryMatterTests })),
 );
@@ -128,6 +137,14 @@ const PAGES: Record<View, React.ComponentType> = {
   "feeding": Feeding,
   "irrigation": Irrigation,
   "grading": Grading,
+  "flower-overview": FlowerOverview,
+  greenhouses: Greenhouses,
+  "flower-cycles": FlowerCycles,
+  protocols: Protocols,
+  "cut-stages": CutStages,
+  "plan-form": PlanForm,
+  harvesting: Harvesting,
+  "farm-map": FarmMap,
 };
 
 /** Says why the workspace is empty, and what to do, in place of a blank page. */
@@ -171,7 +188,7 @@ export function App() {
   }, [boot, crop, route.view]);
 
   useEffect(() => {
-    if (crop && !viewAllowed(route.view, crop.crop_key, crop)) replaceRoute(crop.crop_key, "overview");
+    if (crop && !viewAllowed(route.view, crop.crop_key, crop)) replaceRoute(crop.crop_key, landingView(crop));
   }, [crop, route.view]);
 
   const Built = PAGES[route.view];
