@@ -40,6 +40,15 @@ export function cropUsesCycles(crop?: Pick<Crop, "crop_key" | "uses_crop_cycles"
   return !NO_CYCLE_KEYS.includes(crop.crop_key);
 }
 
+/** Flower crops (roses and summer flowers) run on the Crop Production screens: greenhouses and beds,
+ *  stems. The Production Crop says so with `desk_launcher`; a server that does not send the field
+ *  yet is read by its units (Greenhouse -> Bed). */
+export function isFlowerCrop(crop?: Pick<Crop, "desk_launcher" | "unit_label"> | null): boolean {
+  if (!crop) return false;
+  if (crop.desk_launcher) return crop.desk_launcher === "Crop Production desk";
+  return crop.unit_label === "Greenhouse";
+}
+
 export function pluralise(word: string): string {
   if (!word) return word;
   if (/s$/i.test(word)) return word;
@@ -100,6 +109,22 @@ export function viewLabel(view: View, crop?: Pick<Crop, "unit_label"> | null): s
       return "Pivot Irrigation";
     case "grading":
       return "Harvest Grading";
+    case "flower-overview":
+      return "Overview";
+    case "greenhouses":
+      return "Greenhouses";
+    case "flower-cycles":
+      return "Crop Cycles";
+    case "protocols":
+      return "Crop Protocols";
+    case "cut-stages":
+      return "Cut Stages";
+    case "plan-form":
+      return "Weekly Plan";
+    case "harvesting":
+      return "Harvesting";
+    case "farm-map":
+      return "Farm Map";
   }
 }
 

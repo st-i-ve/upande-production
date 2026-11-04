@@ -33,6 +33,8 @@ export interface Crop {
   yield_uom: string;
   /** 0 for bees and fish: they run in hives and ponds, not crop cycles. */
   uses_crop_cycles?: number | boolean;
+  /** "Production App" (default) or "Crop Production desk" (flower crops). */
+  desk_launcher?: string | null;
   /** Dry matter tests are switched on for this crop (avocado keeps its own page). */
   dry_matter_testing?: number | boolean;
   dry_matter_on?: "Fruit" | "Tuber" | "Bulb" | "Head" | "Leaf" | null;

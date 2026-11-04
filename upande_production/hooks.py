@@ -186,7 +186,7 @@ fixtures = [
 	{"doctype": "Scan Location Mapping", "filters": [["name", "in", ["Simotwo-MAP", "Chepsito-MAP", "Kapkolia-MAP", "Karen-MAP", "Torongo-MAP", "Kaptumbo-MAP"]]]},
 	# The desk workspace's launcher (one section of app links per crop) and the
 	# desk-grid icon that opens that workspace.
-	{"doctype": "Custom HTML Block", "filters": [["name", "in", ["Production Navigation", "Roses Production Navigation", "Crop Cycle Dashboard"]]]},
+	{"doctype": "Custom HTML Block", "filters": [["name", "in", ["Production Navigation", "Roses Production Navigation", "Agriculture Navigation", "Crop Cycle Dashboard"]]]},
 	{"doctype": "Desktop Icon", "filters": [["name", "in", ["Production"]]]},
 ]
 

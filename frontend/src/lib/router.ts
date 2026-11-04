@@ -43,6 +43,16 @@ export const VIEWS = [
   "feeding",
   "irrigation",
   "grading",
+  // Flower crops (greenhouse -> bed), ported from the Crop Production desk screens and
+  // the Crop Cycle Dashboard block. Same data, same endpoints as the legacy pages.
+  "flower-overview",
+  "greenhouses",
+  "flower-cycles",
+  "protocols",
+  "cut-stages",
+  "plan-form",
+  "harvesting",
+  "farm-map",
 ] as const;
 
 export type View = (typeof VIEWS)[number];
