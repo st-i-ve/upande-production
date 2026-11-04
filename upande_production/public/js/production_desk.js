@@ -66,8 +66,12 @@
 		}
 		if (url.origin !== window.location.origin) return null;
 		if (FILE_PATHS.test(url.pathname)) return null;
-		// a relative link without a target already navigates in this tab (Frappe's handler
-		// routes /app links itself); only act on a new-tab target or an absolute URL
+		if (a.getAttribute("onclick")) return null;
+		// /app and /desk links always go through the router: Frappe's own handler never sees a
+		// click inside a Custom HTML Block's shadow root, so there the browser would reload the
+		// page. Any other relative link already navigates in this tab; only act on a new-tab
+		// target or an absolute URL.
+		if (/^\/(app|desk)(\/|$)/.test(url.pathname)) return url;
 		var absolute = /^[a-z][a-z0-9+.-]*:|^\/\//i.test(raw);
 		if (!absolute && a.getAttribute("target") !== "_blank") return null;
 		return url;
