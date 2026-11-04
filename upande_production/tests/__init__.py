@@ -57,9 +57,25 @@ def farm_with_beds() -> str | None:
     """
     import frappe
 
+    # Prefer a farm that also takes zones: bed geometry tests draw zones on the bed. On a site with real
+    # farms (Margin Par's live data) the first one with beds often has no zones, so look for both.
+    both = frappe.db.sql(
+        """select a.parent from `tabFarm Type Item` a join `tabFarm Type Item` b on a.parent = b.parent
+        where a.parenttype = 'Farm' and a.farm_type = 'Has Beds' and b.farm_type = 'Has Zones' limit 1"""
+    )
+    if both:
+        return both[0][0]
     row = frappe.db.get_value(
         "Farm Type Item", {"parenttype": "Farm", "farm_type": "Has Beds"}, "parent"
     )
+    if row and frappe.db.count("Farm") > 1 and not frappe.db.exists("Farm", "Test Rose Farm"):
+        # real farms but none with both types: the zone tests need one that is
+        if frappe.db.has_table("Farm Type") and frappe.db.exists("Farm Type", "Has Zones"):
+            return frappe.get_doc({
+                "doctype": "Farm", "farm_name": "Test Rose Farm", "abbreviation": "TRF",
+                "company": default_company(),
+                "farm_type": [{"farm_type": "Has Beds"}, {"farm_type": "Has Zones"}],
+            }).insert(ignore_permissions=True).name
     if row:
         return row
     existing = frappe.db.get_value("Farm", {}, "name")

@@ -73,3 +73,50 @@ it down in your report.
    Navigation block stay reachable; React pages in each app's SCP-style frontend; workspaces only links.
 5. Data must add up: after migrate on marginpar.local, every live record still opens, counts unchanged, and
    the app's own pages (and the summer-flowers www pages) compute the same figures as live.
+
+## Production port status (end of session, 2026-11-04)
+
+Branch `marginpar`. marginpar.local is migrated and consistent; nothing is half-applied.
+
+**Done**
+- Package `upande_production/summer_flowers/` (module names as in the source): settings, planning, stages, crop_routes,
+  route_methods, route_ways, valuation, crop_protocol, protocol_merge, protocol_split, crop_cycle (SummerFlowerCropCycle,
+  registered through `override_doctype_class`, gated on `custom_is_summer_flower_cycle`), crop_cycle_api, crop_cycle_ops,
+  bed (class override), bed_naming, block, root_line, operations_api, delivery_confirmation, customization_check, tours,
+  api, lifecycle_sim, sourcing, tc_supply, simplex, cohort_solver; `protocol_math` (plants per bed, saleable, establishment,
+  size_planting, lifted out of the planning doctype so production owns it).
+- `summer_flowers/upstream/`: lazy forwarders for the few things production reaches that planning/propagation own
+  (planning_api, trough_plan, plant_receipt, plant_issue, and the production/procurement/propagation/motherstock plan
+  controllers). Nothing imports a sibling at load time.
+- The 24 production doctypes (JSON from the repo `live` version, so Crop Protocol Version has the repo fields and methods
+  `weeks_tc_to_first_cut()`, `ramp_ratios()`), module "Crop Production", under `crop_production/doctype/`.
+  `patches/take_over_from_upande_summer_flowers` (pre_model_sync) flips module and `custom = 0`; on marginpar.local all
+  records survived (43 planting calendars, 46 protocol versions, 6 field activities, 111 crop field activities, ...).
+- hooks: doc_events (Crop Protocol, Block, Bed), before/after_migrate, doctype_js, list js, app_include_js, workflows,
+  roles, and `SUMMER_FLOWERS_OVERRIDES` (old `upande_summer_flowers.*` whitelisted paths -> new). Custom fields and
+  property setters for Crop Cycle, Crop Protocol, Bed, Block, Farm, Item ship under `crop_production/custom/`.
+- www pages crop-cycles, summer-flowers-flow, summer-flowers-overview and the two reports are ported (overview renders
+  real data). Field endpoints from `mobile/api.py` are in `mobile/summer_flowers_api.py`.
+- React: Blocks & Beds, Crop Cycles, Overview, Farm Map (layout fallback: Block/Bed carry no geometry on live data),
+  Planting Calendars, Protocol Versions, Crop Protocols; item names instead of codes.
+- Checked: Crop Cycle re-save leaves plants, area, beds and weekly targets identical on 40 real cycles (only the derived
+  title and plant age move). Protocol `before_validate`+`validate` give identical results to the original code on 35 real
+  protocols (in-process comparison against the read-only source).
+- Tests: `crop_production/tests/test_summer_flowers_port.py` (protocol math, week helpers, every old path resolves, hooks
+  resolve, ownership patch guard). Empty doctype test stubs removed (they pull ERPNext master data and break the runner
+  on live data). Test helpers made to work on the live schema (crop_type mandatory, a farm with beds and zones).
+
+**Left**
+- Re-saving a real Crop Protocol is NOT a no-op on this data: 33 of 35 sampled protocols change derived fields on save
+  (custom_sf_title, ramp profile, rooting/establishment defaults, cuttings per plant, and status Approved -> Draft where the
+  current version snapshot differs from the protocol; some versions point at another farm's name). The port matches the
+  original code exactly, so live would do the same; needs a decision (a data fix, or a guard so a save with no edit
+  does not recompute).
+- `www/summer-flowers-planning` is planning's; `test_simulation_parity` imports planning_api (planning's).
+- Source patches (`upande_summer_flowers/patches`) not ported: live data is already past them. Only `merge_protocol_onto_crop_protocol`
+  logic lives on, in `protocol_merge.after_migrate`.
+- tours/nav: `tours.sync_form_tours` ported; the Summer Flowers Navigation block and workspace are not (workspaces-only-links rule).
+- Not verified: Bed Work Order, Block Change Request flows (no records), delivery_confirmation, root_line against live
+  plans, the mobile endpoints, the three doctype JS files in a browser.
+- Block.farm on live data disagrees with some cycle names (Bondet vs Kariki Nanyuki); the cycle title follows the block.
+- Three leftover test Crop Cycles (CC-2026-0022..0024) exist on marginpar.local from earlier test runs.

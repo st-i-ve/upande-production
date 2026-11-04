@@ -19,10 +19,16 @@ class TestCropProtocol(FrappeTestCase):
     def _protocol(self, name, grade_mix):
         if frappe.db.exists("Crop Protocol", name):
             frappe.delete_doc("Crop Protocol", name, force=True, ignore_permissions=True)
-        return frappe.get_doc({
+        doc = {
             "doctype": "Crop Protocol", "protocol_name": name,
             "variety_item": self._item(), "grade_mix": grade_mix,
-        })
+        }
+        # Margin Par's live schema makes Crop Type mandatory on a protocol
+        if frappe.get_meta("Crop Protocol").get_field("crop_type") and frappe.get_meta("Crop Protocol").get_field("crop_type").reqd:
+            if not frappe.db.exists("Crop Type", "Roses"):
+                frappe.get_doc({"doctype": "Crop Type", "crop_type_name": "Roses"}).insert(ignore_permissions=True)
+            doc["crop_type"] = "Roses"
+        return frappe.get_doc(doc)
 
     def test_grade_mix_over_100_percent_is_refused(self):
         with self.assertRaises(frappe.ValidationError):
@@ -34,4 +40,6 @@ class TestCropProtocol(FrappeTestCase):
         doc = self._protocol("TEST-GRADEMIX-EXACT", [
             {"length_cm": 60, "pct": 63.8}, {"length_cm": 50, "pct": 36.2},
         ]).insert(ignore_permissions=True)
-        self.assertEqual(doc.name, "TEST-GRADEMIX-EXACT")
+        # the doc is named by the site's naming rule (protocol name here, variety-farm on Margin Par's live schema)
+        self.assertTrue(doc.name)
+        self.assertEqual(len(doc.grade_mix), 2)
