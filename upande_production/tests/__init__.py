@@ -60,7 +60,17 @@ def farm_with_beds() -> str | None:
     row = frappe.db.get_value(
         "Farm Type Item", {"parenttype": "Farm", "farm_type": "Has Beds"}, "parent"
     )
-    return row or frappe.db.get_value("Farm", {}, "name")
+    if row:
+        return row
+    existing = frappe.db.get_value("Farm", {}, "name")
+    if existing or not frappe.db.exists("DocType", "Farm"):
+        return existing
+    # An empty site (Warehouse.custom_farm is mandatory there): make the one farm the tests need.
+    return frappe.get_doc({
+        "doctype": "Farm", "farm_name": "Test Rose Farm", "abbreviation": "TRF",
+        "company": default_company(),
+        "farm_type": [{"farm_type": "Has Beds"}, {"farm_type": "Has Zones"}],
+    }).insert(ignore_permissions=True).name
 
 
 def default_employee(user: str = "Administrator") -> str:

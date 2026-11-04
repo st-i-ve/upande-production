@@ -1,5 +1,9 @@
+from unittest.mock import patch
+
 import frappe
 from frappe.tests.utils import FrappeTestCase
+
+from upande_production.tests import make_warehouse
 
 
 class TestFarmMapGeometry(FrappeTestCase):
@@ -81,7 +85,9 @@ class TestFarmMapGeometry(FrappeTestCase):
 
     def test_bundled_survey_is_present_and_well_formed(self):
         from upande_production import farm_map
-        geom = farm_map._bundled_geometry()
+        # The bundled survey is opt-in per site; the test opts in so it does not depend on site_config.
+        with patch.object(farm_map, "_bundled_survey_enabled", return_value=True):
+            geom = farm_map._bundled_geometry()
         self.assertTrue(geom, "bundled greenhouse geometry is missing")
         for name, polys in geom.items():
             for poly in polys:

@@ -1,8 +1,11 @@
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
+from upande_production.crop_production.tests.test_controllers import _CropCycleHelpers
+from upande_production.tests import make_warehouse
 
-class TestWeekPlan(FrappeTestCase):
+
+class TestWeekPlan(_CropCycleHelpers, FrappeTestCase):
     """The week's work board and the map's live-operation feed."""
 
     def setUp(self):
@@ -10,7 +13,9 @@ class TestWeekPlan(FrappeTestCase):
         self.plan = plan
         self.house = frappe.db.get_value("Crop Cycle", {"status": ("!=", "Ended")}, "greenhouse")
         if not self.house:
-            self.skipTest("no crop cycles on this site")
+            # An empty site: give the board one planting to hang tasks on.
+            self.house = make_warehouse("TEST GH WEEKPLAN")
+            self._cycle(self.house)
         self.year, self.week = 2035, 12
         self._clean()
 
@@ -82,12 +87,11 @@ class TestWeekPlan(FrappeTestCase):
         self.assertEqual(r["tasks"], [])
         self.assertEqual(r["open"], 0)
 
-    def test_live_operations_ignores_another_week(self):
-        # 2035-W12 is not the current week, so nothing in it is "under way".
+    def test_live_operations_ignores_open_work_in_another_week(self):
+        # 2035-W12 is not the current week, so an Open task in it is not "due today"
+        # (an In Progress task is under way whichever week it was planned in).
         self.plan.add_task(self.house, "Cut block A", "Harvest", "Monday",
                            year=self.year, week=self.week)
-        w = self.plan.week_plan(self.year, self.week)
-        self.plan.set_task_status(w["by_day"]["Monday"][0]["task"], "In Progress")
         live = self.plan.live_operations(self.year, self.week)
         self.assertEqual(live["houses"], {},
-                         "only the current week can have work under way")
+                         "open work planned for another week is not under way")

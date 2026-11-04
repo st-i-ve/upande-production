@@ -7,7 +7,10 @@ from upande_production.tests import default_company, default_employee, default_u
 from upande_production.crop_production.doctype.crop_cycle.crop_cycle import parse_bed_range
 
 
-class TestCropCycle(FrappeTestCase):
+class _CropCycleHelpers:
+    """Item / protocol / cycle builders shared by both test classes (not itself a test case, so the
+    inherited tests are not collected and run a second time under the Greenhouse class)."""
+
     def _item(self, name="TEST-VARIETY-A"):
         if not frappe.db.exists("Item", name):
             frappe.get_doc({
@@ -50,6 +53,17 @@ class TestCropCycle(FrappeTestCase):
         payload.update(kw)
         return frappe.get_doc(payload).insert(ignore_permissions=True)
 
+    def _bed(self, house, n, length, width):
+        name = f"{house} - Bed {n}"
+        if frappe.db.exists("Bed", name):
+            frappe.delete_doc("Bed", name, force=True, ignore_permissions=True)
+        return frappe.get_doc({
+            "doctype": "Bed", "greenhouse": house, "unit_type": "Bed", "bed": n,
+            "bed_length": length, "bed_width": width, "bed_area": length * width,
+        }).insert(ignore_permissions=True).name
+
+
+class TestCropCycle(_CropCycleHelpers, FrappeTestCase):
     # -- uprooting and replanting ---------------------------------------
 
     def test_end_date_ends_the_cycle(self):
@@ -111,15 +125,6 @@ class TestCropCycle(FrappeTestCase):
 
     # -- the density guard ---------------------------------------------
 
-    def _bed(self, house, n, length, width):
-        name = f"{house} - Bed {n}"
-        if frappe.db.exists("Bed", name):
-            frappe.delete_doc("Bed", name, force=True, ignore_permissions=True)
-        return frappe.get_doc({
-            "doctype": "Bed", "greenhouse": house, "unit_type": "Bed", "bed": n,
-            "bed_length": length, "bed_width": width, "bed_area": length * width,
-        }).insert(ignore_permissions=True).name
-
     def test_beds_roll_up_into_area_and_implied_plants(self):
         house = make_warehouse("TEST GH BEDS")
         beds = [self._bed(house, i, 20, 0.85) for i in (1, 2, 3)]
@@ -128,13 +133,17 @@ class TestCropCycle(FrappeTestCase):
         self.assertAlmostEqual(c.planted_area, 3 * 20 * 0.85, places=2)
         self.assertEqual(c.implied_plants, round(51 * 6))
 
-    def test_wrong_bed_length_is_rejected(self):
+    def test_wrong_bed_length_is_flagged(self):
         """The 4m-vs-20m error: 50 beds of 4x0.85 cannot hold 10,000 plants."""
         house = make_warehouse("TEST GH BADBEDS")
         beds = [self._bed(house, i, 4, 0.85) for i in range(1, 6)]
-        with self.assertRaises(frappe.ValidationError):
-            self._cycle(house, qty_planted=10000, plants_per_sqm=7,
+        frappe.local.message_log = []
+        c = self._cycle(house, qty_planted=10000, plants_per_sqm=7,
                         beds=[{"bed": b} for b in beds])
+        # check_density warns rather than blocks: the grower may not plant what the beds imply.
+        self.assertTrue(c.name)
+        self.assertTrue(any("disagree" in str(m) for m in frappe.local.message_log),
+                        "a 4m bed that cannot hold 10,000 plants must be flagged")
 
     def test_plausible_density_passes(self):
         house = make_warehouse("TEST GH GOODBEDS")
@@ -454,7 +463,7 @@ class TestCropCycle(FrappeTestCase):
             "reference_type": "Crop Cycle", "reference_name": c.name}))
 
 
-class TestGreenhouse(TestCropCycle):
+class TestGreenhouse(_CropCycleHelpers, FrappeTestCase):
     """Greenhouse is its own bed-by-bed ledger, independent of Crop Cycle --
     only reuses TestCropCycle's _item() to create variety Items."""
 
