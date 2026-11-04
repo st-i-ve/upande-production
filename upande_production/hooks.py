@@ -29,7 +29,7 @@ add_to_apps_screen = [
 # forces target="_blank" on URL sidebar items, which production_desk.js overrides).
 app_include_js = [
 	"/assets/upande_production/js/production_desk.js",
-	"/assets/upande_production/js/production_logo_motion.js",
+	"/assets/upande_production/js/upande_tile_logo.js",
 ]
 
 # include js, css files in header of web template
