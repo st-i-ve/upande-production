@@ -46,56 +46,6 @@
 		});
 	}
 
-	// Same tab. Frappe turns every External desktop icon (the Production, Crop Material
-	// Planning and Propagation tiles on the apps screen) into window.location.origin + link
-	// and sets target="_blank" on it, so each module opens in a new tab. Take any same-origin
-	// link of that kind back into the current tab: /app and /desk paths go through
-	// frappe.set_route (SPA, no reload, as Frappe's own handler does); anything else is a
-	// page load behind the cover. Other origins, downloads, file/API URLs and modified or
-	// middle clicks are left alone.
-	var FILE_PATHS = /^\/(files|private|api|assets|backups)(\/|$)/;
-
-	function sameTabTarget(a) {
-		var raw = a.getAttribute("href") || "";
-		if (!raw || raw.charAt(0) === "#" || a.hasAttribute("download")) return null;
-		var url;
-		try {
-			url = new URL(raw, window.location.href);
-		} catch (_) {
-			return null;
-		}
-		if (url.origin !== window.location.origin) return null;
-		if (FILE_PATHS.test(url.pathname)) return null;
-		if (a.getAttribute("onclick")) return null;
-		// /app and /desk links always go through the router: Frappe's own handler never sees a
-		// click inside a Custom HTML Block's shadow root, so there the browser would reload the
-		// page. Any other relative link already navigates in this tab; only act on a new-tab
-		// target or an absolute URL.
-		if (/^\/(app|desk)(\/|$)/.test(url.pathname)) return url;
-		var absolute = /^[a-z][a-z0-9+.-]*:|^\/\//i.test(raw);
-		if (!absolute && a.getAttribute("target") !== "_blank") return null;
-		return url;
-	}
-
-	function go(url) {
-		var path = url.pathname;
-		var spa = /^\/(app|desk)(\/|$)/.test(path);
-		if (spa && window.frappe && frappe.set_route) {
-			if (url.search) {
-				frappe.route_options = {};
-				new URLSearchParams(url.search).forEach(function (v, k) {
-					frappe.route_options[k] = v;
-				});
-			}
-			if (url.hash) frappe.route_hash = url.hash;
-			frappe.set_route(path);
-			return;
-		}
-		var target = path + url.search + url.hash;
-		if (path.indexOf("/production_app") === 0) leave(target);
-		else window.location.href = target;
-	}
-
 	document.addEventListener(
 		"click",
 		function (e) {
@@ -117,11 +67,22 @@
 				leave(href);
 				return;
 			}
-			var url = sameTabTarget(a);
-			if (!url) return;
-			e.preventDefault();
-			e.stopPropagation();
-			go(url);
+			// Frappe's own link handler (router.js) is a delegated jQuery handler on <body>, which
+			// never matches a click inside a Custom HTML Block's shadow root, so a /app or /desk
+			// tile there would reload the whole page. Route it like Frappe does.
+			if (a.getRootNode && a.getRootNode() !== document && /^\/(app|desk)(\/|$)/.test(href) &&
+				!a.getAttribute("onclick") && a.getAttribute("target") !== "_blank" && window.frappe && frappe.set_route) {
+				e.preventDefault();
+				e.stopPropagation();
+				var u = new URL(href, window.location.href);
+				if (u.search) {
+					frappe.route_options = {};
+					new URLSearchParams(u.search).forEach(function (v, k) {
+						frappe.route_options[k] = v;
+					});
+				}
+				frappe.set_route(u.pathname);
+			}
 		},
 		true
 	);
