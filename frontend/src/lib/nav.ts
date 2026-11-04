@@ -87,7 +87,7 @@ export const FLOWER_VIEWS: View[] = [
 ];
 
 /** The view a crop opens on. */
-export function landingView(crop?: Pick<Crop, "desk_launcher" | "unit_label"> | null): View {
+export function landingView(crop?: Parameters<typeof isFlowerCrop>[0]): View {
   return isFlowerCrop(crop) ? "flower-overview" : "overview";
 }
 
@@ -137,10 +137,10 @@ const FLOWER_GROUPS: { label: string; views: View[] }[] = [
 export function viewAllowed(
   view: View,
   cropKey: string,
-  crop?: (Pick<Crop, "dry_matter_testing"> & Partial<Pick<Crop, "desk_launcher" | "unit_label">>) | null,
+  crop?: (Pick<Crop, "dry_matter_testing"> & Partial<Pick<Crop, "desk_launcher" | "unit_label" | "parent_unit_label" | "sub_unit_label">>) | null,
 ): boolean {
   // Flower crops have their own screens and none of the others; nobody else has theirs.
-  const flower = isFlowerCrop(crop as Pick<Crop, "desk_launcher" | "unit_label"> | null);
+  const flower = isFlowerCrop(crop as Parameters<typeof isFlowerCrop>[0]);
   if (FLOWER_VIEWS.includes(view)) return flower;
   if (flower) return false;
   // Dry matter tests follow the crop's setting; avocado keeps its own Dry Matter page.

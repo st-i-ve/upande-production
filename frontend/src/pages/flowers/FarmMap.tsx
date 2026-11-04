@@ -9,6 +9,8 @@ import { useCurrentCrop } from "@/lib/crops";
 import { isError } from "@/lib/frappe";
 import { farmMap, type MapHouse, type MapPayload } from "@/lib/flowers-api";
 import { ClassicLink } from "./ClassicLink";
+import { useFlowerData } from "@/lib/use-flower-data";
+import { unitWord } from "./unit-words";
 
 const SRC = "farm-houses";
 const FILL = "farm-houses-fill";
@@ -67,6 +69,7 @@ export function FarmMap() {
   const [selected, setSelected] = useState<string | null>(null);
   const [map, setMap] = useState<maplibregl.Map | null>(null);
   const fitted = useRef(false);
+  const fd = useFlowerData(crop.name);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -108,8 +111,14 @@ export function FarmMap() {
   }, [map]);
 
   const house = useMemo(() => data?.greenhouses.find((h) => h.name === selected) ?? null, [data, selected]);
-  const waiting = firstLoad(loading, !!data);
+  const hasGeo = !!data?.greenhouses.some((h) => h.polygons?.length);
+  const waiting = firstLoad(loading || fd.loading, !!data && !!fd.data);
   const t = data?.totals;
+  const word = unitWord(fd.data?.mode);
+  // No surveyed outlines for these units (Block and Bed carry no geometry on live data): a layout of
+  // the units by farm instead of a map, coloured by how much of each is planted.
+  const byFarm = new Map<string, NonNullable<typeof fd.data>["units"]>();
+  (fd.data?.units ?? []).forEach((u) => byFarm.set(u.farm || "(no farm)", [...(byFarm.get(u.farm || "(no farm)") ?? []), u]));
 
   return (
     <PageShell
@@ -122,13 +131,41 @@ export function FarmMap() {
         </>
       }
       description={
-        t
+        !hasGeo && fd.data
+          ? `${fd.data.totals.units} ${word.plural.toLowerCase()} on ${byFarm.size} farms · ${n(fd.data.totals.plants)} plants · no surveyed outlines yet, shown as a layout`
+          : t
           ? `${t.houses} planted greenhouses${t.empty ? ` · ${t.empty} empty` : ""} · ${n(t.plants)} plants · ${n(t.week_stems)} stems budgeted for week ${data?.now_week}`
           : undefined
       }
     >
       {waiting ? (
         <MapPageSkeleton />
+      ) : !hasGeo && fd.data ? (
+        <div className="flex flex-col gap-6">
+          {[...byFarm.entries()].map(([farm, units]) => (
+            <section key={farm} className="rounded-[var(--sd-radius-lg)] bg-[var(--sd-card)] p-5 shadow-[var(--sd-shadow-1)]">
+              <h2 className="mb-3 text-[15px] font-semibold text-[var(--sd-ink)]">
+                {farm} <span className="text-[12px] font-normal text-[var(--sd-quiet)]">· {units.length} {word.plural.toLowerCase()} · {n(units.reduce((a, u) => a + u.plants, 0))} plants</span>
+              </h2>
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-2">
+                {units.map((u) => {
+                  const planted = u.gross_area ? Math.min(1, u.area_planted / u.gross_area) : u.cycles ? 1 : 0;
+                  return (
+                    <div
+                      key={u.name}
+                      title={`${u.name}: ${n(u.plants)} plants, ${n(u.beds)} beds, ${n(u.area_planted)} m², ${u.cycles} cycles`}
+                      className="rounded-lg px-3 py-2 text-[12px]"
+                      style={{ background: u.cycles ? `color-mix(in srgb, ${PLANTED} ${Math.round(25 + planted * 55)}%, white)` : "var(--sd-bg-soft)" }}
+                    >
+                      <b className="block text-[var(--sd-ink)]">{u.label}</b>
+                      <span className="text-[var(--sd-muted)]">{n(u.plants)} plants · {n(u.beds)} beds</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+        </div>
       ) : (
         <div className="relative h-[calc(100vh-240px)] min-h-[480px] overflow-hidden rounded-[var(--sd-radius-lg)] shadow-[var(--sd-shadow-1)]">
           <MapBase className="h-full" onReady={setMap} />

@@ -24,37 +24,6 @@ export async function getList(
   return { rows: Array.isArray(r) ? (r as Row[]) : [] };
 }
 
-export interface GreenhouseRow {
-  name: string;
-  farm: string | null;
-  number_of_beds: number | null;
-  number_of_plants: number | null;
-  area_planted: number | null;
-  gross_area: number | null;
-  varieties: number | null;
-}
-
-export interface CycleRow {
-  name: string;
-  greenhouse: string | null;
-  farm: string | null;
-  variety: string | null;
-  status: string | null;
-  qty_planted: number | null;
-  plants_standing: number | null;
-  planted_area: number | null;
-}
-
-export async function getDashboardData(): Promise<Envelope<{ greenhouses: GreenhouseRow[]; cycles: CycleRow[] }>> {
-  const [g, c] = await Promise.all([
-    getList("Greenhouse", ["name", "farm", "number_of_beds", "number_of_plants", "area_planted", "gross_area", "varieties"]),
-    getList("Crop Cycle", ["name", "greenhouse", "farm", "variety", "status", "qty_planted", "plants_standing", "planted_area"]),
-  ]);
-  if (isError(g)) return g;
-  if (isError(c)) return c;
-  return { greenhouses: g.rows as unknown as GreenhouseRow[], cycles: c.rows as unknown as CycleRow[] };
-}
-
 export interface MapPlanting {
   cycle: string;
   variety: string;
@@ -97,3 +66,53 @@ export const farmMap = () => call<MapPayload>("upande_production.farm_map.map_pa
 /** The legacy desk route for a doctype: /desk/<slug>. */
 export const classicList = (doctype: string) => `/desk/${doctype.toLowerCase().replace(/ /g, "-")}`;
 export const classicDoc = (doctype: string, name: string) => `${classicList(doctype)}/${encodeURIComponent(name)}`;
+
+// -- Blocks, beds and cycles in one form (greenhouse- or block-based) ---------------------------
+
+export interface FlowerUnit {
+  name: string;
+  label: string;
+  farm: string | null;
+  beds: number;
+  plants: number;
+  area_planted: number;
+  gross_area: number;
+  varieties: number;
+  cycles: number;
+}
+
+export interface FlowerCycle {
+  name: string;
+  unit: string | null;
+  unit_kind: "block" | "greenhouse" | null;
+  farm: string | null;
+  /** The item code; `variety_name` is its item_name, which is what is shown. */
+  variety: string | null;
+  variety_name: string | null;
+  product: string | null;
+  status: string | null;
+  planting_date: string | null;
+  plants: number;
+  area: number;
+  beds: number;
+}
+
+export interface FlowerData {
+  mode: "block" | "greenhouse";
+  units: FlowerUnit[];
+  cycles: FlowerCycle[];
+  farms: { farm: string; units: number; beds: number; plants: number; area: number }[];
+  totals: {
+    units: number; beds: number; plants: number; area_planted: number; gross_area: number;
+    cycles: number; active: number; varieties: number;
+  };
+}
+
+export const flowerData = (crop: string) => call<FlowerData>("upande_production.api.flowers.flower_data", { crop });
+
+/** {item code: item_name}: the lists that carry only codes (protocols) show the names. */
+export async function itemNames(codes: string[]): Promise<Record<string, string>> {
+  if (!codes.length) return {};
+  const r = await call<Record<string, string>>("upande_production.api.flowers.item_names", { codes: JSON.stringify(codes) });
+  return isError(r) ? {} : (r as Record<string, string>);
+}
