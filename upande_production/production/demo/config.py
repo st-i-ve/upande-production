@@ -156,7 +156,7 @@ DEMO = {
 		("Irrigation system installation", "Capital", "Irrigation", "Hectare"),
 		("Windbreak planting", "Capital", "Other", "Hectare"), ("Planting material", "Capital", "Other", "Hectare"),
 	],
-	"field_activities": [
+	"field_operations": [
 		("Planting", "Planting", "Other", "Tree"), ("Uprooting / clearing", "Uprooting", "Other", "Hectare"),
 		("Mulching", "Cultural", "Other", "Hectare"), ("Seedling support (staking)", "Key activity", "Other", "Plant"),
 		("Irrigating", "Cultural", "Irrigation", "Hectare"), ("Fertigating", "Cultural", "Fertilising", "Hectare"),
