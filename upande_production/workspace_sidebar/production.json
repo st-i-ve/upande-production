@@ -194,7 +194,7 @@
    "show_arrow": 0,
    "type": "Link",
    "link_type": "DocType",
-   "link_to": "Field Activity"
+   "link_to": "Field Operation"
   },
   {
    "child": 1,

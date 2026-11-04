@@ -19,7 +19,7 @@
    "fieldname": "operation",
    "fieldtype": "Link",
    "label": "Operation",
-   "options": "Field Activity",
+   "options": "Field Operation",
    "reqd": 1,
    "in_list_view": 1
   },

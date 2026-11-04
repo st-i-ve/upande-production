@@ -91,7 +91,7 @@
    "fieldname": "operation",
    "fieldtype": "Link",
    "label": "Operation",
-   "options": "Field Activity",
+   "options": "Field Operation",
    "reqd": 1
   },
   {

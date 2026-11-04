@@ -4,5 +4,5 @@
 from frappe.model.document import Document
 
 
-class FieldActivity(Document):
+class FieldOperation(Document):
 	pass
