@@ -63,8 +63,10 @@ DocType row has not been flipped to a new app's module before the removal, the t
   `sync_for` (verified in `frappe/installer.py`: before_install loop, then `add_module_defs`, then `sync_for`, then
   `set_all_patches_as_completed`), so the five pre_model_sync patches (the three renames and both take-overs) run
   before the JSON import and adopt the existing doctypes. An `after_install` hook runs the setup patches that
-  `set_all_patches_as_completed` would skip (crop defaults, desktop icon, default bands). Planning has no such hook
-  yet, so for it, and as a fallback for production, run the patches by hand (they are idempotent), see 3.3. For an app that is **already installed** (propagation)
+  `set_all_patches_as_completed` would skip (crop defaults, desktop icon, default bands). Planning has the same pair
+  (`upande_crop_material_planning.install.before_install` runs both take-overs without creating its Module Def,
+  which `add_module_defs` inserts right after and would refuse as a duplicate; `after_install` sets up the desk
+  tile). As a fallback for both, run the patches by hand (they are idempotent), see 3.3. For an app that is **already installed** (propagation)
   `bench migrate` does run the new patches normally.
 - **`bench migrate` ends with `remove_orphan_doctypes`:** a standard DocType (custom=0) whose controller
   cannot be found through its module is deleted (the DocType row, not the table). So never migrate a state
@@ -225,7 +227,8 @@ Production's fixtures include Roles "Agriculture Manager"/"Agriculture User" (al
 updates in place) and 6 Scan Location Mappings (live has 2; fixture upsert: check the 2 are unchanged).
 
 Production's take-over now runs automatically inside this step through its `before_install` hook; its patches are
-still logged as done in the Patch Log afterwards (3.2), but they ran. Planning's do not (no hook).
+still logged as done in the Patch Log afterwards (3.2), but they ran. Planning's take-overs run the same way
+(its own before_install hook).
 
 ### 3.2 Check what ran (Patch Log)
 ```sql
