@@ -132,3 +132,23 @@ Branch `marginpar`. marginpar.local is migrated and consistent; nothing is half-
   only where a table exists, and cancel returns plants and bed statuses exactly once (bed statuses are stashed in a Comment).
   Supplier propagator fields and Material Request custom_request_type are read only when present.
 - Tests: whole `upande_production` suite passes on marginpar.local; new tests for the guard, the diff and Bed Work Order.
+
+**Cleaning phase 2026-11-05**
+- `summer_flowers/cleanup.refresh_protocols(apply=False, names=None)`: dry run returns the per-protocol diff; `apply=True` recomputes and saves each
+  protocol keeping its workflow status, and for an Approved protocol whose inputs moved against its snapshot writes a fresh Crop Protocol Version
+  through `approve()` with change reason "data refresh" (the protocol's own reason is put back). A protocol with a missing link target (e.g. a
+  deleted Approved By user), or whose snapshot is refused, is skipped and reported (savepoint rollback), never fatal.
+  Run: `bench --site X execute upande_production.summer_flowers.cleanup.refresh_protocols --kwargs "{'apply': True}"`.
+- Comparator fixes found on the way (a freshly approved protocol still "differed" from its own snapshot and fell back to Draft on recompute):
+  `_comparable` treats None/''/0 as blank, ignores `__unsaved`-style row keys, and applies the snapshot's 5% cutting_reject default;
+  `align_flush_pinch` derives `weeks_from_pinch` on the protocol's flush rows the way the version does.
+- marginpar.local result: 32 protocols; 18 refreshed and 8 Approved ones got a v+1 snapshot "data refresh" (all statuses
+  unchanged); a second apply after the comparator fixes refreshed 15 more without new snapshots. 14 remain out of date (all skipped, none crashed): 3 with a deleted
+  Approved By user (110402-Carzan Ks, 120907-Carzan Mr, Dahlia-Carzan Ks); 11 Approved Aster protocols with no grade allocation (approval
+  refuses; fill the grade allocation, then rerun).
+- Protocol title: `before_validate` falls back to protocol_name when no variety title can be derived; the form JS falls back to the doc name so
+  the sidebar header no longer reads "undefined" for a protocol saved before the title existed.
+- `install.before_install` / `after_install` hooks (see the runbook, step 3).
+- Test leak: `upande_crop_material_planning/tests/test_budget.py` tearDown (and the twin in upande_agriculture) calls `frappe.db.commit()` with the
+  fixture Crop Cycle (variety TEST-BUDGET-VARIETY) still in the transaction. Not ours to edit; production's own `frappe.db.commit()` in test_plan
+  and test_todo_helpers (which could commit other pending fixtures) were removed.

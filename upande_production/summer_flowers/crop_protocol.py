@@ -326,10 +326,29 @@ def before_validate(doc, method=None):
 	if variety:
 		doc.custom_sf_title = " - ".join(
 			x for x in (variety_name(variety), doc.get("farm")) if x)
+	# The title field heads the form and every link to it, so it is never left
+	# empty: a protocol with no variety yet reads as its own name.
+	if not doc.get("custom_sf_title"):
+		doc.custom_sf_title = doc.get("protocol_name") or doc.get("name") or None
 
 	# Early, so that everything downstream -- the derivation, the native mirror,
 	# the snapshot a version is taken from -- reads one set of flush figures.
 	spread_life_over_flushes(doc)
+
+
+def align_flush_pinch(doc):
+	"""Planting is what is typed on a flush; the weeks from pinch are worked back from it.
+
+	The snapshot's controller does exactly this to its own rows, so doing it here keeps
+	the protocol and the snapshot taken from it reading the same figures (otherwise a
+	freshly approved protocol still "differs" from its own snapshot).
+	"""
+	pinch = cint(doc.get("weeks_to_pinch"))
+	for row in doc.get("custom_sf_flush_schedule") or []:
+		if cint(row.weeks_from_planting):
+			row.weeks_from_pinch = cint(row.weeks_from_planting) - pinch
+		elif cint(row.weeks_from_pinch):
+			row.weeks_from_planting = pinch + cint(row.weeks_from_pinch)
 
 
 def spread_life_over_flushes(doc):
@@ -554,22 +573,6 @@ def farm_bed_geometry(farm):
 		"""select avg(custom_total_beds) from tabBlock
 		   where farm=%s and ifnull(custom_total_beds,0)>0""", farm)[0][0]
 	return (round(flt(area), 4) or None), (cint(round(flt(beds))) or None)
-
-
-def set_farm_geometry(doc):
-	"""Fill the bed figures from the farm. NOT called when a protocol is saved.
-
-	A protocol is what a variety does; beds and blocks are the ground it is planted
-	in. This is here for whatever plans against real ground and needs to know how
-	many plants a bed of that farm holds.
-	"""
-	if not is_summer_flower(doc):
-		return
-	area, beds = farm_bed_geometry(doc.get("farm"))
-	if area:
-		doc.custom_sf_sqm_net_per_bed = area
-	if beds:
-		doc.custom_sf_beds_per_block = beds
 
 
 def number_flushes(doc):
@@ -1288,6 +1291,7 @@ def validate(doc, method=None):
 		rw.sync_route_from_ways(doc)
 	set_pinch_from_activities(doc)
 	number_flushes(doc)
+	align_flush_pinch(doc)
 	derive(doc)
 	check_route(doc)
 	set_raised_from_pool(doc)
@@ -1333,18 +1337,28 @@ def _comparable(doc_or_version, from_protocol):
 			continue
 		name = source_field(f.fieldname) if from_protocol else f.fieldname
 		val = doc_or_version.get(name)
+		if from_protocol and f.fieldname == "cutting_reject_pct" and not flt(val):
+			# The snapshot's own controller fills a blank with the house allowance;
+			# a protocol that says nothing is not a change from it.
+			from upande_production.crop_production.doctype.crop_protocol_version.crop_protocol_version import (
+				DEFAULT_STAGE_LOSS_PCT)
+			val = DEFAULT_STAGE_LOSS_PCT
 		if f.fieldtype == "Table":
 			out[f.fieldname] = [
-				tuple(round(flt(r.get(k)), 4) if isinstance(r.get(k), (int, float))
+				tuple("" if not r.get(k) else
+				      round(flt(r.get(k)), 4) if isinstance(r.get(k), (int, float))
 				      else r.get(k)
 				      for k in sorted(r.as_dict())
-				      if k not in ("name", "parent", "parenttype", "parentfield",
+				      if not k.startswith("_") and k not in ("name", "parent", "parenttype", "parentfield",
 				                   "doctype", "idx", "owner", "creation", "modified",
 				                   "modified_by", "docstatus"))
 				for r in (val or [])
 			]
 		elif isinstance(val, float):
 			out[f.fieldname] = round(val, 4)
+		elif val is None:
+			# Blank is blank whether the column holds NULL, '' or 0.
+			out[f.fieldname] = 0.0 if f.fieldtype in ("Int", "Float", "Currency", "Percent", "Check") else ""
 		else:
 			out[f.fieldname] = val
 	return out

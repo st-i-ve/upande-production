@@ -62,16 +62,6 @@ def iso_monday(year, week):
 	return datetime.date.fromisocalendar(int(year), int(week), 1)
 
 
-def weeks_in_iso_year(year):
-	"""53 if this ISO year has a week 53, else 52."""
-	year = int(year)
-	try:
-		datetime.date.fromisocalendar(year, 53, 1)
-		return 53
-	except ValueError:
-		return 52
-
-
 def iso_year_week(date):
 	"""(iso_year, iso_week) for a date, string or datetime."""
 	if isinstance(date, str):

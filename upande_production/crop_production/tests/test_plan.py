@@ -21,7 +21,6 @@ class TestWeekPlan(_CropCycleHelpers, FrappeTestCase):
 
     def tearDown(self):
         self._clean()
-        frappe.db.commit()
 
     def _clean(self):
         for n in frappe.db.get_all("Production Plan Form",

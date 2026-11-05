@@ -1,4 +1,12 @@
 frappe.ui.form.on("Crop Protocol", {
+    onload(frm) {
+        // The title field heads the form; a protocol saved before it was derived has
+        // none, and the sidebar header then reads "undefined". Fall back to the name,
+        // locally (not dirty, not saved).
+        if (!frm.doc.custom_sf_title && !frm.is_new()) {
+            frm.doc.custom_sf_title = frm.doc.name;
+        }
+    },
     refresh(frm) {
         if (frm.is_new()) return;
 

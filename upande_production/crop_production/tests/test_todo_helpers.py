@@ -15,7 +15,6 @@ class TestTodoHelpers(FrappeTestCase):
         self.ref = self._make_greenhouse()
         frappe.db.delete("ToDo", {"reference_type": REF_TYPE,
                                    "reference_name": self.ref})
-        frappe.db.commit()
 
     def _make_greenhouse(self, warehouse_name="TEST GH TODO"):
         """ToDo validates its dynamic link, so the reference must really exist."""
@@ -83,4 +82,3 @@ class TestTodoHelpers(FrappeTestCase):
     def tearDown(self):
         frappe.db.delete("ToDo", {"reference_type": REF_TYPE,
                                    "reference_name": self.ref})
-        frappe.db.commit()
