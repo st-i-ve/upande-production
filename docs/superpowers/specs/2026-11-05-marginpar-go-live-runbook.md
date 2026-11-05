@@ -58,8 +58,13 @@ DocType row has not been flipped to a new app's module before the removal, the t
   i.e. writes every patch of the app into Patch Log without executing it. So on a fresh install of
   production and planning the `take_over_*` patches are logged as done and never run. The JSON import flips
   the DocType module itself, but the extra rows the patches handle (Workspace, Sidebar, Report, Page,
-  Custom Field, Property Setter module, `custom=0`) are NOT handled. Fix: right after each install run the
-  patches by hand (they are idempotent), see 3.3. For an app that is **already installed** (propagation)
+  Custom Field, Property Setter module, `custom=0`) are NOT handled. Fix for production (done): `upande_production`
+  has a `before_install` hook (`upande_production.install.before_install`). `install_app` runs before_install BEFORE
+  `sync_for` (verified in `frappe/installer.py`: before_install loop, then `add_module_defs`, then `sync_for`, then
+  `set_all_patches_as_completed`), so the five pre_model_sync patches (the three renames and both take-overs) run
+  before the JSON import and adopt the existing doctypes. An `after_install` hook runs the setup patches that
+  `set_all_patches_as_completed` would skip (crop defaults, desktop icon, default bands). Planning has no such hook
+  yet, so for it, and as a fallback for production, run the patches by hand (they are idempotent), see 3.3. For an app that is **already installed** (propagation)
   `bench migrate` does run the new patches normally.
 - **`bench migrate` ends with `remove_orphan_doctypes`:** a standard DocType (custom=0) whose controller
   cannot be found through its module is deleted (the DocType row, not the table). So never migrate a state
@@ -219,6 +224,9 @@ Module Defs "Crop Production" and "Upande Crop Material Planning", Scheduled Job
 Production's fixtures include Roles "Agriculture Manager"/"Agriculture User" (already on live; `sync_fixtures`
 updates in place) and 6 Scan Location Mappings (live has 2; fixture upsert: check the 2 are unchanged).
 
+Production's take-over now runs automatically inside this step through its `before_install` hook; its patches are
+still logged as done in the Patch Log afterwards (3.2), but they ran. Planning's do not (no hook).
+
 ### 3.2 Check what ran (Patch Log)
 ```sql
 select patch from `tabPatch Log` where patch like 'upande_production.patches.take_over%' or patch like 'upande_crop_material_planning.patches%';
@@ -227,6 +235,8 @@ Expected: logged (`install_app` marks them done), and not executed. Treat the ow
 until 3.3 has run.
 
 ### 3.3 Run the ownership patches by hand (idempotent, no-ops when nothing matches)
+The two production lines are a fallback: `before_install` already ran them (then they print nothing and change
+nothing). Planning's two are still required.
 ```bash
 bench --site SITE execute upande_production.patches.take_over_from_upande_agriculture.execute
 bench --site SITE execute upande_production.patches.take_over_from_upande_summer_flowers.execute

@@ -100,8 +100,8 @@ doctype_list_js = {"Block": "public/js/block_list.js"}
 # Installation
 # ------------
 
-# before_install = "upande_production.install.before_install"
-# after_install = "upande_production.install.after_install"
+before_install = "upande_production.install.before_install"
+after_install = "upande_production.install.after_install"
 
 # Uninstallation
 # ------------
