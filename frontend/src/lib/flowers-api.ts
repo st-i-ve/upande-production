@@ -24,6 +24,25 @@ export async function getList(
   return { rows: Array.isArray(r) ? (r as Row[]) : [] };
 }
 
+export interface StaleChange {
+  fieldname: string;
+  label: string;
+  stored: unknown;
+  computed: unknown;
+}
+export interface StaleProtocol {
+  name: string;
+  changes: StaleChange[];
+  error: string | null;
+}
+
+/** Protocols whose stored derived values differ from a recompute. Read-only on the server. */
+export async function outOfDateProtocols(): Promise<Envelope<{ rows: StaleProtocol[] }>> {
+  const r = await call<StaleProtocol[]>("upande_production.summer_flowers.crop_protocol.out_of_date_protocols", {});
+  if (isError(r)) return r;
+  return { rows: Array.isArray(r) ? (r as StaleProtocol[]) : [] };
+}
+
 export interface MapPlanting {
   cycle: string;
   variety: string;

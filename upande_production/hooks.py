@@ -55,6 +55,7 @@ doctype_js = {
 		"public/js/crop_protocol_walkthrough.js",
 		"public/js/crop_protocol_ways.js",
 		"public/js/crop_protocol_flush_shares.js",
+		"public/js/crop_protocol_stale.js",
 	],
 	"Crop Cycle": "public/js/crop_cycle_planting.js",
 }

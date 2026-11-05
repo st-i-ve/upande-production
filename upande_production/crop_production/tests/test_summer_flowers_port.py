@@ -93,3 +93,61 @@ class TestOwnershipPatch(IntegrationTestCase):
 			self.assertTrue(frappe.db.exists("DocType", name), name)
 			self.assertEqual(frappe.db.get_value("DocType", name, "module"), "Crop Production")
 			self.assertEqual(flt(frappe.db.get_value("DocType", name, "custom")), 0)
+
+
+class TestProtocolResaveGuard(IntegrationTestCase):
+	"""A save with no edit changes nothing; a real edit recomputes; the diff writes nothing."""
+
+	def setUp(self):
+		self.names = frappe.get_all("Crop Protocol", filters={"custom_is_summer_flower": 1}, pluck="name", limit=6)
+		if not self.names:
+			self.skipTest("no summer flower protocols on this site")
+		frappe.db.savepoint("sf_guard_test")
+
+	def tearDown(self):
+		frappe.db.rollback(save_point="sf_guard_test")
+
+	def _values(self, name):
+		d = frappe.get_doc("Crop Protocol", name)
+		return {k: v for k, v in d.as_dict().items() if k not in ("modified", "modified_by") and not isinstance(v, list)}
+
+	def test_unedited_resave_is_a_no_op(self):
+		for name in self.names:
+			before = self._values(name)
+			d = frappe.get_doc("Crop Protocol", name)
+			d.flags.ignore_links = True
+			d.save(ignore_permissions=True)
+			self.assertEqual(before, self._values(name), name)
+
+	def test_real_edit_still_recomputes(self):
+		name = next((n for n in frappe.get_all("Crop Protocol", filters={"custom_is_summer_flower": 1,
+		            "custom_sf_title": ("is", "not set")}, pluck="name", limit=1)), None)
+		if not name:
+			self.skipTest("every protocol already has its derived title")
+		d = frappe.get_doc("Crop Protocol", name)
+		d.flags.ignore_links = True
+		d.save(ignore_permissions=True)  # no edit: stays unset
+		self.assertFalse(frappe.db.get_value("Crop Protocol", name, "custom_sf_title"))
+		d = frappe.get_doc("Crop Protocol", name)
+		d.flags.ignore_links = True
+		d.plants_per_sqm = (d.plants_per_sqm or 0) + 1  # a real input edit
+		d.save(ignore_permissions=True)
+		self.assertTrue(frappe.db.get_value("Crop Protocol", name, "custom_sf_title"))
+
+	def test_recalculate_is_deliberate(self):
+		from upande_production.summer_flowers import crop_protocol as cp
+		for name in self.names:
+			diff = cp.recompute_diff(name)
+			if diff["changes"] and not diff["error"]:
+				break
+		else:
+			self.skipTest("every sampled protocol is up to date")
+		before = self._values(name)
+		cp.recompute_diff(name)  # read-only
+		self.assertEqual(before, self._values(name))
+		d = frappe.get_doc("Crop Protocol", name)
+		d.flags.ignore_links = True
+		d.flags.sf_force_recompute = True
+		d.save(ignore_permissions=True)
+		self.assertNotEqual(before, self._values(name))
+		self.assertEqual(cp.recompute_diff(name)["changes"], [])

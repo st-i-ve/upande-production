@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { firstLoad, TableRowsSkeleton } from "@/components/Loading";
 import { PageShell } from "@/components/PageShell";
 import { RefreshButton } from "@/components/RefreshButton";
@@ -9,7 +9,7 @@ import { EmptyNote, Panel } from "@/components/overview/Panel";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useCurrentCrop } from "@/lib/crops";
 import { isError } from "@/lib/frappe";
-import { classicDoc, classicList, getList, itemNames, type Row } from "@/lib/flowers-api";
+import { classicDoc, classicList, getList, itemNames, outOfDateProtocols, type Row, type StaleProtocol } from "@/lib/flowers-api";
 import { ClassicLink } from "./ClassicLink";
 
 interface Column {
@@ -33,6 +33,8 @@ interface ListConfig {
   link?: boolean;
   /** Columns holding item codes: shown by item_name, the code kept in the tooltip. */
   itemColumns?: string[];
+  /** Flag rows whose stored derived values differ from a recompute (Crop Protocols). */
+  staleCheck?: boolean;
 }
 
 const num = (v: unknown) => (v == null || v === "" ? "—" : Number(v).toLocaleString("en-US", { maximumFractionDigits: 1 }));
@@ -45,6 +47,8 @@ function FlowerList({ cfg }: { cfg: ListConfig }) {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [names, setNames] = useState<Record<string, string>>({});
+  const [stale, setStale] = useState<Record<string, StaleProtocol>>({});
+  const [open, setOpen] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -56,6 +60,10 @@ function FlowerList({ cfg }: { cfg: ListConfig }) {
     }
     const codes = [...new Set((cfg.itemColumns ?? []).flatMap((k) => r.rows.map((x) => String(x[k] ?? ""))).filter(Boolean))];
     setNames(await itemNames(codes));
+    if (cfg.staleCheck) {
+      const s = await outOfDateProtocols();
+      setStale(isError(s) ? {} : Object.fromEntries(s.rows.map((x) => [x.name, x])));
+    }
     setLoading(false);
     setRows(r.rows);
   }, [cfg, toast]);
@@ -101,7 +109,8 @@ function FlowerList({ cfg }: { cfg: ListConfig }) {
               </TableHeader>
               <TableBody>
                 {shown.map((r) => (
-                  <TableRow key={String(r.name)}>
+                  <Fragment key={String(r.name)}>
+                  <TableRow>
                     {cfg.columns.map((c, i) => {
                       const v = r[c.key];
                       const isItem = cfg.itemColumns?.includes(c.key) && v;
@@ -117,10 +126,39 @@ function FlowerList({ cfg }: { cfg: ListConfig }) {
                           ) : (
                             cell
                           )}
+                          {i === 0 && stale[String(r.name)] ? (
+                            <button
+                              type="button"
+                              className="ml-2 rounded bg-orange-100 px-1.5 py-0.5 text-[11px] font-medium text-orange-800"
+                              onClick={() => setOpen(open === String(r.name) ? null : String(r.name))}
+                              title="Stored derived values differ from a recalculation"
+                            >
+                              Out of date
+                            </button>
+                          ) : null}
                         </TableCell>
                       );
                     })}
                   </TableRow>
+                  {open === String(r.name) && stale[String(r.name)] ? (
+                    <TableRow>
+                      <TableCell colSpan={cfg.columns.length} className="bg-orange-50 text-xs">
+                        {stale[String(r.name)].error ? (
+                          <div>Cannot be recalculated: {stale[String(r.name)].error}</div>
+                        ) : (
+                          <ul className="space-y-0.5">
+                            {stale[String(r.name)].changes.map((c) => (
+                              <li key={c.fieldname}>
+                                <span className="font-medium">{c.label}</span>: {text(c.stored)} → {typeof c.computed === "number" ? num(c.computed) : text(c.computed)}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        <div className="mt-1 text-[var(--sd-muted)]">Open the protocol and press Recalculate to apply.</div>
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                  </Fragment>
                 ))}
               </TableBody>
             </Table>
@@ -140,6 +178,7 @@ const PROTOCOLS: ListConfig = {
   fields: ["name", "variety_item", "crop_type", "plants_per_sqm", "weeks_to_first_bending", "productive_life_weeks", "weeks_between_cuts", "total_stems_per_plant_life"],
   order_by: "name asc",
   itemColumns: ["variety_item"],
+  staleCheck: true,
   columns: [
     { key: "name", label: "Protocol" },
     { key: "variety_item", label: "Variety" },

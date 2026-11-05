@@ -184,6 +184,79 @@ SUMMER_FLOWER = "Summer Flowers"
 ROSES = "Roses"
 
 
+# Layout and bookkeeping that never count as an edit.
+_NO_VALUE = ("Section Break", "Column Break", "Tab Break", "HTML", "Button", "Heading")
+_BOOKKEEPING = {"modified", "modified_by", "creation", "owner", "idx", "docstatus",
+                "_user_tags", "_comments", "_assign", "_liked_by"}
+
+
+def _same(a, b, fieldtype, tol=0):
+	"""Equal as the form would see them. `tol` is a relative tolerance for numbers: stored
+	values are cut to nine decimals, so a recompute is not a change until it moves further
+	than that."""
+	if fieldtype in ("Int", "Float", "Currency", "Percent", "Check", "Long Int"):
+		x, y = flt(a), flt(b)
+		return abs(x - y) <= tol * max(1.0, abs(x), abs(y)) if tol else x == y
+	return (a or "") == (b or "") if not isinstance(a, (list, dict)) else a == b
+
+
+def _stored_form(value, field, holder):
+	"""The value as the database keeps it: floats cut to the field's precision, as a save does."""
+	if field.fieldtype in ("Float", "Currency", "Percent") and value is not None:
+		try:
+			return flt(value, holder.precision(field.fieldname))
+		except Exception:
+			return value
+	return value
+
+
+def _same_row(a, b, fields, tol=0, holder=None):
+	if holder is not None:
+		return all(_same(_stored_form(a.get(f.fieldname), f, holder), _stored_form(b.get(f.fieldname), f, holder),
+		                 f.fieldtype, tol) for f in fields)
+	return all(_same(a.get(f.fieldname), b.get(f.fieldname), f.fieldtype, tol) for f in fields)
+
+
+def is_unedited_resave(doc):
+	"""True when this save changes nothing a person could have typed.
+
+	Saving a real protocol with no edit used to recompute the derived fields and,
+	where the current version snapshot differed from the protocol, drop an
+	Approved status back to Draft. A save that changes nothing must change
+	nothing, so every derivation and the status reset step aside for it. Any real
+	edit -- including a workflow move of the status -- differs from the stored
+	copy here and runs exactly as before. Decided once per save and cached on the
+	document, because before_validate itself writes derived fields.
+	"""
+	if doc.flags.get("sf_force_recompute"):
+		return False
+	cached = doc.get("_sf_unedited_resave")
+	if cached is not None:
+		return cached
+	result = False
+	before = None if doc.is_new() else doc.get_doc_before_save()
+	if before is not None:
+		result = True
+		for f in doc.meta.fields:
+			if f.fieldtype in _NO_VALUE or f.fieldname in _BOOKKEEPING:
+				continue
+			if f.fieldtype in ("Table", "Table MultiSelect"):
+				mine, theirs = doc.get(f.fieldname) or [], before.get(f.fieldname) or []
+				if len(mine) != len(theirs):
+					result = False
+					break
+				child = frappe.get_meta(f.options).fields
+				child = [c for c in child if c.fieldtype not in _NO_VALUE + ("Table",)]
+				if not all(_same_row(a, b, child) for a, b in zip(mine, theirs)):
+					result = False
+					break
+			elif not _same(doc.get(f.fieldname), before.get(f.fieldname), f.fieldtype):
+				result = False
+				break
+	doc._sf_unedited_resave = result
+	return result
+
+
 def before_validate(doc, method=None):
 	"""Derive the discriminators from crop_type, for every crop.
 
@@ -201,6 +274,8 @@ def before_validate(doc, method=None):
 	Runs for roses too -- it has to, or a rose would keep whatever flag it was
 	last saved with -- so it must not depend on is_summer_flower() itself.
 	"""
+	if is_unedited_resave(doc):
+		return
 	ct = doc.get("crop_type")
 	if ct in (SUMMER_FLOWER, ROSES):
 		doc.custom_is_summer_flower = 1 if ct == SUMMER_FLOWER else 0
@@ -1147,6 +1222,14 @@ def fill_field_activities(doc):
 
 
 def on_update(doc, method=None):
+	try:
+		_on_update(doc)
+	finally:
+		# The verdict belongs to one save; a second save of the same object decides afresh.
+		doc.__dict__.pop("_sf_unedited_resave", None)
+
+
+def _on_update(doc):
 	"""When the workflow reaches Approved, write the snapshot.
 
 	The workflow drives custom_sf_protocol_status, but moving a field to "Approved"
@@ -1163,6 +1246,8 @@ def on_update(doc, method=None):
 	# snapshot it again and is refused for having changed nothing -- the right
 	# answer to the wrong question.
 	if frappe.flags.get("sf_protocol_move"):
+		return
+	if is_unedited_resave(doc):
 		return
 	if doc.get("custom_sf_protocol_status") != "Approved":
 		return
@@ -1184,7 +1269,7 @@ def validate(doc, method=None):
 	# refuses to derive without a net m2 per bed. So leave early, exactly as
 	# on_update does, and let upande_agriculture's own controller be the only
 	# thing that validates a rose.
-	if not is_summer_flower(doc):
+	if not is_summer_flower(doc) or is_unedited_resave(doc):
 		return
 	# The ramp drives weeks-to-max-PC, and the establishment total is built from
 	# that, so it is squared away before anything is derived.
@@ -1625,3 +1710,89 @@ def approve(protocol):
 	return {"version": v.name, "version_no": v.version, "supersedes": prior_name,
 	        "effective_from": str(effective),
 	        "changed": changed}
+
+
+# ---------------------------------------------------------------------------
+# Out of date: stored derived values that a recompute would change
+# ---------------------------------------------------------------------------
+
+_DIFF_SKIP = _BOOKKEEPING | {"modified", "creation", "custom_sf_pending_changes"}
+
+
+def recompute_diff(name):
+	"""What a deliberate recalculation of this protocol would change, written nowhere.
+
+	The save guard leaves a protocol alone when nobody edited it, so protocols whose
+	stored derived values have drifted from what the code now gives stay that way
+	until someone chooses to recalculate. This is the read-only look: the document
+	is loaded, run through the same before_validate + validate a save runs, compared
+	with what is stored, and every database write the run makes is rolled back to a
+	savepoint. Returns {name, changes: [{fieldname, label, stored, computed}],
+	error}.
+	"""
+	doc = frappe.get_doc(PROTOCOL_DOCTYPE, name)
+	stored = {f.fieldname: doc.get(f.fieldname) for f in doc.meta.fields}
+	stored_rows = {t.fieldname: [r.as_dict() for r in doc.get(t.fieldname)]
+	               for t in doc.meta.get_table_fields()}
+	out = {"name": name, "changes": [], "error": None}
+	doc.flags.sf_force_recompute = True
+	frappe.db.savepoint("sf_recompute_diff")
+	try:
+		before_validate(doc)
+		validate(doc)
+	except Exception as e:
+		out["error"] = str(e)[:300]
+		return out
+	finally:
+		frappe.db.rollback(save_point="sf_recompute_diff")
+	for f in doc.meta.fields:
+		if f.fieldtype in _NO_VALUE or f.fieldname in _DIFF_SKIP or f.fieldtype in ("Table", "Table MultiSelect"):
+			continue
+		if not _same(_stored_form(stored[f.fieldname], f, doc), _stored_form(doc.get(f.fieldname), f, doc),
+		             f.fieldtype, 1e-7):
+			out["changes"].append({"fieldname": f.fieldname, "label": _(f.label or f.fieldname),
+			                       "stored": stored[f.fieldname], "computed": doc.get(f.fieldname)})
+	for t in doc.meta.get_table_fields():
+		child = [c for c in frappe.get_meta(t.options).fields if c.fieldtype not in _NO_VALUE + ("Table",)]
+		a, b = stored_rows[t.fieldname], doc.get(t.fieldname) or []
+		if len(a) != len(b) or not all(_same_row(x, y, child, 1e-7, y) for x, y in zip(a, b)):
+			note = "" if len(a) != len(b) else _(" (values differ)")
+			out["changes"].append({"fieldname": t.fieldname, "label": _(t.label or t.fieldname),
+			                       "stored": _("{0} rows").format(len(a)),
+			                       "computed": _("{0} rows").format(len(b)) + note})
+	return out
+
+
+@frappe.whitelist()
+def protocol_recompute_diff(protocol):
+	"""Read-only: what Recalculate would change on one protocol."""
+	frappe.has_permission(PROTOCOL_DOCTYPE, "read", protocol, throw=True)
+	return recompute_diff(protocol)
+
+
+@frappe.whitelist()
+def out_of_date_protocols():
+	"""Read-only: every summer flower protocol whose stored derived values differ from a recompute.
+
+	[{name, changes: [{fieldname, label, stored, computed}], error}] -- only protocols
+	with a difference (or one that cannot be recomputed).
+	"""
+	frappe.has_permission(PROTOCOL_DOCTYPE, "read", throw=True)
+	rows = []
+	for name in frappe.get_list(PROTOCOL_DOCTYPE, filters={"custom_is_summer_flower": 1}, pluck="name",
+	                            order_by="name asc", limit_page_length=0):
+		d = recompute_diff(name)
+		if d["changes"] or d["error"]:
+			rows.append(d)
+	return rows
+
+
+@frappe.whitelist()
+def recalculate(protocol):
+	"""The deliberate recalculation: recompute and save, then the normal save rules apply
+	(including the status falling back to Draft where the approved snapshot differs)."""
+	doc = frappe.get_doc(PROTOCOL_DOCTYPE, protocol)
+	doc.check_permission("write")
+	doc.flags.sf_force_recompute = True
+	doc.save()
+	return {"name": doc.name, "status": doc.get("custom_sf_protocol_status")}
