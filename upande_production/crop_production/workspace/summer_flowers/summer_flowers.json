@@ -1,0 +1,50 @@
+{
+ "app": "upande_production",
+ "charts": [],
+ "content": "[{\"id\": \"sfnav\", \"type\": \"custom_block\", \"data\": {\"custom_block_name\": \"Summer Flowers Navigation\", \"col\": 12}}]",
+ "custom_blocks": [
+  {
+   "custom_block_name": "Summer Flowers Navigation",
+   "label": "Summer Flowers Navigation"
+  }
+ ],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "external_link": null,
+ "for_user": null,
+ "hide_custom": 0,
+ "icon": "leaf",
+ "indicator_color": "green",
+ "is_hidden": 0,
+ "label": "Summer Flowers",
+ "link_to": null,
+ "link_type": "DocType",
+ "links": [],
+ "modified": "2026-11-05 09:00:00.000000",
+ "module": "Crop Production",
+ "name": "Summer Flowers",
+ "number_cards": [],
+ "parent_page": null,
+ "public": 1,
+ "quick_lists": [],
+ "restrict_to_domain": null,
+ "roles": [
+  {
+   "role": "Agriculture User"
+  },
+  {
+   "role": "Agriculture Manager"
+  },
+  {
+   "role": "System Manager"
+  }
+ ],
+ "sequence_id": 2.0,
+ "shortcuts": [],
+ "title": "Summer Flowers",
+ "type": "Workspace",
+ "creation": "2026-08-20 11:22:14.085154",
+ "owner": "Administrator",
+ "modified_by": "Administrator",
+ "idx": 0
+}
