@@ -1752,10 +1752,21 @@ def raising_choices(production_plan):
 		units.append(w)
 	units.sort(key=lambda u: (-u["here"], -u["free"], u["name"]))
 
-	propagators = frappe.get_all(
-		"Supplier", filters={"custom_sf_is_propagator": 1, "disabled": 0},
-		fields=["name", "custom_sf_propagation_weeks as lead_weeks",
-		        "custom_sf_rate_per_plant as rate"], order_by="name")
+	# The propagator flag, lead weeks and rate are custom Supplier fields live does not
+	# have. Without the flag nobody is marked a propagator, so the list is empty; a
+	# missing weeks or rate column reads as the default (0).
+	smeta = frappe.get_meta("Supplier")
+	propagators = []
+	if smeta.has_field("custom_sf_is_propagator"):
+		propagators = frappe.get_all(
+			"Supplier", filters={"custom_sf_is_propagator": 1, "disabled": 0},
+			fields=["name"]
+			+ (["custom_sf_propagation_weeks as lead_weeks"] if smeta.has_field("custom_sf_propagation_weeks") else [])
+			+ (["custom_sf_rate_per_plant as rate"] if smeta.has_field("custom_sf_rate_per_plant") else []),
+			order_by="name")
+		for sp in propagators:
+			sp.setdefault("lead_weeks", 0)
+			sp.setdefault("rate", 0)
 
 	chosen, ways, plants = [], [], {}
 	if not doc:

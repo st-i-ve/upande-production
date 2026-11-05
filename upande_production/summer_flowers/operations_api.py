@@ -18,6 +18,8 @@ import frappe
 from frappe import _
 from frappe.utils import cint, flt, getdate, nowdate
 
+from upande_production.summer_flowers.crop_cycle_api import have_fields
+
 from upande_production.summer_flowers.planning import (
 	season_year,
 	season_first_week,
@@ -424,17 +426,18 @@ def review_queue():
 	for r in frappe.get_all(
 		"Material Request",
 		filters={"custom_sf_block": ["is", "set"], "docstatus": 0},
-		fields=["name", "modified", "owner", "status", "custom_sf_block",
-		        "custom_request_type", "schedule_date", "custom_sf_area_ha",
-		        "custom_farm"]):
+		fields=have_fields("Material Request", [
+			"name", "modified", "owner", "status", "custom_sf_block",
+			"custom_request_type", "schedule_date", "custom_sf_area_ha",
+			"custom_farm"])):
 		items.append({
 			"doctype": "Material Request", "label": "Input Request",
 			"name": r.name, "status": r.status or "Draft",
 			"modified": str(r.modified), "owner": r.owner,
 			"detail": {"block": r.custom_sf_block,
-			           "request type": r.custom_request_type,
+			           "request type": r.get("custom_request_type"),
 			           "needed by": str(r.schedule_date or ""),
-			           "area ha": r.custom_sf_area_ha},
+			           "area ha": r.get("custom_sf_area_ha")},
 			"actions": [], "route": "/app/material-request/" + r.name,
 		})
 

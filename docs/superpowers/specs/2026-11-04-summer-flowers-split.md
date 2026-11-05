@@ -107,16 +107,28 @@ Branch `marginpar`. marginpar.local is migrated and consistent; nothing is half-
   on live data). Test helpers made to work on the live schema (crop_type mandatory, a farm with beds and zones).
 
 **Left**
-- Re-saving a real Crop Protocol is NOT a no-op on this data: 33 of 35 sampled protocols change derived fields on save
-  (custom_sf_title, ramp profile, rooting/establishment defaults, cuttings per plant, and status Approved -> Draft where the
-  current version snapshot differs from the protocol; some versions point at another farm's name). The port matches the
-  original code exactly, so live would do the same; needs a decision (a data fix, or a guard so a save with no edit
-  does not recompute).
 - `www/summer-flowers-planning` is planning's; `test_simulation_parity` imports planning_api (planning's).
 - Source patches (`upande_summer_flowers/patches`) not ported: live data is already past them. Only `merge_protocol_onto_crop_protocol`
   logic lives on, in `protocol_merge.after_migrate`.
-- tours/nav: `tours.sync_form_tours` ported; the Summer Flowers Navigation block and workspace are not (workspaces-only-links rule).
-- Not verified: Bed Work Order, Block Change Request flows (no records), delivery_confirmation, root_line against live
+- tours: `tours.sync_form_tours` ported.
+- Not verified: Block Change Request flows (no records), delivery_confirmation, root_line against live
   plans, the mobile endpoints, the three doctype JS files in a browser.
 - Block.farm on live data disagrees with some cycle names (Bondet vs Kariki Nanyuki); the cycle title follows the block.
-- Three leftover test Crop Cycles (CC-2026-0022..0024) exist on marginpar.local from earlier test runs.
+
+**Update 2026-11-05**
+- Crop Protocol re-save guard (`crop_protocol.is_unedited_resave`): a save that changes no value (fields and child rows compared with
+  `get_doc_before_save`) skips before_validate, validate, the status reset and the approval snapshot. A real edit, a workflow move or the
+  explicit Recalculate (`flags.sf_force_recompute`) runs the old path unchanged. Proof on marginpar.local: 35 protocols re-saved in a rolled-back
+  transaction, 0 changed.
+- Out-of-date flag: `recompute_diff` runs the derivation against a savepoint and rolls it back (writes nothing). Endpoints
+  `crop_protocol.out_of_date_protocols`, `protocol_recompute_diff`, `recalculate`. Orange intro plus Recalculate button on the form
+  (`public/js/crop_protocol_stale.js`), "Out of date" badge with the diff in the React Crop Protocols page. 32 of 32 summer flower
+  protocols are out of date on this data; the rest of the 35 are not summer flower protocols.
+- Navigation: "Summer Flowers Navigation" Custom HTML Block (links only: React pages, legacy www pages, doctype lists) in the fixtures, and a
+  standard "Summer Flowers" workspace (`crop_production/workspace/summer_flowers`) holding only that block. The old "Summer Flowers
+  Planning" workspace never existed on marginpar.local, so there was nothing to flip. Planning-owned lists are not linked from here.
+- Optional schema: Crop Cycle on live has no company, number_of_beds, replanting_logs, uprooting_logs. `crop_cycle_api.have_fields` and
+  `cycle_company` read only what exists and take the company from the farm. Bed Work Order uses the cycle's `uproot_log`, logs replanting
+  only where a table exists, and cancel returns plants and bed statuses exactly once (bed statuses are stashed in a Comment).
+  Supplier propagator fields and Material Request custom_request_type are read only when present.
+- Tests: whole `upande_production` suite passes on marginpar.local; new tests for the guard, the diff and Bed Work Order.

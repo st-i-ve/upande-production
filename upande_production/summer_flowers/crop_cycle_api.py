@@ -20,6 +20,23 @@ def _guard():
 		frappe.throw(_("Please sign in."), frappe.PermissionError)
 
 
+def have_fields(doctype, fields):
+	"""The listed fields that exist on this site's schema.
+
+	Crop Cycle on a live site is not the same shape everywhere (no company, no
+	number_of_beds), and selecting a column that is not there is a 500. Optional
+	reads go through here and come back as missing, not as an error.
+	"""
+	meta = frappe.get_meta(doctype)
+	return [f for f in fields if f in ("name", "creation", "modified", "owner")
+	        or meta.has_field(f)]
+
+
+def cycle_company(farm):
+	"""A cycle's company is its farm's: Crop Cycle itself carries none."""
+	return frappe.db.get_value("Farm", farm, "company") if farm else None
+
+
 def _short(block):
 	return str(block or "").split(" - Block ").pop()
 
@@ -28,8 +45,8 @@ def _short(block):
 def scope():
 	"""Farms, varieties and scopes that actually have cycles."""
 	_guard()
-	rows = frappe.get_all("Crop Cycle", fields=["farm", "custom_sf_variety",
-	                                            "custom_cycle_scope"])
+	rows = frappe.get_all("Crop Cycle", fields=have_fields(
+		"Crop Cycle", ["farm", "custom_sf_variety", "custom_cycle_scope"]))
 	from upande_production.summer_flowers.crop_protocol import variety_names
 	varieties = sorted({r.custom_sf_variety for r in rows if r.custom_sf_variety})
 	return {
@@ -57,7 +74,7 @@ def cycles(farm=None, variety=None, cycle_scope=None, status=None):
 
 	rows = frappe.get_all(
 		"Crop Cycle", filters=f,
-		fields=["name", "custom_cycle_scope", "custom_block", "greenhouse",
+		fields=have_fields("Crop Cycle", ["name", "custom_cycle_scope", "custom_block", "greenhouse",
 		        "custom_greenhouse", "farm", "company", "custom_sf_variety",
 		        "custom_is_summer_flower_cycle", "custom_sf_cycle_status",
 		        "custom_planting_date", "custom_planned_uproot_date",
@@ -73,8 +90,9 @@ def cycles(farm=None, variety=None, cycle_scope=None, status=None):
 		        "custom_override_approved_by", "custom_uproot_deviation_days",
 		        "custom_uproot_approved_by", "custom_crop_protocol_version",
 		        "number_of_beds", "area_planted", "number_of_plants", "varieties",
-		        "last_replanting_date"],
+		        "last_replanting_date"]),
 		order_by="custom_cycle_scope asc, name asc")
+	companies = {}
 
 	# Live bed-work jobs, so the list can say which cycles have work in progress.
 	jobs = {}
@@ -99,6 +117,10 @@ def cycles(farm=None, variety=None, cycle_scope=None, status=None):
 		                 else flt(r.area_planted))
 		r["beds"] = (cint(r.custom_beds_planted) if block_scoped
 		             else cint(r.number_of_beds))
+		if not r.get("company") and r.farm:
+			if r.farm not in companies:
+				companies[r.farm] = cycle_company(r.farm)
+			r["company"] = companies[r.farm]
 		r["jobs"] = jobs.get(r.name, [])
 		r["needs"] = []
 		if r.custom_has_protocol_override and not r.custom_override_approved_by:
@@ -157,7 +179,7 @@ def cycle(name):
 		"block": d.get("custom_block"),
 		"block_code": _short(d.get("custom_block")),
 		"greenhouse": d.get("greenhouse") or d.get("custom_greenhouse"),
-		"farm": d.farm, "company": d.company,
+		"farm": d.farm, "company": d.get("company") or cycle_company(d.farm),
 		"variety": d.get("custom_sf_variety"),
 		"status": d.get("custom_sf_cycle_status"),
 		"protocol": d.get("custom_crop_protocol_version"),
@@ -179,7 +201,10 @@ def cycle(name):
 				"date": str(r.uproot_date or ""), "from_bed": r.from_bed,
 				"to_bed": r.to_bed, "qty": cint(r.qty_uprooted),
 				"reason": r.reason, "remarks": r.remarks,
-			} for r in d.get("uprooting_logs") or []],
+			} for r in d.get("uprooting_logs") or []] or [{
+				"date": str(r.uproot_date or ""), "from_bed": None, "to_bed": None,
+				"qty": cint(r.plants), "reason": None, "remarks": r.bed_range,
+			} for r in d.get("uproot_log") or []],
 		},
 		"jobs": bed_work(cycle=name)["jobs"],
 	}

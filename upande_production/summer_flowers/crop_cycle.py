@@ -846,8 +846,10 @@ class SummerFlowerCropCycle(CropCycle):
 			self.custom_total_royalty_payable = 0
 			return
 		if not self.get("custom_royalty_currency"):
+			company = self.get("company") or (frappe.db.get_value("Farm", self.farm, "company")
+			                                   if self.get("farm") else None)
 			self.custom_royalty_currency = frappe.db.get_value(
-				"Company", self.company, "default_currency")
+				"Company", company, "default_currency") if company else None
 		self.custom_total_royalty_payable = (
 			flt(self.custom_royalty_rate) * cint(self.custom_total_harvested_stems))
 

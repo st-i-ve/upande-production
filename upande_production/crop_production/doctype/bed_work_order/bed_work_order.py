@@ -39,22 +39,25 @@ class BedWorkOrder(Document):
 
 	# ------------------------------------------------------------- context
 	def pull_context(self):
-		cyc = frappe.db.get_value(
-			"Crop Cycle", self.crop_cycle,
-			["custom_block", "custom_greenhouse", "greenhouse", "farm", "company",
-			 "custom_sf_variety", "custom_live_plant_count", "custom_beds_planted",
-			 "custom_cycle_scope", "number_of_beds"], as_dict=True)
+		from upande_production.summer_flowers.crop_cycle_api import cycle_company, have_fields
+		# Optional on this site's schema: live has no company and no number_of_beds on Crop Cycle.
+		cols = have_fields("Crop Cycle", [
+			"custom_block", "custom_greenhouse", "greenhouse", "farm", "company",
+			"custom_sf_variety", "custom_live_plant_count", "custom_beds_planted",
+			"custom_cycle_scope", "number_of_beds"])
+		cyc = frappe.db.get_value("Crop Cycle", self.crop_cycle, cols, as_dict=True)
 		if not cyc:
 			frappe.throw(_("Crop cycle {0} does not exist.").format(self.crop_cycle))
-		self.block = cyc.custom_block
-		self.greenhouse = cyc.custom_greenhouse or cyc.greenhouse
+		self.block = cyc.get("custom_block")
+		self.greenhouse = cyc.get("custom_greenhouse") or cyc.get("greenhouse")
 		self.farm = cyc.farm
-		self.company = cyc.company
-		self.variety = cyc.custom_sf_variety
+		self.company = cyc.get("company") or cycle_company(cyc.farm)
+		self.variety = cyc.get("custom_sf_variety")
 		if not flt(self.plants_per_bed):
-			beds = cint(cyc.custom_beds_planted) or cint(cyc.number_of_beds)
+			beds = (cint(cyc.get("custom_beds_planted")) or cint(cyc.get("number_of_beds"))
+			        or frappe.db.count("Crop Cycle Bed", {"parent": self.crop_cycle}))
 			if beds:
-				self.plants_per_bed = flt(cyc.custom_live_plant_count) / beds
+				self.plants_per_bed = flt(cyc.get("custom_live_plant_count")) / beds
 
 	def check_range(self):
 		if cint(self.to_bed) < cint(self.from_bed):
@@ -157,6 +160,10 @@ class BedWorkOrder(Document):
 		want = cint(self.plants_affected)
 		if self.work_type == "Uprooting":
 			want = -want
+		if self.status == "Cancelled":
+			# Everything this job applied is handed back, once: the delta below is
+			# whatever is still applied, and plants_applied is then zero.
+			want = 0
 		delta = want - cint(self.plants_applied)
 		if delta:
 			self._shift_cycle_plants(delta)
@@ -174,8 +181,40 @@ class BedWorkOrder(Document):
 		# whole point: stems still to come should reflect plants still in the ground.
 		cyc.save()
 
+	_STASH = "bed-status-before:"
+
+	def _stash(self):
+		"""(comment name, {bed: status before this job touched it})."""
+		for c in frappe.get_all("Comment", filters={
+				"reference_doctype": self.doctype, "reference_name": self.name,
+				"comment_type": "Info", "content": ["like", self._STASH + "%"]},
+				fields=["name", "content"], limit=1):
+			try:
+				return c.name, frappe.parse_json(c.content[len(self._STASH):]) or {}
+			except Exception:
+				return c.name, {}
+		return None, {}
+
+	def _save_stash(self, name, data):
+		content = self._STASH + frappe.as_json(data)
+		if name:
+			frappe.db.set_value("Comment", name, "content", content, update_modified=False)
+		else:
+			self.add_comment("Info", content)
+
+	def restore_beds(self):
+		"""Put every bed this job changed back to the status it had before."""
+		name, before = self._stash()
+		for bed, status in before.items():
+			frappe.db.set_value("Bed", bed, {"custom_bed_status": status}, update_modified=False)
+		if name:
+			frappe.db.set_value("Comment", name, "content", self._STASH + "{}", update_modified=False)
+
 	def mark_beds(self):
 		"""Only finished beds change status. A half-worked bed is not done."""
+		if self.status == "Cancelled":
+			self.restore_beds()
+			return
 		if not self.block or not cint(self.last_full_bed):
 			return
 		status = "Uprooted" if self.work_type == "Uprooting" else "Planted"
@@ -183,11 +222,15 @@ class BedWorkOrder(Document):
 			"custom_block": self.block,
 			"bed": ["between", [cint(self.from_bed), cint(self.last_full_bed)]],
 		}, pluck="name")
+		cname, before = self._stash()
 		for b in beds:
+			if b not in before:
+				before[b] = frappe.db.get_value("Bed", b, "custom_bed_status")
 			vals = {"custom_bed_status": status}
 			if self.work_type == "Uprooting":
 				vals["custom_uproot_date"] = self.last_worked_on
 			frappe.db.set_value("Bed", b, vals, update_modified=False)
+		self._save_stash(cname, before)
 
 	def _log_reason(self):
 		"""A reason the Uprooting Log will actually accept.
@@ -206,34 +249,45 @@ class BedWorkOrder(Document):
 		return "Other", _("Reason recorded as {0}.").format(wanted or _("blank"))
 
 	def write_cycle_log(self):
-		"""Put the summary row on the cycle's own replanting or uprooting tab."""
+		"""Put the summary row on the cycle's own tab, where this site's Crop Cycle has one.
+
+		Uprooting goes to the cycle's uproot_log (date, bed range, plants). Replanting
+		has no table on every schema, so it is written only where one exists.
+		"""
 		cyc = frappe.get_doc("Crop Cycle", self.crop_cycle)
+		when = self.completed_on or self.last_worked_on
 		if self.work_type == "Uprooting":
-			reason, carried = self._log_reason()
-			cyc.append("uprooting_logs", {
-				"uproot_date": self.completed_on or self.last_worked_on,
-				"from_bed": cint(self.from_bed), "to_bed": cint(self.to_bed),
-				"reason": reason,
-				"qty_uprooted": cint(self.plants_affected),
-				"remarks": " ".join(filter(None, [
-					_("{0}: {1} beds over {2} day(s), {3} labour hours.").format(
+			if cyc.meta.has_field("uproot_log"):
+				cyc.append("uproot_log", {
+					"uproot_date": when,
+					"bed_range": "{0}-{1}".format(cint(self.from_bed), cint(self.to_bed)),
+					"plants": cint(self.plants_affected),
+				})
+			elif cyc.meta.has_field("uprooting_logs"):
+				reason, carried = self._log_reason()
+				cyc.append("uprooting_logs", {
+					"uproot_date": when,
+					"from_bed": cint(self.from_bed), "to_bed": cint(self.to_bed),
+					"reason": reason, "qty_uprooted": cint(self.plants_affected),
+					"remarks": " ".join(filter(None, [
+						_("{0}: {1} beds over {2} day(s), {3} labour hours.").format(
+							self.name, flt(self.beds_done), cint(self.days_worked),
+							flt(self.total_labour_hours)), carried])),
+				})
+		else:
+			if cyc.meta.has_field("replanting_logs"):
+				cyc.append("replanting_logs", {
+					"replant_date": when,
+					"from_bed": cint(self.from_bed), "to_bed": cint(self.to_bed),
+					"qty_replanted": cint(self.plants_affected),
+					"new_variety": self.new_variety,
+					"cost_of_replanting": flt(self.cost),
+					"remarks": _("{0}: {1} beds over {2} day(s), {3} labour hours.").format(
 						self.name, flt(self.beds_done), cint(self.days_worked),
 						flt(self.total_labour_hours)),
-					carried,
-				])),
-			})
-		else:
-			cyc.append("replanting_logs", {
-				"replant_date": self.completed_on or self.last_worked_on,
-				"from_bed": cint(self.from_bed), "to_bed": cint(self.to_bed),
-				"qty_replanted": cint(self.plants_affected),
-				"new_variety": self.new_variety,
-				"cost_of_replanting": flt(self.cost),
-				"remarks": _("{0}: {1} beds over {2} day(s), {3} labour hours.").format(
-					self.name, flt(self.beds_done), cint(self.days_worked),
-					flt(self.total_labour_hours)),
-			})
-			cyc.last_replanting_date = self.completed_on or self.last_worked_on
+				})
+			if cyc.meta.has_field("last_replanting_date"):
+				cyc.last_replanting_date = when
 		cyc.flags.ignore_permissions = True
 		cyc.save()
 		self.db_set("logged_to_cycle", 1, update_modified=False)
@@ -315,10 +369,8 @@ class BedWorkOrder(Document):
 		"""Stop the job and hand back the plants it had taken off the cycle."""
 		if not (reason or "").strip():
 			frappe.throw(_("A reason is required to cancel a job."))
-		if cint(self.plants_applied):
-			self._shift_cycle_plants(-cint(self.plants_applied))
-			self.db_set("plants_applied", 0, update_modified=False)
 		self.status = "Cancelled"
 		self.add_comment("Info", _("Cancelled: {0}").format(reason))
+		# on_update hands back the plants and the bed statuses, once (plants_applied -> 0).
 		self.save()
 		return self.status
