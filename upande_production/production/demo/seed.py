@@ -406,7 +406,7 @@ def seed_avocado_history():
 					entries = []
 					for emp in r.sample(crew, n):
 						qty = round(r.uniform(lo, hi) / step) * step
-						entries.append({"employee": emp, "qty": max(step, qty))
+						entries.append({"employee": emp, "qty": max(step, qty)})
 					names = work.record_unplanned_work(unit, op, entries, day)
 					if cycle:
 						frappe.db.sql("update `tabCasual Labour Work` set cycle = %s where name in %s", (cycle, tuple(names)))
