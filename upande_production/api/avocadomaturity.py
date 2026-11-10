@@ -19,6 +19,7 @@ import frappe
 from frappe.utils import cint, flt, getdate, nowdate
 
 from upande_production.api import avocado_model
+from upande_production.production.logic import count_sizes
 
 DOCTYPE = "Avocado Maturity Test"
 
@@ -73,6 +74,15 @@ def get_form():
 
 
 @frappe.whitelist()
+def count_for_weight(grams):
+	"""{count, warning}: the export count a fruit of `grams` belongs to. When the weight falls in a gap
+	between bands, count is None and the warning names the nearest counts."""
+	crop = avocado_model.crop_name()
+	return {"count": count_sizes.count_for_weight(crop, grams) if crop else None,
+			"warning": count_sizes.weight_warning(crop, grams) if crop else None}
+
+
+@frappe.whitelist()
 def save_readings(readings, orchard_block=None, planting_area=None, week_number=None,
 				  test_date=None, notes=None):
 	"""Save one visit: several fruit sizes for one block, in one go.
@@ -109,6 +119,14 @@ def save_readings(readings, orchard_block=None, planting_area=None, week_number=
 	saved, skipped = [], []
 	for r in readings:
 		size = cint(r.get("count_size"))
+		if not size and r.get("weight_g") not in (None, ""):
+			# A reading given by fruit weight: find its count, never guess one in a gap.
+			found = count_for_weight(r.get("weight_g"))
+			if not found["count"]:
+				skipped.append({"count_size": None, "weight_g": flt(r.get("weight_g")),
+								"why": found["warning"] or "no count size set on the crop"})
+				continue
+			size = found["count"]
 		moisture = r.get("moisture")
 		if not size or moisture in (None, ""):
 			continue

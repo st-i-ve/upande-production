@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { getCropModel, saveCropModel, type CropModel, type ModelField, type ModelTable } from "@/lib/crop-model-api";
 import { isError } from "@/lib/frappe";
+import { bandIssues, closeGaps, linkedEdit, sortedBands } from "@/lib/count-sizes";
 
 type Values = Record<string, string | number | boolean | null>;
 type Tables = Record<string, Record<string, string | number | null>[]>;
@@ -20,7 +21,10 @@ export function draftOf(m: CropModel): { values: Values; tables: Tables } {
   const tables: Tables = {};
   for (const g of m.groups) {
     for (const f of g.fields) values[f.fieldname] = f.fieldtype === "Check" ? !!f.value : f.value ?? "";
-    for (const t of g.tables) tables[t.fieldname] = t.rows.map((r) => ({ ...r }));
+    for (const t of g.tables) {
+      const rows = t.rows.map((r) => ({ ...r }));
+      tables[t.fieldname] = t.fieldname === "count_sizes" ? [...sortedBands(rows), ...rows.filter((r) => !sortedBands([r]).length)] : rows;
+    }
   }
   return { values, tables };
 }
@@ -70,7 +74,17 @@ function FieldInput({ f, values, set, disabled }: { f: ModelField; values: Value
 }
 
 function TableEditor({ t, rows, onChange, disabled }: { t: ModelTable; rows: Tables[string]; onChange: (rows: Tables[string]) => void; disabled: boolean }) {
-  const setCell = (i: number, name: string, v: string) => onChange(rows.map((r, j) => (j === i ? { ...r, [name]: v } : r)));
+  const bands = t.fieldname === "count_sizes";
+  const [note, setNote] = useState<string | null>(null);
+  const issues = bands ? bandIssues(rows) : [];
+  const setCell = (i: number, name: string, v: string) => {
+    if (bands) {
+      const r = linkedEdit(rows, i, name, v);
+      setNote(r.note);
+      return onChange(r.rows);
+    }
+    onChange(rows.map((r, j) => (j === i ? { ...r, [name]: v } : r)));
+  };
   return (
     <section data-testid={`cm-table-${t.fieldname}`}>
       <div className="mb-1 flex items-center justify-between">
@@ -82,6 +96,18 @@ function TableEditor({ t, rows, onChange, disabled }: { t: ModelTable; rows: Tab
         )}
       </div>
       {t.description && <p className="mb-2 text-[11.5px] text-[var(--sd-quiet)]">{t.description}</p>}
+      {note && <p role="status" data-testid="cm-linked-note" className="mb-2 text-[12px] text-[var(--sd-quiet)]">{note}</p>}
+      {issues.length > 0 && (
+        <div role="alert" data-testid="cm-band-warnings" className="mb-2 rounded-[var(--sd-radius-lg)] border border-[var(--sd-line)] px-3 py-2 text-[12.5px]">
+          <p className="font-semibold">Count size bands need a look</p>
+          <ul className="ml-4 list-disc">{issues.map((x, k) => <li key={k}>{x.message}</li>)}</ul>
+          {!disabled && issues.some((x) => x.kind === "gap" || x.kind === "overlap") && (
+            <Button type="button" variant="outline" size="sm" className="mt-1.5" onClick={() => { onChange(closeGaps(rows)); setNote("Each max now matches the next bigger count's min"); }}>
+              Close gaps
+            </Button>
+          )}
+        </div>
+      )}
       {rows.length === 0 ? (
         <p className="text-[12.5px] text-[var(--sd-quiet)]">No rows yet.</p>
       ) : (
@@ -168,7 +194,8 @@ export function CropModelPanel({ crop, canEdit }: { crop: string; canEdit: boole
     const r = await saveCropModel(crop, payloadOf(model, values, tables));
     setSaving(false);
     if (isError(r)) return void toast(r.error, "error");
-    toast("Crop model saved.");
+    const bad = bandIssues(tables["count_sizes"] ?? []).length;
+    toast(bad ? `Crop model saved. Count sizes still have ${bad} warning${bad === 1 ? "" : "s"}.` : "Crop model saved.", bad ? "warn" : "ok");
     void load();
   };
 

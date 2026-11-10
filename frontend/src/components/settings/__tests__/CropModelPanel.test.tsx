@@ -90,7 +90,7 @@ describe("CropModelPanel", () => {
       { count: 14, min_g: 275, max_g: 317 },
       { count: 16, min_g: null, max_g: null },
     ]);
-    expect(await screen.findByText("Crop model saved.")).toBeInTheDocument();
+    expect(await screen.findByText(/Crop model saved\. Count sizes still have 1 warning/)).toBeInTheDocument();
   });
 
   it("is read-only for someone who cannot manage, and shows the server's refusal", async () => {
@@ -108,5 +108,49 @@ describe("CropModelPanel", () => {
   it("round-trips the draft", () => {
     const d = draftOf(model);
     expect(payloadOf(model, d.values, d.tables)).toMatchObject({ price_per_kg: 95, harvests_in_crates: 1 });
+  });
+
+  describe("count size bands", () => {
+    beforeEach(() => {
+      const m = structuredClone(model);
+      m.groups[1].tables[0].rows = [{ count: 18, min_g: 216, max_g: 242 }, { count: 14, min_g: 275, max_g: 317 }, { count: 16, min_g: 242, max_g: 275 }];
+      vi.mocked(getCropModel).mockResolvedValue(m);
+    });
+
+    it("sorts by count and moves the neighbour when a min changes", async () => {
+      wrap();
+      // 14, 16, 18 after sorting
+      expect(await screen.findByLabelText("Count Sizes 2 Count")).toHaveValue("16");
+      fireEvent.change(screen.getByLabelText("Count Sizes 2 Min Weight (g)"), { target: { value: "240" } });
+      expect(screen.getByLabelText("Count Sizes 3 Max Weight (g)")).toHaveValue("240");
+      expect(screen.getByTestId("cm-linked-note")).toHaveTextContent("Count 18 max moved to 240 g");
+      expect(screen.getByLabelText("Count Sizes 1 Min Weight (g)")).toHaveValue("275");
+      expect(screen.queryByTestId("cm-band-warnings")).toBeNull();
+    });
+
+    it("moves the bigger-fruit neighbour's min when a max changes", async () => {
+      wrap();
+      fireEvent.change(await screen.findByLabelText("Count Sizes 2 Max Weight (g)"), { target: { value: "270" } });
+      expect(screen.getByLabelText("Count Sizes 1 Min Weight (g)")).toHaveValue("270");
+      expect(screen.getByTestId("cm-linked-note")).toHaveTextContent("Count 14 min moved to 270 g");
+    });
+
+    it("warns about a gap and closes it", async () => {
+      wrap();
+      // removing count 16 leaves 242-275 g with no size (removing never moves a neighbour)
+      fireEvent.click(await screen.findByRole("button", { name: "Remove Count Sizes row 2" }));
+      expect(screen.getByTestId("cm-band-warnings")).toHaveTextContent("Fruit between 242 g and 275 g has no count size");
+      fireEvent.click(screen.getByRole("button", { name: "Close gaps" }));
+      expect(screen.getByLabelText("Count Sizes 2 Max Weight (g)")).toHaveValue("275");
+      expect(screen.queryByTestId("cm-band-warnings")).toBeNull();
+    });
+
+    it("warns, without moving anything, when a row is added", async () => {
+      wrap();
+      fireEvent.click(await screen.findByRole("button", { name: /Add row/ }));
+      fireEvent.change(screen.getByLabelText("Count Sizes 4 Count"), { target: { value: "16" } });
+      expect(screen.getByTestId("cm-band-warnings")).toHaveTextContent("Count 16 appears more than once");
+      expect(screen.getByLabelText("Count Sizes 2 Min Weight (g)")).toHaveValue("242");
+    });
   });
 });

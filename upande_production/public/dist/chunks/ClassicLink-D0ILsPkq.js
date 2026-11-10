@@ -1,6 +1,0 @@
-import{q as o,I as r,i,j as n}from"../production-CG3uYO5O.js";/**
- * @license lucide-react v0.475.0 - ISC
- *
- * This source code is licensed under the ISC license.
- * See the LICENSE file in the root directory of this source tree.
- */const c=[["path",{d:"M15 3h6v6",key:"1q9fwt"}],["path",{d:"M10 14 21 3",key:"gplh6r"}],["path",{d:"M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6",key:"a6xqqp"}]],l=o("ExternalLink",c);async function f(a,e,s={}){const t=await r("frappe.client.get_list",{doctype:a,fields:e,filters:s.filters,order_by:s.order_by,limit_page_length:s.limit??0});return i(t)?t:{rows:Array.isArray(t)?t:[]}}const m=()=>r("upande_production.farm_map.map_payload"),d=a=>`/desk/${a.toLowerCase().replace(/ /g,"-")}`,u=(a,e)=>`${d(a)}/${encodeURIComponent(e)}`,h=a=>r("upande_production.api.flowers.flower_data",{crop:a});async function x(a){if(!a.length)return{};const e=await r("upande_production.api.flowers.item_names",{codes:JSON.stringify(a)});return i(e)?{}:e}function _({href:a,label:e="Classic view"}){return n.jsxs("a",{href:a,className:"inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-[12px] font-medium text-[var(--sd-muted)] hover:bg-[var(--sd-bg-soft)] hover:text-[var(--sd-ink)]",children:[n.jsx(l,{className:"h-3.5 w-3.5","aria-hidden":!0}),e]})}export{_ as C,d as a,h as b,u as c,m as f,f as g,x as i};
