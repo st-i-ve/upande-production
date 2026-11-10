@@ -216,12 +216,13 @@ scheduler_events = {
 # 	"frappe.desk.doctype.event.event.get_events": "upande_production.event.get_events"
 # }
 # Value Adders became Casual Labourers: the old dotted paths keep resolving for installed phones/clients.
-override_whitelisted_methods = {
+RENAMED_API_PATHS = {
 	"upande_production.mobile.api.productionListValueAdders": "upande_production.mobile.api.productionListCasualLabourers",
 	"upande_production.api.production.list_value_adders": "upande_production.api.production.list_casual_labourers",
 	"upande_production.api.production.value_adder_summary": "upande_production.api.production.casual_labourer_summary",
 	"upande_production.api.overview.value_adder_detail": "upande_production.api.overview.casual_labourer_detail",
 }
+override_whitelisted_methods = dict(RENAMED_API_PATHS)
 #
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,
