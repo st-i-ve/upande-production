@@ -109,6 +109,9 @@ const PlantingCalendars = page(() => import("@/pages/flowers/FlowerLists").then(
 const ProtocolVersions = page(() => import("@/pages/flowers/FlowerLists").then((m) => ({ default: m.ProtocolVersions })));
 const FarmMap = page(() => import("@/pages/flowers/FarmMap").then((m) => ({ default: m.FarmMap })));
 
+const DryMatterMonitoring = page(() =>
+  import("@/pages/avocado/DryMatterMonitoring").then((m) => ({ default: m.DryMatterMonitoring })),
+);
 const DryMatterTests = page(() =>
   import("@/pages/fruits-vegetables/DryMatterTests").then((m) => ({ default: m.DryMatterTests })),
 );
@@ -131,6 +134,7 @@ const PAGES: Record<View, React.ComponentType> = {
   "harvest-calendar": HarvestCalendar,
   "picking-plan": PickingPlan,
   "dry-matter": DryMatter,
+  "dry-matter-monitoring": DryMatterMonitoring,
   "dry-matter-tests": DryMatterTests,
   "hive-inspections": HiveInspections,
   "honey-harvest": HoneyHarvest,

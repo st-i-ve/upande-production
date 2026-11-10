@@ -384,6 +384,82 @@ def productionDryMatterTests():
 
 	_run("productionDryMatterTests", go)
 
+# -- avocado tagged-fruit dry matter ---------------------------------------------
+
+
+@frappe.whitelist()
+def productionFruitTags():
+	if _denied(("Dry Matter Fruit Tag", "read")):
+		return
+	data = _payload()
+	err = _require(data, "crop")
+	if err:
+		return _fail(err)
+
+	def go():
+		from upande_production.production.logic import drymatter_monitor as mon
+
+		target, maximum = mon.crop_window(_s(data, "crop"))
+		res = mon.monitor(_s(data, "crop"), None, _s(data, "unit") or None)
+		return {"target_pct": target, "max_pct": maximum, "tags": res["tags"], "series": res["series"]["block"]}
+
+	_run("productionFruitTags", go)
+
+
+@frappe.whitelist()
+def productionTagFruit():
+	if _denied(("Dry Matter Fruit Tag", "create")):
+		return
+	data = _payload()
+	err = _require(data, "unit", "tree_label", "fruit_tag")
+	if err:
+		return _fail(err)
+
+	def go():
+		from upande_production.production.logic import drymatter_monitor as mon
+
+		doc = mon.create_tag(data)
+		return mon.tag_row(doc, mon.crop_window(doc.crop)[0])
+
+	_run("productionTagFruit", go)
+
+
+@frappe.whitelist()
+def productionRecordFruitReading():
+	if _denied(("Dry Matter Fruit Tag", "write")):
+		return
+	data = _payload()
+	err = _require(data, "tag", "reading_date")
+	if err:
+		return _fail(err)
+
+	def go():
+		from upande_production.production.logic import drymatter_monitor as mon
+
+		doc = mon.add_reading(_s(data, "tag"), data)
+		return mon.tag_row(doc, mon.crop_window(doc.crop)[0])
+
+	_run("productionRecordFruitReading", go)
+
+
+@frappe.whitelist()
+def productionUpdateFruitTag():
+	if _denied(("Dry Matter Fruit Tag", "write")):
+		return
+	data = _payload()
+	err = _require(data, "tag")
+	if err:
+		return _fail(err)
+
+	def go():
+		from upande_production.production.logic import drymatter_monitor as mon
+
+		doc = mon.update_tag(_s(data, "tag"), data.get("status"), data.get("notes"))
+		return mon.tag_row(doc, mon.crop_window(doc.crop)[0])
+
+	_run("productionUpdateFruitTag", go)
+
+
 
 # -- supervisor planning -------------------------------------------------------
 

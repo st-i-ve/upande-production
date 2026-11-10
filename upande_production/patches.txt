@@ -29,3 +29,4 @@ upande_production.patches.backfill_zero_value_harvests
 upande_production.patches.ensure_production_desktop_icon
 upande_production.patches.add_avocado_production_manager_role
 upande_production.patches.set_times_per_week
+upande_production.patches.add_dm_fruit_tag_perms

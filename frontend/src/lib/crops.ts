@@ -100,6 +100,8 @@ export function viewLabel(view: View, crop?: Pick<Crop, "unit_label"> | null): s
       return "Picking Plan";
     case "dry-matter":
       return "Dry Matter";
+    case "dry-matter-monitoring":
+      return "Dry matter monitoring";
     case "dry-matter-tests":
       return "Dry Matter Tests";
     case "hive-inspections":

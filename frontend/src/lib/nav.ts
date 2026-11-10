@@ -62,6 +62,7 @@ const ICONS: Record<View, IconType> = {
   "harvest-calendar": CalendarRange,
   "picking-plan": UserRoundCheck,
   "dry-matter": Droplets,
+  "dry-matter-monitoring": Droplets,
   "dry-matter-tests": Droplets,
   settings: SlidersHorizontal,
   "hive-inspections": Stethoscope,
@@ -101,6 +102,7 @@ const ONLY_FOR: Partial<Record<View, string[]>> = {
   "harvest-calendar": ["avocado"],
   "picking-plan": ["avocado"],
   "dry-matter": ["avocado"],
+  "dry-matter-monitoring": ["avocado"],
   "hive-inspections": ["apiary"],
   "honey-harvest": ["apiary"],
   "pond-batches": ["aquaculture"],
@@ -125,7 +127,7 @@ const GROUPS: { label: string; views: View[] }[] = [
   { label: "Blocks", views: ["blocks", "cycles", "costs", "establishment", "break-even"] },
   {
     label: "Forecast",
-    views: ["forecast", "outlook", "block-forecast", "harvest-calendar", "picking-plan", "dry-matter", "dry-matter-tests"],
+    views: ["forecast", "outlook", "block-forecast", "harvest-calendar", "picking-plan", "dry-matter", "dry-matter-monitoring", "dry-matter-tests"],
   },
   { label: "Setup", views: ["settings"] },
 ];

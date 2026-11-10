@@ -36,6 +36,7 @@ PERMS = [
 	(("Yield Sample",), FULL, None),
 	(("Dry Matter Test",), FULL, None),
 	(("Buyer Commitment",), FULL, None),
+	(("Dry Matter Fruit Tag",), FULL, None),
 	(("Crop Forecast", "Production Forecast"), FULL, None),
 	(("Block Establishment Cost",), SUBMIT, None),
 	(("Block Opening Balance",), FULL, None),

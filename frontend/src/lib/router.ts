@@ -33,6 +33,8 @@ export const VIEWS = [
   "harvest-calendar",
   "picking-plan",
   "dry-matter",
+  // Tagged-fruit dry matter monitoring (avocado).
+  "dry-matter-monitoring",
   // Generic dry matter tests for crops with dry_matter_testing on (avocado keeps "dry-matter").
   "dry-matter-tests",
   // Crop-specific field logs.

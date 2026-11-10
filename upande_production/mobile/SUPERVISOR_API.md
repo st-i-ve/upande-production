@@ -32,6 +32,7 @@ Aquaculture) have no protocol steps; plans, tasks and tick-off work the same.
 | Assign work | `productionAddTask`, `productionGeneratePlan`, `productionRecordUnplannedWork` |
 | Sent back | `productionListSentBack`, `productionResubmitWork` |
 | Protocol check | `productionProtocolCheck` |
+| Avocado fruit dry matter | `productionFruitTags`, `productionTagFruit`, `productionRecordFruitReading`, `productionUpdateFruitTag` |
 | Pickers | `productionListUnits`, `productionListOperations`, `productionListCasualLabourers` |
 
 ## productionListCrops  (existing)
@@ -764,6 +765,44 @@ from which stage is set per variety (the crop is the default). Retired blocks ar
   }
 ]
 ```
+## Avocado tagged-fruit dry matter  (new)
+
+Monitor one tagged fruit over time. A tree is a block plus a tree label (e.g. `R12-T7`); a fruit is a tag number on
+that tree. Each reading holds either or both methods:
+
+- microwave: `fresh_g`, `dry_g` (grams, after microwave drying) and optional `dish_g` (tare, taken off both). The server
+  works out `microwave_pct = (dry - dish) / (fresh - dish) x 100`; the phone sends weights, never the percentage.
+- machine: `machine_pct`, straight off the dry matter meter, optional `instrument`.
+
+`dm_pct` is the value that drives the trend and "ready": the average of the two when both were used, else the one that was.
+`ready` on a fruit is its latest `dm_pct` at or above the crop's export target. Readings cannot be dated in the future or before
+the tag date, a dry weight cannot exceed the fresh weight, and a result outside 5 to 60 % is refused as a slip.
+Rights are document rights on Dry Matter Fruit Tag (read, create, write); a user without them gets a permission error.
+
+### productionFruitTags  (read)
+Params: `crop` (required), `unit` (optional). Returns `{target_pct, max_pct, tags: [...], series: {unit: {points, projection, fruit}}}`.
+`series` is each block's weekly average of its tagged fruit (`points`: `date` is the week's Monday, `dm_pct`, `microwave_pct`,
+`machine_pct`, `fruit`), and `projection` is a straight line through the last readings: `{state: reached|rising|flat|few|far|none, date,
+slope_per_week}`.
+
+```json
+{"name": "DMF-00001", "unit": "Avocado Block A", "farm": "Mutara", "variety": "Hass", "tree_label": "R12-T7", "fruit_tag": "3",
+ "tagged_on": "2026-10-20", "status": "Active", "latest_pct": 22.35, "latest_on": "2026-11-03", "ready": false,
+ "readings": [{"name": "abc123", "reading_date": "2026-11-03", "method": "Both", "fresh_g": 24.5, "dish_g": 4.5, "dry_g": 10.2,
+   "microwave_pct": 28.5, "machine_pct": 22.0, "instrument": "NIR-1", "dm_pct": 25.25, "recorded_by": "user@example.com", "notes": null}]}
+```
+
+### productionTagFruit  (new)
+Params: `unit`, `tree_label`, `fruit_tag` (required), `tagged_on` (default today), `notes`, `reading` (optional first reading, same keys
+as below). A tag number is unique on its tree in a block (duplicate = error). Returns the tag.
+
+### productionRecordFruitReading  (new)
+Params: `tag` (the tag name), `reading_date` (required), then the microwave weights and/or `machine_pct` (at least one method), `instrument`, `notes`.
+Returns the tag with the new reading computed.
+
+### productionUpdateFruitTag  (new)
+Params: `tag`, `status` (`Active`, `Harvested` or `Lost`) and/or `notes`. Returns the tag.
+
 
 `stage` is the cycle's growth stage on the test date (null without a cycle or a variety timeline); `tested_on` is
 Fruit, Tuber, Bulb, Head or Leaf. `ready` is average at or above target (variety target, else crop target). Missing `crop` fails with an error;
