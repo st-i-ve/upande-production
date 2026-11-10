@@ -7,6 +7,9 @@ from upande_production.patches import rename_value_adder_to_casual_labour as pat
 # Named test_zz_ so it runs last: the patch commits, which must not persist earlier tests' data.
 class TestCasualLabourRename(IntegrationTestCase):
 	def test_patch_renames_old_doctype_keeping_rows(self):
+		if frappe.conf.developer_mode:
+			# in developer mode rename_doc moves the doctype's source folder on disk
+			self.skipTest("rename_doc moves the doctype folder in developer mode")
 		self.assertTrue(frappe.db.exists("DocType", "Casual Labour Work"))
 		before = frappe.db.count("Casual Labour Work")
 		# put the site back in its pre-patch state, then run the patch
