@@ -12,6 +12,7 @@ name it has had; the first one that exists on the site is used.
 import frappe
 
 ROLE = "Avocado Production Manager"
+ROLE_PROFILE = "Avocado Production Manager Profile"
 
 FULL = ("read", "write", "create", "delete", "report", "export", "print", "email", "share")
 SUBMIT = FULL + ("submit", "cancel", "amend")
@@ -90,8 +91,8 @@ def ensure_role():
 def ensure_role_profile():
 	"""A Role Profile with the role, so a user's profile-driven role sync keeps it (a bare Has Role row
 	is dropped whenever a user with a role profile is saved). Add it to the user's role profiles."""
-	if not frappe.db.exists("Role Profile", ROLE):
-		frappe.get_doc({"doctype": "Role Profile", "role_profile": ROLE, "roles": [{"role": ROLE}]}).insert(
+	if not frappe.db.exists("Role Profile", ROLE_PROFILE):
+		frappe.get_doc({"doctype": "Role Profile", "role_profile": ROLE_PROFILE, "roles": [{"role": ROLE}]}).insert(
 			ignore_permissions=True
 		)
 
