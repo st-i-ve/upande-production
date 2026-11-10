@@ -119,12 +119,12 @@ def _recent_deviations(crop):
 
 
 def _block_activity(names, pay):
-	"""unit -> last work date and 30-day hours/crew, own units only (not rolled up)."""
+	"""unit -> last work date and 30-day crew, own units only (not rolled up)."""
 	if not names:
 		return {}
 	t = getdate(today())
 	rows = frappe.db.sql(
-		"""select unit, max(work_date), sum(case when work_date >= %(since)s then hours else 0 end),
+		"""select unit, max(work_date),
 		count(distinct case when work_date >= %(since)s then employee end)
 		from `tabCasual Labour Work` where docstatus = 1 and unit in %(u)s group by unit""",
 		{"u": tuple(names), "since": t - timedelta(days=30)},
@@ -135,10 +135,10 @@ def _block_activity(names, pay):
 	)
 	last_h = {r[0]: r[1] for r in harvest}
 	out = {}
-	for unit, last, hours, crew in rows:
-		out[unit] = {"last_work": last, "hours_30d": float(hours or 0), "crew_30d": int(crew or 0)}
+	for unit, last, crew in rows:
+		out[unit] = {"last_work": last, "crew_30d": int(crew or 0)}
 	for unit, last in last_h.items():
-		out.setdefault(unit, {"last_work": None, "hours_30d": 0, "crew_30d": 0})["last_harvest"] = last
+		out.setdefault(unit, {"last_work": None, "crew_30d": 0})["last_harvest"] = last
 	return out
 
 
@@ -158,7 +158,6 @@ def get_extras(crop, pay):
 			"stage": frappe.db.get_value("Production Crop Cycle", cyc.name, "status") if cyc else None,
 			"cycle_day": (t - getdate(cyc.start_date)).days if cyc and cyc.start_date else None,
 			"last_activity": str(last) if last else None,
-			"hours_30d": act.get("hours_30d", 0),
 			"crew_30d": act.get("crew_30d", 0),
 		})
 	# Submissions (the cards on the Approvals page), not entries: the same count the sidebar badge shows.
@@ -183,22 +182,21 @@ def get_overview_extras(crop):
 
 def _breakdown(crop, employee, frm, to, key, pay):
 	data = frappe.db.sql(
-		f"""select {key}, uom, sum(qty), sum(hours), sum(pay_value), count(*)
+		f"""select {key}, uom, sum(qty), sum(pay_value), count(*)
 		from `tabCasual Labour Work`
 		where docstatus = 1 and crop = %s and employee = %s and work_date between %s and %s and unit not in %s
 		group by {key}, uom order by {key}""",
 		(crop, employee, frm, to, retired_sql()),
 	)
 	grouped = {}
-	for k, uom, qty, hours, pv, n in data:
-		g = grouped.setdefault(str(k), {"uoms": [], "hours": 0.0, "pay": 0.0, "entries": 0})
+	for k, uom, qty, pv, n in data:
+		g = grouped.setdefault(str(k), {"uoms": [], "pay": 0.0, "entries": 0})
 		g["uoms"].append((uom, qty))
-		g["hours"] += float(hours or 0)
 		g["pay"] += float(pv or 0)
 		g["entries"] += n
 	return [
 		{
-			"key": k, "qty_by_uom": analytics.merge_uoms(g["uoms"]), "hours": g["hours"],
+			"key": k, "qty_by_uom": analytics.merge_uoms(g["uoms"]),
 			"pay_value": round(g["pay"], 2) if pay else None, "entries": g["entries"],
 		}
 		for k, g in grouped.items()
@@ -211,7 +209,7 @@ def get_casual_labourer_detail_data(crop, employee, from_date, to_date, pay):
 	recent = frappe.get_all(
 		"Casual Labour Work",
 		filters={**base, "docstatus": 1},
-		fields=["work_date", "unit", "operation", "qty", "uom", "hours", "pay_value"],
+		fields=["work_date", "unit", "operation", "qty", "uom", "pay_value"],
 		order_by="work_date desc, creation desc",
 		limit=10,
 	)

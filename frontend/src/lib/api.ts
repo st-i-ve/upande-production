@@ -224,8 +224,13 @@ export interface WorkEntry {
   employee: string;
   employee_name: string;
   qty: number;
-  hours: number;
+  uom?: string | null;
   pay_value: Money;
+  /** The person's daily target for this operation, their total that day and whether it was met. */
+  target?: number | null;
+  target_uom?: string | null;
+  day_qty?: number;
+  target_met?: boolean | null;
   /** Pending / Sent Back drafts are listed but do not count until a manager approves them. */
   approval_status?: "Pending" | "Approved" | "Sent Back";
   review_note?: string | null;
@@ -246,7 +251,11 @@ export interface PlanTask {
   /** Keyed by the supervisor, awaiting manager approval. */
   pending_qty?: number;
   uom: string | null;
+  /** Pay per unit of `uom` (qty x rate). */
   rate: Money;
+  /** The operation's default daily target (a yardstick only; never changes pay). */
+  daily_target?: number | null;
+  target_uom?: string | null;
   due_date: string;
   supervisor: string | null;
   supervisor_name: string | null;
@@ -301,7 +310,6 @@ export const generatePlanWeek = (crop: string, farm: string, year: number, week:
 export interface WorkInput {
   employee: string;
   qty?: number;
-  hours?: number;
   [field: string]: unknown;
 }
 
@@ -330,6 +338,8 @@ export interface CasualLabourer {
   name: string;
   employee_name: string;
   image: string | null;
+  /** Per-person daily target overrides: operation -> target. */
+  targets?: Record<string, { target: number; uom: string | null }>;
 }
 
 export const listCasualLabourers = () => rpc<{ people: CasualLabourer[] }>("list_casual_labourers");
@@ -341,7 +351,8 @@ export interface CasualLabourerSummaryRow {
   label: string;
   /** Quantity per unit of measure; never added across UOMs. */
   qty_by_uom: UomQty[];
-  hours: number;
+  /** Distinct days with approved work. */
+  days: number;
   pay_value: Money;
   entries: number;
 }

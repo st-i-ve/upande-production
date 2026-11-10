@@ -55,7 +55,6 @@ export interface BlockExtra {
   stage: string | null;
   cycle_day: number | null;
   last_activity: string | null;
-  hours_30d: number;
   crew_30d: number;
 }
 
@@ -71,39 +70,3 @@ export interface OverviewExtras {
 
 export const getOverviewExtras = (crop: string): Promise<Envelope<OverviewExtras>> =>
   call<OverviewExtras>("upande_production.api.overview.get_overview_extras", { crop });
-
-// -- Casual labourer detail --------------------------------------------------------
-
-export interface WorkBreakdown {
-  key: string;
-  qty_by_uom: UomQty[];
-  hours: number;
-  pay_value: Money;
-  entries: number;
-}
-
-export interface CasualLabourerDetail {
-  employee: string;
-  employee_name: string;
-  by_day: WorkBreakdown[];
-  by_unit: WorkBreakdown[];
-  by_operation: WorkBreakdown[];
-  recent: {
-    work_date: string;
-    unit: string;
-    operation: string;
-    qty: number;
-    uom: string | null;
-    hours: number;
-    pay_value: Money;
-  }[];
-  pending_entries: number;
-}
-
-export const getCasualLabourerDetail = (crop: string, employee: string, fromDate: string, toDate: string) =>
-  call<CasualLabourerDetail>("upande_production.api.overview.casual_labourer_detail", {
-    crop,
-    employee,
-    from_date: fromDate,
-    to_date: toDate,
-  });

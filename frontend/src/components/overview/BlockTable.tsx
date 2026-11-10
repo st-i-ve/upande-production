@@ -75,10 +75,7 @@ export function BlockTable({
                 </td>
                 <td className={TDR}>
                   {x && x.crew_30d ? (
-                    <>
-                      {qty(x.crew_30d)}
-                      <span className="ml-1 text-[11px] text-[var(--sd-quiet)]">{qty(x.hours_30d)} h</span>
-                    </>
+                    qty(x.crew_30d)
                   ) : (
                     <span className="text-[var(--sd-quiet)]">—</span>
                   )}

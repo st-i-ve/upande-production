@@ -297,7 +297,7 @@ def _process_plan(plan_name, current, vas, supers):
 			wdate = min(wdate, td)
 			n = r.randint(1, 3)
 			each = math.ceil(total / n * 100) / 100
-			entries = [{"employee": e, "qty": each, "hours": round(each and r.uniform(2, 8), 1)} for e in r.sample(vas, n)]
+			entries = [{"employee": e, "qty": each} for e in r.sample(vas, n)]
 		elif outcome == "skipped":
 			status = "Skipped"
 		else:
@@ -406,7 +406,7 @@ def seed_avocado_history():
 					entries = []
 					for emp in r.sample(crew, n):
 						qty = round(r.uniform(lo, hi) / step) * step
-						entries.append({"employee": emp, "qty": max(step, qty), "hours": round(r.uniform(*cfg["hours"]), 1)})
+						entries.append({"employee": emp, "qty": max(step, qty))
 					names = work.record_unplanned_work(unit, op, entries, day)
 					if cycle:
 						frappe.db.sql("update `tabCasual Labour Work` set cycle = %s where name in %s", (cycle, tuple(names)))

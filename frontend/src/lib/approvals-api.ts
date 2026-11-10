@@ -23,8 +23,11 @@ export interface ApprovalEntry {
   employee_name: string | null;
   qty: number;
   uom: string | null;
-  hours: number | null;
   rate: Money;
+  target?: number | null;
+  target_uom?: string | null;
+  day_qty?: number;
+  target_met?: boolean | null;
   pay_value: Money;
   work_date: string;
   approval_status: ApprovalStatus;
@@ -122,7 +125,6 @@ export const sendBack = (names: string[], note: string) =>
 export interface ResubmitEdit {
   name: string;
   qty?: number;
-  hours?: number | null;
   employee?: string;
 }
 

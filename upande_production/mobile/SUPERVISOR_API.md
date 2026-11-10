@@ -217,7 +217,6 @@ Block and plan level counts use the same meaning as in the list. Example (week 4
               "employee_name": "Wanjiru Kamau",
               "qty": 1.25,
               "uom": "Hectare",
-              "hours": 3.5,
               "work_date": "2026-10-28",
               "pay_value": 1500.0,
               "approval_status": "Pending",
@@ -229,7 +228,6 @@ Block and plan level counts use the same meaning as in the list. Example (week 4
               "employee_name": "Otieno Odhiambo",
               "qty": 1.0,
               "uom": "Hectare",
-              "hours": 3.0,
               "work_date": "2026-10-28",
               "pay_value": 1200.0,
               "approval_status": "Pending",
@@ -270,8 +268,9 @@ Flat task list of the week with no crew entries. Prefer `productionGetPlanDetail
 ## productionUpdateTask  (existing, verified and extended)
 
 Tick a task off with a crew. Params: `plan`, `task` (the task `name`), `status` (see above),
-`note` (optional), `entries`: `[{"employee", "qty", "hours"}]`. Several entries are supported; each
-becomes one Pending draft (`qty` must be > 0; `hours` optional). Entries may be empty (for
+`note` (optional), `entries`: `[{"employee", "qty"}]`. Several entries are supported; each
+becomes one Pending draft (`qty` must be > 0). Pay is per unit of work (qty x the operation's rate per unit); there is no
+hourly pay, and a legacy `hours` key from an old app is ignored. Entries may be empty (for
 In Progress / Skipped). Entries need create permission on Casual Labour Work; the call checks it.
 The response carries the refreshed `task` (with new `pending_qty`) and, new, `entries`: all crew
 entries of the task so the screen can redraw without a second call.
@@ -303,7 +302,6 @@ entries of the task so the screen can redraw without a second call.
       "employee_name": "Wanjiru Kamau",
       "qty": 1.5,
       "uom": "Hectare",
-      "hours": 4.0,
       "work_date": "2026-10-28",
       "pay_value": 1800.0,
       "approval_status": "Pending",
@@ -315,7 +313,6 @@ entries of the task so the screen can redraw without a second call.
       "employee_name": "Otieno Odhiambo",
       "qty": 1.0,
       "uom": "Hectare",
-      "hours": 3.0,
       "work_date": "2026-10-28",
       "pay_value": 1200.0,
       "approval_status": "Pending",
@@ -387,7 +384,7 @@ when it is 0 `reason` says why (crop without cycles, or everything already plann
 
 ## productionRecordUnplannedWork  (existing)
 
-Work done that nobody planned. Params: `unit`, `operation`, `entries` (`[{employee, qty, hours}]`)
+Work done that nobody planned. Params: `unit`, `operation`, `entries` (`[{employee, qty}]`)
 required; `work_date` (default today). Creates Pending drafts with no plan task.
 
 ```json
@@ -405,7 +402,7 @@ required; `work_date` (default today). Creates Pending drafts with no plan task.
 
 Work the manager sent back. A supervisor sees their own, a manager sees all. Params: `crop`, `from_date`,
 `to_date` (all optional). One group per task (or per block + operation + day for unplanned work);
-`names` are the work records, `entries` carry the editable qty and hours, `review_note` is the manager's note.
+`names` are the work records, `entries` carry the editable qty, `review_note` is the manager's note.
 
 ```json
 {
@@ -451,7 +448,6 @@ Work the manager sent back. A supervisor sees their own, a manager sees all. Par
           "employee_name": "Wanjiru Kamau",
           "qty": 1.5,
           "uom": "Hectare",
-          "hours": 4.0,
           "rate": 1200.0,
           "pay_value": 1800.0,
           "work_date": "2026-10-28",
@@ -464,7 +460,6 @@ Work the manager sent back. A supervisor sees their own, a manager sees all. Par
           "employee_name": "Otieno Odhiambo",
           "qty": 1.0,
           "uom": "Hectare",
-          "hours": 3.0,
           "rate": 1200.0,
           "pay_value": 1200.0,
           "work_date": "2026-10-28",
@@ -481,7 +476,7 @@ Work the manager sent back. A supervisor sees their own, a manager sees all. Par
 ## productionResubmitWork  (existing, verified)
 
 Resubmit sent-back work, optionally with edits. Params: `names` (list of work record names, required),
-`entries`: `[{"name", "qty", "hours", "employee"}]` to correct individual records (the `name` must be one
+`entries`: `[{"name", "qty", "employee"}]` to correct individual records (the `name` must be one
 of `names`; omit to resubmit unchanged). They go back to Pending.
 
 ```json
@@ -765,6 +760,11 @@ from which stage is set per variety (the crop is the default). Retired blocks ar
   }
 ]
 ```
+
+`stage` is the cycle's growth stage on the test date (null without a cycle or a variety timeline); `tested_on` is
+Fruit, Tuber, Bulb, Head or Leaf. `ready` is average at or above target (variety target, else crop target). Missing `crop` fails with an error;
+no read permission on Dry Matter Test is a permission error.
+
 ## Avocado tagged-fruit dry matter  (new)
 
 Monitor one tagged fruit over time. A tree is a block plus a tree label (e.g. `R12-T7`); a fruit is a tag number on
@@ -803,11 +803,6 @@ Returns the tag with the new reading computed.
 ### productionUpdateFruitTag  (new)
 Params: `tag`, `status` (`Active`, `Harvested` or `Lost`) and/or `notes`. Returns the tag.
 
-
-`stage` is the cycle's growth stage on the test date (null without a cycle or a variety timeline); `tested_on` is
-Fruit, Tuber, Bulb, Head or Leaf. `ready` is average at or above target (variety target, else crop target). Missing `crop` fails with an error;
-no read permission on Dry Matter Test is a permission error.
-
 ## Harvest store (mark ready for collection)
 
 Harvested crates are received into a store chosen when the batch is closed (never a block warehouse).
@@ -819,3 +814,16 @@ Harvested crates are received into a store chosen when the batch is closed (neve
 `mark_ready_for_collection(block, team_id, warehouse=None)` posts the Harvesting stock entry into `warehouse`
 (default as above) and returns the usual fields plus `warehouse`. A block warehouse, group, disabled or
 other-company warehouse is refused with `{"error": ...}` and the crates stay open.
+
+
+## Daily targets (a yardstick; never changes pay)
+
+* `productionListOperations` rows carry `daily_target` and `target_uom` (the operation's default per person per day).
+* `productionGetWeekPlan` / `productionGetPlanDetail` tasks carry `daily_target` and `target_uom` for their operation.
+* `productionListCasualLabourers` rows: `{name, employee_name, targets}` where `targets` is
+  `{operation: {target, uom}}`, the person's own overrides. Only active roster labourers (plus employees
+  designated Casual Labourer that are not on the roster at all) are listed.
+* Crew entries on a task carry `target`, `target_uom`, `day_qty` (that person's total that day for the operation)
+  and `target_met` (true / false, null when there is no target).
+* The app shows the target next to the quantity: the person's override for the task's operation, else the task's
+  `daily_target`.

@@ -13,6 +13,8 @@
   "color",
   "work_uom",
   "default_rate",
+  "daily_target",
+  "target_uom",
   "is_harvest"
  ],
  "fields": [
@@ -40,14 +42,28 @@
   {
    "fieldname": "work_uom",
    "fieldtype": "Link",
-   "label": "Work Uom",
+   "label": "Work UOM",
    "options": "UOM"
   },
   {
    "fieldname": "default_rate",
    "fieldtype": "Currency",
-   "label": "Default Rate",
-   "permlevel": 1
+   "label": "Rate per Unit",
+   "permlevel": 1,
+   "description": "Pay per unit of the work UOM (qty x rate)."
+  },
+  {
+   "fieldname": "daily_target",
+   "fieldtype": "Float",
+   "label": "Daily Target",
+   "description": "Expected quantity per person per day. A yardstick only: it never changes pay."
+  },
+  {
+   "fieldname": "target_uom",
+   "fieldtype": "Link",
+   "label": "Target UOM",
+   "options": "UOM",
+   "description": "Blank = the work UOM."
   },
   {
    "fieldname": "is_harvest",

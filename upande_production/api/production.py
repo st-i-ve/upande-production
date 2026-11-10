@@ -4,7 +4,7 @@ import frappe
 from frappe import _
 
 from upande_production.api.envelope import as_dict, run
-from upande_production.production.logic import analytics, bands, blockcost, cycle_chain, plans, rules, stages, work
+from upande_production.production.logic import analytics, bands, blockcost, cycle_chain, labourers, plans, rules, stages, work
 from upande_production.production.logic import drymatter as drymatter_logic
 from upande_production.production.logic.settings import PAY_ROLES, avocado_only_crop_keys, can_see_pay, is_manager
 from upande_production.production.logic.units import unit_filter
@@ -185,7 +185,7 @@ def get_unit(name):
 	work_rows = frappe.get_all(
 		"Casual Labour Work",
 		filters={"unit": name, "docstatus": 1},
-		fields=["name", "work_date", "employee", "employee_name", "operation", "qty", "uom", "hours", "rate", "pay_value"],
+		fields=["name", "work_date", "employee", "employee_name", "operation", "qty", "uom", "rate", "pay_value"],
 		order_by="work_date desc, creation desc",
 		limit=20,
 	)
@@ -289,12 +289,13 @@ def get_plan(crop, farm, year, week):
 	for w in frappe.get_all(
 		"Casual Labour Work",
 		filters={"plan": name, "docstatus": ("<", 2)},
-		fields=["name", "plan_task", "employee", "employee_name", "qty", "hours", "pay_value",
-			"approval_status", "review_note"],
+		fields=["name", "plan_task", "employee", "employee_name", "qty", "uom", "operation", "work_date",
+			"pay_value", "approval_status", "review_note"],
 		order_by="creation asc",
 	):
 		w["pay_value"] = _pay(w["pay_value"], pay)
 		by_task.setdefault(w.pop("plan_task"), []).append(w)
+	labourers.annotate_work([w for ws in by_task.values() for w in ws])
 	sup = [t.supervisor for t in tasks if t.supervisor]
 	sup_names = (
 		dict(frappe.get_all("Employee", filters={"name": ("in", sup)}, fields=["name", "employee_name"], as_list=True))
@@ -302,6 +303,7 @@ def get_plan(crop, farm, year, week):
 		else {}
 	)
 	colors = dict(frappe.get_all("Field Operation", fields=["name", "color"], as_list=True))
+	labourers.attach_operation_targets(tasks)
 	for t in tasks:
 		t["color"] = colors.get(t.operation) or None
 		t["rate"] = _pay(t["rate"], pay)
@@ -386,13 +388,7 @@ def record_task_work(plan, task, status, entries=None, note="", work_date=None, 
 @run
 def list_casual_labourers():
 	_need("Casual Labour Work")
-	people = frappe.get_all(
-		"Employee",
-		filters={"designation": "Casual Labourer", "status": "Active"},
-		fields=["name", "employee_name", "image"],
-		order_by="employee_name asc",
-	)
-	return {"people": people}
+	return {"people": labourers.pickable_people()}
 
 
 @frappe.whitelist(methods=["POST"])

@@ -19,7 +19,7 @@ import { approve, listApprovals, resubmit, sendBack, type ApprovalGroup } from "
 import { Approvals } from "@/pages/Approvals";
 
 const entry = (n: string, who: string) => ({
-  name: n, employee: who, employee_name: who, qty: 10, uom: "Kg", hours: 4, rate: 50, pay_value: 500,
+  name: n, employee: who, employee_name: who, qty: 10, uom: "Kg", rate: 50, pay_value: 500,
   work_date: "2026-10-26", approval_status: "Pending" as const, review_note: null,
 });
 const group = (key: string, over: Partial<ApprovalGroup> = {}): ApprovalGroup => ({

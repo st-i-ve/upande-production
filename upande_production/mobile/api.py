@@ -2,7 +2,7 @@
 import frappe
 from frappe.utils import cint, getdate, today
 
-from upande_production.production.logic import analytics, approvals, plans, rules, work
+from upande_production.production.logic import analytics, approvals, labourers, plans, rules, work
 from upande_production.production.logic.settings import can_see_pay
 from upande_production.production.logic.units import unit_filter
 from upande_production.production.logic.weeks import iso_of, iso_week_bounds
@@ -177,6 +177,7 @@ def productionGetWeekPlan():
 				fields=TASK_FIELDS, order_by="due_date asc, idx asc",
 			)
 			_strip_pay(tasks, "rate")
+			labourers.attach_operation_targets(tasks)
 		return {
 			"plan": name, "farm": farm or None, "crop": crop, "year": year, "week": week,
 			"week_start": str(start), "week_end": str(end), "tasks": tasks,
@@ -341,13 +342,10 @@ def productionListCasualLabourers():
 	data = _payload()
 
 	def go():
-		filters = {"status": "Active", "designation": "Casual Labourer"}
-		search = _s(data, "search")
-		or_filters = {"employee_name": ("like", f"%{search}%"), "name": ("like", f"%{search}%")} if search else None
-		return frappe.get_all(
-			"Employee", filters=filters, or_filters=or_filters, fields=["name", "employee_name"],
-			order_by="employee_name asc", limit=cint(data.get("limit")) or 0,
-		)
+		return [
+			{"name": p.name, "employee_name": p.employee_name, "targets": p.targets}
+			for p in labourers.pickable_people(_s(data, "search"), cint(data.get("limit")))
+		]
 
 	_run("productionListCasualLabourers", go)
 
@@ -362,7 +360,8 @@ def productionListOperations():
 		return _fail(err)
 	_run("productionListOperations", lambda: _strip_pay(frappe.get_all(
 		"Field Operation", filters={"crop": _s(data, "crop")},
-		fields=["name", "operation_name", "category", "work_uom", "default_rate", "is_harvest", "activity_type", "color"],
+		fields=["name", "operation_name", "category", "work_uom", "default_rate", "daily_target", "target_uom", "is_harvest",
+			"activity_type", "color"],
 		order_by="operation_name asc",
 	), "default_rate"))
 
@@ -383,6 +382,7 @@ def productionDryMatterTests():
 		return res if "error" in res else res["rows"]
 
 	_run("productionDryMatterTests", go)
+
 
 # -- avocado tagged-fruit dry matter ---------------------------------------------
 
@@ -460,7 +460,6 @@ def productionUpdateFruitTag():
 	_run("productionUpdateFruitTag", go)
 
 
-
 # -- supervisor planning -------------------------------------------------------
 
 PLAN_TASK_FIELDS = TASK_FIELDS + ["protocol_ref", "started_at", "completed_at"]
@@ -533,13 +532,14 @@ def _task_entries(plan) -> dict:
 	by_task = {}
 	for w in frappe.get_all(
 		"Casual Labour Work", filters={"plan": plan, "docstatus": ("<", 2)},
-		fields=["name", "plan_task", "employee", "employee_name", "qty", "uom", "hours", "work_date",
+		fields=["name", "plan_task", "employee", "employee_name", "qty", "uom", "operation", "work_date",
 			"pay_value", "approval_status", "review_note"],
 		order_by="creation asc",
 	):
 		if not pay:
 			w["pay_value"] = None
 		by_task.setdefault(w.pop("plan_task"), []).append(w)
+	labourers.annotate_work([w for ws in by_task.values() for w in ws])
 	return by_task
 
 
@@ -641,6 +641,7 @@ def productionGetPlanDetail():
 				"from_protocol": bool(t.protocol_ref),
 			})
 			_strip_pay(row, "rate")
+			labourers.attach_operation_targets([row])
 			b = blocks.setdefault(t.unit, {"unit": t.unit, "unit_name": unit_names.get(t.unit) or t.unit, "tasks": []})
 			b["tasks"].append(row)
 		for b in blocks.values():

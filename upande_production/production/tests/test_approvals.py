@@ -136,7 +136,7 @@ class TestApprovals(IntegrationTestCase):
 		self.assertEqual(res["resubmitted"], names)
 		frappe.set_user("Administrator")
 		d = frappe.get_doc("Casual Labour Work", names[0])
-		self.assertEqual((d.approval_status, d.qty, d.hours, d.docstatus), ("Pending", 5, 3, 0))
+		self.assertEqual((d.approval_status, d.qty, d.docstatus), ("Pending", 5, 0))
 		self.assertEqual(self._row(plan).pending_qty, 9)
 
 	def test_permissions(self):

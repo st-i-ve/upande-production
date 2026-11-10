@@ -24,6 +24,8 @@ interface Draft {
   category: string;
   work_uom: string;
   default_rate: string;
+  daily_target: string;
+  target_uom: string;
   is_harvest: boolean;
   activity_type: string;
   color: string;
@@ -37,6 +39,8 @@ function toDraft(r: Row): Draft {
     category: String(r.category ?? ""),
     work_uom: String(r.work_uom ?? ""),
     default_rate: r.default_rate == null ? "" : String(r.default_rate),
+    daily_target: r.daily_target ? String(r.daily_target) : "",
+    target_uom: String(r.target_uom ?? ""),
     is_harvest: !!Number(r.is_harvest ?? 0),
     activity_type: String(r.activity_type ?? "Cultural"),
     color: String(r.color ?? ""),
@@ -48,6 +52,8 @@ const same = (a: Draft, b: Draft) =>
   a.category === b.category &&
   a.work_uom === b.work_uom &&
   a.default_rate === b.default_rate &&
+  a.daily_target === b.daily_target &&
+  a.target_uom === b.target_uom &&
   a.is_harvest === b.is_harvest &&
   a.activity_type === b.activity_type &&
   a.color === b.color;
@@ -96,7 +102,7 @@ export function OperationsTable({
   const add = () => {
     counter.current += 1;
     setFresh((f) => [
-      { key: `new-${counter.current}`, operation_name: "", category: "Other", work_uom: "", default_rate: "", is_harvest: false, activity_type: "Cultural", color: "" },
+      { key: `new-${counter.current}`, operation_name: "", category: "Other", work_uom: "", default_rate: "", daily_target: "", target_uom: "", is_harvest: false, activity_type: "Cultural", color: "" },
       ...f,
     ]);
   };
@@ -113,6 +119,9 @@ export function OperationsTable({
       color: d.color || undefined,
     };
     if (canSeePay && d.default_rate !== "") payload.default_rate = Number(d.default_rate);
+    // A daily target is a yardstick for casual labour (never changes pay); blank clears it.
+    payload.daily_target = d.daily_target === "" ? 0 : Number(d.daily_target);
+    payload.target_uom = d.target_uom.trim() || undefined;
     if (d.name) payload.name = d.name;
     const r = await saveOperation(payload);
     setBusy(null);
@@ -146,7 +155,8 @@ export function OperationsTable({
               <th className={TH}>Colour</th>
               <th className={TH}>Category</th>
               <th className={TH}>Work unit</th>
-              {canSeePay && <th className={`${TH} text-right`}>Default rate</th>}
+              {canSeePay && <th className={`${TH} text-right`}>Rate per unit</th>}
+              <th className={`${TH} text-right`}>Daily target</th>
               <th className={TH}>Harvest</th>
             </tr>
           </thead>
@@ -161,6 +171,9 @@ export function OperationsTable({
                 <td className="px-3 py-2.5 text-[var(--sd-muted)]">{d.category || "—"}</td>
                 <td className="px-3 py-2.5 text-[var(--sd-muted)]">{d.work_uom || "—"}</td>
                 {canSeePay && <td className="px-3 py-2.5 text-right tabular-nums">{kes(d.default_rate === "" ? null : Number(d.default_rate))}</td>}
+                <td className="px-3 py-2.5 text-right tabular-nums text-[var(--sd-muted)]">
+                  {d.daily_target ? `${d.daily_target} ${d.target_uom || d.work_uom}`.trim() : "—"}
+                </td>
                 <td className="px-3 py-2.5 text-[var(--sd-muted)]">{d.is_harvest ? "Yes" : "No"}</td>
               </tr>
             ))}
@@ -181,7 +194,7 @@ export function OperationsTable({
         <p className="px-1 py-6 text-center text-[13px] text-[var(--sd-muted)]">{emptyText}</p>
       ) : (
         <div className="overflow-x-auto rounded-[var(--sd-radius-lg)] border border-[var(--sd-line)]">
-          <table className="w-full min-w-[64rem] text-[13px]">
+          <table className="w-full min-w-[72rem] text-[13px]">
             <thead>
               <tr className="border-b border-[var(--sd-line)] text-left text-[11px] uppercase tracking-[0.1em] text-[var(--sd-quiet)]">
                 <th className={TH}>Operation</th>
@@ -189,7 +202,8 @@ export function OperationsTable({
                 <th className={TH}>Colour</th>
                 <th className={TH}>Category</th>
                 <th className={TH}>Work unit</th>
-                {canSeePay && <th className={`${TH} text-right`}>Default rate (KES)</th>}
+                {canSeePay && <th className={`${TH} text-right`}>Rate per unit (KES)</th>}
+                <th className={`${TH} text-right`}>Daily target</th>
                 <th className={TH}>Harvest</th>
                 <th className={TH} />
               </tr>
@@ -221,6 +235,12 @@ export function OperationsTable({
                         <Input aria-label="Default rate" type="number" min="0" inputMode="decimal" className="ml-auto h-8 w-28 text-right tabular-nums" value={d.default_rate} onChange={(e) => patch(d.key, { default_rate: e.target.value })} />
                       </td>
                     )}
+                    <td className="px-3 py-2 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Input aria-label="Daily target" type="number" min="0" inputMode="decimal" placeholder="none" className="h-8 w-20 text-right tabular-nums" value={d.daily_target} onChange={(e) => patch(d.key, { daily_target: e.target.value })} />
+                        <span className="w-10 truncate text-[11.5px] text-[var(--sd-quiet)]" title="Per person per day, in the work unit">{d.target_uom || d.work_uom || ""}/day</span>
+                      </div>
+                    </td>
                     <td className="px-3 py-2">
                       <Switch aria-label="Harvest operation" checked={d.is_harvest} onCheckedChange={(v) => patch(d.key, { is_harvest: v })} />
                     </td>

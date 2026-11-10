@@ -14,6 +14,7 @@ import { SearchPicker } from "@/components/ui/search-picker";
 import { Textarea } from "@/components/ui/textarea";
 import { BlockNotice, OverrideReasonDialog, RuleFlag } from "@/components/rules/RuleParts";
 import { ruleFailure, type RuleFailure } from "@/lib/rules";
+import { TargetBadge } from "@/components/casuallabourers/TargetBadge";
 import { STATUSES, StatusPill } from "@/components/plan/badges";
 import { recordTaskWork, type PlanTask, type CasualLabourer } from "@/lib/api";
 import { isError } from "@/lib/frappe";
@@ -24,12 +25,11 @@ interface EntryRow {
   key: number;
   employee: string;
   qty: string;
-  hours: string;
 }
 
 /**
- * Tick a task off: set its status, and record who did how much. Several value
- * adders can be added before saving; a status-only save (no rows) is fine and
+ * Tick a task off: set its status, and record who did how much. Several casual
+ * labourers can be added before saving; a status-only save (no rows) is fine and
  * creates no work. The pay figure is a preview of qty x rate; the server's own
  * sum is what is stored.
  */
@@ -61,12 +61,17 @@ export function TickOffDialog({
     [people],
   );
   const rate = canSeePay ? task.rate : null;
+  // The day's target for this operation: the person's own override, else the operation's default.
+  const targetFor = (employee: string): number | null => {
+    const own = people.find((p) => p.name === employee)?.targets?.[task.operation]?.target;
+    return own || task.daily_target || null;
+  };
   const uom = task.uom ?? "";
 
   const patch = (key: number, p: Partial<EntryRow>) =>
     setRows((all) => all.map((r) => (r.key === key ? { ...r, ...p } : r)));
 
-  // A row is saved when it names a person; it must carry a quantity (hours are optional).
+  // A row is saved when it names a person; it must carry a quantity (pay is per unit of work, so there are no hours).
   const filled = rows.filter((r) => r.employee);
   const bad = filled.some((r) => num(r.qty) <= 0);
   const preview = rate == null ? null : filled.reduce((s, r) => s + num(r.qty) * rate, 0);
@@ -75,7 +80,7 @@ export function TickOffDialog({
     setBusy(true);
     setFailure(null);
     setRule(null);
-    const entries = filled.map((r) => ({ employee: r.employee, qty: num(r.qty), hours: num(r.hours) }));
+    const entries = filled.map((r) => ({ employee: r.employee, qty: num(r.qty) }));
     const r = await recordTaskWork(plan, task.name as string, status, entries, note, null, overrideReason ?? null);
     setBusy(false);
     if (isError(r)) {
@@ -138,7 +143,7 @@ export function TickOffDialog({
                   <span className="text-[var(--sd-muted)]">
                     {fmtQty(w.qty)} {uom}
                   </span>
-                  <span className="w-14 text-right text-[var(--sd-muted)]">{fmtQty(w.hours)} h</span>
+                  <TargetBadge className="w-28 text-right text-[12.5px]" target={w.target} actual={w.day_qty} met={w.target_met} uom={w.target_uom} />
                   {canSeePay && <span className="w-20 text-right text-[var(--sd-ink)]">{money(w.pay_value)}</span>}
                 </li>
               ))}
@@ -169,14 +174,15 @@ export function TickOffDialog({
                   value={r.qty}
                   onChange={(e) => patch(r.key, { qty: e.target.value })}
                 />
-                <Input
-                  inputMode="decimal"
-                  aria-label="Hours"
-                  placeholder="Hours"
-                  className="w-20 tabular-nums"
-                  value={r.hours}
-                  onChange={(e) => patch(r.key, { hours: e.target.value })}
-                />
+                <span
+                  className="w-24 shrink-0 text-[12px] tabular-nums text-[var(--sd-muted)]"
+                  data-testid="entry-target"
+                >
+                  {(() => {
+                    const t = targetFor(r.employee);
+                    return t ? `target ${fmtQty(t)}${uom ? ` ${uom}` : ""}` : "";
+                  })()}
+                </span>
                 {line != null && (
                   <span className="w-20 shrink-0 text-right text-[12.5px] tabular-nums text-[var(--sd-muted)]">
                     {money(line)}
@@ -198,7 +204,7 @@ export function TickOffDialog({
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setRows((all) => [...all, { key: ++seq.current, employee: "", qty: "", hours: "" }])}
+              onClick={() => setRows((all) => [...all, { key: ++seq.current, employee: "", qty: "" }])}
             >
               <Plus className="h-3.5 w-3.5" /> Add casual labourer
             </Button>

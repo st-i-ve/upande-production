@@ -119,7 +119,7 @@ describe("Plan", () => {
       week_start: "2026-10-26",
       week_end: "2026-11-01",
       tasks: [
-        task({ name: "T1", planned_qty: 20, done_qty: 6, uom: "Hectare", work: [{ name: "W1", plan_task: "T1", employee: "E", employee_name: "E", qty: 6, hours: 1, pay_value: 4380.6, work_date: "2026-10-27", approval_status: "Approved" } as never] }),
+        task({ name: "T1", planned_qty: 20, done_qty: 6, uom: "Hectare", work: [{ name: "W1", plan_task: "T1", employee: "E", employee_name: "E", qty: 6, pay_value: 4380.6, work_date: "2026-10-27", approval_status: "Approved" } as never] }),
         task({ name: "T2", unit: "Block B", operation_name: "Weeding", planned_qty: 400, done_qty: 100, pending_qty: 25.16, uom: "Tree" }),
       ],
     });
@@ -144,7 +144,6 @@ describe("Plan", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Casual labourer" }));
     fireEvent.click(await screen.findByRole("option", { name: "Jane Wanjiru" }));
     fireEvent.change(within(dialog).getByLabelText(/Quantity/), { target: { value: "10" } });
-    fireEvent.change(within(dialog).getByLabelText("Hours"), { target: { value: "4" } });
     expect(within(dialog).getAllByText("500.00").length).toBe(2); // 10 x 50 preview
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
     await waitFor(() =>
@@ -152,7 +151,7 @@ describe("Plan", () => {
         "PLAN-1",
         "T1",
         "Done",
-        [{ employee: "EMP-1", qty: 10, hours: 4 }],
+        [{ employee: "EMP-1", qty: 10 }],
         "",
         null,
         null, // no override reason
@@ -160,6 +159,19 @@ describe("Plan", () => {
     );
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await waitFor(() => expect(mocked.getPlan.mock.calls.length).toBeGreaterThan(1)); // quiet refetch
+  });
+
+  it("tick-off shows the day's target next to the quantity and never asks for hours", async () => {
+    const t1 = task({ name: "T1", daily_target: 60, target_uom: "trees" });
+    mocked.getPlan.mockResolvedValue({ plan: "PLAN-1", week_start: "2026-10-26", week_end: "2026-11-01", tasks: [t1] });
+    renderPlan();
+    fireEvent.click(await screen.findByText("Pruning"));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: /Add casual labourer/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Casual labourer" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Jane Wanjiru" }));
+    expect(within(dialog).getByTestId("entry-target").textContent).toBe("target 60 trees");
+    expect(within(dialog).queryByLabelText("Hours")).toBeNull();
   });
 
   it("tick-off disables Save and hints when a row has no quantity", async () => {
@@ -171,7 +183,6 @@ describe("Plan", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: /Add casual labourer/ }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Casual labourer" }));
     fireEvent.click(await screen.findByRole("option", { name: "Jane Wanjiru" }));
-    fireEvent.change(within(dialog).getByLabelText("Hours"), { target: { value: "4" } });
     expect(within(dialog).getByText("Give each person the quantity they did.")).toBeTruthy();
     expect((within(dialog).getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.change(within(dialog).getByLabelText(/Quantity/), { target: { value: "3" } });

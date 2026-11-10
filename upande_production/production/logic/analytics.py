@@ -264,28 +264,35 @@ def casual_labourer_summary(crop, from_date, to_date, group_by, can_see_pay):
 	key = {"employee": "employee", "day": "work_date", "unit": "unit"}[group_by]
 	label = "max(employee_name)" if group_by == "employee" else key
 	data = frappe.db.sql(
-		f"""select {key}, {label}, uom, sum(qty), sum(hours), sum(pay_value), count(*)
+		f"""select {key}, {label}, uom, sum(qty), sum(pay_value), count(*)
 		from `tabCasual Labour Work`
 		where docstatus = 1 and crop = %s and work_date between %s and %s and unit not in %s
 		group by {key}, uom order by {key}""",
 		(crop, frm, to, retired_sql()),
 	)
+	days = {
+		str(k): v
+		for k, v in frappe.db.sql(
+			f"""select {key}, count(distinct work_date) from `tabCasual Labour Work`
+			where docstatus = 1 and crop = %s and work_date between %s and %s and unit not in %s group by {key}""",
+			(crop, frm, to, retired_sql()),
+		)
+	}
 	grouped = {}
-	for k, lab, uom, qty, hours, pay, n in data:
-		g = grouped.setdefault(str(k), {"label": None, "uoms": [], "hours": 0.0, "pay": 0.0, "entries": 0})
+	for k, lab, uom, qty, pay, n in data:
+		g = grouped.setdefault(str(k), {"label": None, "uoms": [], "pay": 0.0, "entries": 0})
 		g["label"] = g["label"] or str(lab or k)
 		g["uoms"].append((uom, qty))
-		g["hours"] += float(hours or 0)
 		g["pay"] += float(pay or 0)
 		g["entries"] += n
 	rows = [
 		{
 			"key": k, "label": g["label"], "qty_by_uom": merge_uoms(g["uoms"]),
-			"hours": g["hours"], "pay_value": _pay(round(g["pay"], 2), can_see_pay), "entries": g["entries"],
+			"days": int(days.get(k) or 0), "pay_value": _pay(round(g["pay"], 2), can_see_pay), "entries": g["entries"],
 		}
 		for k, g in grouped.items()
 	]
-	total = round(sum(float(r[5] or 0) for r in data), 2)
+	total = round(sum(float(r[4] or 0) for r in data), 2)
 	return {
 		"rows": rows,
 		"total_pay": _pay(total, can_see_pay),

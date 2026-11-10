@@ -10,7 +10,7 @@ import frappe
 from frappe import _
 from frappe.utils import add_days, cint, now_datetime, today
 
-from upande_production.production.logic import work
+from upande_production.production.logic import labourers, work
 from upande_production.production.logic.units import retired_sql
 from upande_production.production.logic.settings import (
 	can_see_pay, get_stale_days, is_manager, is_supervisor,
@@ -101,8 +101,6 @@ def resubmit(names, entries=None) -> dict:
 			if float(e["qty"] or 0) <= 0:
 				frappe.throw(_("Quantity must be greater than zero"), frappe.ValidationError)
 			d.qty = float(e["qty"])
-		if "hours" in e:
-			d.hours = e["hours"]
 		if e.get("employee"):
 			d.employee = e["employee"]
 		d.approval_status = "Pending"
@@ -149,7 +147,7 @@ def list_approvals(
 		args["hist"] = add_days(today(), -DEFAULT_HISTORY_DAYS)
 	rows = frappe.db.sql(
 		f"""select name, work_date, employee, employee_name, plan, plan_task, unit, crop, operation, qty, uom,
-		hours, rate, pay_value, approval_status, rule_status, rule_notes, override_reason, review_note, reviewed_by, reviewed_at, submitted_by, creation
+		rate, pay_value, approval_status, rule_status, rule_notes, override_reason, review_note, reviewed_by, reviewed_at, submitted_by, creation
 		from `tabCasual Labour Work` where {' and '.join(cond)} order by creation asc""",
 		args, as_dict=True,
 	)
@@ -240,13 +238,14 @@ def list_approvals(
 			"names": [r.name for r in rs],
 			"entries": [{
 				"name": r.name, "employee": r.employee, "employee_name": r.employee_name, "qty": r.qty,
-				"uom": r.uom, "hours": r.hours, "rate": r.rate if pay else None,
+				"uom": r.uom, "operation": r.operation, "rate": r.rate if pay else None,
 				"pay_value": r.pay_value if pay else None, "work_date": r.work_date,
 				"approval_status": r.approval_status, "review_note": r.review_note,
 				"rule_status": r.rule_status or "OK", "rule_notes": r.rule_notes,
 				"override_reason": r.override_reason,
 			} for r in rs],
 		})
+	labourers.annotate_work([e for g in out for e in g["entries"]])
 	out.sort(key=lambda g: (g["created"],), reverse=status != "Pending")
 	counts["stale"] = stale_count
 	return {"groups": out, "counts": counts, "stale_days": stale_days}

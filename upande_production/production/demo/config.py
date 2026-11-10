@@ -134,7 +134,7 @@ DEMO = {
 	# plus unplanned (ad hoc) work by a crew drawn from the casual labourers, on Blocks A and B.
 	# operation -> (probability per block per week, picks per week when it happens, qty range per person, step)
 	"avocado_history": {
-		"weeks": 8, "crew": 12, "crew_per_job": (2, 3), "hours": (3.0, 8.0), "last_day_ago": 6,
+		"weeks": 8, "crew": 12, "crew_per_job": (2, 3), "last_day_ago": 6,
 		"jobs": {
 			"Pruning": (0.5, 1, (25, 70), 1), "Irrigation Check": (1.0, 1, (1, 3), 0.5),
 			"Fertiliser Application": (0.5, 1, (40, 120), 1), "Spraying": (0.7, 1, (1, 3), 0.5),
@@ -142,7 +142,7 @@ DEMO = {
 		},
 	},
 	"sent_back_notes": [
-		"Quantity looks too high for the hours worked. Please recheck the count and resubmit.",
+		"Quantity looks too high for the area covered. Please recheck the count and resubmit.",
 		"Wrong people listed for this block. Fix the names, then resubmit.",
 	],
 	"supervisors": [("Grace", "Wairimu", "Female"), ("Peter", "Kiplagat", "Male"), ("Mary", "Anyango", "Female")],

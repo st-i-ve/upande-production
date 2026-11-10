@@ -79,7 +79,7 @@
   {
    "fieldname": "rate",
    "fieldtype": "Currency",
-   "label": "Rate",
+   "label": "Rate per Unit",
    "permlevel": 1
   },
   {

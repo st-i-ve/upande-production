@@ -14,7 +14,7 @@ def _insert_vaw(entry, work_date, unit, operation, uom, rate, cycle=None, plan=N
 	doc = frappe.get_doc({
 		"doctype": "Casual Labour Work", "work_date": work_date, "employee": entry.get("employee"),
 		"plan": plan, "plan_task": plan_task, "unit": unit, "cycle": cycle, "operation": operation,
-		"qty": qty, "uom": uom, "hours": entry.get("hours"), "rate": rate,
+		"qty": qty, "uom": uom, "rate": rate,
 		"approval_status": "Pending", "submitted_by": frappe.session.user, **(stamp or {}),
 	})
 	doc.insert()  # stays a draft: it counts only once a manager approves (submits) it

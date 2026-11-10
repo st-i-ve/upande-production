@@ -7,6 +7,7 @@ import { RuleBanner } from "@/components/approvals/RuleBanner";
 import { EnforcementPill } from "@/components/rules/RuleParts";
 import { StepLine } from "@/components/approvals/StepLine";
 import type { ApprovalGroup, ResubmitEdit } from "@/lib/approvals-api";
+import { TargetBadge } from "@/components/casuallabourers/TargetBadge";
 import { kes, shortDate, trimQty } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -34,27 +35,20 @@ export function ApprovalCard({
   onSendBack: () => void;
   onResubmit: (edits: ResubmitEdit[]) => void;
 }) {
-  const [draft, setDraft] = useState<Record<string, { qty: string; hours: string }>>({});
+  const [draft, setDraft] = useState<Record<string, { qty: string }>>({});
   const sentBack = g.status === "Sent Back";
   const plan = g.plan_week ? `Week ${g.plan_week}${g.plan_year ? `, ${g.plan_year}` : ""}` : g.unplanned ? "Unplanned" : null;
-  const val = (name: string, field: "qty" | "hours", orig: number | null) =>
-    draft[name]?.[field] ?? (orig == null ? "" : String(orig));
-  const set = (name: string, field: "qty" | "hours", v: string, e: { qty: number; hours: number | null }) =>
-    setDraft((d) => ({
-      ...d,
-      [name]: { qty: d[name]?.qty ?? String(e.qty), hours: d[name]?.hours ?? (e.hours == null ? "" : String(e.hours)), [field]: v },
-    }));
+  const val = (name: string, orig: number | null) => draft[name]?.qty ?? (orig == null ? "" : String(orig));
+  const set = (name: string, v: string) => setDraft((d) => ({ ...d, [name]: { qty: v } }));
 
   const edits = (): ResubmitEdit[] =>
     g.entries.flatMap((e) => {
       const d = draft[e.name];
       if (!d) return [];
       const q = Number(d.qty);
-      const h = d.hours === "" ? null : Number(d.hours);
       const out: ResubmitEdit = { name: e.name };
       if (Number.isFinite(q) && q !== e.qty) out.qty = q;
-      if (h !== e.hours && (h === null || Number.isFinite(h))) out.hours = h;
-      return out.qty !== undefined || out.hours !== undefined ? [out] : [];
+      return out.qty !== undefined ? [out] : [];
     });
 
   return (
@@ -116,7 +110,7 @@ export function ApprovalCard({
             <tr className="text-left text-[10.5px] uppercase tracking-wider text-[var(--sd-quiet)]">
               <th className="pb-1.5 pr-3 font-medium">Casual labourer</th>
               <th className="pb-1.5 pr-3 text-right font-medium">Qty{g.uom ? ` (${g.uom})` : ""}</th>
-              <th className="pb-1.5 pr-3 text-right font-medium">Hours</th>
+              <th className="pb-1.5 pr-3 text-right font-medium">Day vs target</th>
               {showPay && <th className="pb-1.5 pr-3 text-right font-medium">Rate</th>}
               {showPay && <th className="pb-1.5 text-right font-medium">Pay</th>}
             </tr>
@@ -132,26 +126,19 @@ export function ApprovalCard({
                         aria-label={`Qty for ${e.employee_name || e.employee}`}
                         inputMode="decimal"
                         className="ml-auto h-8 w-20 text-right"
-                        value={val(e.name, "qty", e.qty)}
-                        onChange={(ev) => set(e.name, "qty", ev.target.value, e)}
-                      />
-                    </td>
-                    <td className="py-1 pr-3 text-right">
-                      <Input
-                        aria-label={`Hours for ${e.employee_name || e.employee}`}
-                        inputMode="decimal"
-                        className="ml-auto h-8 w-20 text-right"
-                        value={val(e.name, "hours", e.hours)}
-                        onChange={(ev) => set(e.name, "hours", ev.target.value, e)}
+                        value={val(e.name, e.qty)}
+                        onChange={(ev) => set(e.name, ev.target.value)}
                       />
                     </td>
                   </>
                 ) : (
                   <>
                     <td className="py-1.5 pr-3 text-right">{trimQty(e.qty)}</td>
-                    <td className="py-1.5 pr-3 text-right">{e.hours == null ? "—" : trimQty(e.hours)}</td>
                   </>
                 )}
+                <td className="py-1.5 pr-3 text-right">
+                  <TargetBadge target={e.target} actual={e.day_qty} met={e.target_met} uom={e.target_uom} />
+                </td>
                 {showPay && <td className="py-1.5 pr-3 text-right text-[var(--sd-muted)]">{kes(e.rate)}</td>}
                 {showPay && <td className="py-1.5 text-right">{kes(e.pay_value)}</td>}
               </tr>
