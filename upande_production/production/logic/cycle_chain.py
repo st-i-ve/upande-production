@@ -96,7 +96,10 @@ def _weeks_f2h(doc, v) -> int:
 
 
 def planted_on(doc):
-	"""Planting date of the cycle's block: the opening balance's planted_on, else the first cycle's start."""
+	"""Planting date of the cycle's block: the cycle's own (an existing cycle), the opening balance's
+	planted_on, else the first cycle's start."""
+	if doc.get("planting_date"):
+		return getdate(doc.get("planting_date"))
 	unit = doc.get("unit")
 	if unit:
 		d = frappe.db.get_value("Block Opening Balance", {"unit": unit}, "planted_on")

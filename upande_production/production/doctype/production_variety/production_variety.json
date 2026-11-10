@@ -122,12 +122,12 @@
   {
    "fieldname": "expected_yield_per_ha",
    "fieldtype": "Float",
-   "label": "Expected Yield per Ha (kg)"
+   "label": "Expected Yield (kg/ha/year)"
   },
   {
    "fieldname": "expected_yield_per_plant",
    "fieldtype": "Float",
-   "label": "Expected Yield per Plant (kg)"
+   "label": "Expected Yield (kg/tree/year)"
   },
   {
    "fieldname": "plants_per_ha",

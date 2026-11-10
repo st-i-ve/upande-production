@@ -278,11 +278,11 @@ export function VarietyDialog({
             <Input id="v-window" inputMode="numeric" className="tabular-nums" value={window} onChange={(e) => setWindow(e.target.value)} />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="v-yha">Expected yield per ha</Label>
+            <Label htmlFor="v-yha">Expected yield (kg/ha/year)</Label>
             <Input id="v-yha" inputMode="decimal" className="tabular-nums" value={yieldHa} onChange={(e) => setYieldHa(e.target.value)} />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="v-yplant">Expected yield per plant</Label>
+            <Label htmlFor="v-yplant">Expected yield (kg/tree/year)</Label>
             <Input id="v-yplant" inputMode="decimal" className="tabular-nums" value={yieldPlant} onChange={(e) => setYieldPlant(e.target.value)} />
           </div>
           <div className="flex flex-col gap-1.5">

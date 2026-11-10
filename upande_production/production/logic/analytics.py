@@ -57,8 +57,26 @@ def _rollup(units, direct):
 	return out
 
 
+def running_cycles(crop):
+	"""unit -> every Active / Harvesting cycle on it (several may run at once), oldest first."""
+	if not crop_uses_cycles(crop):
+		return {}
+	rows = frappe.get_all(
+		"Production Crop Cycle",
+		filters=unit_filter({"crop": crop, "status": ("in", ["Active", "Harvesting"])}),
+		fields=["name", "unit", "item", "start_date", "variety", "current_stage", "juvenile", "status", "area_ha",
+			"plant_count", "existing_cycle", "planting_date"],
+		order_by="start_date asc, creation asc",
+	)
+	out = {}
+	for r in rows:
+		out.setdefault(r.unit, []).append(r)
+	return out
+
+
 def current_cycles(crop):
-	"""unit -> latest Active/Harvesting cycle row. Empty for crops without cycles."""
+	"""unit -> latest Active/Harvesting cycle row. Empty for crops without cycles. A block can run several
+	cycles at once: this is the latest one (see running_cycles for all of them)."""
 	if not crop_uses_cycles(crop):
 		return {}
 	rows = frappe.get_all(

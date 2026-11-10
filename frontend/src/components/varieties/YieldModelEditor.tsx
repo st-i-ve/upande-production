@@ -52,11 +52,11 @@ export function YieldModelEditor({ value, onChange }: { value: YieldModelDraft; 
     <div className="flex flex-col gap-3" data-testid="yield-model-editor">
       <div className="flex flex-col gap-2">
         <Label>Yield by tree age</Label>
-        <span className="text-[11.5px] text-[var(--sd-quiet)]">Kilograms per plant from each age; a row applies until the next one.</span>
+        <span className="text-[11.5px] text-[var(--sd-quiet)]">Kilograms per tree per year (a full season) from each age; a row applies until the next one.</span>
         {value.ages.map((r, i) => (
           <div key={i} className="grid grid-cols-[1fr_1fr_auto] items-center gap-2">
             <Input aria-label={`Yield row ${i + 1} from age (years)`} inputMode="numeric" className="tabular-nums" placeholder="From age (years)" value={r.age} onChange={(e) => setRow(i, { age: e.target.value })} />
-            <Input aria-label={`Yield row ${i + 1} kg per plant`} inputMode="decimal" className="tabular-nums" placeholder="Kg per plant" value={r.kg} onChange={(e) => setRow(i, { kg: e.target.value })} />
+            <Input aria-label={`Yield row ${i + 1} kg per plant`} inputMode="decimal" className="tabular-nums" placeholder="Kg per tree per year" value={r.kg} onChange={(e) => setRow(i, { kg: e.target.value })} />
             <Button type="button" variant="outline" aria-label={`Remove yield row ${i + 1}`} onClick={() => onChange({ ...value, ages: value.ages.filter((_, j) => j !== i) })}>
               <Trash2 className="h-3.5 w-3.5" />
             </Button>

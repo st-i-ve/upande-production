@@ -35,7 +35,14 @@
   "protocol_flags",
   "flag_count",
   "due_for_uprooting",
-  "proposed_next_cycle"
+  "proposed_next_cycle",
+  "existing_section",
+  "existing_cycle",
+  "planting_date",
+  "schedule_from",
+  "existing_col",
+  "last_harvest_date",
+  "last_season_yield_kg"
  ],
  "fields": [
   {
@@ -216,6 +223,45 @@
    "label": "Proposed Next Cycle",
    "options": "Production Crop Cycle",
    "read_only": 1
+  },
+  {
+   "fieldname": "existing_section",
+   "fieldtype": "Section Break",
+   "label": "Existing cycle (already in production)",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "existing_cycle",
+   "fieldtype": "Check",
+   "label": "Existing cycle",
+   "default": "0",
+   "description": "Already in production when entered: tasks are planned from today, not from the start date."
+  },
+  {
+   "fieldname": "planting_date",
+   "fieldtype": "Date",
+   "label": "Planting Date",
+   "description": "When the trees were planted; tree age comes from it."
+  },
+  {
+   "fieldname": "schedule_from",
+   "fieldtype": "Date",
+   "label": "Schedule Tasks From",
+   "description": "Protocol tasks before this date are not planned (no overdue backlog)."
+  },
+  {
+   "fieldname": "existing_col",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "last_harvest_date",
+   "fieldtype": "Date",
+   "label": "Last Harvest Date"
+  },
+  {
+   "fieldname": "last_season_yield_kg",
+   "fieldtype": "Float",
+   "label": "Last Season Yield (kg per year)"
   }
  ],
  "index_web_pages_for_search": 1,

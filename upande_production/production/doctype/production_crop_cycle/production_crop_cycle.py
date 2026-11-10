@@ -6,7 +6,7 @@ from frappe import _
 from frappe.model.document import Document
 
 from upande_production.production.logic.cycles import crop_uses_cycles
-from upande_production.production.logic import cycle_chain
+from upande_production.production.logic import cycle_chain, cycle_setup
 from upande_production.production.logic.stages import apply_variety_defaults
 
 
@@ -24,6 +24,7 @@ class ProductionCropCycle(Document):
 			if frappe.db.get_value("Production Protocol", self.protocol, "version_status") != "Active":
 				frappe.throw(_("Only an Active protocol can be used for a cycle."), frappe.ValidationError)
 		cycle_chain.set_flags(self)
+		cycle_setup.warn_overlap(self)
 		self.title = f"{self.unit} · {self.item or self.crop}"
 
 	def on_update(self):

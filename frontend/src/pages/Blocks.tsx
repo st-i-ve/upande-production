@@ -1,6 +1,6 @@
 import { StageChip } from "@/components/varieties/StageChip";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, TriangleAlert } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, TriangleAlert } from "lucide-react";
 import { ClearFiltersPill } from "@/components/ClearFiltersPill";
 import { FilterSelect } from "@/components/FilterSelect";
 import { KpiCard, KpiGrid } from "@/components/KpiCard";
@@ -10,12 +10,15 @@ import { RefreshButton } from "@/components/RefreshButton";
 import { ScrollTable, STICKY_HEAD } from "@/components/ScrollTable";
 import { SearchInput } from "@/components/SearchInput";
 import { TogglePill } from "@/components/TogglePill";
+import { ToolbarButton } from "@/components/ToolbarButton";
 import { useToast } from "@/components/Toast";
 import { StatusPill } from "@/components/blocks/StatusPill";
+import { AddCycleDialog } from "@/components/cycles/AddCycleDialog";
 import { UnitDrawer } from "@/components/blocks/UnitDrawer";
 import { BODY_ROW, TD, TDR, TH, THEAD_ROW, THR } from "@/components/blocks/tableStyles";
 import { EmptyNote, Panel } from "@/components/overview/Panel";
 import { cycleFlags, getOverview, listUnits, type OverviewBlock, type UnitRow } from "@/lib/api";
+import { canAddCycle } from "@/lib/cycle-setup-api";
 import { blockLinks } from "@/lib/blockcost-api";
 import { cropUsesCycles, pluralise, useCurrentCrop, viewLabel } from "@/lib/crops";
 import { isError } from "@/lib/frappe";
@@ -79,6 +82,7 @@ export function Blocks() {
   const [status, setStatus] = useState("");
   const [type, setType] = useState("");
   const [cycleOnly, setCycleOnly] = useState(false);
+  const [adding, setAdding] = useState<{ unit?: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -143,6 +147,7 @@ export function Blocks() {
   const leaves = useMemo(() => (units ?? []).filter((u) => !u.is_group), [units]);
   const totalArea = leaves.reduce((s, u) => s + (u.area_ha || 0), 0);
   const usesCycles = cropUsesCycles(crop);
+  const addable = usesCycles && canAddCycle(crop);
   const withCycle = leaves.filter((u) => u.current_cycle).length;
   const showDryMatter = !!Number(crop.dry_matter_testing) || (units ?? []).some((u) => u.dry_matter);
   const showReplaced = (units ?? []).some((u) => (u.plants_replaced ?? 0) > 0);
@@ -177,6 +182,12 @@ export function Blocks() {
         }}
       />
       <RefreshButton onClick={load} loading={loading} label={`the ${plural.toLowerCase()}`} />
+      {addable && (
+        <ToolbarButton onClick={() => setAdding({})}>
+          <Plus className="h-4 w-4" />
+          Add crop cycle
+        </ToolbarButton>
+      )}
     </>
   );
 
@@ -298,20 +309,37 @@ export function Blocks() {
                         </td>
                         {usesCycles && (
                         <td className={TD}>
-                          {u.current_cycle ? (
+                          {(u.cycles?.length ?? 0) > 0 || u.current_cycle ? (
                             <>
-                              <div className="text-[var(--sd-ink)]">{u.variety || u.item || u.current_cycle}</div>
-                              <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-[var(--sd-quiet)]">
-                                {u.variety && u.item ? <span>{u.item} ·</span> : null}
-                                <span>{u.current_cycle}</span>
-                                <StageChip stage={u.current_stage} accent={accent} />
-                              </div>
+                              {(u.cycles?.length ? u.cycles : [{ name: u.current_cycle!, variety: u.variety, item: u.item, current_stage: u.current_stage }]).map((c) => (
+                                <div key={c.name} data-testid={`block-cycle-${c.name}`} className="mb-1 last:mb-0">
+                                  <div className="text-[var(--sd-ink)]">{c.variety || c.item || c.name}</div>
+                                  <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-[var(--sd-quiet)]">
+                                    {c.variety && c.item ? <span>{c.item} ·</span> : null}
+                                    <span>{c.name}</span>
+                                    <StageChip stage={c.current_stage} accent={accent} />
+                                  </div>
+                                </div>
+                              ))}
                               {flags.map((f) => (
                                 <div key={f} data-testid={`block-flag-${u.name}`} className="text-[11px] text-[var(--sd-sev-high)]">{f}</div>
                               ))}
                             </>
                           ) : (
                             <span className="text-[var(--sd-quiet)]">—</span>
+                          )}
+                          {addable && !group && (
+                            <button
+                              type="button"
+                              aria-label={`Add crop cycle to ${u.name}`}
+                              className="mt-1 block text-[11.5px] font-medium text-[var(--sd-muted)] underline-offset-2 hover:text-[var(--sd-ink)] hover:underline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setAdding({ unit: u.name });
+                              }}
+                            >
+                              + Add crop cycle
+                            </button>
                           )}
                         </td>
                         )}
@@ -361,8 +389,15 @@ export function Blocks() {
           stats={stats.get(open)}
           uom={crop.yield_uom}
           usesCycles={usesCycles}
+          accent={accent}
+          cropName={crop.name}
+          onAddCycle={addable ? () => { setAdding({ unit: open }); setOpen(null); } : undefined}
           onClose={() => setOpen(null)}
         />
+      )}
+
+      {addable && (
+        <AddCycleDialog crop={crop} units={units ?? []} defaultUnit={adding?.unit} open={!!adding} onOpenChange={(o) => !o && setAdding(null)} onSaved={() => void load()} />
       )}
     </PageShell>
   );

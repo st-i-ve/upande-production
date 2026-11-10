@@ -107,6 +107,24 @@ export interface UnitRow {
   plants_replaced?: number;
   /** Off-protocol flags of the unit's current cycle. */
   flags?: string[];
+  /** Every Active / Harvesting cycle on the unit (several can run at once), oldest first. */
+  cycles?: RunningCycle[];
+}
+
+export interface RunningCycle {
+  name: string;
+  unit: string;
+  item: string | null;
+  variety: string | null;
+  current_stage: string | null;
+  status: string;
+  start_date: string;
+  area_ha: number | null;
+  plant_count: number | null;
+  existing_cycle?: 0 | 1 | boolean;
+  planting_date?: string | null;
+  juvenile?: 0 | 1 | boolean;
+  flags?: string[];
 }
 
 export interface DryMatterLatest {
@@ -162,6 +180,13 @@ export interface Cycle {
   proposed_next_cycle?: string | null;
   variety?: string | null;
   current_stage?: string | null;
+  plant_count?: number | null;
+  /** An existing cycle, entered while already in production: tasks are planned from today. */
+  existing_cycle?: 0 | 1 | boolean;
+  planting_date?: string | null;
+  last_harvest_date?: string | null;
+  /** Last season's yield, kg per year. */
+  last_season_yield_kg?: number | null;
   /** The variety's stages with real dates (actuals applied). */
   stage_bands?: StageBand[];
 }

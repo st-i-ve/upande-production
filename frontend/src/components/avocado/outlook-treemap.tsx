@@ -53,7 +53,7 @@ export const bandLabel = (bands: VsCurveBand[], i: number) =>
 export function BandLegend({ bands }: { bands: VsCurveBand[] }) {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-[var(--sd-quiet)]" aria-label="Shade legend">
-      <span>Kg per tree against the age curve:</span>
+      <span>Kg per tree per year against the age curve:</span>
       {bands.map((b, i) => (
         <span key={i} className="inline-flex items-center gap-1.5">
           <i className="inline-block h-3 w-5 rounded-[4px] border border-black/5" style={{ background: b.color }} />

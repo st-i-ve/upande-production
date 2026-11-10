@@ -56,6 +56,8 @@ def times_per_week(row) -> int:
 def due_items(cycle_doc, protocol_doc, frm, to, harvest_start=None, picks=(), harvest_interval_weeks=None):
 	"""Every planned occurrence in [frm, to], sorted by date."""
 	frm, to = getdate(frm), getdate(to)
+	if _g(cycle_doc, "schedule_from"):  # an existing cycle: nothing before it is planned (no overdue backlog)
+		frm = max(frm, getdate(_g(cycle_doc, "schedule_from")))
 	start = cycle_start(cycle_doc)
 	cycle = _g(cycle_doc, "name")
 	cycle_no = cint(_g(cycle_doc, "cycle_no", 1)) or 1
@@ -130,7 +132,14 @@ def harvest_context(cycle) -> dict:
 
 
 def due_for_cycle(cycle_doc, protocol_doc, frm, to) -> list:
-	"""due_items with the cycle's harvest context filled in from the database."""
+	"""due_items with the cycle's harvest context filled in from the database. A cycle with `schedule_from`
+	(an existing cycle already in production) plans nothing before that date."""
+	import frappe
+
+	name = _g(cycle_doc, "name")
+	sf = _g(cycle_doc, "schedule_from") or (frappe.db.get_value("Production Crop Cycle", name, "schedule_from") if name else None)
+	if sf:
+		frm = max(getdate(frm), getdate(sf))
 	return due_items(cycle_doc, protocol_doc, frm, to, **harvest_context(cycle_doc))
 
 

@@ -17,11 +17,13 @@ import { CycleStageDialog } from "@/components/cycles/CycleStageDialog";
 import { StageChip } from "@/components/varieties/StageChip";
 import { listRules, listVarieties, type ActivityRule, type Variety } from "@/lib/varieties-api";
 import { CycleGantt } from "@/components/cycles/CycleGantt";
+import { AddCycleDialog } from "@/components/cycles/AddCycleDialog";
 import { CYCLE_STATUSES, NewCycleDialog } from "@/components/cycles/NewCycleDialog";
 import { Card, CardContent, CardDescription, CardHeaderRow, CardHeading, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { listCycles, listUnits, type Cycle, type UnitRow } from "@/lib/api";
 import { pluralise, useCurrentCrop, viewLabel } from "@/lib/crops";
+import { canAddCycle } from "@/lib/cycle-setup-api";
 import { isError } from "@/lib/frappe";
 import { ha, qty, shortDate } from "@/lib/format";
 import { cn, matchesQuery, ymd } from "@/lib/utils";
@@ -48,10 +50,21 @@ function runningOn(c: Cycle, day: string): boolean {
   return c.status !== "Closed";
 }
 
+/** Hectares under running cycles: a block with several cycles counts at most its own area. */
+function areaByUnit(running: Cycle[], units: UnitRow[]): number {
+  const sums = new Map<string, number>();
+  for (const c of running) sums.set(c.unit, (sums.get(c.unit) ?? 0) + (c.area_ha || 0));
+  const cap = new Map(units.map((u) => [u.name, u.area_ha || 0]));
+  let total = 0;
+  for (const [unit, a] of sums) total += cap.get(unit) ? Math.min(a, cap.get(unit)!) : a;
+  return total;
+}
+
 export function Cycles() {
   const crop = useCurrentCrop();
   const toast = useToast();
   const accent = crop.accent_color || "#3f7d3a";
+  const addable = canAddCycle(crop);
   const [cycles, setCycles] = useState<Cycle[] | null>(null);
   const [units, setUnits] = useState<UnitRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -141,12 +154,12 @@ export function Cycles() {
       running: running.length,
       harvesting: all.filter((c) => c.status === "Harvesting").length,
       planned: all.filter((c) => c.status === "Planned").length,
-      area: running.reduce((t, c) => t + (c.area_ha || 0), 0),
+      area: areaByUnit(running, units),
       countSeries,
       areaSeries,
       noProtocol: running.filter((c) => !c.protocol).length,
     };
-  }, [shown]);
+  }, [shown, units]);
 
   const first = firstLoad(loading, !!cycles);
   const filtered = !!status || !!unit || !!q || !!variety;
@@ -184,11 +197,11 @@ export function Cycles() {
             <RefreshButton onClick={load} loading={loading} label="the cycles" />
             <ToolbarButton onClick={() => setCreating(true)}>
               <Plus className="h-4 w-4" />
-              New cycle
+              {addable ? "Add crop cycle" : "New cycle"}
             </ToolbarButton>
           </>
         }
-        description={`One cycle per ${crop.unit_label.toLowerCase()} per season. A protocol on the cycle drives its weekly plan.`}
+        description={`A ${crop.unit_label.toLowerCase()} can run several cycles at once. A protocol on the cycle drives its weekly plan.`}
       >
         <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
           <KpiCard loading={first} label="Running cycles" value={kpis.running} hint={`${kpis.planned} planned next`} series={kpis.countSeries} goodDirection="up" deltaLabel="vs 1 week ago" />
@@ -243,6 +256,9 @@ export function Cycles() {
 
         {recording && <CycleActualsDialog cycle={recording} onClose={() => setRecording(null)} onSaved={() => void load()} />}
 
+        {addable ? (
+          <AddCycleDialog crop={crop} units={units} defaultUnit={unit || undefined} open={creating} onOpenChange={setCreating} onSaved={() => void load()} />
+        ) : (
         <NewCycleDialog
           crop={crop}
           units={units.map((u) => ({ name: u.name, is_group: !!u.is_group }))}
@@ -251,6 +267,7 @@ export function Cycles() {
           onOpenChange={setCreating}
           onSaved={() => void load()}
         />
+        )}
       </PageShell>
     </Tabs>
   );
@@ -270,6 +287,7 @@ function CycleTable({ cycles, unitLabel, accent, onSelect, onRecord }: { cycles:
             <th className={TH}>Started</th>
             <th className={TH}>Harvest window</th>
             <th className={THR}>Area (ha)</th>
+            <th className={THR}>Trees</th>
             <th className={TH}>Protocol</th>
             <th className={TH}>Flowering</th>
             <th className={TH}>Status</th>
@@ -284,6 +302,7 @@ function CycleTable({ cycles, unitLabel, accent, onSelect, onRecord }: { cycles:
                 <div className="text-[11px] tabular-nums text-[var(--sd-quiet)]">
                   {c.name}
                   {(c.cycle_no ?? 1) > 1 ? ` · cycle ${c.cycle_no}` : ""}
+                  {c.existing_cycle ? " · existing cycle" : ""}
                 </div>
                 {(c.flags ?? []).map((f) => (
                   <div key={f} className="text-[11px] text-[var(--sd-sev-high)]">{f}</div>
@@ -308,6 +327,7 @@ function CycleTable({ cycles, unitLabel, accent, onSelect, onRecord }: { cycles:
                 {c.expected_harvest_start ? `${shortDate(c.expected_harvest_start)} – ${shortDate(c.expected_harvest_end)}` : "—"}
               </td>
               <td className={TDR}>{ha(c.area_ha)}</td>
+              <td className={TDR}>{c.plant_count ? qty(c.plant_count) : "—"}</td>
               <td className={cn(TD, "text-[var(--sd-muted)]")}>{c.protocol || "—"}</td>
               <td className={cn(TD, "tabular-nums text-[var(--sd-muted)]")}>
                 {c.actual_flowering_date ? shortDate(c.actual_flowering_date) : c.expected_flowering_date ? `exp. ${shortDate(c.expected_flowering_date)}` : "—"}

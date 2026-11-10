@@ -28,7 +28,7 @@ describe("Cycles", () => {
     expect(await screen.findByText(/No crop cycles for Avocado yet/i)).toBeTruthy();
   });
 
-  it("lists cycles and opens the new-cycle dialog", async () => {
+  it("lists cycles and opens the add-crop-cycle dialog", async () => {
     listCycles.mockResolvedValue({
       cycles: [
         {
@@ -53,8 +53,8 @@ describe("Cycles", () => {
     expect(screen.getByTestId("gantt-CYC-2026-0007")).toBeTruthy();
     fireEvent.mouseDown(screen.getByRole("tab", { name: "List" }));
     expect(await screen.findByText("8.0")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: /New cycle/i }));
-    expect(await screen.findByText("New crop cycle")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Add crop cycle/i }));
+    expect(await screen.findByText("Add crop cycle", { selector: "h2" })).toBeTruthy();
   });
 
   it("toasts the server's error text unchanged", async () => {

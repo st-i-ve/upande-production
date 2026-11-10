@@ -71,6 +71,7 @@ def _unit_rows(crop):
 		as_dict=True,
 	)
 	cycles = analytics.current_cycles(crop)
+	running = analytics.running_cycles(crop)
 	flag_by_cycle = {x["cycle"]: x["flags"] for x in cycle_chain.flag_rows(crop)} if _can_see_flags() else {}
 	for r in rows:
 		cy = cycles.get(r.name)
@@ -79,6 +80,7 @@ def _unit_rows(crop):
 		r["variety"] = cy.variety if cy else None
 		r["current_stage"] = cy.current_stage if cy else None
 		r["flags"] = flag_by_cycle.get(cy.name, []) if cy else []
+		r["cycles"] = [dict(c, flags=flag_by_cycle.get(c.name, [])) for c in running.get(r.name, [])]
 	dm = _dry_matter_by_unit(crop)
 	replaced = _plants_replaced(crop)
 	for r in rows:
@@ -197,6 +199,7 @@ _CYCLE_FIELDS = [
 	"expected_harvest_end", "protocol", "status", "area_ha", "previous_cycle", "variety", "current_stage",
 	"cycle_no", "expected_flowering_date", "actual_flowering_date", "actual_harvest_start", "actual_harvest_end",
 	"due_for_uprooting", "proposed_next_cycle", "protocol_flags", "flowering_season", "juvenile",
+	"plant_count", "existing_cycle", "planting_date", "last_harvest_date", "last_season_yield_kg",
 ]
 
 

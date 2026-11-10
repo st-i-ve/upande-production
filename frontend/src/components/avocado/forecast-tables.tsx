@@ -57,7 +57,7 @@ export function YieldCurveCard({ rows }: { rows: CurveRow[] }) {
                         fill={ACCENT}
                         fillOpacity={measured ? 1 : 0.35}
                       >
-                        <title>{`Age ${r.label}: ${qty(r.kg_per_tree, 1)} kg/tree (${r.basis})`}</title>
+                        <title>{`Age ${r.label}: ${qty(r.kg_per_tree, 1)} kg/tree/year (${r.basis})`}</title>
                       </rect>
                       <text x={pad.left + i * band + band / 2} y={CURVE_H - 8} textAnchor="middle" fontSize="10.5" fill="var(--sd-quiet)">{r.label}</text>
                     </g>
@@ -72,7 +72,7 @@ export function YieldCurveCard({ rows }: { rows: CurveRow[] }) {
               <thead>
                 <tr className={cn(THEAD_ROW, STICKY_HEAD)}>
                   <th className={TH}>Tree age</th>
-                  <th className={THR}>kg / tree</th>
+                  <th className={THR}>kg / tree / year</th>
                   <th className={TH}>Basis</th>
                   <th className={THR}>Harvests</th>
                   <th className={THR}>Trees</th>
@@ -183,7 +183,7 @@ export function BlocksCard({
                   <span className="truncate font-medium">{b.block}</span>
                   <ShareBar pct={(b.expected_kg / hi) * 100} />
                   <span className="tabular-nums text-[var(--sd-muted)]">
-                    {tonnes(b.expected_kg)} · {qty(b.kg_per_tree, 1)} kg/tree
+                    {tonnes(b.expected_kg)} · {qty(b.kg_per_tree, 1)} kg/tree/year
                   </span>
                 </li>
               ))}
@@ -199,7 +199,7 @@ export function BlocksCard({
                   <th className={THR}>Live</th>
                   <th className={THR}>Bearing</th>
                   <th className={TH}>Bearing %</th>
-                  <th className={THR}>kg / tree</th>
+                  <th className={THR}>kg / tree / year</th>
                   <th className={TH}>Basis</th>
                   <th className={THR}>Forecast (kg)</th>
                   <th className={THR}>Value</th>
@@ -344,7 +344,7 @@ export function LossesTableCard({ losses }: { losses: ProductionForecast["losses
                 <th className={THR}>Sick</th>
                 <th className={THR}>Gaps</th>
                 <th className={THR}>% sick</th>
-                <th className={THR}>kg / tree</th>
+                <th className={THR}>kg / tree / year</th>
                 <th className={THR}>Lost kg</th>
                 <th className={THR}>Lost value</th>
               </tr>

@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import { KpiCard, KpiGrid } from "@/components/KpiCard";
 import { RowsSkeleton } from "@/components/Loading";
 import { useToast } from "@/components/Toast";
+import { RunningCycles } from "@/components/blocks/RunningCycles";
 import { StatusPill } from "@/components/blocks/StatusPill";
+import { Button } from "@/components/ui/button";
+import { listVarieties } from "@/lib/varieties-api";
 import { BODY_ROW, TD, TDR, TH, THEAD_ROW, THR } from "@/components/blocks/tableStyles";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getUnit, type OverviewBlock, type Row, type Unit } from "@/lib/api";
@@ -20,6 +23,9 @@ export function UnitDrawer({
   stats,
   uom,
   usesCycles = true,
+  accent = "#3f7d3a",
+  cropName,
+  onAddCycle,
   onClose,
 }: {
   name: string;
@@ -29,12 +35,30 @@ export function UnitDrawer({
   stats?: OverviewBlock;
   uom?: string;
   usesCycles?: boolean;
+  accent?: string;
+  /** With the crop's name, the cycle cards show the expected kg per year of each variety. */
+  cropName?: string;
+  /** Shows an Add crop cycle button (avocado blocks). */
+  onAddCycle?: () => void;
   onClose: () => void;
 }) {
   const toast = useToast();
   const [data, setData] = useState<Unit | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [yields, setYields] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!cropName || !usesCycles) return;
+    let live = true;
+    void listVarieties(cropName).then((r) => {
+      if (!live || isError(r)) return;
+      setYields(Object.fromEntries(r.varieties.filter((v) => v.expected_yield_per_plant).map((v) => [v.name, Number(v.expected_yield_per_plant)])));
+    });
+    return () => {
+      live = false;
+    };
+  }, [cropName, usesCycles]);
 
   useEffect(() => {
     let live = true;
@@ -91,14 +115,32 @@ export function UnitDrawer({
               {stats && canSeePay && <KpiCard label="Labour this season" value={kes(stats.labour_cost_season)} />}
               <KpiCard
                 label="Recent work"
-                value={`${qty(data.recent_work.reduce((t, w) => t + Number(w.hours ?? 0), 0), 1)} h`}
-                hint={`${data.recent_work.length} latest entries`}
+                value={qty(data.recent_work.length)}
+                hint="latest entries"
               />
             </KpiGrid>
             {u.cost_center && (
               <p className="text-[12px] text-[var(--sd-quiet)]">
                 Cost centre <span className="tabular-nums text-[var(--sd-muted)]">{u.cost_center}</span>
               </p>
+            )}
+
+            {usesCycles && (
+            <section className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-[13px] font-semibold text-[var(--sd-ink)]">Running cycles</h3>
+                {onAddCycle && (
+                  <Button size="sm" onClick={onAddCycle}>
+                    Add crop cycle
+                  </Button>
+                )}
+              </div>
+              {data.cycles.some((c) => c.status === "Active" || c.status === "Harvesting") ? (
+                <RunningCycles cycles={data.cycles} blockArea={u.area_ha} blockTrees={u.plant_count} accent={accent} yieldPerTree={yields} />
+              ) : (
+                <p className="text-[13px] text-[var(--sd-muted)]">No cycle is running on this {unitLabel.toLowerCase()}.</p>
+              )}
+            </section>
             )}
 
             {usesCycles && (
