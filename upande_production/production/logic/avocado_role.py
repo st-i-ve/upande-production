@@ -4,8 +4,8 @@ The role only carries document rights. "Avocado only" comes from User Permission
 (Production Crop = Avocado, Farm, Company); the app also limits the crop switcher for a user whose
 only production role is this one (see settings.avocado_only_crop_keys).
 
-Rights are applied as Custom DocPerm through frappe.permissions (which first copies the doctype's
-standard rows, so no other role loses anything). A doctype that was renamed is listed under every
+Rights are applied as Custom DocPerm (the doctype's standard rows are copied first, so no other role
+loses anything). A doctype that was renamed is listed under every
 name it has had; the first one that exists on the site is used.
 """
 
@@ -96,10 +96,20 @@ def ensure_role_profile():
 		)
 
 
+def _ensure_custom_perms(dt):
+	"""Copy the doctype's standard rows to Custom DocPerm once (Frappe then ignores the standard rows).
+
+	Done by hand rather than with frappe.permissions.add_permission, which validates the whole doctype's
+	permission table and refuses a doctype that already carries an invalid row (Avocado Production
+	Forecast has an Import flag on a non-importable doctype)."""
+	if frappe.db.exists("Custom DocPerm", {"parent": dt}):
+		return
+	for d in frappe.get_all("DocPerm", fields="*", filters={"parent": dt}):
+		frappe.new_doc("Custom DocPerm").update(d).insert(ignore_permissions=True)
+
+
 def ensure_permissions():
 	"""Create or top up the role's Custom DocPerm rows. Idempotent. Returns the doctypes touched."""
-	from frappe.permissions import add_permission, update_permission_property
-
 	done = []
 	for names, rights, level1 in PERMS:
 		dt = doctype_for(names)
@@ -108,9 +118,17 @@ def ensure_permissions():
 		for permlevel, rs in ((0, rights), (1, level1)):
 			if not rs:
 				continue
-			add_permission(dt, ROLE, permlevel)
+			_ensure_custom_perms(dt)
+			key = {"parent": dt, "role": ROLE, "permlevel": permlevel, "if_owner": 0}
+			name = frappe.db.get_value("Custom DocPerm", key)
+			if not name:
+				name = frappe.get_doc(
+					{**key, "doctype": "Custom DocPerm", "parenttype": "DocType", "parentfield": "permissions", "read": 1}
+				).insert(ignore_permissions=True).name
+			row = frappe.get_doc("Custom DocPerm", name)
 			for ptype in rs:
-				update_permission_property(dt, ROLE, permlevel, ptype, 1, validate=False)
+				row.set(ptype, 1)
+			row.save(ignore_permissions=True)
 		done.append(dt)
 	return done
 
