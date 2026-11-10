@@ -15,7 +15,7 @@ export const VIEWS = [
   "blocks",
   "cycles",
   "plan",
-  "value-adders",
+  "casual-labourers",
   "costs",
   // Capital / setup costs and opening balances per block.
   "establishment",
@@ -68,6 +68,9 @@ export function isView(v: string): v is View {
   return KNOWN.has(v);
 }
 
+/** Renamed views: old bookmarks / saved links keep working and are rewritten to the new route. */
+const LEGACY_VIEWS: Record<string, View> = { "value-adders": "casual-labourers" };
+
 export interface Route {
   /** null when the hash names no crop: the app then picks the first one. */
   crop: string | null;
@@ -79,7 +82,8 @@ export interface Route {
 export function parseRoute(hash: string): Route {
   const raw = (hash || "").replace(/^#\/?/, "").split("?")[0];
   const [crop, view] = raw.split("/").filter(Boolean);
-  const v = (view || "").toLowerCase();
+  const lower = (view || "").toLowerCase();
+  const v = LEGACY_VIEWS[lower] ?? lower;
   return {
     crop: crop ? decodeURIComponent(crop) : null,
     view: isView(v) ? v : DEFAULT_VIEW,
@@ -92,6 +96,13 @@ export function routeHash(crop: string, view: View = DEFAULT_VIEW): string {
 
 export function useRoute(): [Route, (crop: string, view?: View) => void] {
   const [route, setRoute] = useState<Route>(() => parseRoute(window.location.hash));
+
+  useEffect(() => {
+    // A legacy hash (#/crop/value-adders) is rewritten to its new route without a history entry.
+    const raw = window.location.hash.replace(/^#\/?/, "").split("?")[0].split("/").filter(Boolean);
+    const legacy = raw[1] && LEGACY_VIEWS[raw[1].toLowerCase()];
+    if (legacy) window.history.replaceState(null, "", routeHash(decodeURIComponent(raw[0]), legacy));
+  }, []);
 
   useEffect(() => {
     const onChange = () => setRoute(parseRoute(window.location.hash));

@@ -63,8 +63,8 @@ const Overview = page(() => import("@/pages/Overview").then((m) => ({ default: m
 const Blocks = page(() => import("@/pages/Blocks").then((m) => ({ default: m.Blocks })));
 const Cycles = page(() => import("@/pages/Cycles").then((m) => ({ default: m.Cycles })));
 const Plan = page(() => import("@/pages/Plan").then((m) => ({ default: m.Plan })));
-const ValueAdders = page(() =>
-  import("@/pages/ValueAdders").then((m) => ({ default: m.ValueAdders })),
+const CasualLabourers = page(() =>
+  import("@/pages/CasualLabourers").then((m) => ({ default: m.CasualLabourers })),
 );
 const Costs = page(() => import("@/pages/Costs").then((m) => ({ default: m.Costs })));
 const Establishment = page(() =>
@@ -118,7 +118,7 @@ const PAGES: Record<View, React.ComponentType> = {
   blocks: Blocks,
   cycles: Cycles,
   plan: Plan,
-  "value-adders": ValueAdders,
+  "casual-labourers": CasualLabourers,
   costs: Costs,
   establishment: Establishment,
   "break-even": BreakEven,

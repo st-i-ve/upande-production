@@ -81,7 +81,7 @@ class TestDryMatter(IntegrationTestCase):
 			work_uom="Plant", default_rate=1)
 		for qty, st in ((30, "Approved"), (5, "Pending")):
 			w = frappe.get_doc({
-				"doctype": "Value Adder Work", "work_date": "2026-10-02", "unit": self.unit, "crop": self.crop.name,
+				"doctype": "Casual Labour Work", "work_date": "2026-10-02", "unit": self.unit, "crop": self.crop.name,
 				"operation": op.name, "qty": qty, "uom": "Plant", "approval_status": st,
 			})
 			w.flags.ignore_validate = True

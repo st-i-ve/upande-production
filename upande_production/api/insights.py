@@ -31,7 +31,7 @@ def cost_trend(crop, from_date=None, to_date=None):
 	if names:
 		for ws, v in frappe.db.sql(
 			"""select date_sub(work_date, interval weekday(work_date) day), sum(pay_value)
-			from `tabValue Adder Work` where docstatus=1 and unit in %(u)s
+			from `tabCasual Labour Work` where docstatus=1 and unit in %(u)s
 			and work_date between %(f)s and %(t)s group by 1""",
 			{"u": tuple(names), "f": frm, "t": to},
 		):

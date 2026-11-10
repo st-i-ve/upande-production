@@ -72,11 +72,11 @@
    "icon": "users",
    "indent": 0,
    "keep_closed": 0,
-   "label": "Value Adders",
+   "label": "Casual Labourers",
    "show_arrow": 0,
    "type": "Link",
    "link_type": "URL",
-   "url": "/production_app#/avocado/value-adders"
+   "url": "/production_app#/avocado/casual-labourers"
   },
   {
    "child": 0,
@@ -178,11 +178,11 @@
    "icon": "user-round-check",
    "indent": 0,
    "keep_closed": 0,
-   "label": "Value Adder Work",
+   "label": "Casual Labour Work",
    "show_arrow": 0,
    "type": "Link",
    "link_type": "DocType",
-   "link_to": "Value Adder Work"
+   "link_to": "Casual Labour Work"
   },
   {
    "child": 1,

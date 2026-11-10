@@ -152,7 +152,7 @@ export function UnitDrawer({
                     <thead>
                       <tr className={THEAD_ROW}>
                         <th className={TH}>Date</th>
-                        <th className={TH}>Value adder</th>
+                        <th className={TH}>Casual labourer</th>
                         <th className={TH}>Operation</th>
                         <th className={THR}>Qty</th>
                         {canSeePay && <th className={THR}>Pay</th>}

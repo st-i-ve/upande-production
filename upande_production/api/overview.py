@@ -126,7 +126,7 @@ def _block_activity(names, pay):
 	rows = frappe.db.sql(
 		"""select unit, max(work_date), sum(case when work_date >= %(since)s then hours else 0 end),
 		count(distinct case when work_date >= %(since)s then employee end)
-		from `tabValue Adder Work` where docstatus = 1 and unit in %(u)s group by unit""",
+		from `tabCasual Labour Work` where docstatus = 1 and unit in %(u)s group by unit""",
 		{"u": tuple(names), "since": t - timedelta(days=30)},
 	)
 	harvest = frappe.db.sql(
@@ -184,7 +184,7 @@ def get_overview_extras(crop):
 def _breakdown(crop, employee, frm, to, key, pay):
 	data = frappe.db.sql(
 		f"""select {key}, uom, sum(qty), sum(hours), sum(pay_value), count(*)
-		from `tabValue Adder Work`
+		from `tabCasual Labour Work`
 		where docstatus = 1 and crop = %s and employee = %s and work_date between %s and %s and unit not in %s
 		group by {key}, uom order by {key}""",
 		(crop, employee, frm, to, retired_sql()),
@@ -205,11 +205,11 @@ def _breakdown(crop, employee, frm, to, key, pay):
 	]
 
 
-def get_value_adder_detail_data(crop, employee, from_date, to_date, pay):
+def get_casual_labourer_detail_data(crop, employee, from_date, to_date, pay):
 	frm, to = analytics._range(from_date, to_date)
 	base = unit_filter({"crop": crop, "employee": employee, "work_date": ("between", [frm, to])})
 	recent = frappe.get_all(
-		"Value Adder Work",
+		"Casual Labour Work",
 		filters={**base, "docstatus": 1},
 		fields=["work_date", "unit", "operation", "qty", "uom", "hours", "pay_value"],
 		order_by="work_date desc, creation desc",
@@ -225,12 +225,12 @@ def get_value_adder_detail_data(crop, employee, from_date, to_date, pay):
 		"by_unit": _breakdown(crop, employee, frm, to, "unit", pay),
 		"by_operation": _breakdown(crop, employee, frm, to, "operation", pay),
 		"recent": recent,
-		"pending_entries": frappe.db.count("Value Adder Work", {**base, "docstatus": 0, "approval_status": "Pending"}),
+		"pending_entries": frappe.db.count("Casual Labour Work", {**base, "docstatus": 0, "approval_status": "Pending"}),
 	}
 
 
 @frappe.whitelist(methods=["POST"])
 @run
-def value_adder_detail(crop, employee, from_date=None, to_date=None):
-	frappe.has_permission("Value Adder Work", "read", throw=True)
-	return get_value_adder_detail_data(crop, employee, from_date, to_date, can_see_pay())
+def casual_labourer_detail(crop, employee, from_date=None, to_date=None):
+	frappe.has_permission("Casual Labour Work", "read", throw=True)
+	return get_casual_labourer_detail_data(crop, employee, from_date, to_date, can_see_pay())

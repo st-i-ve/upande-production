@@ -7,7 +7,7 @@ vi.mock("@/lib/api", () => ({
   generatePlanWeek: vi.fn(),
   listUnits: vi.fn(),
   listOperations: vi.fn(),
-  listValueAdders: vi.fn(),
+  listCasualLabourers: vi.fn(),
   recordTaskWork: vi.fn(),
   savePlanTasks: vi.fn(),
 }));
@@ -69,7 +69,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   mocked.listUnits.mockResolvedValue({ units: [] });
   mocked.listOperations.mockResolvedValue({ rows: [] });
-  mocked.listValueAdders.mockResolvedValue({ people: [{ name: "EMP-1", employee_name: "Jane Wanjiru", image: null }] });
+  mocked.listCasualLabourers.mockResolvedValue({ people: [{ name: "EMP-1", employee_name: "Jane Wanjiru", image: null }] });
 });
 
 describe("Plan", () => {
@@ -140,8 +140,8 @@ describe("Plan", () => {
     fireEvent.click(await screen.findByText("Pruning"));
     const dialog = await screen.findByRole("dialog");
     fireEvent.click(within(dialog).getByRole("radio", { name: "Done" }));
-    fireEvent.click(within(dialog).getByRole("button", { name: /Add value adder/ }));
-    fireEvent.click(within(dialog).getByRole("button", { name: "Value adder" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: /Add casual labourer/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Casual labourer" }));
     fireEvent.click(await screen.findByRole("option", { name: "Jane Wanjiru" }));
     fireEvent.change(within(dialog).getByLabelText(/Quantity/), { target: { value: "10" } });
     fireEvent.change(within(dialog).getByLabelText("Hours"), { target: { value: "4" } });
@@ -168,8 +168,8 @@ describe("Plan", () => {
     renderPlan();
     fireEvent.click(await screen.findByText("Pruning"));
     const dialog = await screen.findByRole("dialog");
-    fireEvent.click(within(dialog).getByRole("button", { name: /Add value adder/ }));
-    fireEvent.click(within(dialog).getByRole("button", { name: "Value adder" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: /Add casual labourer/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Casual labourer" }));
     fireEvent.click(await screen.findByRole("option", { name: "Jane Wanjiru" }));
     fireEvent.change(within(dialog).getByLabelText("Hours"), { target: { value: "4" } });
     expect(within(dialog).getByText("Give each person the quantity they did.")).toBeTruthy();

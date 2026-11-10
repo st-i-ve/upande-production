@@ -16,7 +16,7 @@ const rpc = <T>(name: string, args: Record<string, unknown> = {}): Promise<Envel
 export type ApprovalStatus = "Pending" | "Approved" | "Sent Back";
 type Money = number | null;
 
-/** One keyed row (a Value Adder Work draft or approved entry). */
+/** One keyed row (a Casual Labour Work draft or approved entry). */
 export interface ApprovalEntry {
   name: string;
   employee: string;
@@ -78,7 +78,7 @@ export interface ApprovalGroup {
   review_note: string | null;
   reviewed_by: string | null;
   reviewed_at: string | null;
-  /** Value Adder Work names in this card: pass these to approve / sendBack / resubmit. */
+  /** Casual Labour Work names in this card: pass these to approve / sendBack / resubmit. */
   names: string[];
   entries: ApprovalEntry[];
 }

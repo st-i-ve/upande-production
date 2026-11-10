@@ -61,7 +61,7 @@ These must be in place across planning and recording, desk and mobile.
   **Production Protocol Step**: `anchor_stage` Data (optional) — when set, `day_offset` counts from
   that stage's start instead of the cycle start.
 - **Production Plan Task**: `rule_status` Select (OK / Warn / Block), `rule_notes` Small Text,
-  `override_reason` Small Text. **Value Adder Work**: `rule_status`, `rule_notes`, `override_reason`
+  `override_reason` Small Text. **Casual Labour Work**: `rule_status`, `rule_notes`, `override_reason`
   (same names).
 - **Pond Stocking**: `strain` Link Production Variety (crop Aquaculture) in addition to `species`;
   stages anchored on Stocking.

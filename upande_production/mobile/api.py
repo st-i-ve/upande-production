@@ -194,7 +194,7 @@ def productionUpdateTask():
 		return _fail(err)
 	if _s(data, "status") not in work.STATUSES:
 		return _fail("Status must be one of " + ", ".join(work.STATUSES) + ".")
-	if data.get("entries") and _denied(("Value Adder Work", "create")):
+	if data.get("entries") and _denied(("Casual Labour Work", "create")):
 		return
 
 	def go():
@@ -218,7 +218,7 @@ def productionUpdateTask():
 
 @frappe.whitelist()
 def productionRecordUnplannedWork():
-	if _denied(("Value Adder Work", "create")):
+	if _denied(("Casual Labour Work", "create")):
 		return
 	data = _payload()
 	err = _require(data, "unit", "operation", "entries")
@@ -242,7 +242,7 @@ def productionRecordUnplannedWork():
 @frappe.whitelist()
 def productionListSentBack():
 	"""Work the manager sent back for correction. Supervisors see their own; managers see all."""
-	if _denied(("Value Adder Work", "read")):
+	if _denied(("Casual Labour Work", "read")):
 		return
 	data = _payload()
 
@@ -259,7 +259,7 @@ def productionListSentBack():
 
 @frappe.whitelist()
 def productionResubmitWork():
-	if _denied(("Value Adder Work", "write")):
+	if _denied(("Casual Labour Work", "write")):
 		return
 	data = _payload()
 	err = _require(data, "names")
@@ -334,13 +334,13 @@ def productionRecordSample():
 
 
 @frappe.whitelist()
-def productionListValueAdders():
-	if _denied(("Value Adder Work", "create")):
+def productionListCasualLabourers():
+	if _denied(("Casual Labour Work", "create")):
 		return
 	data = _payload()
 
 	def go():
-		filters = {"status": "Active", "designation": "Value Adder"}
+		filters = {"status": "Active", "designation": "Casual Labourer"}
 		search = _s(data, "search")
 		or_filters = {"employee_name": ("like", f"%{search}%"), "name": ("like", f"%{search}%")} if search else None
 		return frappe.get_all(
@@ -348,7 +348,7 @@ def productionListValueAdders():
 			order_by="employee_name asc", limit=cint(data.get("limit")) or 0,
 		)
 
-	_run("productionListValueAdders", go)
+	_run("productionListCasualLabourers", go)
 
 
 @frappe.whitelist()
@@ -455,7 +455,7 @@ def _task_entries(plan) -> dict:
 	pay = can_see_pay()
 	by_task = {}
 	for w in frappe.get_all(
-		"Value Adder Work", filters={"plan": plan, "docstatus": ("<", 2)},
+		"Casual Labour Work", filters={"plan": plan, "docstatus": ("<", 2)},
 		fields=["name", "plan_task", "employee", "employee_name", "qty", "uom", "hours", "work_date",
 			"pay_value", "approval_status", "review_note"],
 		order_by="creation asc",

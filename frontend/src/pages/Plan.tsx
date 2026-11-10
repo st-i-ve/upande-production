@@ -22,12 +22,12 @@ import {
   getPlan,
   listOperations,
   listUnits,
-  listValueAdders,
+  listCasualLabourers,
   type Plan as PlanData,
   type SkippedStep,
   type PlanTask,
   type UnitRow,
-  type ValueAdder,
+  type CasualLabourer,
 } from "@/lib/api";
 import { protocolCheck, type ProtocolCheck } from "@/lib/varieties-api";
 import { cropUsesCycles, useCurrentCrop } from "@/lib/crops";
@@ -54,7 +54,7 @@ export function Plan() {
   const [error, setError] = useState<string | null>(null);
   const [units, setUnits] = useState<UnitRow[]>([]);
   const [ops, setOps] = useState<OperationOption[]>([]);
-  const [people, setPeople] = useState<ValueAdder[]>([]);
+  const [people, setPeople] = useState<CasualLabourer[]>([]);
   const [generating, setGenerating] = useState(false);
   const [picked, setPicked] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -98,7 +98,7 @@ export function Plan() {
     void listOperations(crop.name).then(
       (r) => live && !isError(r) && setOps(r.rows as unknown as OperationOption[]),
     );
-    void listValueAdders().then((r) => live && !isError(r) && setPeople(r.people));
+    void listCasualLabourers().then((r) => live && !isError(r) && setPeople(r.people));
     return () => {
       live = false;
     };

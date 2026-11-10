@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { BlockNotice, OverrideReasonDialog, RuleFlag } from "@/components/rules/RuleParts";
 import { ruleFailure, type RuleFailure } from "@/lib/rules";
 import { STATUSES, StatusPill } from "@/components/plan/badges";
-import { recordTaskWork, type PlanTask, type ValueAdder } from "@/lib/api";
+import { recordTaskWork, type PlanTask, type CasualLabourer } from "@/lib/api";
 import { isError } from "@/lib/frappe";
 import { money, q as fmtQty, rowDate as shortDate } from "@/components/plan/fmt";
 import { cn, num } from "@/lib/utils";
@@ -43,7 +43,7 @@ export function TickOffDialog({
 }: {
   plan: string;
   task: PlanTask;
-  people: ValueAdder[];
+  people: CasualLabourer[];
   canSeePay: boolean;
   onClose: () => void;
   onSaved: (task: PlanTask) => void;
@@ -147,7 +147,7 @@ export function TickOffDialog({
         )}
 
         <div className="flex flex-col gap-2">
-          <Label>Add value adders</Label>
+          <Label>Add casual labourers</Label>
           {rows.map((r) => {
             const line = rate == null ? null : num(r.qty) * rate;
             return (
@@ -158,7 +158,7 @@ export function TickOffDialog({
                     options={options}
                     onChange={(v) => patch(r.key, { employee: v })}
                     placeholder="Choose a person"
-                    label="Value adder"
+                    label="Casual labourer"
                   />
                 </div>
                 <Input
@@ -200,7 +200,7 @@ export function TickOffDialog({
               size="sm"
               onClick={() => setRows((all) => [...all, { key: ++seq.current, employee: "", qty: "", hours: "" }])}
             >
-              <Plus className="h-3.5 w-3.5" /> Add value adder
+              <Plus className="h-3.5 w-3.5" /> Add casual labourer
             </Button>
             {preview != null && filled.length > 0 && (
               <span className="text-[13px] tabular-nums text-[var(--sd-muted)]">

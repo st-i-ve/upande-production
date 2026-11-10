@@ -72,7 +72,7 @@ export interface OverviewExtras {
 export const getOverviewExtras = (crop: string): Promise<Envelope<OverviewExtras>> =>
   call<OverviewExtras>("upande_production.api.overview.get_overview_extras", { crop });
 
-// -- Value adder detail --------------------------------------------------------
+// -- Casual labourer detail --------------------------------------------------------
 
 export interface WorkBreakdown {
   key: string;
@@ -82,7 +82,7 @@ export interface WorkBreakdown {
   entries: number;
 }
 
-export interface ValueAdderDetail {
+export interface CasualLabourerDetail {
   employee: string;
   employee_name: string;
   by_day: WorkBreakdown[];
@@ -100,8 +100,8 @@ export interface ValueAdderDetail {
   pending_entries: number;
 }
 
-export const getValueAdderDetail = (crop: string, employee: string, fromDate: string, toDate: string) =>
-  call<ValueAdderDetail>("upande_production.api.overview.value_adder_detail", {
+export const getCasualLabourerDetail = (crop: string, employee: string, fromDate: string, toDate: string) =>
+  call<CasualLabourerDetail>("upande_production.api.overview.casual_labourer_detail", {
     crop,
     employee,
     from_date: fromDate,

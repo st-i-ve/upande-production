@@ -129,7 +129,7 @@ export function Overview() {
           <KpiCard
             label="Labour this month"
             value={t ? kes(t.labour_cost_mtd) : "—"}
-            hint="value adder pay, month to date"
+            hint="casual labourer pay, month to date"
             series={trend?.some((w) => w.labour != null) ? series((w) => w.labour ?? 0) : undefined}
             loading={waiting}
           />

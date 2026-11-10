@@ -67,7 +67,7 @@ class TestApi(IntegrationTestCase):
 		self.assertEqual(pl["tasks"], [])
 		self.assertEqual(api.block_costs(c, a, b)["rows"], [])
 		self.assertEqual(api.deviations(c, a, b)["rows"], [])
-		self.assertEqual(api.value_adder_summary(c, a, b, "employee")["rows"], [])
+		self.assertEqual(api.casual_labourer_summary(c, a, b, "employee")["rows"], [])
 		self.assertEqual(api.forecast_summary(c, a, b)["weeks"], [])
 		for fn in (api.list_samples, api.list_commitments, api.list_operations, api.list_protocols):
 			self.assertEqual(fn(c)["rows"], [])
@@ -132,7 +132,7 @@ class TestApi(IntegrationTestCase):
 		self.assertIsNone(task["rate"])
 		for w in task["work"]:
 			self.assertIsNone(w["pay_value"])
-		summ = api.value_adder_summary(self.crop.name, add_days(today(), -1), today(), "employee")
+		summ = api.casual_labourer_summary(self.crop.name, add_days(today(), -1), today(), "employee")
 		self.assertIsNone(summ["total_pay"])
 		self.assertTrue(summ["rows"])
 		self.assertIsNone(summ["rows"][0]["pay_value"])

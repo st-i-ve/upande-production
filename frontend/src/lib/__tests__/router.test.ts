@@ -16,7 +16,10 @@ describe("parseRoute", () => {
     expect(parseRoute("#/avocado/nonsense")).toEqual({ crop: "avocado", view: "overview" });
   });
   it("reads hyphenated views and ignores a query string", () => {
-    expect(parseRoute("#/fish/value-adders?x=1")).toEqual({ crop: "fish", view: "value-adders" });
+    expect(parseRoute("#/fish/casual-labourers?x=1")).toEqual({ crop: "fish", view: "casual-labourers" });
+  });
+  it("maps the retired value-adders route to casual-labourers", () => {
+    expect(parseRoute("#/avocado/value-adders")).toEqual({ crop: "avocado", view: "casual-labourers" });
   });
   it("round-trips with routeHash", () => {
     expect(parseRoute(routeHash("hive", "costs"))).toEqual({ crop: "hive", view: "costs" });

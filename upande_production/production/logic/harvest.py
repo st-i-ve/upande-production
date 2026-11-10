@@ -6,7 +6,7 @@ same transaction, posts
 * a Stock Entry of type "Harvesting" (Material Receipt) at the *estimated* weight: crates x average
   kg per crate, into the harvest warehouse, on the block's cost centre;
 * a Production Harvest for the block (so Overview, Forecast, Block Costs update);
-* Value Adder Work drafts per picker (qty = crates, uom Crate, Pending approval);
+* Casual Labour Work drafts per picker (qty = crates, uom Crate, Pending approval);
 * for an avocado block, an Avocado Harvest Log row (the avocado pages read that doctype).
 
 Cancelling the batch reverses all of it. Nothing here receives, weighs or packs the fruit.
@@ -339,7 +339,7 @@ def post_batch(doc):
 	op = harvest_operation(doc.crop)
 	for emp, n in per_picker.items():
 		frappe.get_doc({
-			"doctype": "Value Adder Work", "work_date": doc.harvest_date, "employee": emp, "unit": doc.unit,
+			"doctype": "Casual Labour Work", "work_date": doc.harvest_date, "employee": emp, "unit": doc.unit,
 			"cycle": doc.cycle, "operation": op, "qty": n, "uom": "Crate", "approval_status": "Pending",
 			"harvest_batch": doc.name,
 		}).insert(ignore_permissions=True)
@@ -353,7 +353,7 @@ def post_batch(doc):
 
 def reverse_batch(doc):
 	"""before_cancel: undo everything the batch posted. Approved picker work blocks the cancel."""
-	approved = frappe.get_all("Value Adder Work", filters={"harvest_batch": doc.name, "docstatus": 1}, pluck="name")
+	approved = frappe.get_all("Casual Labour Work", filters={"harvest_batch": doc.name, "docstatus": 1}, pluck="name")
 	if approved:
 		frappe.throw(_("Picker work {0} is already approved; reject it before cancelling the batch").format(", ".join(approved)),
 			frappe.ValidationError)
@@ -373,8 +373,8 @@ def reverse_batch(doc):
 		frappe.delete_doc("Production Harvest", harvest, force=True, ignore_permissions=True)
 	if log and frappe.db.exists("Avocado Harvest Log", log):
 		frappe.delete_doc("Avocado Harvest Log", log, force=True, ignore_permissions=True)
-	for name in frappe.get_all("Value Adder Work", filters={"harvest_batch": doc.name, "docstatus": 0}, pluck="name"):
-		frappe.delete_doc("Value Adder Work", name, force=True, ignore_permissions=True)
+	for name in frappe.get_all("Casual Labour Work", filters={"harvest_batch": doc.name, "docstatus": 0}, pluck="name"):
+		frappe.delete_doc("Casual Labour Work", name, force=True, ignore_permissions=True)
 	for r in doc.crates:  # the crates are open again, back with their team
 		if r.crate_scan and frappe.db.exists("Harvest Crate Scan", r.crate_scan):
 			frappe.db.set_value("Harvest Crate Scan", r.crate_scan, {"status": "Filling", "batch_id_ref": None})

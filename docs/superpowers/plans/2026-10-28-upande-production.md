@@ -18,7 +18,7 @@
 - Don't rename or change the fields of the 8 `Avocado*` doctypes or the files in `upande_production/avocado_yield/`, `api/avocado*.py` or `www/avocado*`.
 - Crop, unit-type, operation and rate values are **data**. No branching on crop names in Python or TSX: use `crop_key` / fields.
 - UI standards (from livestock/SCP): Poppins with tabular figures; skeletons in place while loading, never a blank page; floating toasts (`components/Toast.tsx`); page filters use the FilterSelect pill, never a native `<select>` or `<input type=date>` in a filter row; **no vertical accent strips / coloured left-border bars on cards**; crop accent via icon/text colour or a pill.
-- Terminology: casual labourers are **"Value Adders"** in every UI string.
+- Terminology: casual labourers are **"Casual Labourers"** in every UI string.
 - Weeks are ISO weeks, Monday start.
 - Endpoints never raise to the browser. Desk endpoints return `{"error": "<message for a farm user>"}`. Mobile endpoints set `frappe.response['data'] = {...}`.
 - Run Python tests with: `cd /mnt/data/code/frappe16-mutara && bench --site mutara.local run-tests --app upande_production --module <dotted.module>`.
@@ -26,7 +26,7 @@
 ## Review Focus
 
 1. **Empty states:** a crop with no units, cycles or plan for the chosen week must return empty lists, not errors, and every page must render an empty state, not a crash. (Task 4: `test_endpoints_empty_crop`; Tasks 7–8 render empty states.)
-2. **Recording work twice on a task:** a second capture must not double-count. `done_qty` is the sum of the task's submitted Value Adder Work. A status change with no entries creates no work. (Task 3: `test_record_twice_sums_not_duplicates`, `test_status_only_creates_no_work`.)
+2. **Recording work twice on a task:** a second capture must not double-count. `done_qty` is the sum of the task's submitted Casual Labour Work. A status change with no entries creates no work. (Task 3: `test_record_twice_sums_not_duplicates`, `test_status_only_creates_no_work`.)
 3. **ISO week edges:** 2026 has 53 weeks. Week 53 must run 2026-12-28 to 2027-01-03, and week 1 of 2027 starts 2027-01-04. (Task 3: `test_iso_week_bounds_53`.)
 4. **Group units:** the costs of a pivot (a group) must roll up from its blocks, and a block with no GL entries must show 0 inputs, not vanish. (Task 4: `test_block_costs_rollup_and_zero`.)
 5. **Pay visibility:** a Production Viewer must never receive `rate` or `pay_value` (null). (Task 4: `test_viewer_gets_no_pay`.)
@@ -41,7 +41,7 @@
 - Create: `upande_production/fixtures/role.json`
 - Test: `upande_production/production/tests/__init__.py`, `upande_production/production/tests/test_doctypes.py`
 
-**Interfaces — Produces** (module `Production`; every non-child doctype gives Production Manager full rights, Supervisor read/write/create (submit on Value Adder Work), Viewer read; System Manager full):
+**Interfaces — Produces** (module `Production`; every non-child doctype gives Production Manager full rights, Supervisor read/write/create (submit on Casual Labour Work), Viewer read; System Manager full):
 
 | DocType | naming | fields (fieldname:type[options]) |
 |---|---|---|
@@ -53,7 +53,7 @@
 | Production Crop Cycle | `CYC-.YYYY.-.####`, title_field title | title:Data (set `"{unit} · {item or crop}"`), unit:Link[Production Unit] req, crop:Link[Production Crop] (fetch_from unit.crop), item:Link[Item], cycle_type:Select (same options as above), start_date:Date req, expected_harvest_start:Date, expected_harvest_end:Date, protocol:Link[Production Protocol], status:Select[Planned/Active/Harvesting/Closed] default Active, area_ha:Float (fetch_from unit.area_ha), plant_count:Int, previous_cycle:Link[Production Crop Cycle], notes:Small Text |
 | Production Plan | `PLAN-.YYYY.-.#####` | farm:Link[Farm], crop:Link[Production Crop] req, plan_year:Int req, plan_week:Int req, week_start:Date ro, week_end:Date ro, company:Link[Company], tasks:Table[Production Plan Task], notes:Small Text |
 | Production Plan Task (child) | — | unit:Link[Production Unit] req, cycle:Link[Production Crop Cycle], operation:Link[Field Activity] req, operation_name:Data (fetch_from operation.operation_name), planned_qty:Float, uom:Link[UOM], rate:Currency, due_date:Date req, supervisor:Link[Employee], status:Select[Open/In Progress/Done/Partly Done/Skipped] default Open, started_at:Datetime, completed_at:Datetime, done_qty:Float ro, deviation:Select[\n/Late/Partial/Skipped] ro, protocol_ref:Data ro, note:Small Text |
-| Value Adder Work | `VAW-.YYYY.-.#####`, **is_submittable** | work_date:Date req, employee:Link[Employee] req, employee_name:Data (fetch), plan:Link[Production Plan], plan_task:Data, unit:Link[Production Unit] req, crop:Link[Production Crop], cycle:Link[Production Crop Cycle], operation:Link[Field Activity] req, qty:Float req, uom:Link[UOM], hours:Float, rate:Currency, pay_value:Currency ro, cost_center:Link[Cost Center], company:Link[Company], unplanned:Check ro, amended_from |
+| Casual Labour Work | `VAW-.YYYY.-.#####`, **is_submittable** | work_date:Date req, employee:Link[Employee] req, employee_name:Data (fetch), plan:Link[Production Plan], plan_task:Data, unit:Link[Production Unit] req, crop:Link[Production Crop], cycle:Link[Production Crop Cycle], operation:Link[Field Activity] req, qty:Float req, uom:Link[UOM], hours:Float, rate:Currency, pay_value:Currency ro, cost_center:Link[Cost Center], company:Link[Company], unplanned:Check ro, amended_from |
 | Production Harvest | `HRV-.YYYY.-.#####` | harvest_date:Date req, unit:Link[Production Unit] req, crop:Link[Production Crop], cycle:Link[Production Crop Cycle], item:Link[Item], qty:Float req, uom:Link[UOM], grade:Data, price_per_uom:Currency, value:Currency ro |
 | Yield Sample | `YS-.YYYY.-.#####` | sample_date:Date req, unit:Link[Production Unit] req, crop:Link[Production Crop], cycle:Link[Production Crop Cycle], growth_stage:Data, sample_basis:Select[Plants/Trees/Square Metres] req, sample_size:Float req, sampled_yield:Float req, uom:Link[UOM], unit_population:Float, est_unit_yield:Float ro |
 | Production Forecast | `FC-.YYYY.-.#####` | unit:Link[Production Unit] req, crop:Link[Production Crop], cycle:Link[Production Crop Cycle], season:Int, source:Select[Sample/Manual/History], uom:Link[UOM], weeks:Table[Production Forecast Week], total_expected:Float ro |
@@ -63,7 +63,7 @@
 
 Controllers stay empty (`pass`) in this task. Task 3 fills them in.
 
-- [ ] **Step 1:** Write `test_doctypes.py::TestDoctypes.test_all_doctypes_exist`. For each doctype name above, assert `frappe.db.table_exists(name)` for non-singles, and `frappe.get_meta(name).is_submittable == 1` only for Value Adder Work. Assert that `frappe.get_meta("Production Unit").is_tree` is truthy and that `frappe.db.exists("Role", r)` holds for the 3 roles.
+- [ ] **Step 1:** Write `test_doctypes.py::TestDoctypes.test_all_doctypes_exist`. For each doctype name above, assert `frappe.db.table_exists(name)` for non-singles, and `frappe.get_meta(name).is_submittable == 1` only for Casual Labour Work. Assert that `frappe.get_meta("Production Unit").is_tree` is truthy and that `frappe.db.exists("Role", r)` holds for the 3 roles.
 - [ ] **Step 2:** Run it and expect FAIL.
 - [ ] **Step 3:** Create the JSONs. Copy the style of `upande_production/avocado_yield/doctype/avocado_yield_block/avocado_yield_block.json` (module `Production`, `"custom": 0`) and the empty controllers. Then run `bench --site mutara.local migrate`.
 - [ ] **Step 4:** Run the test and expect PASS.
@@ -100,7 +100,7 @@ Controllers stay empty (`pass`) in this task. Task 3 fills them in.
 
 **Files:**
 - Create: `upande_production/production/logic/units.py`, `plans.py`, `work.py`
-- Modify: the controllers of Production Unit, Production Crop Cycle, Production Plan, Value Adder Work, Production Harvest, Yield Sample, Production Forecast, Buyer Commitment
+- Modify: the controllers of Production Unit, Production Crop Cycle, Production Plan, Casual Labour Work, Production Harvest, Yield Sample, Production Forecast, Buyer Commitment
 - Test: `upande_production/production/tests/test_logic_domain.py` (IntegrationTestCase; it creates its own crop `Test Crop` / key `test-crop`, farm, units, employees, operation and Item, and rolls back)
 
 **Interfaces — Consumes:** Task 2 helpers. **Produces:**
@@ -113,14 +113,14 @@ Controllers stay empty (`pass`) in this task. Task 3 fills them in.
 - `plans.get_or_create_plan(crop: str, farm: str | None, year: int, week: int) -> Document`: unique on (crop, farm, plan_year, plan_week). The Plan's `validate` sets week_start/week_end, sets company from Settings, and recomputes each task's `deviation` using the `late_tolerance_days` setting and the task's `done_qty`. It throws on a duplicate (crop, farm, year, week).
 - `plans.generate_week(plan_name: str) -> int`. Algorithm: for each cycle with status in (Active, Harvesting), a matching crop, a unit whose farm matches (or plan.farm empty), and a protocol, take each step and each k in `range(repeat_count or 1)`. The due date is `start_date + day_offset + k*(repeat_every_days or 0)`. If the due date falls inside the plan week and no task has `protocol_ref == f"{cycle}:{step.name}:{k}"`, append a task with operation, planned_qty, uom = the operation's work_uom, rate = the operation's default_rate, status Open and that protocol_ref. Return the count appended.
 - `work.record_task_work(plan: str, task: str, status: str, entries: list[dict], note: str = "", work_date: str | None = None) -> dict`:
-  - Each entry is `{employee, qty, hours?}`. Each one inserts and **submits** a Value Adder Work, copying unit/crop/cycle/operation/uom/rate from the task. `work_date` defaults to today.
+  - Each entry is `{employee, qty, hours?}`. Each one inserts and **submits** a Casual Labour Work, copying unit/crop/cycle/operation/uom/rate from the task. `work_date` defaults to today.
   - Then it sets the task's `done_qty` to the sum of submitted VAW `qty` for (plan, plan_task) and sets the status.
   - `started_at` is set the first time status becomes In Progress, Done or Partly Done. `completed_at` = now for Done, Partly Done or Skipped, and None for Open.
   - It saves the plan and returns `{"task": <row dict>, "work": [names]}`.
   - An invalid status throws `ValidationError`, as does an entry whose qty is ≤ 0.
 - `work.record_unplanned_work(unit, operation, entries, work_date, note="") -> list[str]`: VAWs with `unplanned=1` and no plan.
 - Controllers:
-  - **Value Adder Work validate:** rate defaults to the operation's default_rate. Sets pay_value, crop from unit, cost_center from unit (calling ensure), company from Settings, and `unplanned = not plan_task`.
+  - **Casual Labour Work validate:** rate defaults to the operation's default_rate. Sets pay_value, crop from unit, cost_center from unit (calling ensure), company from Settings, and `unplanned = not plan_task`.
   - **Production Harvest validate:** price defaults to the latest Buyer Commitment price for crop+item, else 0. `value = qty*price`.
   - **Yield Sample validate:** `unit_population` defaults to unit.plant_count, or area_ha*10000 for Square Metres. `est_unit_yield = sampled_yield / sample_size * unit_population`, guarded for 0.
   - **Production Forecast validate:** fills iso_year/iso_week per row and `total_expected`.
@@ -134,7 +134,7 @@ Controllers stay empty (`pass`) in this task. Task 3 fills them in.
   - `test_status_only_creates_no_work`: `record_task_work(..., "In Progress", [])` creates 0 VAWs and sets started_at.
   - `test_late_flag_on_plan_save`: a task with due date 3 days ago marked Done today with tolerance 1 has deviation "Late".
   - `test_sample_estimate`: 10 trees sampled, 50 kg, population 400 → est 2000.
-- [ ] **Step 2:** Run and expect FAIL. **Step 3:** Implement. **Step 4:** Expect PASS. **Step 5:** Commit: `Production domain logic: unit cost centres, week plans, value adder work`.
+- [ ] **Step 2:** Run and expect FAIL. **Step 3:** Implement. **Step 4:** Expect PASS. **Step 5:** Commit: `Production domain logic: unit cost centres, week plans, casual labour work`.
 
 ### Task 4: Desk API for the frontend
 
@@ -153,8 +153,8 @@ Controllers stay empty (`pass`) in this task. Task 3 fills them in.
 - `save_plan_tasks(crop, farm, year, week, tasks) -> {name}`: upserts rows by `name`. Rows without a name are appended. Nothing is deleted except rows passed with `"_delete": 1`.
 - `generate_plan_week(crop, farm, year, week) -> {name, created}`
 - `record_task_work(plan, task, status, entries, note="", work_date=None) -> {task, work}`
-- `list_value_adders() -> {people:[{name, employee_name, image}]}` (Employees with designation "Value Adder" and status Active)
-- `value_adder_summary(crop, from_date, to_date, group_by) -> {rows:[{key, label, qty, hours, pay_value, entries}], total_pay}`, where group_by is employee, day or unit (submitted VAWs only)
+- `list_casual_labourers() -> {people:[{name, employee_name, image}]}` (Employees with designation "Casual Labourer" and status Active)
+- `casual_labourer_summary(crop, from_date, to_date, group_by) -> {rows:[{key, label, qty, hours, pay_value, entries}], total_pay}`, where group_by is employee, day or unit (submitted VAWs only)
 - `block_costs(crop, from_date, to_date) -> {rows:[{unit, unit_type, parent, is_group, area_ha, labour, inputs, total_cost, cost_per_ha, harvest_qty, revenue, margin}]}`:
   - labour is the sum of VAW pay_value over the unit's subtree;
   - inputs is the sum of GL Entry `debit - credit` where cost_center is in the subtree's CCs, `is_cancelled=0`, and the account root_type is Expense;
@@ -167,7 +167,7 @@ Controllers stay empty (`pass`) in this task. Task 3 fills them in.
 - [ ] **Step 1:** Write the tests:
   - `test_endpoints_empty_crop`: a crop with nothing gives an empty `blocks`/`units`/`cycles`/`rows` list from each read endpoint, and `get_plan` returns `plan None, tasks []`.
   - `test_block_costs_rollup_and_zero`: a pivot with 2 blocks, VAW pay 100 on one block, a JE of 50 on the other block's CC. The pivot row has labour 100 and inputs 50, and the 1st block has inputs 0.
-  - `test_viewer_gets_no_pay`: as a user with only Production Viewer, `get_plan` work entries have pay_value None, and `value_adder_summary` total_pay is None.
+  - `test_viewer_gets_no_pay`: as a user with only Production Viewer, `get_plan` work entries have pay_value None, and `casual_labourer_summary` total_pay is None.
   - `test_missed_protocol_deviation`: a protocol occurrence due 3 days ago with no task appears as kind "Missed".
   - `test_forecast_error_pct`: forecast 100 and harvest 80 in one week gives error_pct -20.0.
 - [ ] **Step 2:** FAIL. **Step 3:** Implement. **Step 4:** PASS. **Step 5:** Commit: `Desk API for the production frontend`.
@@ -184,7 +184,7 @@ Controllers stay empty (`pass`) in this task. Task 3 fills them in.
 - `productionRecordUnplannedWork({unit, operation, entries, work_date, note})`
 - `productionRecordHarvest({unit, cycle?, item?, qty, uom?, grade?, harvest_date?})`
 - `productionRecordSample({unit, cycle?, sample_basis, sample_size, sampled_yield, growth_stage?, sample_date?})`
-- `productionListValueAdders()`
+- `productionListCasualLabourers()`
 - `productionListOperations({crop})`
 
 - [ ] **Step 1:** Test `test_update_task_via_mobile`: monkeypatch `frappe.request` with an object whose `get_json()` returns the payload. Call `productionUpdateTask`, then assert `frappe.response['data']['task']['status'] == "Done"` and that one VAW exists. Test `test_bad_status_returns_error`: `'error' in frappe.response['data']`.
@@ -230,10 +230,10 @@ Controllers stay empty (`pass`) in this task. Task 3 fills them in.
   - Passion: Passion Pruning d0 ×4 every 90, Spraying d0 ×12 every 30, Harvest d0 ×26 every 14.
   - Pond cycle: Stocking d0, Feeding d0 ×26 every 7, Water Quality Check d0 ×26 every 7, Harvest d180.
   - Hive season: Hive Inspection d0 ×12 every 14, Treatment d30, Honey Harvest d90.
-- **Value adders:** 24 Employees (Kenyan names, company Mutara, employment_type Casual (create it if missing), designation "Value Adder" (create it), status Active). Also 3 supervisors with designation "Production Supervisor".
+- **Casual labourers:** 24 Employees (Kenyan names, company Mutara, employment_type Casual (create it if missing), designation "Casual Labourer" (create it), status Active). Also 3 supervisors with designation "Production Supervisor".
 - **Users:** add Production Manager to Administrator and to every existing `@upande.com` user on the site.
 - **Plans:** for the 4 ISO weeks ending the current week, for every crop, call `generate_week`. Past-week tasks:
-  - ~80% Done (1–3 value adders each, qty around planned_qty);
+  - ~80% Done (1–3 casual labourers each, qty around planned_qty);
   - ~8% Done but completed 2–3 days after due (Late);
   - ~6% Partly Done;
   - ~6% Skipped.
@@ -263,7 +263,7 @@ Controllers stay empty (`pass`) in this task. Task 3 fills them in.
 - Create `frontend/src/lib/api.ts`: typed wrappers for every Task 4 endpoint, using `call()` from `frappe.ts` with the method prefix `upande_production.api.production.`.
 - Create `frontend/src/lib/crops.ts`: a `useCrops()` hook that loads `get_bootstrap` once (module cache) and a `CropContext`.
 - Create `frontend/src/components/FilterSelect.tsx` (pill dropdown on Radix popover; the API is `{value, options:{value,label}[], onChange, placeholder}`) and `components/WeekPicker.tsx` (pill: ‹ W44 2026 ›).
-- Router `#/<crop_key>/<view>`. The views are `overview`, `blocks`, `cycles`, `plan`, `value-adders`, `costs`, `forecast` and `settings`. The default is the first crop's `overview`.
+- Router `#/<crop_key>/<view>`. The views are `overview`, `blocks`, `cycles`, `plan`, `casual-labourers`, `costs`, `forecast` and `settings`. The default is the first crop's `overview`.
 - The sidebar shows a crop switcher at the top (crop icon in accent colour plus the name) and the view links below. Under Forecast, the avocado crop also shows external links to `/avocado-production`, `/avocado-outlook`, `/avocado-calendar` and `/avocado-maturity`.
 - Every page is a stub `<PageShell title=…>` placeholder in this task.
 
@@ -280,12 +280,12 @@ All slices consume `lib/api.ts` and the shell components. Each page shows skelet
 - Blocks: a tree table (parent unit → blocks) with area, current cycle/item, status and cost centre. Clicking a row opens a drawer (`get_unit`) with its cycles and recent work.
 - Cycles: a list with a status FilterSelect, a unit FilterSelect and a "New cycle" dialog (unit, item, type, start, harvest window, protocol). The rotation history per unit shows in the Blocks drawer.
 
-**8b — Weekly Plan, Value Adders** (`src/pages/Plan.tsx`, `ValueAdders.tsx`, `components/plan/*`)
+**8b — Weekly Plan, Casual Labourers** (`src/pages/Plan.tsx`, `CasualLabourers.tsx`, `components/plan/*`)
 - Plan:
   - The header has a WeekPicker and a Farm FilterSelect, plus "Generate from protocols" (`generate_plan_week`) and "Add task" buttons, all gated by `can_plan`.
   - Tasks are grouped by unit. Each task row shows operation, planned → done qty + uom, due date, a status pill and a deviation badge (Late = amber, Partial = blue, Skipped = grey).
-  - Clicking a row opens a **Tick-off dialog**: a status segmented control (Open/In Progress/Done/Partly Done/Skipped), a list of value adders already recorded, and an "Add value adder" row (a searchable picker over `list_value_adders`, qty, hours). It shows a live pay preview (qty × rate) when `can_see_pay`, plus a note. Save calls `record_task_work`.
-- Value Adders: a group-by FilterSelect (Person/Day/Block), a date-range pill, a table of qty, hours, pay and entries with a total, and a CSV export button (client-side).
+  - Clicking a row opens a **Tick-off dialog**: a status segmented control (Open/In Progress/Done/Partly Done/Skipped), a list of casual labourers already recorded, and an "Add casual labourer" row (a searchable picker over `list_casual_labourers`, qty, hours). It shows a live pay preview (qty × rate) when `can_see_pay`, plus a note. Save calls `record_task_work`.
+- Casual Labourers: a group-by FilterSelect (Person/Day/Block), a date-range pill, a table of qty, hours, pay and entries with a total, and a CSV export button (client-side).
 
 **8c — Block Costs, Forecast, Settings** (`src/pages/Costs.tsx`, `Forecast.tsx`, `Settings.tsx`)
 - Costs: a date-range pill and a table with group rows (pivots) expandable to blocks. Columns: area, labour, inputs, total, cost/ha, harvest qty, revenue, margin (red when negative). A horizontal bar chart of margin per block (plain SVG, no strip accents).
@@ -309,6 +309,6 @@ For each slice:
 
 - [ ] Merge the slices. Run `bench --site mutara.local migrate`, the seed, `npm run build`, `bench build --app upande_production` and `bench --site mutara.local clear-cache`. Restart the bench web and workers via `sudo supervisorctl restart frappe16-mutara-web: frappe16-mutara-workers:` (bench processes only).
 - [ ] Run the full app test suite: `bench --site mutara.local run-tests --app upande_production`. All production tests must pass. Report the pre-existing avocado tests separately.
-- [ ] Browser check (Playwright) as Administrator at `https://mutara.132.145.18.63.nip.io/production_app`. For each crop, visit every view: no console errors, no 500s, and the figures are non-empty for avocado and F&V. Tick off one task end to end and confirm that done qty and value adder pay update.
+- [ ] Browser check (Playwright) as Administrator at `https://mutara.132.145.18.63.nip.io/production_app`. For each crop, visit every view: no console errors, no 500s, and the figures are non-empty for avocado and F&V. Tick off one task end to end and confirm that done qty and casual labourer pay update.
 - [ ] Opus whole-branch review, then fix the findings.
 - [ ] Check `git log main..mutara --format=%B | grep -ci co-authored-by` gives 0, and check author identities.

@@ -282,7 +282,7 @@ def _others(unit, window_from, window_to, exclude_work=None, exclude_task=None) 
 	if not unit:
 		return []
 	out = []
-	vaw = frappe.get_all("Value Adder Work",
+	vaw = frappe.get_all("Casual Labour Work",
 		filters={"unit": unit, "docstatus": ("<", 2), "work_date": ("between", [window_from, window_to])},
 		fields=["name", "operation", "work_date", "approval_status", "plan_task", "docstatus"])
 	for w in vaw:

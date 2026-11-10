@@ -45,7 +45,7 @@ Date: 2026-10-28.
   avocado 18 kg default), target warehouse = the farm's harvest warehouse (Production Settings),
   cost centre = the block's cost centre; links back to the batch. The same batch writes a
   **Production Harvest** (estimated actual) so Overview, Forecast, Block Costs and the avocado
-  pages update, and **Value Adder Work** drafts for the pickers (operation "Harvesting", qty =
+  pages update, and **Casual Labour Work** drafts for the pickers (operation "Harvesting", qty =
   crates, uom Crate, Pending approval) so harvest pay goes through the manager's approvals.
 - Cancelling the batch cancels its stock entry and harvest.
 

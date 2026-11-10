@@ -115,7 +115,7 @@ DEMO = {
 	"status_mix": {"done": 0.80, "late": 0.88, "partial": 0.94},  # cumulative
 	"journal_accounts": ["Cost of Goods Sold - MUT", "Miscellaneous Expenses - MUT", "Utility Expenses - MUT", "Office Maintenance Expenses - MUT"],
 	"cash_account": "Cash - MUT",
-	"value_adders": [
+	"casual_labourers": [
 		("Wanjiru", "Kamau", "Female"), ("Otieno", "Odhiambo", "Male"), ("Akinyi", "Onyango", "Female"),
 		("Kipchoge", "Rotich", "Male"), ("Njeri", "Mwangi", "Female"), ("Mutua", "Musyoka", "Male"),
 		("Chebet", "Koech", "Female"), ("Kariuki", "Gitau", "Male"), ("Atieno", "Ouma", "Female"),
@@ -125,13 +125,13 @@ DEMO = {
 		("Achieng", "Awino", "Female"), ("Kosgei", "Langat", "Male"), ("Mwende", "Kioko", "Female"),
 		("Barasa", "Wekesa", "Male"), ("Wangui", "Karanja", "Female"), ("Ochieng", "Okoth", "Male"),
 	],
-	# users who "key in" work (submitted_by on the demo Value Adder Work) and what managers sent back
+	# users who "key in" work (submitted_by on the demo Casual Labour Work) and what managers sent back
 	"keying_users": ["moses@upande.com", "rose@upande.com", "mumo@upande.com"],
 	"approval_mix": {"stale_pending": 4, "fresh_pending": 5, "sent_back": 2, "stale_days": (3, 4),
 		"lead_pending": 4, "lead_stale": 1},
 	"lead_crop": "Avocado",
 	# Avocado leads the demo, so it gets a realistic trailing history: plans for the last `weeks` weeks
-	# plus unplanned (ad hoc) work by a crew drawn from the value adders, on Blocks A and B.
+	# plus unplanned (ad hoc) work by a crew drawn from the casual labourers, on Blocks A and B.
 	# operation -> (probability per block per week, picks per week when it happens, qty range per person, step)
 	"avocado_history": {
 		"weeks": 8, "crew": 12, "crew_per_job": (2, 3), "hours": (3.0, 8.0), "last_day_ago": 6,

@@ -258,7 +258,7 @@ dates, capital-account exclusion, pay hidden). Desk vitest for the new pages and
   issued against the block (SCP's chemical plan already issues stock with the cost centre named like
   the block's warehouse). The block's cost view is where the manager finds out what is happening on
   a block and whether it is working.
-- **Labour = casual Value Adders' pay figures only** (recorded per worker). Payroll is a different
+- **Labour = Casual Labourers' pay figures only** (recorded per worker). Payroll is a different
   system and never enters here; no GL for labour.
 - **Users pick the store** when a harvest batch closes; the stock entry keeps the block's cost centre.
 - **Blocks have ERP budgets** (ERPNext Budget on the block's cost centre).

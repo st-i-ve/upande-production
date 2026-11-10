@@ -135,7 +135,7 @@ class TestBlockCost(IntegrationTestCase):
 		emp = _make("Employee", first_name="BCWorker", gender="Male", date_of_birth="1990-01-01",
 			date_of_joining="2020-01-01", company=self.company)
 		op = _make("Field Operation", crop=self.crop.name, operation_name="BC Weeding", category="Other", work_uom="Kg")
-		frappe.get_doc({"doctype": "Value Adder Work", "name": "BC-VAW-1", "work_date": today(), "employee": emp.name,
+		frappe.get_doc({"doctype": "Casual Labour Work", "name": "BC-VAW-1", "work_date": today(), "employee": emp.name,
 			"unit": u.name, "operation": op.name, "qty": 3, "uom": "Kg", "pay_value": 300, "docstatus": 1}).db_insert()
 		res = B.breakdown(u.name, None, None, True)
 		self.assertEqual(res["labour"], [{"operation": op.name, "operation_name": "BC Weeding",
@@ -197,7 +197,7 @@ class TestBlockCost(IntegrationTestCase):
 		emp = _make("Employee", first_name="BCActual", gender="Male", date_of_birth="1990-01-01",
 			date_of_joining="2020-01-01", company=self.company)
 		op = _make("Field Operation", crop=self.crop.name, operation_name="BC Actual Op", category="Other", work_uom="Kg")
-		frappe.get_doc({"doctype": "Value Adder Work", "name": "BC-VAW-ACT", "work_date": today(), "employee": emp.name,
+		frappe.get_doc({"doctype": "Casual Labour Work", "name": "BC-VAW-ACT", "work_date": today(), "employee": emp.name,
 			"unit": u.name, "operation": op.name, "qty": 1, "uom": "Kg", "pay_value": 300, "docstatus": 1}).db_insert()
 		frappe.get_doc({"doctype": "Budget", "budget_against": "Cost Center", "company": self.company,
 			"cost_center": u.cost_center, "account": self.expense, "budget_amount": 5000, "from_fiscal_year": fy[0],

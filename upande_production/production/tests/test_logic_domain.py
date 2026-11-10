@@ -104,12 +104,12 @@ class TestLogicDomain(IntegrationTestCase):
 		res = work.record_task_work(plan.name, task.name, "Done", [{"employee": self.emps[1].name, "qty": 4}])
 		self.assertEqual(res["task"]["done_qty"], 0)
 		self.assertEqual(res["task"]["pending_qty"], 10)
-		approvals.approve(frappe.get_all("Value Adder Work", filters={"plan": plan.name, "plan_task": task.name}, pluck="name"))
+		approvals.approve(frappe.get_all("Casual Labour Work", filters={"plan": plan.name, "plan_task": task.name}, pluck="name"))
 		plan.reload()
 		self.assertEqual(next(t for t in plan.tasks if t.name == task.name).done_qty, 10)
 		self.assertEqual(next(t for t in plan.tasks if t.name == task.name).pending_qty, 0)
 		vaws = frappe.get_all(
-			"Value Adder Work", filters={"plan": plan.name, "plan_task": task.name, "docstatus": 1},
+			"Casual Labour Work", filters={"plan": plan.name, "plan_task": task.name, "docstatus": 1},
 			fields=["qty", "rate", "pay_value"],
 		)
 		self.assertEqual(len(vaws), 2)
@@ -120,10 +120,10 @@ class TestLogicDomain(IntegrationTestCase):
 		plan, task = self._plan_with_task(today())
 		work.record_task_work(plan.name, task.name, "In Progress", [{"employee": self.emps[0].name, "qty": 6}])
 		res = work.record_task_work(plan.name, task.name, "Done", [{"employee": self.emps[1].name, "qty": 4}])
-		approvals.approve(frappe.get_all("Value Adder Work", filters={"plan": plan.name, "plan_task": task.name}, pluck="name"))
+		approvals.approve(frappe.get_all("Casual Labour Work", filters={"plan": plan.name, "plan_task": task.name}, pluck="name"))
 		plan.reload()
 		self.assertEqual(next(t for t in plan.tasks if t.name == task.name).done_qty, 10)
-		frappe.get_doc("Value Adder Work", res["work"][0]).cancel()
+		frappe.get_doc("Casual Labour Work", res["work"][0]).cancel()
 		plan.reload()
 		self.assertEqual(next(t for t in plan.tasks if t.name == task.name).done_qty, 6)
 
@@ -131,7 +131,7 @@ class TestLogicDomain(IntegrationTestCase):
 		plan, task = self._plan_with_task(today())
 		res = work.record_task_work(plan.name, task.name, "In Progress", [])
 		self.assertEqual(res["work"], [])
-		self.assertEqual(frappe.db.count("Value Adder Work", {"plan": plan.name, "plan_task": task.name}), 0)
+		self.assertEqual(frappe.db.count("Casual Labour Work", {"plan": plan.name, "plan_task": task.name}), 0)
 		self.assertTrue(res["task"]["started_at"])
 
 	def test_late_flag_on_plan_save(self):

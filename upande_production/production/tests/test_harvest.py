@@ -131,7 +131,7 @@ class TestHarvest(IntegrationTestCase):
 		self.assertEqual((ph.qty, ph.unit, ph.crop, ph.item, ph.harvest_batch, ph.stock_entry),
 			(50, self.unit.name, self.crop.name, self.item.name, batch.name, se.name))
 		# picker work: drafts, pending, qty = crates scanned by the picker
-		work = frappe.get_all("Value Adder Work", filters={"harvest_batch": batch.name},
+		work = frappe.get_all("Casual Labour Work", filters={"harvest_batch": batch.name},
 			fields=["employee", "qty", "uom", "docstatus", "approval_status", "unit", "operation"])
 		self.assertEqual({w.employee: w.qty for w in work}, {self.p1.name: 3, self.p2.name: 2})
 		for w in work:
@@ -155,7 +155,7 @@ class TestHarvest(IntegrationTestCase):
 	def test_unassigned_crates_are_shared_over_the_team(self):
 		self.scan(4)
 		res = self.close()
-		work = {w.employee: w.qty for w in frappe.get_all("Value Adder Work", filters={"harvest_batch": res["batch"]}, fields=["employee", "qty"])}
+		work = {w.employee: w.qty for w in frappe.get_all("Casual Labour Work", filters={"harvest_batch": res["batch"]}, fields=["employee", "qty"])}
 		self.assertEqual(work, {self.p1.name: 2, self.p2.name: 2})
 
 	def test_cancel_reverses_everything(self):
@@ -166,7 +166,7 @@ class TestHarvest(IntegrationTestCase):
 		batch.cancel()
 		self.assertEqual(frappe.db.get_value("Stock Entry", res["stock_entry"], "docstatus"), 2)
 		self.assertFalse(frappe.db.exists("Production Harvest", res["production_harvest"]))
-		self.assertEqual(frappe.db.count("Value Adder Work", {"harvest_batch": batch.name}), 0)
+		self.assertEqual(frappe.db.count("Casual Labour Work", {"harvest_batch": batch.name}), 0)
 		self.assertEqual(frappe.db.get_value("Harvest Batch", batch.name, "status"), "Cancelled")
 		for s in scans:  # crates are open again with their team
 			self.assertEqual(frappe.db.get_value("Harvest Crate Scan", s, ["status", "batch_id_ref"]), ("Filling", None))
@@ -177,7 +177,7 @@ class TestHarvest(IntegrationTestCase):
 	def test_cancel_refused_once_work_is_approved(self):
 		self.scan(2, harvestor=self.p1.name)
 		res = self.close()
-		vaw = frappe.get_doc("Value Adder Work", frappe.get_all("Value Adder Work", filters={"harvest_batch": res["batch"]}, pluck="name")[0])
+		vaw = frappe.get_doc("Casual Labour Work", frappe.get_all("Casual Labour Work", filters={"harvest_batch": res["batch"]}, pluck="name")[0])
 		vaw.submit()
 		with self.assertRaises(frappe.ValidationError):
 			frappe.get_doc("Harvest Batch", res["batch"]).cancel()

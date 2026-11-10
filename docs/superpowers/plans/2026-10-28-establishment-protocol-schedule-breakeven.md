@@ -200,7 +200,7 @@ Rules: `repeat_every_days` > 0 and `repeat_count` > 1 → Cultural Interval, `in
 
 **Files:**
 - Create: `api/drymatter.py`; Modify `production/doctype/dry_matter_test/dry_matter_test.py`, `mobile/api.py` (`productionDryMatterTests(crop, unit=None)` read endpoint, `{data: [...]}`), `mobile/SUPERVISOR_API.md`
-- Modify: `api/production.py` blocks endpoint rows gain `dry_matter: {pct, target, ready, date}|None`, `plants_replaced: int` (sum of approved Value Adder Work qty for operations named "Gap filling" on the unit, uom Plant)
+- Modify: `api/production.py` blocks endpoint rows gain `dry_matter: {pct, target, ready, date}|None`, `plants_replaced: int` (sum of approved Casual Labour Work qty for operations named "Gap filling" on the unit, uom Plant)
 - Test: `production/tests/test_drymatter.py`
 
 **Interfaces — Produces:** `dry_matter_test.validate`: `avg_pct` = mean of samples (2 dp), `target_pct` = variety override or crop default, `ready = avg >= target`, `tested_on` from crop; refuses when crop `dry_matter_testing` is off. API: `list_tests(crop, unit=None)`, `save_test(data) -> {"name","avg_pct","ready"}`, `latest_by_unit(crop) -> dict[unit, {...}]`.
@@ -211,7 +211,7 @@ Rules: `repeat_every_days` > 0 and `repeat_count` > 1 → Cultural Interval, `in
 ### Task 11: Activity colours on the map and plan
 
 **Files:**
-- Modify: `api/coverage.py` (each unit gains `activity: {operation, color}|None` = the operation of the latest approved/pending Value Adder Work in the selected week, else the latest In Progress task, else the first Open task due; `legend: [{operation, color}]`), `api/production.py` operations list returns `activity_type`, `color`; plan task rows and approvals rows gain `color`.
+- Modify: `api/coverage.py` (each unit gains `activity: {operation, color}|None` = the operation of the latest approved/pending Casual Labour Work in the selected week, else the latest In Progress task, else the first Open task due; `legend: [{operation, color}]`), `api/production.py` operations list returns `activity_type`, `color`; plan task rows and approvals rows gain `color`.
 - Test: `production/tests/test_coverage.py`
 
 - [ ] **Step 1:** `test_coverage_activity_colour` (work + task on a unit → work's operation and its colour; legend lists it once). **Steps 2–4.** **Step 5:** Commit.

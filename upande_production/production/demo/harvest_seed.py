@@ -4,7 +4,7 @@ bench --site mutara.local execute upande_production.production.demo.harvest_seed
 
 Sets up the harvest warehouse, the crate crops' average crate weights, 400 numbered crates
 (C-0001..C-0400, the QR ids), two harvest teams (leaders from the Production Supervisors, pickers from
-the Value Adders), then scans and closes a few batches today: PH1-B1 (two batches, one
+the Casual Labourers), then scans and closes a few batches today: PH1-B1 (two batches, one
 crate load still open) and two fruit & vegetable blocks. Closing a batch posts its Harvesting stock
 entry, Production Harvest, picker work drafts and, on PH1-B1, an Avocado Harvest Log row. Run after
 avocado_seed (all.py does).
@@ -26,7 +26,7 @@ ITEM_KG = {"Potatoes": 25, "Cabbage": 18, "Onion": 22, "Passion Fruit": 10, "Mai
 # Book receipts at this share of the demo selling price (an assumed cost, not a market quote).
 VALUATION_SHARE = 0.6
 TEAMS = [
-	# number, leader index (supervisors), pickers (value adders slice), usual block
+	# number, leader index (supervisors), pickers (casual labourers slice), usual block
 	("1", 0, slice(0, 6), "PH1-B1"),
 	("2", 1, slice(6, 12), "P2-B2"),
 ]
@@ -82,7 +82,7 @@ def seed_teams() -> dict:
 	company = BASE["company"]
 	leaders = frappe.get_all("Employee", filters={"designation": "Production Supervisor", "company": company, "status": "Active"},
 		pluck="name", order_by="first_name, last_name")
-	pickers = frappe.get_all("Employee", filters={"designation": "Value Adder", "company": company, "status": "Active"},
+	pickers = frappe.get_all("Employee", filters={"designation": "Casual Labourer", "company": company, "status": "Active"},
 		pluck="name", order_by="first_name, last_name")
 	out = {}
 	for number, li, ps, unit in TEAMS:

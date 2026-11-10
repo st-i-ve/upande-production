@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-/** SCP card with a heading row; shared by the Overview, Blocks and Value Adders pages. */
+/** SCP card with a heading row; shared by the Overview, Blocks and Casual Labourers pages. */
 export function Panel({
   title,
   hint,

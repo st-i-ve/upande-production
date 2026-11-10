@@ -109,7 +109,7 @@ def _dry_matter_by_unit(crop):
 def _plants_replaced(crop):
 	"""Approved Gap filling work (uom Plant) per unit."""
 	rows = frappe.db.sql(
-		"""select w.unit, sum(w.qty) from `tabValue Adder Work` w
+		"""select w.unit, sum(w.qty) from `tabCasual Labour Work` w
 		join `tabField Operation` o on o.name = w.operation
 		where w.crop = %s and w.docstatus < 2 and w.approval_status = 'Approved' and w.uom = 'Plant'
 		and o.operation_name = 'Gap filling' group by w.unit""",
@@ -178,7 +178,7 @@ def get_unit(name):
 	unit["item"] = cur.item if cur else None
 	pay = _can_see_pay()
 	work_rows = frappe.get_all(
-		"Value Adder Work",
+		"Casual Labour Work",
 		filters={"unit": name, "docstatus": 1},
 		fields=["name", "work_date", "employee", "employee_name", "operation", "qty", "uom", "hours", "rate", "pay_value"],
 		order_by="work_date desc, creation desc",
@@ -281,7 +281,7 @@ def get_plan(crop, farm, year, week):
 	)
 	by_task = {}
 	for w in frappe.get_all(
-		"Value Adder Work",
+		"Casual Labour Work",
 		filters={"plan": name, "docstatus": ("<", 2)},
 		fields=["name", "plan_task", "employee", "employee_name", "qty", "hours", "pay_value",
 			"approval_status", "review_note"],
@@ -365,7 +365,7 @@ def record_task_work(plan, task, status, entries=None, note="", work_date=None, 
 	_need("Production Work Plan", "write")
 	entries = as_dict(entries) or []
 	if entries:
-		_need("Value Adder Work", "create")
+		_need("Casual Labour Work", "create")
 	res = work.record_task_work(plan, task, status, entries, note or "", work_date or None,
 		override_reason=override_reason or None)
 	if not _can_see_pay():
@@ -373,16 +373,16 @@ def record_task_work(plan, task, status, entries=None, note="", work_date=None, 
 	return res
 
 
-# -- value adders ------------------------------------------------------------
+# -- casual labourers ------------------------------------------------------------
 
 
 @frappe.whitelist(methods=["POST"])
 @run
-def list_value_adders():
-	_need("Value Adder Work")
+def list_casual_labourers():
+	_need("Casual Labour Work")
 	people = frappe.get_all(
 		"Employee",
-		filters={"designation": "Value Adder", "status": "Active"},
+		filters={"designation": "Casual Labourer", "status": "Active"},
 		fields=["name", "employee_name", "image"],
 		order_by="employee_name asc",
 	)
@@ -391,9 +391,9 @@ def list_value_adders():
 
 @frappe.whitelist(methods=["POST"])
 @run
-def value_adder_summary(crop, from_date=None, to_date=None, group_by="employee"):
-	_need("Value Adder Work")
-	return analytics.value_adder_summary(crop, from_date, to_date, group_by, _can_see_pay())
+def casual_labourer_summary(crop, from_date=None, to_date=None, group_by="employee"):
+	_need("Casual Labour Work")
+	return analytics.casual_labourer_summary(crop, from_date, to_date, group_by, _can_see_pay())
 
 
 # -- costs, deviations, forecast ---------------------------------------------

@@ -12,7 +12,7 @@ def _insert_vaw(entry, work_date, unit, operation, uom, rate, cycle=None, plan=N
 	if qty <= 0:
 		frappe.throw(_("Quantity must be greater than zero"), frappe.ValidationError)
 	doc = frappe.get_doc({
-		"doctype": "Value Adder Work", "work_date": work_date, "employee": entry.get("employee"),
+		"doctype": "Casual Labour Work", "work_date": work_date, "employee": entry.get("employee"),
 		"plan": plan, "plan_task": plan_task, "unit": unit, "cycle": cycle, "operation": operation,
 		"qty": qty, "uom": uom, "hours": entry.get("hours"), "rate": rate,
 		"approval_status": "Pending", "submitted_by": frappe.session.user, **(stamp or {}),
@@ -24,7 +24,7 @@ def _insert_vaw(entry, work_date, unit, operation, uom, rate, cycle=None, plan=N
 def submitted_qty(plan, plan_task) -> float:
 	return sum(
 		frappe.get_all(
-			"Value Adder Work", filters={"plan": plan, "plan_task": plan_task, "docstatus": 1}, pluck="qty"
+			"Casual Labour Work", filters={"plan": plan, "plan_task": plan_task, "docstatus": 1}, pluck="qty"
 		)
 	)
 
@@ -33,7 +33,7 @@ def pending_qty(plan, plan_task) -> float:
 	"""Quantity keyed but not yet approved (drafts awaiting review)."""
 	return sum(
 		frappe.get_all(
-			"Value Adder Work",
+			"Casual Labour Work",
 			filters={"plan": plan, "plan_task": plan_task, "docstatus": 0, "approval_status": "Pending"},
 			pluck="qty",
 		)
@@ -41,7 +41,7 @@ def pending_qty(plan, plan_task) -> float:
 
 
 def refresh_task_done(plan, plan_task):
-	"""Re-sum a task's approved (submitted) Value Adder Work into done_qty and its pending drafts into
+	"""Re-sum a task's approved (submitted) Casual Labour Work into done_qty and its pending drafts into
 	pending_qty, then save the plan (recomputes deviation)."""
 	if not plan or not plan_task or not frappe.db.exists("Production Work Plan", plan):
 		return
@@ -67,7 +67,7 @@ def record_task_work(plan, task, status, entries, note="", work_date=None, overr
 	if not row:
 		frappe.throw(_("Task not found on plan {0}").format(plan), frappe.ValidationError)
 	if status in ("Done", "Partly Done") and not entries and not frappe.db.exists(
-		"Value Adder Work", {"plan": plan, "plan_task": row.name, "docstatus": ("<", 2)}
+		"Casual Labour Work", {"plan": plan, "plan_task": row.name, "docstatus": ("<", 2)}
 	):
 		# Done with nobody recorded has no quantity and no one to pay (the mobile app asks the same).
 		frappe.throw(_("Record who did the work before marking it {0}.").format(_(status)),

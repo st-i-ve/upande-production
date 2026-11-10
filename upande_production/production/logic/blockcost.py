@@ -2,7 +2,7 @@
 
 Everything done on a block is charged to its cost centre. SCP's chemical plan issues stock against the
 cost centre whose name equals the *block warehouse* name, so the block's warehouse and cost centre must
-carry the same name (`links` checks it). Labour is the casual Value Adders' recorded pay only; payroll never
+carry the same name (`links` checks it). Labour is the Casual Labourers' recorded pay only; payroll never
 enters here. ERPNext v16 keeps one account and one amount on a Budget (no Budget Account table), with a
 fiscal year range, so a block's ERP budget is the sum of its submitted Budgets overlapping the fiscal year.
 """
@@ -79,7 +79,7 @@ def actual_this_fy(units, ccs, fy=None) -> float:
 	for cc in ccs:
 		total += sum(v for d, v in breakeven._gl_events(cc, capital) if fy[1] <= getdate(d) <= fy[2])
 	if units:
-		total += flt(frappe.db.sql("""select sum(pay_value) from `tabValue Adder Work` where docstatus = 1
+		total += flt(frappe.db.sql("""select sum(pay_value) from `tabCasual Labour Work` where docstatus = 1
 			and unit in %s and work_date between %s and %s""", (tuple(units), fy[1], fy[2]))[0][0])
 	return total
 
@@ -104,7 +104,7 @@ def _scope(unit: str):
 
 def _labour(units, frm, to, can_see_pay):
 	rows = frappe.db.sql("""select w.operation, o.operation_name, w.uom, sum(w.qty), count(distinct w.employee), sum(w.pay_value)
-		from `tabValue Adder Work` w left join `tabField Operation` o on o.name = w.operation
+		from `tabCasual Labour Work` w left join `tabField Operation` o on o.name = w.operation
 		where w.docstatus = 1 and w.unit in %(u)s and w.work_date between %(f)s and %(t)s
 		group by w.operation, o.operation_name, w.uom""", {"u": tuple(units), "f": frm, "t": to})
 	ops: dict = {}
@@ -112,7 +112,7 @@ def _labour(units, frm, to, can_see_pay):
 		ops.setdefault(op, {"operation": op, "operation_name": label or op, "parts": [], "pay": 0.0})
 		ops[op]["parts"].append((uom, qty))
 		ops[op]["pay"] += flt(pay)
-	workers = {r[0]: r[1] for r in frappe.db.sql("""select operation, count(distinct employee) from `tabValue Adder Work`
+	workers = {r[0]: r[1] for r in frappe.db.sql("""select operation, count(distinct employee) from `tabCasual Labour Work`
 		where docstatus = 1 and unit in %(u)s and work_date between %(f)s and %(t)s group by operation""",
 		{"u": tuple(units), "f": frm, "t": to})}
 	out = [{"operation": o["operation"], "operation_name": o["operation_name"], "qty_by_uom": merge_uoms(o["parts"]),

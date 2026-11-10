@@ -299,19 +299,19 @@ export const recordTaskWork = (
     override_reason: overrideReason,
   });
 
-// -- Value Adders ------------------------------------------------------------
+// -- Casual Labourers ------------------------------------------------------------
 
-export interface ValueAdder {
+export interface CasualLabourer {
   name: string;
   employee_name: string;
   image: string | null;
 }
 
-export const listValueAdders = () => rpc<{ people: ValueAdder[] }>("list_value_adders");
+export const listCasualLabourers = () => rpc<{ people: CasualLabourer[] }>("list_casual_labourers");
 
 export type GroupBy = "employee" | "day" | "unit";
 
-export interface ValueAdderSummaryRow {
+export interface CasualLabourerSummaryRow {
   key: string;
   label: string;
   /** Quantity per unit of measure; never added across UOMs. */
@@ -321,13 +321,13 @@ export interface ValueAdderSummaryRow {
   entries: number;
 }
 
-export const valueAdderSummary = (
+export const casualLabourerSummary = (
   crop: string,
   fromDate: string,
   toDate: string,
   groupBy: GroupBy,
 ) =>
-  rpc<{ rows: ValueAdderSummaryRow[]; total_pay: Money; total_qty_by_uom: UomQty[] }>("value_adder_summary", {
+  rpc<{ rows: CasualLabourerSummaryRow[]; total_pay: Money; total_qty_by_uom: UomQty[] }>("casual_labourer_summary", {
     crop,
     from_date: fromDate,
     to_date: toDate,

@@ -118,7 +118,7 @@ def delete_test_fixtures() -> int:
 	n = 0
 	for name in TEST_FIXTURES:
 		if frappe.db.exists("Production Unit", name):
-			for dt in ("Production Crop Cycle", "Yield Sample", "Production Harvest", "Value Adder Work"):
+			for dt in ("Production Crop Cycle", "Yield Sample", "Production Harvest", "Casual Labour Work"):
 				for d in frappe.get_all(dt, filters={"unit": name}, pluck="name"):
 					doc = frappe.get_doc(dt, d)
 					if doc.docstatus == 1:

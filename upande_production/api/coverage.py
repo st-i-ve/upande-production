@@ -33,9 +33,9 @@ def _task_rows(crop, year, week, farm):
 
 
 def _work_rows(crop, start, end, farm):
-	"""Value Adder Work (approved or pending) in the week, newest first."""
+	"""Casual Labour Work (approved or pending) in the week, newest first."""
 	return frappe.db.sql(
-		"""select w.unit, w.operation, o.operation_name, o.color from `tabValue Adder Work` w
+		"""select w.unit, w.operation, o.operation_name, o.color from `tabCasual Labour Work` w
 		join `tabField Operation` o on o.name = w.operation
 		where w.crop = %(crop)s and w.docstatus < 2 and w.approval_status in ('Approved', 'Pending')
 		and w.work_date between %(s)s and %(e)s and w.unit not in %(retired)s

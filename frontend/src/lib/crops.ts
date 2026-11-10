@@ -74,8 +74,8 @@ export function viewLabel(view: View, crop?: Pick<Crop, "unit_label"> | null): s
       return "Crop Cycles";
     case "plan":
       return "Weekly Plan";
-    case "value-adders":
-      return "Value Adders";
+    case "casual-labourers":
+      return "Casual Labourers";
     case "costs":
       return "Block Costs";
     case "establishment":

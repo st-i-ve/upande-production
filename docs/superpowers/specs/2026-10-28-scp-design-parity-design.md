@@ -46,8 +46,8 @@ are rebuilt inside our app in our design; nothing links out.
 
 1. **Shell & design primitives** — port SCP primitives into `frontend/src/components/`,
    restyle sidebar/header to SCP, then restyle existing pages (Overview, Blocks, Cycles,
-   Plan, Value Adders, Costs, Forecast, Settings) to them; make pages more detailed.
-2. **Approvals** — supervisor-keyed work no longer counts on save. Value Adder Work saved as
+   Plan, Casual Labourers, Costs, Forecast, Settings) to them; make pages more detailed.
+2. **Approvals** — supervisor-keyed work no longer counts on save. Casual Labour Work saved as
    draft with `approval_status` = Pending; manager approves (submit → counts toward
    done_qty / pay / costs) or sends back with a note (`Sent Back`); supervisor fixes and
    resubmits (back to Pending). Applies to desk API tick-off and mobile API. Approvals page

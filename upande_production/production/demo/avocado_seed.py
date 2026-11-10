@@ -506,7 +506,7 @@ def seed_crew():
 		return 0
 	unit = active[1] if len(active) > 1 else (active[0] if active else None)
 	on_teams = set(frappe.get_all("Harvest Team Member", pluck="employee"))
-	pickers = [e for e in frappe.get_all("Employee", filters={"designation": "Value Adder", "status": "Active"},
+	pickers = [e for e in frappe.get_all("Employee", filters={"designation": "Casual Labourer", "status": "Active"},
 		pluck="name", order_by="first_name, last_name") if e not in on_teams][:need]
 	leader = frappe.db.get_value("Harvest Team", {"team_number": "1"}, "team_leader")
 	if not (leader and pickers and unit):

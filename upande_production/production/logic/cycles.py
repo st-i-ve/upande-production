@@ -4,7 +4,7 @@ import frappe
 
 CYCLE_LINKS = [
 	("Work Plan Task", "cycle"),
-	("Value Adder Work", "cycle"),
+	("Casual Labour Work", "cycle"),
 	("Production Harvest", "cycle"),
 	("Crop Forecast", "cycle"),
 	("Yield Sample", "cycle"),

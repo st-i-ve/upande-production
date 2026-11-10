@@ -78,31 +78,31 @@ class TestOverviewExtras(IntegrationTestCase):
 		work.record_unplanned_work(unit.name, ops[0].name, [{"employee": e.name, "qty": 2.1} for e in emps], today())
 		self.assertEqual(get_extras(self.crop.name, False)["pending_approvals"], before + 1)
 
-	def test_value_adder_summary_never_adds_across_uoms(self):
+	def test_labourer_summary_never_adds_across_uoms(self):
 		from upande_production.production.logic import analytics
 
 		unit, emps, ops, work = self._keyed_unit(["Hectare", "Tree"])
 		d = today()
 		work.record_unplanned_work(unit.name, ops[0].name, [{"employee": emps[0].name, "qty": 6, "hours": 2}], d)
 		work.record_unplanned_work(unit.name, ops[1].name, [{"employee": emps[0].name, "qty": 309, "hours": 3}], d)
-		for n in frappe.get_all("Value Adder Work", filters={"unit": unit.name}, pluck="name"):
-			frappe.get_doc("Value Adder Work", n).submit()
-		res = analytics.value_adder_summary(self.crop.name, d, d, "unit", True)
+		for n in frappe.get_all("Casual Labour Work", filters={"unit": unit.name}, pluck="name"):
+			frappe.get_doc("Casual Labour Work", n).submit()
+		res = analytics.casual_labourer_summary(self.crop.name, d, d, "unit", True)
 		row = next(r for r in res["rows"] if r["key"] == unit.name)
 		self.assertNotIn("qty", row)
 		self.assertEqual(row["qty_by_uom"], [{"uom": "Tree", "qty": 309.0}, {"uom": "Hectare", "qty": 6.0}])
 		self.assertEqual(row["hours"], 5.0)
 		self.assertIn({"uom": "Tree", "qty": 309.0}, res["total_qty_by_uom"])
-		detail = api.get_value_adder_detail_data(self.crop.name, emps[0].name, d, d, True)
+		detail = api.get_casual_labourer_detail_data(self.crop.name, emps[0].name, d, d, True)
 		self.assertEqual(len(detail["by_day"]), 1)
 		self.assertEqual({u["uom"] for u in detail["by_day"][0]["qty_by_uom"]}, {"Tree", "Hectare"})
 
-	def test_value_adder_detail_empty(self):
+	def test_labourer_detail_empty(self):
 		emp = _make(
 			"Employee", first_name="OVEmp", gender="Male", date_of_birth="1990-01-01",
 			date_of_joining="2020-01-01", company=self.company,
 		)
-		r = api.get_value_adder_detail_data(self.crop.name, emp.name, None, None, False)
+		r = api.get_casual_labourer_detail_data(self.crop.name, emp.name, None, None, False)
 		self.assertEqual(r["by_day"], [])
 		self.assertEqual(r["recent"], [])
 		self.assertEqual(r["pending_entries"], 0)
@@ -128,7 +128,7 @@ class TestOverviewExtras(IntegrationTestCase):
 		)
 		names = names["work"] if isinstance(names, dict) else names
 		for n in names:  # approved and submitted, so they would show up as "Unplanned" rows
-			frappe.db.set_value("Value Adder Work", n, {"docstatus": 1, "approval_status": "Approved"})
+			frappe.db.set_value("Casual Labour Work", n, {"docstatus": 1, "approval_status": "Approved"})
 		self.assertGreaterEqual(len(names), 3)
 
 		rows = analytics.deviations(self.crop.name, *window)["rows"]

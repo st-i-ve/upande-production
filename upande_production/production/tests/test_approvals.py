@@ -81,7 +81,7 @@ class TestApprovals(IntegrationTestCase):
 		plan, task = self._task()
 		names = self._key(plan, task, as_user=self.sup)
 		for n in names:
-			d = frappe.get_doc("Value Adder Work", n)
+			d = frappe.get_doc("Casual Labour Work", n)
 			self.assertEqual((d.docstatus, d.approval_status, d.submitted_by), (0, "Pending", self.sup))
 		row = self._row(plan)
 		self.assertEqual((row.done_qty, row.pending_qty), (0, 10))
@@ -105,7 +105,7 @@ class TestApprovals(IntegrationTestCase):
 		frappe.set_user("Administrator")
 		row = self._row(plan)
 		self.assertEqual((row.done_qty, row.pending_qty), (10, 0))
-		d = frappe.get_doc("Value Adder Work", names[0])
+		d = frappe.get_doc("Casual Labour Work", names[0])
 		self.assertEqual((d.docstatus, d.approval_status, d.reviewed_by), (1, "Approved", self.mgr))
 		self.assertTrue(d.reviewed_at)
 		with self.assertRaises(frappe.ValidationError):  # cannot approve twice
@@ -117,9 +117,9 @@ class TestApprovals(IntegrationTestCase):
 		for note in ("", "   ", None):
 			with self.assertRaises(frappe.ValidationError):
 				approvals.send_back(names, note)
-		self.assertEqual(frappe.db.get_value("Value Adder Work", names[0], "approval_status"), "Pending")
+		self.assertEqual(frappe.db.get_value("Casual Labour Work", names[0], "approval_status"), "Pending")
 		self.assertEqual(api.send_back(names, "Wrong block")["sent_back"], names)
-		d = frappe.get_doc("Value Adder Work", names[0])
+		d = frappe.get_doc("Casual Labour Work", names[0])
 		self.assertEqual((d.docstatus, d.approval_status, d.review_note), (0, "Sent Back", "Wrong block"))
 		row = self._row(plan)
 		self.assertEqual((row.done_qty, row.pending_qty), (0, 0))
@@ -135,7 +135,7 @@ class TestApprovals(IntegrationTestCase):
 		res = api.resubmit(names, [{"name": names[0], "qty": 5, "hours": 3}])
 		self.assertEqual(res["resubmitted"], names)
 		frappe.set_user("Administrator")
-		d = frappe.get_doc("Value Adder Work", names[0])
+		d = frappe.get_doc("Casual Labour Work", names[0])
 		self.assertEqual((d.approval_status, d.qty, d.hours, d.docstatus), ("Pending", 5, 3, 0))
 		self.assertEqual(self._row(plan).pending_qty, 9)
 
@@ -146,7 +146,7 @@ class TestApprovals(IntegrationTestCase):
 		self.assertIn("error", api.approve(names))
 		self.assertIn("error", api.send_back(names, "no"))
 		with self.assertRaises(frappe.PermissionError):
-			frappe.get_doc("Value Adder Work", names[0]).submit()
+			frappe.get_doc("Casual Labour Work", names[0]).submit()
 		frappe.set_user(self.viewer)
 		self.assertIn("error", api.resubmit(names))
 		self.assertIn("error", api.approve(names))
@@ -158,13 +158,13 @@ class TestApprovals(IntegrationTestCase):
 		names = self._key(plan, task)
 		approvals.approve(names)
 		self.assertEqual(self._row(plan).done_qty, 10)
-		frappe.get_doc("Value Adder Work", names[0]).cancel()
+		frappe.get_doc("Casual Labour Work", names[0]).cancel()
 		self.assertEqual(self._row(plan).done_qty, 4)
 
 	def test_delete_draft_refreshes_pending(self):
 		plan, task = self._task()
 		names = self._key(plan, task)
-		frappe.delete_doc("Value Adder Work", names[0])
+		frappe.delete_doc("Casual Labour Work", names[0])
 		self.assertEqual(self._row(plan).pending_qty, 4)
 
 	def test_list_groups_and_counts(self):
@@ -182,7 +182,7 @@ class TestApprovals(IntegrationTestCase):
 		self.assertFalse(g["stale"])
 		self.assertEqual(api.list_approvals(self.crop.name, "Approved", unit=task.unit)["groups"], [])
 		# stale once old enough
-		frappe.db.sql("update `tabValue Adder Work` set creation = %s where name in %s",
+		frappe.db.sql("update `tabCasual Labour Work` set creation = %s where name in %s",
 			(add_days(today(), -4), names))
 		res = api.list_approvals(self.crop.name, unit=task.unit)
 		self.assertTrue(res["groups"][0]["stale"])

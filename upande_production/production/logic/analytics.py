@@ -74,7 +74,7 @@ def _labour_by_unit(names, frm, to):
 	if not names:
 		return {}
 	rows = frappe.db.sql(
-		"""select unit, sum(pay_value) from `tabValue Adder Work`
+		"""select unit, sum(pay_value) from `tabCasual Labour Work`
 		where docstatus=1 and unit in %(u)s and work_date between %(f)s and %(t)s group by unit""",
 		{"u": tuple(names), "f": frm, "t": to},
 	)
@@ -225,7 +225,7 @@ def block_costs(crop, from_date, to_date, can_see_pay):
 	return {"rows": rows}
 
 
-# -- value adders ------------------------------------------------------------
+# -- casual labourers ------------------------------------------------------------
 
 
 def merge_uoms(parts):
@@ -239,7 +239,7 @@ def merge_uoms(parts):
 	return [{"uom": u, "qty": round(v, 4)} for u, v in sorted(acc.items(), key=lambda kv: (-kv[1], kv[0]))]
 
 
-def value_adder_summary(crop, from_date, to_date, group_by, can_see_pay):
+def casual_labourer_summary(crop, from_date, to_date, group_by, can_see_pay):
 	frm, to = _range(from_date, to_date)
 	if group_by not in ("employee", "day", "unit"):
 		frappe.throw("group_by must be employee, day or unit", frappe.ValidationError)
@@ -247,7 +247,7 @@ def value_adder_summary(crop, from_date, to_date, group_by, can_see_pay):
 	label = "max(employee_name)" if group_by == "employee" else key
 	data = frappe.db.sql(
 		f"""select {key}, {label}, uom, sum(qty), sum(hours), sum(pay_value), count(*)
-		from `tabValue Adder Work`
+		from `tabCasual Labour Work`
 		where docstatus = 1 and crop = %s and work_date between %s and %s and unit not in %s
 		group by {key}, uom order by {key}""",
 		(crop, frm, to, retired_sql()),
@@ -310,7 +310,7 @@ def deviations(crop, from_date, to_date):
 			})
 
 	# Deviations are plan tasks that ran late/partial/skipped plus protocol steps never planned.
-	# Unplanned work (one Value Adder Work row each) is extra output, not a deviation, so it is
+	# Unplanned work (one Casual Labour Work row each) is extra output, not a deviation, so it is
 	# never counted here; Overview tile, recent list and the deviations endpoint all share this.
 	op_names = dict(frappe.get_all("Field Operation", filters={"crop": crop}, fields=["name", "operation_name"], as_list=True))
 	rows.extend(_missed(crop, frm, to, op_names))

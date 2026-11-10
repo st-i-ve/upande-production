@@ -114,7 +114,7 @@ export function ApprovalCard({
         <table className="w-full min-w-[420px] text-[12.5px]">
           <thead>
             <tr className="text-left text-[10.5px] uppercase tracking-wider text-[var(--sd-quiet)]">
-              <th className="pb-1.5 pr-3 font-medium">Value adder</th>
+              <th className="pb-1.5 pr-3 font-medium">Casual labourer</th>
               <th className="pb-1.5 pr-3 text-right font-medium">Qty{g.uom ? ` (${g.uom})` : ""}</th>
               <th className="pb-1.5 pr-3 text-right font-medium">Hours</th>
               {showPay && <th className="pb-1.5 pr-3 text-right font-medium">Rate</th>}

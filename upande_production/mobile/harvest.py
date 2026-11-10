@@ -379,7 +379,7 @@ def mark_ready_for_collection(block=None, team_id=None, warehouse=None, **kw):
 				"batch": batch.name, "stock_entry": batch.stock_entry, "item": batch.item,
 				"estimated_kg": batch.estimated_kg, "avg_kg_per_crate": batch.avg_kg_per_crate,
 				"production_harvest": batch.production_harvest, "warehouse": batch.warehouse,
-				"work": frappe.get_all("Value Adder Work", filters={"harvest_batch": batch.name}, pluck="name"),
+				"work": frappe.get_all("Casual Labour Work", filters={"harvest_batch": batch.name}, pluck="name"),
 			})
 		return res
 	except Exception as e:

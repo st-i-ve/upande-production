@@ -54,7 +54,7 @@ class TestMobileApi(IntegrationTestCase):
 		unit = cls.unit.name
 		ccs = [c for c in [frappe.db.get_value("Production Unit", unit, "cost_center")] if c]
 		ccs += frappe.get_all("Cost Center", filters={"cost_center_name": ("like", f"{crop}%")}, pluck="name")
-		for dt in ("Value Adder Work", "Production Harvest", "Yield Sample"):
+		for dt in ("Casual Labour Work", "Production Harvest", "Yield Sample"):
 			for n in frappe.get_all(dt, filters={"unit": unit}, pluck="name"):
 				d = frappe.get_doc(dt, n)
 				if d.docstatus == 1:
@@ -101,7 +101,7 @@ class TestMobileApi(IntegrationTestCase):
 		})
 		self.assertEqual(res["task"]["status"], "Done")
 		self.assertEqual(len(res["work"]), 1)
-		self.assertEqual(frappe.db.count("Value Adder Work", {"plan": plan.name, "plan_task": task, "docstatus": 0, "approval_status": "Pending"}), 1)
+		self.assertEqual(frappe.db.count("Casual Labour Work", {"plan": plan.name, "plan_task": task, "docstatus": 0, "approval_status": "Pending"}), 1)
 		self.assertEqual(res["approval_status"], "Pending")
 		self.assertEqual(res["task"]["pending_qty"], 10)
 		self.assertEqual(res["task"]["done_qty"], 0)
@@ -259,7 +259,7 @@ class TestMobileApi(IntegrationTestCase):
 			protocol=proto.name, status="Active",
 		)
 		def cleanup():
-			for dt in ("Value Adder Work",):
+			for dt in ("Casual Labour Work",):
 				for n in frappe.get_all(dt, filters={"cycle": cycle.name}, pluck="name"):
 					d = frappe.get_doc(dt, n)
 					if d.docstatus == 1:
@@ -295,6 +295,6 @@ class TestMobileApi(IntegrationTestCase):
 		self.assertEqual(res["blocks"], [])
 		self.assertTrue(res["reason"])
 
-	def test_value_adder_search(self):
-		res = self._call(api.productionListValueAdders, {"search": "zzzz-none", "limit": 5})
+	def test_casual_labourer_search(self):
+		res = self._call(api.productionListCasualLabourers, {"search": "zzzz-none", "limit": 5})
 		self.assertEqual(res, [])

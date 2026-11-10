@@ -1,4 +1,4 @@
-"""Approval workflow for supervisor-keyed work (Value Adder Work).
+"""Approval workflow for supervisor-keyed work (Casual Labour Work).
 
 Supervisor keys work in as a draft (Pending). A manager approves it (submit, so it counts) or sends it
 back with a note (Sent Back). The supervisor fixes and resubmits (back to Pending).
@@ -40,7 +40,7 @@ def _need_manager():
 def _docs(names, status):
 	docs = []
 	for n in names:
-		doc = frappe.get_doc("Value Adder Work", n)
+		doc = frappe.get_doc("Casual Labour Work", n)
 		if doc.docstatus != 0 or doc.approval_status != status:
 			frappe.throw(
 				_("{0} is {1}, not {2}.").format(
@@ -128,7 +128,7 @@ def list_approvals(
 ) -> dict:
 	if status not in STATUSES:
 		frappe.throw(_("Invalid status {0}").format(status), frappe.ValidationError)
-	frappe.has_permission("Value Adder Work", "read", throw=True)
+	frappe.has_permission("Casual Labour Work", "read", throw=True)
 	pay = can_see_pay()
 	stale_days = get_stale_days()
 
@@ -150,7 +150,7 @@ def list_approvals(
 	rows = frappe.db.sql(
 		f"""select name, work_date, employee, employee_name, plan, plan_task, unit, crop, operation, qty, uom,
 		hours, rate, pay_value, approval_status, rule_status, rule_notes, override_reason, review_note, reviewed_by, reviewed_at, submitted_by, creation
-		from `tabValue Adder Work` where {' and '.join(cond)} order by creation asc""",
+		from `tabCasual Labour Work` where {' and '.join(cond)} order by creation asc""",
 		args, as_dict=True,
 	)
 
@@ -254,11 +254,11 @@ def list_approvals(
 
 def approval_counts() -> dict:
 	"""Pending submissions (cards) per crop, for the desk and sidebar badges."""
-	frappe.has_permission("Value Adder Work", "read", throw=True)
+	frappe.has_permission("Casual Labour Work", "read", throw=True)
 	stale_days = get_stale_days()
 	rows = frappe.db.sql(
 		"""select crop, plan_task, unit, operation, work_date, submitted_by, min(creation) as created
-		from `tabValue Adder Work` where docstatus = 0 and approval_status = 'Pending' and ifnull(crop, '') != ''
+		from `tabCasual Labour Work` where docstatus = 0 and approval_status = 'Pending' and ifnull(crop, '') != ''
 		and unit not in %(retired)s
 		group by crop, plan_task, unit, operation, work_date, submitted_by""",
 		{"retired": retired_sql()}, as_dict=True,

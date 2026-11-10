@@ -142,7 +142,7 @@ def seed_people():
 	for et in ("Casual",):
 		if not frappe.db.exists("Employment Type", et):
 			_insert({"doctype": "Employment Type", "employee_type_name": et})
-	for d in ("Value Adder", "Production Supervisor"):
+	for d in ("Casual Labourer", "Production Supervisor"):
 		if not frappe.db.exists("Designation", d):
 			_insert({"doctype": "Designation", "designation_name": d})
 
@@ -156,8 +156,8 @@ def seed_people():
 			"date_of_birth": dob, "date_of_joining": doj, "company": company, "status": "Active",
 			"designation": designation, "employment_type": etype})
 
-	for i, (f, l, g) in enumerate(DEMO["value_adders"]):
-		mk(f, l, g, "Value Adder", "Casual", i)
+	for i, (f, l, g) in enumerate(DEMO["casual_labourers"]):
+		mk(f, l, g, "Casual Labourer", "Casual", i)
 	for i, (f, l, g) in enumerate(DEMO["supervisors"]):
 		mk(f, l, g, "Production Supervisor", "Full-time", i)
 	frappe.db.commit()
@@ -303,7 +303,7 @@ def _process_plan(plan_name, current, vas, supers):
 		else:
 			status = "In Progress"
 		res = work.record_task_work(plan_name, tname, status, entries, work_date=wdate)
-		C["Value Adder Work"] += len(res["work"])
+		C["Casual Labour Work"] += len(res["work"])
 		started = datetime.combine(due, time(7, r.randint(0, 59)))
 		if status == "In Progress":
 			adjust[tname] = (started, None)
@@ -327,7 +327,7 @@ def _process_plan(plan_name, current, vas, supers):
 
 def seed_plans():
 	farm = DEMO["farm"]["name"]
-	vas, supers = _employees("Value Adder"), _employees("Production Supervisor")
+	vas, supers = _employees("Casual Labourer"), _employees("Production Supervisor")
 	for crop in [c["name"] for c in DEMO["crops"]]:
 		pool = _avocado_crew() if crop == DEMO["lead_crop"] else vas
 		for y, w, mon, current in _weeks(crop):
@@ -341,8 +341,8 @@ def seed_plans():
 
 
 def _avocado_crew():
-	"""The 12 or so value adders who work the lead crop's blocks (a stable pick, so reruns agree)."""
-	crew = _employees("Value Adder")
+	"""The 12 or so casual labourers who work the lead crop's blocks (a stable pick, so reruns agree)."""
+	crew = _employees("Casual Labourer")
 	return _rng("avocado-crew").sample(crew, min(DEMO["avocado_history"]["crew"], len(crew)))
 
 
@@ -351,7 +351,7 @@ def _keep_to_crew(crop, crew):
 	from other people onto the crew (never twice onto one card). A no-op once everything is on the crew."""
 	rows = frappe.db.sql(
 		"""select name, employee, ifnull(plan_task, concat(unit, '|', operation, '|', work_date)) k
-		from `tabValue Adder Work` where crop = %s and docstatus < 2 order by name""", (crop,), as_dict=True)
+		from `tabCasual Labour Work` where crop = %s and docstatus < 2 order by name""", (crop,), as_dict=True)
 	on_card = {}
 	for r in rows:
 		on_card.setdefault(r.k, set()).add(r.employee)
@@ -369,7 +369,7 @@ def _keep_to_crew(crop, crew):
 			continue
 		on_card[r.k].discard(r.employee)
 		on_card[r.k].add(emp)
-		frappe.db.sql("update `tabValue Adder Work` set employee = %s, employee_name = %s where name = %s",
+		frappe.db.sql("update `tabCasual Labour Work` set employee = %s, employee_name = %s where name = %s",
 			(emp, names[emp], r.name))
 		C["VAW moved to avocado crew"] += 1
 
@@ -399,7 +399,7 @@ def seed_avocado_history():
 				days = r.sample(range(0, 6), picks)
 				for d in sorted(days):
 					day = mon + timedelta(days=d)
-					if day > last or frappe.db.exists("Value Adder Work", {
+					if day > last or frappe.db.exists("Casual Labour Work", {
 							"unit": unit, "operation": op, "work_date": day, "plan_task": ("is", "not set")}):
 						continue
 					n = r.randint(*cfg["crew_per_job"])
@@ -409,8 +409,8 @@ def seed_avocado_history():
 						entries.append({"employee": emp, "qty": max(step, qty), "hours": round(r.uniform(*cfg["hours"]), 1)})
 					names = work.record_unplanned_work(unit, op, entries, day)
 					if cycle:
-						frappe.db.sql("update `tabValue Adder Work` set cycle = %s where name in %s", (cycle, tuple(names)))
-					C["Value Adder Work (avocado history)"] += len(names)
+						frappe.db.sql("update `tabCasual Labour Work` set cycle = %s where name in %s", (cycle, tuple(names)))
+					C["Casual Labour Work (avocado history)"] += len(names)
 		frappe.db.commit()
 
 
@@ -418,9 +418,9 @@ def _backdate(names, created, reviewed=None):
 	"""Make demo work look keyed (and reviewed) on the day it was done, not when the seed ran."""
 	now = now_datetime()
 	created = min(created, now)
-	frappe.db.sql("update `tabValue Adder Work` set creation = %s where name in %s", (created, tuple(names)))
+	frappe.db.sql("update `tabCasual Labour Work` set creation = %s where name in %s", (created, tuple(names)))
 	if reviewed:
-		frappe.db.sql("update `tabValue Adder Work` set reviewed_at = %s where name in %s",
+		frappe.db.sql("update `tabCasual Labour Work` set reviewed_at = %s where name in %s",
 			(min(reviewed, now), tuple(names)))
 
 
@@ -432,7 +432,7 @@ def seed_approvals():
 	users = DEMO["keying_users"]
 	rows = frappe.db.sql(
 		"""select name, docstatus, approval_status, plan, plan_task, crop, unit, operation, work_date
-		from `tabValue Adder Work` where docstatus < 2 and unit not in %s order by work_date, name""",
+		from `tabCasual Labour Work` where docstatus < 2 and unit not in %s order by work_date, name""",
 		(tuple(retired_units()) or ("",),), as_dict=True)
 	groups = {}
 	for r in rows:
@@ -442,31 +442,31 @@ def seed_approvals():
 
 	def key_as(g, crop, i):
 		user = users[(crops.index(crop) + i) % len(users)]
-		frappe.db.sql("update `tabValue Adder Work` set submitted_by = %s where name in %s",
+		frappe.db.sql("update `tabCasual Labour Work` set submitted_by = %s where name in %s",
 			(user, tuple(r.name for r in g)))
 
 	def approve(g, day):
 		for r in g:
 			if r.docstatus == 0:
-				doc = frappe.get_doc("Value Adder Work", r.name)
+				doc = frappe.get_doc("Casual Labour Work", r.name)
 				doc.submit()
 		names = [r.name for r in g]
 		_backdate(names, datetime.combine(day, time(16, 0)), datetime.combine(day + timedelta(days=1), time(9, 30)))
-		frappe.db.sql("update `tabValue Adder Work` set reviewed_by = %s where name in %s",
+		frappe.db.sql("update `tabCasual Labour Work` set reviewed_by = %s where name in %s",
 			(users[0], tuple(names)))
 		C["VAW approved"] += len(names)
 
 	def demote(g, status, day, note=None):
 		names = tuple(r.name for r in g)
 		frappe.db.sql(
-			"""update `tabValue Adder Work` set docstatus = 0, approval_status = %s, review_note = %s,
+			"""update `tabCasual Labour Work` set docstatus = 0, approval_status = %s, review_note = %s,
 			reviewed_by = %s, reviewed_at = %s where name in %s""",
 			(status, note, "Administrator" if note else None,
 			 now_datetime() - timedelta(hours=5) if note else None, names))
 		_backdate(names, datetime.combine(day, time(16, 0)))
 		C[f"VAW {status.lower()}"] += len(names)
 
-	mixed = frappe.db.exists("Value Adder Work", {"approval_status": "Sent Back", "unit": ("not in", list(retired_units()) or [""])})
+	mixed = frappe.db.exists("Casual Labour Work", {"approval_status": "Sent Back", "unit": ("not in", list(retired_units()) or [""])})
 	recent_cut = add_days(td, -cfg["stale_days"][1] - 1)
 	by_crop = {}
 	for k, g in groups.items():
@@ -505,7 +505,7 @@ def seed_approvals():
 			for n, (crop, day, k, g) in enumerate(xs):
 				note = DEMO["sent_back_notes"][n % len(DEMO["sent_back_notes"])] if status == "Sent Back" else None
 				demote(g, status, day, note) if g[0].docstatus == 1 else frappe.db.sql(
-					"""update `tabValue Adder Work` set approval_status = %s, review_note = %s, reviewed_by = %s,
+					"""update `tabCasual Labour Work` set approval_status = %s, review_note = %s, reviewed_by = %s,
 					reviewed_at = %s where name in %s""",
 					(status, note, "Administrator" if note else None,
 					 now_datetime() - timedelta(hours=5) if note else None, tuple(r.name for r in g)))
@@ -529,7 +529,7 @@ def _ensure_pending(crop, want, stale_n):
 	td = getdate(today())
 	rows = frappe.db.sql(
 		"""select name, docstatus, approval_status, plan, plan_task, unit, operation, work_date
-		from `tabValue Adder Work` where crop = %s and docstatus < 2 and unit not in %s order by work_date desc, name""",
+		from `tabCasual Labour Work` where crop = %s and docstatus < 2 and unit not in %s order by work_date desc, name""",
 		(crop, tuple(retired_units()) or ("",)), as_dict=True)
 	groups = {}
 	for r in rows:
@@ -547,7 +547,7 @@ def _ensure_pending(crop, want, stale_n):
 	for i, (g, age) in enumerate(zip(approved, ages)):
 		names = tuple(r.name for r in g)
 		frappe.db.sql(
-			"""update `tabValue Adder Work` set docstatus = 0, approval_status = 'Pending', review_note = null,
+			"""update `tabCasual Labour Work` set docstatus = 0, approval_status = 'Pending', review_note = null,
 			reviewed_by = null, reviewed_at = null, submitted_by = %s where name in %s""",
 			(users[i % len(users)], names))
 		_backdate(names, datetime.combine(add_days(td, -age), time(16, 0)))

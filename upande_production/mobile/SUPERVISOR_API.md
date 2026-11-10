@@ -32,7 +32,7 @@ Aquaculture) have no protocol steps; plans, tasks and tick-off work the same.
 | Assign work | `productionAddTask`, `productionGeneratePlan`, `productionRecordUnplannedWork` |
 | Sent back | `productionListSentBack`, `productionResubmitWork` |
 | Protocol check | `productionProtocolCheck` |
-| Pickers | `productionListUnits`, `productionListOperations`, `productionListValueAdders` |
+| Pickers | `productionListUnits`, `productionListOperations`, `productionListCasualLabourers` |
 
 ## productionListCrops  (existing)
 
@@ -271,7 +271,7 @@ Flat task list of the week with no crew entries. Prefer `productionGetPlanDetail
 Tick a task off with a crew. Params: `plan`, `task` (the task `name`), `status` (see above),
 `note` (optional), `entries`: `[{"employee", "qty", "hours"}]`. Several entries are supported; each
 becomes one Pending draft (`qty` must be > 0; `hours` optional). Entries may be empty (for
-In Progress / Skipped). Entries need create permission on Value Adder Work; the call checks it.
+In Progress / Skipped). Entries need create permission on Casual Labour Work; the call checks it.
 The response carries the refreshed `task` (with new `pending_qty`) and, new, `entries`: all crew
 entries of the task so the screen can redraw without a second call.
 
@@ -666,9 +666,12 @@ Harvesting, Uprooting) and `color` (hex or null) tag each operation.
 ]
 ```
 
-## productionListValueAdders  (existing, extended)
+## productionListCasualLabourers  (existing, extended)
 
-Active employees with the Value Adder designation (the crew picker). The list is company-wide (an Employee
+Renamed from `productionListValueAdders` (Value Adders are now Casual Labourers). The old name still resolves through
+`override_whitelisted_methods` for one release; responses have no renamed keys, so nothing else changes.
+
+Active employees with the Casual Labourer designation (the crew picker). The list is company-wide (an Employee
 has no crop). New optional params: `search` (matches name or id) and `limit`.
 
 ```json

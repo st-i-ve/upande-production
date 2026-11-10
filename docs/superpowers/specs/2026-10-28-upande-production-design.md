@@ -16,11 +16,11 @@ Tomorrow is a very important demo on **desktop**. It must work functionally end 
    - **Protocol** as an optional template: a list of operations with day offsets from planting that *generates* plan tasks. Not mandatory, not a permanent fixture of a cycle (user: "crop protocol is not a permanent feature").
    - **Weekly plan + tick-off** (emulating agriculture `mona` Production Plan Form / productionUpdatePlanTask): supervisor plans tasks per block per week; each task is marked Open / In Progress / Done / Partly done / Skipped. Field work = "record if the work has been done completely".
    - **Deviation flag:** task done late vs due date, or skipped/partly done, or protocol task with no plan; surfaced on the plan and a deviations list.
-   - **Value adders** (the app's name for casual labourers): each task's work is recorded per value adder with quantity done, unit, optional hours, rate and **pay value = qty × rate**. Pay stays a figure (another module integrates it later; no payroll/salary-slip posting).
+   - **Casual labourers** (the app's name for casual labourers): each task's work is recorded per casual labourer with quantity done, unit, optional hours, rate and **pay value = qty × rate**. Pay stays a figure (another module integrates it later; no payroll/salary-slip posting).
    - **Block cost centre & profitability:** labour (pay values) + inputs/other (GL entries on the block's cost centre) vs harvest value → per-block cost and margin.
    - **Forecasting:** avocado keeps teddy's fruit-count/dry-matter/forecast/budget/history engine. F&V gets field-sample yield forecasts (sample → estimated block yield), harvest actuals, **plan vs actual** accuracy, historical trend, and **buyer commitments** (committed qty per week vs forecast → supportable/gap).
-2. **Aquaculture & Apiary as working templates:** set up as crops (unit = Pond / Hive Group) with starter operations, running on the same plan/task/value-adder/cost-centre engine. Their specialised trackers (mortality & stocking density, water quality readings, colony health & swarms, biomass/honey forecasting) are listed as next phases, not built now.
-3. **Mobile API** (`upande_production/mobile/api.py`, JSON-in/`frappe.response['data']`-out like mona): list crops/blocks/cycles, get week plan, update task status, record work per value adder, record harvest, record yield sample.
+2. **Aquaculture & Apiary as working templates:** set up as crops (unit = Pond / Hive Group) with starter operations, running on the same plan/task/casual-labourer/cost-centre engine. Their specialised trackers (mortality & stocking density, water quality readings, colony health & swarms, biomass/honey forecasting) are listed as next phases, not built now.
+3. **Mobile API** (`upande_production/mobile/api.py`, JSON-in/`frappe.response['data']`-out like mona): list crops/blocks/cycles, get week plan, update task status, record work per casual labourer, record harvest, record yield sample.
 4. **Our own React frontend** (as livestock/SCP): `/production_app`, crop-namespaced sidebar.
 
 ## 3. Non-goals
@@ -44,7 +44,7 @@ Tomorrow is a very important demo on **desktop**. It must work functionally end 
 - Branches: `main` first, then `mutara`; a `marginpar` branch later (marginpar will use this app too).
 - Multi-crop like SCP. Crops for Mutara: Avocado, Fruits & Vegetables, Aquaculture, Apiary.
 - Pivot = circular area; its pizza-slice parts are called **blocks** for vegetables. Held in this app until upande_core has it; user will define the unit and bed later.
-- Value adders paid on work done; pay is a figure only.
+- Casual labourers paid on work done; pay is a figure only.
 - Reference: upande_agriculture `live` (crop cycle, protocol, forecast/projection) and `mona` (mobile production endpoints). Protocol is not permanent.
 - Design: our own React frontend like livestock and SCP.
 - Desktop working for the demo first; mobile later.
@@ -65,7 +65,7 @@ Tomorrow is a very important demo on **desktop**. It must work functionally end 
 | **Production Protocol** + child **Protocol Step** | crop, variety (optional), steps: operation, day_offset, repeat_every_days, repeat_count, planned_qty basis |
 | **Crop Cycle** (named `Production Crop Cycle` to avoid clashing with ERPNext/agriculture `Crop Cycle`) | unit, crop, item/variety, cycle_type (Season/Planting/Pond Cycle/Hive Season), planting/start date, expected_harvest_start/end, protocol (optional link), status (Planned/Active/Harvesting/Closed), area_ha, previous_cycle (rotation) |
 | **Production Plan** + child **Production Plan Task** | farm, crop, ISO year/week; tasks: unit, cycle, operation, planned_qty, uom, rate, due_date, supervisor (Employee), status (Open/In Progress/Done/Partly Done/Skipped), started_at, completed_at, done_qty, deviation (Late/Skipped/Partial/Unplanned, computed), note. One plan per farm × crop × week *[call — mona is per greenhouse; per crop-week reads better across 10+ blocks]* |
-| **Value Adder Work** | date, employee (value adder), plan + task row id, unit, cycle, operation, qty, uom, hours, rate, **pay_value**, cost_center (from unit); submittable *[call]* so the pay figure is stable for the later integration |
+| **Casual Labour Work** | date, employee (casual labourer), plan + task row id, unit, cycle, operation, qty, uom, hours, rate, **pay_value**, cost_center (from unit); submittable *[call]* so the pay figure is stable for the later integration |
 | **Production Harvest** | date, unit, cycle, item, qty, uom, grade (optional), price_per_uom → value |
 | **Yield Sample** | date, unit, cycle, sample size (plants/trees/m²), sampled yield, growth stage → est_unit_yield (scaled by area/plant count) |
 | **Production Forecast** + child weeks | unit, cycle, season/year, week rows expected_qty (+ source: sample/manual/history) |
@@ -77,7 +77,7 @@ Avocado bridges: the avocado unit links its `Avocado Yield Block` by code; avoca
 ### 6.3 Logic
 - **Generate tasks from protocol:** for a cycle with a protocol, "Generate week" creates plan tasks whose due date falls in that week. Editable afterwards.
 - **Deviation:** computed on save: Late if completed_at.date > due_date + tolerance; Partial if Partly Done or done_qty < planned_qty; Skipped; Unplanned for work recorded without a planned task.
-- **Cost:** block cost = Σ submitted Value Adder Work pay_value + Σ GL Entry debit on the block's cost centre (expense accounts) for the period; revenue = Σ Production Harvest value. No GL posting from this app.
+- **Cost:** block cost = Σ submitted Casual Labour Work pay_value + Σ GL Entry debit on the block's cost centre (expense accounts) for the period; revenue = Σ Production Harvest value. No GL posting from this app.
 - **Forecast accuracy:** per unit per week, forecast vs harvest actual, error %.
 - **Commitment cover:** Σ forecast for crop/week vs Σ commitments → supportable/surplus/gap.
 
@@ -86,15 +86,15 @@ Crop switcher + crop-namespaced routes `#/<crop>/<view>`. Pages:
 1. **Overview** — tiles: active cycles, this week's tasks done %, deviations, labour cost MTD, forecast vs committed; per-block table.
 2. **Blocks** — units tree (farm → pivot → blocks), area, current cycle, cost to date; map when geojson exists.
 3. **Crop Cycles** — list, create, rotation history per block.
-4. **Weekly Plan** — week picker, plan grid by block; add tasks, generate from protocol, tick-off with value-adder work capture (qty per person), status pills, deviation badges.
-5. **Value Adders** — work done and pay figures per person / day / block, export.
+4. **Weekly Plan** — week picker, plan grid by block; add tasks, generate from protocol, tick-off with casual-labourer work capture (qty per person), status pills, deviation badges.
+5. **Casual Labourers** — work done and pay figures per person / day / block, export.
 6. **Block Costs** — labour + inputs vs harvest value per block, margin.
 7. **Forecast** — avocado: links/embeds teddy's Outlook, Harvest Calendar, Picking Plan, Dry Matter pages; F&V: samples → forecast, plan vs actual, trend, buyer commitments.
 8. **Settings** — crops, operations & rates, protocols.
 Livestock UI standards apply: Poppins, skeletons in place, floating toasts, FilterSelect pills, no strip accents.
 
 ### 6.5 Demo data (mutara.local, idempotent seed script)
-Farm Mutara; Avocado Block A & B (with Avocado Yield Block records and a season cycle, fruit counts, forecasts, yield history); 3 pivots × slices summing ~87 ha with 4–6 vegetable/fruit crops in rotation; aquaculture: a few ponds; apiary: hive groups; operations + rates per crop; ~20 value-adder employees; 4 weeks of plans (past weeks mostly done with some late/skipped, current week mixed); harvests, samples, forecasts, two buyer commitments. Per-block cost centres created.
+Farm Mutara; Avocado Block A & B (with Avocado Yield Block records and a season cycle, fruit counts, forecasts, yield history); 3 pivots × slices summing ~87 ha with 4–6 vegetable/fruit crops in rotation; aquaculture: a few ponds; apiary: hive groups; operations + rates per crop; ~20 casual-labourer employees; 4 weeks of plans (past weeks mostly done with some late/skipped, current week mixed); harvests, samples, forecasts, two buyer commitments. Per-block cost centres created.
 
 ### 6.6 Builder-check rulings (builder's calls unless noted)
 - **Site state (verified):** mutara.local is empty — 0 Farms, 0 Avocado Yield Blocks, 0 Employees, company `Mutara` (MUT) only. The app swap needs no data migration; the seed creates everything.
@@ -103,12 +103,12 @@ Farm Mutara; Avocado Block A & B (with Avocado Yield Block records and a season 
 - **Unplanned protocol work:** the deviations list is computed on read. It flags a protocol step that fell due in a past week but has no matching plan task, and Unplanned work. No scheduled job.
 - **Weeks:** ISO weeks, Monday start. The "week start" setting is dropped.
 - **Roles:** Production Manager can do everything and sees pay. Production Supervisor plans, ticks off and records work, and sees pay for their own entries. Production Viewer sees only plans and dashboards, with pay hidden.
-- **Value Adder Work:** auto-submitted on capture. Managers cancel and amend corrections. Cost figures read submitted rows only.
-- **Value adders are Employees** (HRMS is installed), with employment type Casual and a `Value Adder` designation, so the later payroll module can link them.
+- **Casual Labour Work:** auto-submitted on capture. Managers cancel and amend corrections. Cost figures read submitted rows only.
+- **Casual labourers are Employees** (HRMS is installed), with employment type Casual and a `Casual Labourer` designation, so the later payroll module can link them.
 - **Cost centres:** Mutara → crop group → pivot group (F&V) → block leaf. Aggregation runs over the subtree.
 - **Mutara F&V crops (user):** potatoes, cabbages, onions, passion fruit. Passion fruit is a perennial on its own pivot blocks, with season cycles like avocado; potatoes, cabbages and onions rotate as plantings. Areas, tree counts and pivot sizes are invented to be realistic (Block A/B a few ha each, ~4 pivots totalling ~87 ha) until the user supplies real figures; the seed takes them from one config dict so swapping is a single edit.
 - **Build method (user):** Sonnet agents implement in parallel; Opus does review and decisions.
-- **Cut order if time runs short:** the Settings page (fall back to desk forms), then Value Adders export. Overview, Blocks, Cycles, Weekly Plan, Forecast and Block Costs stay.
+- **Cut order if time runs short:** the Settings page (fall back to desk forms), then Casual Labourers export. Overview, Blocks, Cycles, Weekly Plan, Forecast and Block Costs stay.
 
 ## 7. Left to the builder
 Exact field names, naming series, page component breakdown, chart choice, seed numbers, API payload shapes (follow mona's style), test coverage depth for a demo-tomorrow build (backend logic tests for deviation/pay/cost/accuracy at minimum).

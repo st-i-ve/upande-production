@@ -115,7 +115,7 @@ class TestRules(IntegrationTestCase):
 
 	def test_after_operation_both_directions_and_exclusions(self):
 		unit, cy = self._cycle(harvest_in=60)
-		vaw = _make("Value Adder Work", work_date=add_days(today(), -3), employee=self.emp, unit=unit, cycle=cy,
+		vaw = _make("Casual Labour Work", work_date=add_days(today(), -3), employee=self.emp, unit=unit, cycle=cy,
 			operation=self.spray, qty=1, uom="Kg")
 		# harvest 3 days after spraying: refused
 		br = rules.check(cycle=cy, operation=self.harvest, on_date=today())
@@ -194,14 +194,14 @@ class TestRules(IntegrationTestCase):
 		with self.assertRaises(frappe.ValidationError) as c:
 			work.record_task_work(plan.name, t.name, "Done", entries)
 		self.assertIn("harvest", str(c.exception).lower())
-		self.assertFalse(frappe.db.exists("Value Adder Work", {"plan_task": t.name}))
+		self.assertFalse(frappe.db.exists("Casual Labour Work", {"plan_task": t.name}))
 
 		plan, t = self._task(unit, cy, self.weed)
 		with self.assertRaises(frappe.ValidationError):
 			work.record_task_work(plan.name, t.name, "In Progress", entries)
 		res = work.record_task_work(plan.name, t.name, "In Progress", entries, override_reason="Urgent")
 		self.assertEqual((res["task"]["rule_status"], res["task"]["override_reason"]), ("Warn", "Urgent"))
-		v = frappe.get_doc("Value Adder Work", res["work"][0])
+		v = frappe.get_doc("Casual Labour Work", res["work"][0])
 		self.assertEqual((v.rule_status, v.override_reason), ("Warn", "Urgent"))
 		self.assertIn("Tubers", v.rule_notes)
 		# the reason stays on the task: closing it needs no new one
@@ -210,7 +210,7 @@ class TestRules(IntegrationTestCase):
 		# a clean operation is stamped OK
 		plan, t = self._task(unit, cy, self.prune)
 		res = work.record_task_work(plan.name, t.name, "In Progress", entries)
-		self.assertEqual(frappe.db.get_value("Value Adder Work", res["work"][0], "rule_status"), "OK")
+		self.assertEqual(frappe.db.get_value("Casual Labour Work", res["work"][0], "rule_status"), "OK")
 
 	def test_unplanned_work(self):
 		unit, cy = self._cycle()
@@ -220,7 +220,7 @@ class TestRules(IntegrationTestCase):
 			work.record_unplanned_work(unit, self.weed, [{"employee": self.emp, "qty": 1}], today())
 		names = work.record_unplanned_work(unit, self.weed, [{"employee": self.emp, "qty": 1}], today(),
 			override_reason="Needed")
-		self.assertEqual(frappe.db.get_value("Value Adder Work", names[0], ["rule_status", "override_reason"]),
+		self.assertEqual(frappe.db.get_value("Casual Labour Work", names[0], ["rule_status", "override_reason"]),
 			("Warn", "Needed"))
 
 	def test_generation_skips_block_marks_warn(self):
@@ -407,4 +407,4 @@ class TestRules(IntegrationTestCase):
 			work.record_task_work(plan.name, t.name, "In Progress", entries)
 		self.assertEqual(c.exception.rule_status, "Warn")
 		res = work.record_task_work(plan.name, t.name, "In Progress", entries, override_reason="Urgent")
-		self.assertEqual(frappe.db.get_value("Value Adder Work", res["work"][0], "rule_status"), "Warn")
+		self.assertEqual(frappe.db.get_value("Casual Labour Work", res["work"][0], "rule_status"), "Warn")

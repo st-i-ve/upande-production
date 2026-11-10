@@ -81,7 +81,7 @@ def _capital_accounts():
 
 def _labour_events(unit):
 	rows = frappe.db.sql(
-		"""select work_date, sum(pay_value) from `tabValue Adder Work` where docstatus = 1 and unit = %s
+		"""select work_date, sum(pay_value) from `tabCasual Labour Work` where docstatus = 1 and unit = %s
 		group by work_date""", (unit,))
 	return [(r[0], float(r[1] or 0)) for r in rows]
 

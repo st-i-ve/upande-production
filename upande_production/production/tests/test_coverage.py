@@ -129,7 +129,7 @@ class TestCoverageMap(IntegrationTestCase):
 			self._row(U["C"], self.op1, 6, 0, "Open", "2098-03-05"),
 		])
 		w = frappe.get_doc({
-			"doctype": "Value Adder Work", "work_date": "2098-03-03", "unit": U["C"], "crop": self.crop.name,
+			"doctype": "Casual Labour Work", "work_date": "2098-03-03", "unit": U["C"], "crop": self.crop.name,
 			"operation": self.op2.name, "qty": 1, "uom": "Bed", "approval_status": "Pending",
 		})
 		w.flags.ignore_validate = True
