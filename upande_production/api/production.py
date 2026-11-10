@@ -6,11 +6,11 @@ from frappe import _
 from upande_production.api.envelope import as_dict, run
 from upande_production.production.logic import analytics, bands, blockcost, cycle_chain, plans, rules, stages, work
 from upande_production.production.logic import drymatter as drymatter_logic
-from upande_production.production.logic.settings import PAY_ROLES, can_see_pay, is_manager
+from upande_production.production.logic.settings import PAY_ROLES, avocado_only_crop_keys, can_see_pay, is_manager
 from upande_production.production.logic.units import unit_filter
 from upande_production.production.logic.weeks import iso_week_bounds
 
-MANAGE_ROLES = {"Production Manager", "System Manager"}
+MANAGE_ROLES = {"Production Manager", "System Manager", "Avocado Production Manager"}
 
 
 # -- helpers -----------------------------------------------------------------
@@ -135,6 +135,9 @@ def get_bootstrap():
 		],
 		order_by="sort_order asc, name asc",
 	)
+	only = avocado_only_crop_keys()
+	if only:  # an Avocado Production Manager sees the avocado crop and nothing else
+		crops = [c for c in crops if c["crop_key"] in only]
 	for c in crops:  # the page gate: the crop's default is on, or one of its varieties says Yes
 		c["dry_matter_testing"] = int(drymatter_logic.crop_tests_dry_matter(c["name"]))
 	return {

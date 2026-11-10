@@ -20,7 +20,7 @@ from upande_production.production.logic.analytics import current_cycles
 
 CRATE_SCAN = "Harvest Crate Scan"
 COLLECTED = ("Batched",)
-MANAGER_ROLES = {"Production Manager", "Production Supervisor", "System Manager"}
+MANAGER_ROLES = {"Production Manager", "Production Supervisor", "System Manager", "Avocado Production Manager"}
 
 
 # ---------------------------------------------------------------- plumbing

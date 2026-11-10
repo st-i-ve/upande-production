@@ -160,7 +160,7 @@ fixtures = [
 	},
 	{
 		"doctype": "Role",
-		"filters": [["name", "in", ["Production Manager", "Production Supervisor", "Production Viewer"]]],
+		"filters": [["name", "in", ["Production Manager", "Production Supervisor", "Production Viewer", "Avocado Production Manager"]]],
 	},
 	# The desk workspace's launcher (one section of app links per crop) and the
 	# desk-grid icon that opens that workspace.

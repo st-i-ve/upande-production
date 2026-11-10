@@ -25,8 +25,9 @@ from upande_production.production.logic import drymatter as drymatter_logic
 from upande_production.production.logic.settings import can_see_pay
 
 READ_ROLES = {"Production Manager", "Production Supervisor", "Production Viewer",
-			  "Agriculture Manager", "Agriculture User", "System Manager"}
-WRITE_ROLES = {"Production Manager", "Agriculture Manager", "Agriculture User", "System Manager"}
+			  "Agriculture Manager", "Agriculture User", "System Manager", "Avocado Production Manager"}
+WRITE_ROLES = {"Production Manager", "Agriculture Manager", "Agriculture User", "System Manager",
+			   "Avocado Production Manager"}
 
 PREF_MODE = "avocado_forecast_mode"
 
@@ -1184,7 +1185,7 @@ def set_forecast_mode(mode):
 @run
 def save_price_per_kg(price_per_kg):
 	"""Save the estate's KES per kg on the avocado crop (Production Manager). It is not a per-user setting."""
-	if frappe.session.user != "Administrator" and not {"Production Manager", "System Manager"} & set(frappe.get_roles()):
+	if frappe.session.user != "Administrator" and not {"Production Manager", "System Manager", "Avocado Production Manager"} & set(frappe.get_roles()):
 		frappe.throw("Only a Production Manager can change the estate price.", frappe.PermissionError)
 	p = _num(price_per_kg)
 	if p is None or p < 0:

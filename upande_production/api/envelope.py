@@ -23,6 +23,11 @@ def run(fn):
 	@functools.wraps(fn)
 	def wrapper(*args, **kwargs):
 		try:
+			from upande_production.production.logic.settings import crop_allowed
+
+			crop = kwargs.get("crop") or frappe.form_dict.get("crop")
+			if isinstance(crop, str) and not crop_allowed(crop):
+				frappe.throw(_("You are not permitted to see this crop."), frappe.PermissionError)
 			return fn(*args, **kwargs)
 		except frappe.PermissionError as e:
 			return {"error": str(e) or _("Not permitted.")}
