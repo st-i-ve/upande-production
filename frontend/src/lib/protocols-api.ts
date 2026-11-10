@@ -32,11 +32,13 @@ export interface CulturalActivity {
   operation: string | null;
   schedule: "Interval" | "As needed";
   interval_weeks: number | null;
+  /** How many times the activity is done in each week it falls due (1 to 7). Empty counts as 1. */
+  times_per_week?: number | null;
   /** Weeks after planting / last harvest. */
   establishment_period_weeks: number | null;
   /** Days before harvest. */
   pre_harvest_interval_days: number | null;
-  /** Stop after this many repeats; empty repeats until the cycle ends. */
+  /** Stop after this many due weeks (each with its times per week); empty repeats until the cycle ends. */
   occurrences?: number | null;
   planned_qty: number | null;
   description: string | null;
@@ -153,6 +155,13 @@ export const sendBackProtocol = (name: string, note: string) => rpc<{ name: stri
 /** Managers only; the note is required. */
 export const rejectProtocol = (name: string, note: string) => rpc<{ name: string }>("reject", { name, note });
 export const protocolDiff = (name: string) => rpc<ProtocolDiff>("diff", { name });
+/** A new protocol family at version 1 (Draft), optionally copying the activities of an existing version. */
+export const createProtocol = (a: {
+  crop: string;
+  protocol_name: string;
+  variety?: string | null;
+  copy_from?: string | null;
+}) => rpc<{ name: string; version: number; version_status: VersionStatus }>("create_protocol", a);
 /** Edit a Draft's item and its three activity tables. */
 export const saveProtocolDraft = (data: { name: string; item?: string | null } & Partial<ProtocolTables>) =>
   rpc<{ name: string }>("save_draft", { data });

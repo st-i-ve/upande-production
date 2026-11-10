@@ -76,6 +76,7 @@ def _generate_cycle(plan, cy, start, end, existing, skipped, count) -> int:
 			"unit": cy.unit, "cycle": cy.name, "operation": operation,
 			"planned_qty": item["planned_qty"], "uom": op.work_uom, "rate": op.default_rate,
 			"due_date": due, "status": "Open", "protocol_ref": ref, "note": item["note"],
+			"times_per_week": item.get("times_per_week") or 1,
 			"rule_status": flag, "rule_notes": "\n".join(b["message"] for b in breaches) or None,
 		})
 		existing.add(ref)

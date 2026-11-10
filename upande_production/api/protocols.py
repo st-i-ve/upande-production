@@ -26,6 +26,13 @@ def new_version(name):
 
 @frappe.whitelist(methods=["POST"])
 @run
+def create_protocol(crop, protocol_name, variety=None, item=None, copy_from=None):
+	"""A new protocol family at version 1 (Draft), optionally copying the activities of `copy_from`."""
+	return logic.create_protocol(crop, protocol_name, variety or None, item or None, copy_from or None)
+
+
+@frappe.whitelist(methods=["POST"])
+@run
 def submit_for_approval(name):
 	return logic.submit_for_approval(name)
 

@@ -11,12 +11,12 @@ from frappe import _
 from frappe.utils import now_datetime
 
 from upande_production.production.logic import rules
-from upande_production.production.logic.settings import is_manager, is_supervisor
+from upande_production.production.logic.settings import crop_allowed, is_manager, is_supervisor
 
 DT = "Production Protocol"
 STATUSES = ("Draft", "Pending Approval", "Active", "Superseded", "Rejected")
 KEY_FIELDS = ("operation", "week", "repeats", "planned_qty", "description")
-CULTURAL_FIELDS = ("operation", "schedule", "interval_weeks", "establishment_period_weeks", "pre_harvest_interval_days",
+CULTURAL_FIELDS = ("operation", "schedule", "interval_weeks", "times_per_week", "establishment_period_weeks", "pre_harvest_interval_days",
 	"occurrences", "planned_qty", "description")
 CAPITAL_FIELDS = ("operation", "description", "budget_per_ha")
 TABLES = {"key_activities": KEY_FIELDS, "cultural_activities": CULTURAL_FIELDS, "capital_activities": CAPITAL_FIELDS}
@@ -69,6 +69,8 @@ def _template(doc):
 
 
 def _norm(field, v):
+	if field == "times_per_week":
+		return float(v or 1)
 	if field in TEXT_FIELDS:
 		return v or ""
 	return float(v or 0)
@@ -124,6 +126,43 @@ def new_version(name) -> dict:
 	})
 	doc.insert(ignore_permissions=True)
 	return {"name": doc.name, "version": doc.version}
+
+
+def create_protocol(crop, protocol_name, variety=None, item=None, copy_from=None) -> dict:
+	"""A new protocol family: version 1 as a Draft, optionally with the activities of an existing version
+	(`copy_from`, of the same crop) copied in. The harvest pattern and the other template fields come from
+	the variety, as for every protocol."""
+	_need_supervisor()
+	frappe.has_permission(DT, "create", throw=True)
+	name = " ".join((protocol_name or "").split())
+	if not name:
+		frappe.throw(_("Give the protocol a name."), frappe.ValidationError)
+	if not crop or not frappe.db.exists("Production Crop", crop):
+		frappe.throw(_("Choose a crop."), frappe.ValidationError)
+	if not crop_allowed(crop):
+		frappe.throw(_("You are not permitted to create protocols for this crop."), frappe.PermissionError)
+	if frappe.db.exists(DT, name) or frappe.db.exists(DT, {"protocol_family": name}):
+		frappe.throw(_("A protocol named {0} already exists.").format(name), frappe.ValidationError)
+	if variety:
+		vcrop = frappe.db.get_value("Production Variety", variety, "crop")
+		if vcrop is None:
+			frappe.throw(_("Variety {0} does not exist.").format(variety), frappe.ValidationError)
+		if vcrop != crop:
+			frappe.throw(_("Variety {0} belongs to {1}, not {2}.").format(variety, vcrop, crop), frappe.ValidationError)
+	tables = {}
+	if copy_from:
+		src = _doc(copy_from)
+		if src.crop != crop:
+			frappe.throw(_("{0} belongs to another crop and cannot be copied.").format(copy_from), frappe.ValidationError)
+		tables = _tables(src, with_name=False)
+		item = item or src.item
+		variety = variety or src.variety
+	doc = frappe.get_doc({
+		"doctype": DT, "protocol_name": name, "crop": crop, "item": item or None, "variety": variety or None,
+		"version": 1, "version_status": "Draft", "protocol_family": name, **tables,
+	})
+	doc.insert(ignore_permissions=True)
+	return {"name": doc.name, "version": doc.version, "version_status": doc.version_status}
 
 
 def submit_for_approval(name) -> dict:

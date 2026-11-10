@@ -99,3 +99,24 @@ class TestSchedule(IntegrationTestCase):
 		self.assertEqual([i["ref"] for i in r], ["CY:c0:0", "CY:c0:1", "CY:c0:2"])
 		p = proto(cultural=[spray(interval_weeks=1, occurrences=0)])
 		self.assertGreater(len(S.due_items(cyc(), p, START, date(2026, 6, 30), None)), 10)
+
+	def test_times_per_week_multiplies_qty_and_notes_the_week(self):
+		p = proto(cultural=[spray(interval_weeks=2, times_per_week=3, planned_qty=10, description="Irrigate")])
+		r = S.due_items(cyc(), p, START, date(2026, 1, 25), None)
+		self.assertEqual([i["due_date"] for i in r], [date(2026, 1, 5), date(2026, 1, 19)])  # one item per due week
+		self.assertEqual(r[0]["planned_qty"], 30)
+		self.assertEqual(r[0]["times_per_week"], 3)
+		self.assertEqual(r[0]["note"], "\u00d73 this week. Irrigate")
+
+	def test_times_per_week_default_empty_and_clamped(self):
+		for kw, times in (({}, 1), ({"times_per_week": None}, 1), ({"times_per_week": 0}, 1), ({"times_per_week": 1}, 1),
+				({"times_per_week": 9}, 7)):
+			r = S.due_items(cyc(), proto(cultural=[spray(planned_qty=4, **kw)]), START, START, None)
+			self.assertEqual((r[0]["times_per_week"], r[0]["planned_qty"]), (times, 4 * times), kw)
+		r = S.due_items(cyc(), proto(cultural=[spray(description="Walk")]), START, START, None)
+		self.assertEqual((r[0]["note"], r[0]["planned_qty"]), ("Walk", None))
+
+	def test_occurrences_count_weeks_not_visits(self):
+		p = proto(cultural=[spray(interval_weeks=1, occurrences=2, times_per_week=3)])
+		r = S.due_items(cyc(), p, START, date(2026, 12, 31), None)
+		self.assertEqual(len(r), 2)

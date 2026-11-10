@@ -110,6 +110,26 @@ describe("ProtocolsList", () => {
     expect(tables.cultural_activities).toHaveLength(1);
   });
 
+  it("edits Per week on a cultural row and saves it; read mode shows 3× / week", () => {
+    const a = open(version({ cultural_activities: [{ operation: "OP-SPRAY", schedule: "Interval", interval_weeks: 2, times_per_week: 3, establishment_period_weeks: 6, pre_harvest_interval_days: 14, planned_qty: null, description: null }] }));
+    expect(screen.getByLabelText("Times per week for Spraying")).toHaveValue(3);
+    fireEvent.change(screen.getByLabelText("Times per week for Spraying"), { target: { value: "4" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+    expect(vi.mocked(a.saveDraft).mock.calls[0][1].cultural_activities[0].times_per_week).toBe(4);
+  });
+
+  it("a new cultural row defaults to once a week; Active versions read 3× / week", () => {
+    open();
+    fireEvent.click(screen.getByRole("button", { name: "Add row to Cultural activities" }));
+    expect(screen.getAllByLabelText(/Times per week for/)[1]).toHaveValue(1);
+  });
+
+  it("shows Per week read-only on an Active version", () => {
+    open(version({ version_status: "Active", cultural_activities: [{ operation: "OP-SPRAY", schedule: "Interval", interval_weeks: 1, times_per_week: 3, establishment_period_weeks: 0, pre_harvest_interval_days: 0, planned_qty: null, description: null }] }));
+    expect(screen.getByText("Per week")).toBeInTheDocument();
+    expect(screen.getByText("3× / week")).toBeInTheDocument();
+  });
+
   it("adds a row", () => {
     open();
     fireEvent.click(screen.getByRole("button", { name: "Add row to Key activities" }));

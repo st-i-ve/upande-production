@@ -47,6 +47,14 @@ def validate_tables(doc) -> None:
 			err(_("Cultural activities row {0}: an Interval activity needs Interval (weeks)").format(i))
 		if _row(r, "schedule") == "As needed" and interval:
 			err(_("Cultural activities row {0}: an As needed activity cannot have an interval").format(i))
+		times = _row(r, "times_per_week")
+		if not cint(times):  # left empty: once a week
+			if isinstance(r, dict):
+				r["times_per_week"] = 1
+			else:
+				r.times_per_week = 1
+		elif not 1 <= cint(times) <= 7:
+			err(_("Cultural activities row {0}: Times per week must be between 1 and 7").format(i))
 		if types.get(_row(r, "operation")) == "Capital":
 			err(_("Cultural activities row {0}: {1} is a Capital activity").format(i, _row(r, "operation")))
 

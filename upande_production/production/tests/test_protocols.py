@@ -198,6 +198,116 @@ class TestProtocols(IntegrationTestCase):
 			self.assertIn(k, row)
 		self.assertIn("total", res)
 
+	# -- times per week -----------------------------------------------------------
+
+	def test_times_per_week_defaults_validates_and_patches(self):
+		doc = _make("Production Protocol", protocol_name="TPW Default", crop=self.crop.name, cultural_activities=[
+			{"operation": self.op.name, "schedule": "Interval", "interval_weeks": 1}])
+		self.assertEqual(doc.cultural_activities[0].times_per_week, 1)
+		doc.cultural_activities[0].times_per_week = None
+		doc.save()
+		self.assertEqual(doc.cultural_activities[0].times_per_week, 1)
+		for bad in (8, -1):
+			doc.cultural_activities[0].times_per_week = bad
+			with self.assertRaises(frappe.ValidationError):
+				doc.save()
+		frappe.db.set_value("Production Protocol Cultural Activity", doc.cultural_activities[0].name, "times_per_week", 0)
+		from upande_production.patches.set_times_per_week import execute
+
+		execute()
+		self.assertEqual(frappe.db.get_value("Production Protocol Cultural Activity", doc.cultural_activities[0].name,
+			"times_per_week"), 1)
+
+	def test_plan_task_carries_times_per_week(self):
+		unit = _make("Production Unit", unit_name="TPW Unit", unit_type="Orchard Block", crop=self.crop.name,
+			farm=self.farm.name, company=self.company)
+		p = _make("Production Protocol", protocol_name="TPW Plan", crop=self.crop.name, version_status="Active",
+			cultural_activities=[{"operation": self.op.name, "schedule": "Interval", "interval_weeks": 1,
+				"times_per_week": 3, "planned_qty": 5, "description": "Irrigate"}])
+		cy = _make("Production Crop Cycle", unit=unit.name, crop=self.crop.name, start_date=add_days(today(), -7),
+			protocol=p.name, status="Active")
+		monday = add_days(today(), -frappe.utils.getdate(today()).weekday())
+		plan = plans.get_or_create_plan(self.crop.name, self.farm.name, *iso_of(monday))
+		self.assertGreater(plans.generate_week(plan.name), 0)
+		plan.reload()
+		t = next(x for x in plan.tasks if x.cycle == cy.name)
+		self.assertEqual((t.times_per_week, t.planned_qty), (3, 15))
+		self.assertTrue(t.note.startswith("\u00d73 this week"))
+
+	def test_diff_shows_times_per_week(self):
+		a = _make("Production Protocol", protocol_name="TPW Diff", crop=self.crop.name, version_status="Active",
+			cultural_activities=[{"operation": self.op.name, "schedule": "Interval", "interval_weeks": 1}])
+		v2 = P.new_version(a.name)["name"]
+		P.save_draft({"name": v2, "cultural_activities": [{"operation": self.op.name, "schedule": "Interval",
+			"interval_weeks": 1, "times_per_week": 3}]})
+		ch = P.diff(v2)["steps"][0]["changes"]
+		self.assertEqual([(c["field"], c["before"], c["after"]) for c in ch], [("times_per_week", 1, 3)])
+
+	# -- new protocol -------------------------------------------------------------
+
+	def test_create_protocol_draft_v1(self):
+		out = api.create_protocol(self.crop.name, "  NP  Fresh ")
+		self.assertEqual((out["name"], out["version"], out["version_status"]), ("NP Fresh", 1, "Draft"))
+		doc = frappe.get_doc("Production Protocol", "NP Fresh")
+		self.assertEqual((doc.protocol_family, doc.crop, len(doc.key_activities)), ("NP Fresh", self.crop.name, 0))
+		fam = next(f for f in P.list_protocols(self.crop.name)["families"] if f["family"] == "NP Fresh")
+		self.assertEqual((fam["active"], len(fam["versions"])), (None, 1))
+
+	def _refused(self, *args, exc=frappe.ValidationError, **kw):
+		with self.assertRaises(exc) as cm:
+			P.create_protocol(*args, **kw)
+		return str(cm.exception)
+
+	def test_create_protocol_refuses_blank_duplicate_and_wrong_variety(self):
+		# (through the logic: the API envelope rolls the test's fixtures back on an error)
+		self.assertIn("name", self._refused(self.crop.name, "  "))
+		api.create_protocol(self.crop.name, "NP Dup")
+		self.assertIn("already exists", self._refused(self.crop.name, "NP Dup"))
+		other = _make("Production Crop", crop_name="NP Other", crop_key="np-other", unit_label="Block", yield_uom="Kg")
+		if not frappe.db.exists("Item Group", "All Item Groups"):
+			_make("Item Group", item_group_name="All Item Groups", is_group=1)
+		item = _make("Item", item_code="NP Hass", item_name="NP Hass", item_group="All Item Groups", stock_uom="Kg",
+			is_stock_item=1).name
+		v = _make("Production Variety", variety_name="NP Var", crop=other.name, item=item)
+		self.assertIn("belongs to", self._refused(self.crop.name, "NP Var Proto", variety=v.name))
+		self.assertIn("Choose a crop", self._refused("", "NP NoCrop"))
+
+	def test_create_protocol_copies_activities(self):
+		src = self._active("NP Source")
+		src.append("cultural_activities", {"operation": self.op.name, "schedule": "Interval", "interval_weeks": 2,
+			"times_per_week": 3})
+		src.flags.protocol_transition = True
+		src.save()
+		out = api.create_protocol(self.crop.name, "NP Copy", copy_from=src.name)
+		doc = frappe.get_doc("Production Protocol", out["name"])
+		self.assertEqual(doc.version_status, "Draft")
+		self.assertEqual((doc.key_activities[0].week, doc.cultural_activities[0].times_per_week), (2, 3))
+		self.assertNotEqual(doc.key_activities[0].name, src.key_activities[0].name)
+		self.assertEqual(frappe.db.get_value("Production Protocol", src.name, "version_status"), "Active")
+		other = _make("Production Crop", crop_name="NP Other2", crop_key="np-other2", unit_label="Block", yield_uom="Kg")
+		self.assertIn("another crop", self._refused(other.name, "NP Cross", copy_from=src.name))
+
+	def test_create_protocol_permissions(self):
+		frappe.set_user(self.viewer)
+		self._refused(self.crop.name, "NP Viewer", exc=frappe.PermissionError)
+		frappe.set_user(self.sup)
+		self.assertEqual(api.create_protocol(self.crop.name, "NP Sup")["version_status"], "Draft")
+
+	def test_create_protocol_avocado_only_user(self):
+		from upande_production.production.logic.avocado_role import ROLE, setup
+
+		setup()
+		avocado = frappe.db.get_value("Production Crop", {"crop_key": "avocado"})
+		if not avocado:
+			avocado = _make("Production Crop", crop_name="NP Avocado", crop_key="avocado", unit_label="Block",
+				yield_uom="Kg").name
+		email = "np_avocado@example.com"
+		if not frappe.db.exists("User", email):
+			_make("User", email=email, first_name="Avo", send_welcome_email=0, roles=[{"role": ROLE}])
+		frappe.set_user(email)
+		self._refused(self.crop.name, "NP Not Avocado", exc=frappe.PermissionError)
+		self.assertFalse(frappe.db.exists("Production Protocol", "NP Not Avocado"))
+		self.assertEqual(P.create_protocol(avocado, "NP Avocado Proto")["version_status"], "Draft")
 
 class TestProtocolTables(IntegrationTestCase):
 	@classmethod

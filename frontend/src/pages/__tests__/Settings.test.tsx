@@ -25,11 +25,13 @@ vi.mock("@/lib/protocols-api", () => ({
   approveProtocol: vi.fn(),
   sendBackProtocol: vi.fn(),
   saveProtocolDraft: vi.fn(),
+  createProtocol: vi.fn(),
 }));
 import { listOperations, listProtocols, saveOperation } from "@/lib/api";
 import { listRules, listVarieties, saveVariety, type Variety } from "@/lib/varieties-api";
 import {
   approveProtocol,
+  createProtocol,
   listProtocolFamilies,
   newVersion,
   submitForApproval,
@@ -120,6 +122,40 @@ describe("Settings", () => {
     expect(screen.queryByRole("button", { name: /Submit/ })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "New version of Season" }));
     await waitFor(() => expect(newVersion).toHaveBeenCalledWith("Season"));
+  });
+
+  it("New protocol creates a draft family and opens it in edit mode", async () => {
+    vi.mocked(listOperations).mockResolvedValue({ rows: [{ name: "OP-1", operation_name: "Pruning", activity_type: "Cultural" }] });
+    vi.mocked(listVarieties).mockResolvedValue({ varieties: [{ name: "Hass", variety_name: "Hass", item: "Hass fruit" } as Variety] });
+    vi.mocked(createProtocol).mockResolvedValue({ name: "Fresh", version: 1, version_status: "Draft" });
+    renderPage(<Settings />);
+    fireEvent.mouseDown(await screen.findByRole("tab", { name: "Protocols" }), { button: 0 });
+    fireEvent.click(await screen.findByRole("button", { name: /New protocol/ }));
+    // a blank name is refused in a toast and nothing is sent
+    fireEvent.click(await screen.findByRole("button", { name: "Create protocol" }));
+    expect(await screen.findByText("Give the protocol a name.")).toBeInTheDocument();
+    expect(createProtocol).not.toHaveBeenCalled();
+    // the server now lists the new draft
+    vi.mocked(listProtocolFamilies).mockResolvedValue({
+      families: [{ ...family([ver(1, "Draft", { name: "Fresh", protocol_name: "Fresh", key_activities: [] })]), family: "Fresh", label: "Fresh" }],
+    });
+    fireEvent.change(screen.getByLabelText("Protocol name"), { target: { value: "Fresh" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create protocol" }));
+    await waitFor(() => expect(createProtocol).toHaveBeenCalledWith({ crop: "Test Crop", protocol_name: "Fresh", variety: null, copy_from: null }));
+    expect(await screen.findByRole("button", { name: "Add row to Cultural activities" })).toBeInTheDocument(); // open, Draft, editable
+    expect(screen.getByRole("button", { name: "Submit Fresh v1 for approval" })).toBeInTheDocument();
+  });
+
+  it("New protocol shows the server's refusal in a toast and keeps the dialog", async () => {
+    vi.mocked(listOperations).mockResolvedValue({ rows: [] });
+    vi.mocked(createProtocol).mockResolvedValue({ error: "Variety Hass belongs to Other, not Test Crop." });
+    renderPage(<Settings />);
+    fireEvent.mouseDown(await screen.findByRole("tab", { name: "Protocols" }), { button: 0 });
+    fireEvent.click(await screen.findByRole("button", { name: /New protocol/ }));
+    fireEvent.change(await screen.findByLabelText("Protocol name"), { target: { value: "X" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create protocol" }));
+    expect(await screen.findByText("Variety Hass belongs to Other, not Test Crop.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Protocol name")).toBeInTheDocument();
   });
 
   it("edits only drafts and submits them for approval", async () => {

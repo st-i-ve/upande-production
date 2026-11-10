@@ -10,6 +10,7 @@ from upande_production.production.logic.weeks import iso_of, iso_week_bounds
 TASK_FIELDS = [
 	"name", "unit", "cycle", "operation", "operation_name", "planned_qty", "done_qty", "pending_qty", "uom",
 	"rate", "due_date", "supervisor", "status", "deviation", "note", "rule_status", "rule_notes", "override_reason",
+	"times_per_week",
 ]
 
 

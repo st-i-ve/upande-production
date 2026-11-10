@@ -1,0 +1,1 @@
+import{I as e}from"../production-EHja17y0.js";const s=a=>e("upande_production.api.overview.get_overview_extras",{crop:a}),p=(a,o,r,t)=>e("upande_production.api.overview.casual_labourer_detail",{crop:a,employee:o,from_date:r,to_date:t});export{p as a,s as g};

@@ -11,6 +11,7 @@
   "operation",
   "operation_name",
   "planned_qty",
+  "times_per_week",
   "uom",
   "rate",
   "due_date",
@@ -60,6 +61,14 @@
    "fieldname": "planned_qty",
    "fieldtype": "Float",
    "label": "Planned Qty"
+  },
+  {
+   "fieldname": "times_per_week",
+   "fieldtype": "Int",
+   "label": "Times per week",
+   "default": "1",
+   "read_only": 1,
+   "description": "From the protocol: planned qty already covers all of this week's times"
   },
   {
    "fieldname": "uom",

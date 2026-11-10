@@ -278,7 +278,7 @@ def get_plan(crop, farm, year, week):
 		fields=[
 			"name", "unit", "cycle", "operation", "operation_name", "planned_qty", "done_qty", "pending_qty", "uom",
 			"rate", "due_date", "supervisor", "status", "deviation", "protocol_ref", "note",
-			"rule_status", "rule_notes", "override_reason",
+			"rule_status", "rule_notes", "override_reason", "times_per_week",
 		],
 		order_by="idx asc",
 	)
@@ -535,7 +535,7 @@ def list_protocols(crop):
 	for r in rows:
 		for table, doctype, fields in (
 			("key_activities", "Production Protocol Key Activity", ["name", "operation", "week", "repeats", "planned_qty", "description"]),
-			("cultural_activities", "Production Protocol Cultural Activity", ["name", "operation", "schedule", "interval_weeks",
+			("cultural_activities", "Production Protocol Cultural Activity", ["name", "operation", "schedule", "interval_weeks", "times_per_week",
 				"establishment_period_weeks", "pre_harvest_interval_days", "planned_qty", "description"]),
 			("capital_activities", "Production Protocol Capital Activity", ["name", "operation", "description", "budget_per_ha"]),
 		):

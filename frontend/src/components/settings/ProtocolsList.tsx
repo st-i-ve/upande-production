@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronRight, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,7 +52,7 @@ export const KEY_HINT = "List key activities in the order of their week.";
 
 const EMPTY_KEY: KeyActivity = { operation: null, week: null, repeats: "Every cycle", planned_qty: null, description: null };
 const EMPTY_CULTURAL: CulturalActivity = {
-  operation: null, schedule: "Interval", interval_weeks: null, establishment_period_weeks: null,
+  operation: null, schedule: "Interval", interval_weeks: null, times_per_week: 1, establishment_period_weeks: null,
   pre_harvest_interval_days: null, occurrences: null, planned_qty: null, description: null,
 };
 const EMPTY_CAPITAL: CapitalActivity = { operation: null, description: null, budget_per_ha: null };
@@ -270,14 +270,15 @@ function Activities({ v, operations, editable, onSave }: {
       <Section title="Cultural activities" count={t.cultural_activities.length} onAdd={editable ? () => add("cultural_activities", EMPTY_CULTURAL) : undefined}>
         {empty(t.cultural_activities.length, "No cultural activities.")}
         {t.cultural_activities.length > 0 && (
-          <table className="w-full min-w-[52rem] text-[12.5px]">
+          <table className="w-full min-w-[58rem] text-[12.5px]">
             <thead><tr className={TH_CLS}>
               <th className={TH}>Activity</th>
               <th className={TH}>Schedule</th>
               <th className={TH}>Interval (weeks)</th>
+              <th className={TH} title="How many times the activity is done in each week it falls due">Per week</th>
               <th className={TH} title="weeks after planting / last harvest">Establishment period (weeks)</th>
               <th className={TH} title="days before harvest">Pre-harvest interval, PHI (days)</th>
-              <th className={TH} title="leave empty to repeat until the cycle ends">Occurrences</th>
+              <th className={TH} title="number of weeks the activity falls due; leave empty to repeat until the cycle ends">Occurrences</th>
               <th className={`${TH} text-right`}>Qty</th>
               <th className={TH}>Description</th>{editable && <th />}
             </tr></thead>
@@ -298,6 +299,11 @@ function Activities({ v, operations, editable, onSave }: {
                         : <span className="text-[var(--sd-muted)]">{r.schedule}</span>}
                     </td>
                     <td className="py-1 pr-2">{numCell("interval_weeks", "Interval weeks", asNeeded)}</td>
+                    <td className="py-1 pr-2">
+                      {editable
+                        ? <Input aria-label={`Times per week for ${op}`} className="h-8 w-16" type="number" min="1" max="7" value={r.times_per_week ?? ""} onChange={(e) => patch("cultural_activities", i, { times_per_week: num(e.target.value) })} />
+                        : <span className="tabular-nums text-[var(--sd-muted)]">{r.times_per_week ?? 1}× / week</span>}
+                    </td>
                     <td className="py-1 pr-2">{numCell("establishment_period_weeks", "Establishment period weeks")}</td>
                     <td className="py-1 pr-2">{numCell("pre_harvest_interval_days", "PHI days")}</td>
                     <td className="py-1 pr-2">{numCell("occurrences", "Occurrences", asNeeded, "until cycle end")}</td>
@@ -374,14 +380,19 @@ const activityCount = (v: ProtocolVersion) =>
   (v.key_activities?.length ?? 0) + (v.cultural_activities?.length ?? 0) + (v.capital_activities?.length ?? 0);
 
 /** Protocol families, each opening to its versions (status chips, steps, actions). Edit only on Drafts. */
-export function ProtocolsList({ families, operations, canPlan, canManage, actions }: {
+export function ProtocolsList({ families, operations, canPlan, canManage, actions, openFamily }: {
   families: ProtocolFamily[];
   operations: OpOption[];
   canPlan: boolean;
   canManage: boolean;
   actions: ProtocolActions;
+  /** A family to open (e.g. one just created); its Draft shows in edit mode. */
+  openFamily?: string | null;
 }) {
   const [open, setOpen] = useState<string | null>(null);
+  useEffect(() => {
+    if (openFamily) setOpen(openFamily);
+  }, [openFamily]);
   if (!families.length) {
     return <p className="px-1 py-6 text-center text-[13px] text-[var(--sd-muted)]">No protocols defined for this crop yet.</p>;
   }

@@ -3,6 +3,9 @@
 Week N of a cycle covers days [(N-1)*7, N*7) from the cycle start. Key activities fall in one week;
 cultural Interval activities repeat every `interval_weeks` after their establishment period and are
 left out when they would fall inside the pre-harvest interval (PHI, days before the next harvest).
+`occurrences` counts those due weeks. In each due week the activity is done `times_per_week` times (1..7):
+it stays one plan item, with the quantity multiplied and a "x3 this week" note, so one task / one set of
+casual-labour records covers the week.
 As needed and capital rows are never scheduled. Pure over plain objects (dicts or documents).
 """
 
@@ -45,6 +48,11 @@ def next_pick(on, harvest_start, picks=(), harvest_interval_weeks=None):
 	return getdate(add_days(last, k * step))
 
 
+def times_per_week(row) -> int:
+	"""Times a cultural activity is done in each week it falls due: 1 (the default) to 7."""
+	return min(max(cint(_g(row, "times_per_week")), 1), 7)
+
+
 def due_items(cycle_doc, protocol_doc, frm, to, harvest_start=None, picks=(), harvest_interval_weeks=None):
 	"""Every planned occurrence in [frm, to], sorted by date."""
 	frm, to = getdate(frm), getdate(to)
@@ -67,6 +75,13 @@ def due_items(cycle_doc, protocol_doc, frm, to, harvest_start=None, picks=(), ha
 		first = week_start(start, cint(_g(row, "establishment_period_weeks")) + 1)
 		phi = cint(_g(row, "pre_harvest_interval_days"))
 		occurrences = cint(_g(row, "occurrences"))
+		times = times_per_week(row)
+		qty = _g(row, "planned_qty", None)
+		note = _g(row, "description", None)
+		if times > 1:
+			qty = qty * times if qty is not None else None
+			tag = f"\u00d7{times} this week"
+			note = f"{tag}. {note}" if note else tag
 		k = 0
 		while True:
 			if occurrences and k >= occurrences:
@@ -81,8 +96,8 @@ def due_items(cycle_doc, protocol_doc, frm, to, harvest_start=None, picks=(), ha
 					inside = nh is not None and 0 <= (nh - due).days < phi
 				if not inside:
 					out.append({"ref": f"{cycle}:{_g(row, 'name')}:{k}", "kind": "cultural",
-						"operation": _g(row, "operation"), "due_date": due, "planned_qty": _g(row, "planned_qty", None),
-						"note": _g(row, "description", None), "row": _g(row, "name")})
+						"operation": _g(row, "operation"), "due_date": due, "planned_qty": qty,
+						"note": note, "row": _g(row, "name"), "times_per_week": times})
 			k += 1
 	out.sort(key=lambda r: (r["due_date"], r["ref"]))
 	return out

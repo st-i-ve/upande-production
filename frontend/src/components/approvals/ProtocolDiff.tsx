@@ -6,6 +6,7 @@ const LABEL: Record<string, string> = {
   repeats: "Repeats",
   schedule: "Schedule",
   interval_weeks: "Interval (weeks)",
+  times_per_week: "Times per week",
   establishment_period_weeks: "Establishment period (weeks)",
   pre_harvest_interval_days: "PHI (days)",
   budget_per_ha: "Budget per ha",
@@ -27,6 +28,7 @@ function rowLine(s?: ProtocolRow) {
   if (r.week != null) parts.push(`week ${r.week}${r.repeats === "First cycle only" ? ", first cycle only" : ""}`);
   if (r.schedule) {
     parts.push(r.schedule === "As needed" ? "as needed" : `every ${show(r.interval_weeks)} wk`);
+    if (Number(r.times_per_week) > 1) parts.push(`${r.times_per_week}× / week`);
     if (r.establishment_period_weeks) parts.push(`from week ${r.establishment_period_weeks}`);
     if (r.pre_harvest_interval_days) parts.push(`PHI ${r.pre_harvest_interval_days} d`);
   }

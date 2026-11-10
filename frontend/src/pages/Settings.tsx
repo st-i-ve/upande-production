@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Lock } from "lucide-react";
+import { Lock, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { NewProtocolDialog } from "@/components/settings/NewProtocolDialog";
 import { ClearFiltersPill } from "@/components/ClearFiltersPill";
 import { FilterSelect } from "@/components/FilterSelect";
 import { KpiCard } from "@/components/KpiCard";
@@ -54,6 +56,8 @@ export function Settings() {
   const [rules, setRules] = useState<ActivityRule[] | null>(null);
   const [activeProtocols, setActiveProtocols] = useState<{ value: string; label: string }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [openFamily, setOpenFamily] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -242,11 +246,32 @@ export function Settings() {
                 <CardTitle>Protocols</CardTitle>
                 <CardDescription>Repeating work schedules, versioned. Only the active version plans work; changes need a manager's approval.</CardDescription>
               </CardHeading>
+              {crop.boot.can_plan && (
+                <Button size="sm" onClick={() => setCreating(true)}>
+                  <Plus className="h-4 w-4" /> New protocol
+                </Button>
+              )}
             </CardHeaderRow>
             <CardContent>
-              {!protocols ? <RowsSkeleton rows={4} /> : <ProtocolsList families={visibleProtocols} operations={protocolOps} canPlan={crop.boot.can_plan} canManage={canManage} actions={actions} />}
+              {!protocols ? <RowsSkeleton rows={4} /> : <ProtocolsList families={visibleProtocols} operations={protocolOps} canPlan={crop.boot.can_plan} canManage={canManage} actions={actions} openFamily={openFamily} />}
             </CardContent>
           </Card>
+          {creating && (
+            <NewProtocolDialog
+              crop={crop.name}
+              varieties={(varieties ?? []).map((v) => ({ value: v.name, label: v.variety_name }))}
+              families={protocols ?? []}
+              opNames={Object.fromEntries(protocolOps.map((o) => [o.value, o.label]))}
+              onClose={() => setCreating(false)}
+              onCreated={(family) => {
+                setCreating(false);
+                setQ("");
+                setOpenFamily(family);
+                window.dispatchEvent(new Event(APPROVALS_CHANGED));
+                void load();
+              }}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="varieties" className="mt-0">
