@@ -19,6 +19,7 @@
   "enabled",
   "desk_launcher",
   "sort_order",
+  "grown_for_silage",
   "harvests_in_crates",
   "avg_kg_per_crate",
   "crop_model_section",
@@ -130,6 +131,13 @@
    "fieldname": "sort_order",
    "fieldtype": "Int",
    "label": "Sort Order"
+  },
+  {
+   "fieldname": "grown_for_silage",
+   "fieldtype": "Check",
+   "label": "Grown for Silage",
+   "default": "0",
+   "description": "Shows the Silage page for this crop: silage cycles, their cost per kg and the pit stock."
   },
   {
    "fieldname": "harvests_in_crates",
@@ -327,7 +335,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-04 09:00:00.000000",
+ "modified": "2026-11-11 09:00:00.000000",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production Crop",
