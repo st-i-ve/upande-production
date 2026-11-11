@@ -116,6 +116,10 @@ const DryMatterTests = page(() =>
   import("@/pages/fruits-vegetables/DryMatterTests").then((m) => ({ default: m.DryMatterTests })),
 );
 
+const Machines = page(() => import("@/pages/machines/Machines").then((m) => ({ default: m.Machines })));
+const Allocations = page(() => import("@/pages/machines/Allocations").then((m) => ({ default: m.Allocations })));
+const ScanMachine = page(() => import("@/pages/machines/ScanMachine").then((m) => ({ default: m.ScanMachine })));
+
 const PAGES: Record<View, React.ComponentType> = {
   overview: Overview,
   blocks: Blocks,
@@ -153,6 +157,9 @@ const PAGES: Record<View, React.ComponentType> = {
   "farm-map": FarmMap,
   "planting-calendars": PlantingCalendars,
   "protocol-versions": ProtocolVersions,
+  machines: Machines,
+  allocations: Allocations,
+  scan: ScanMachine,
 };
 
 /** Says why the workspace is empty, and what to do, in place of a blank page. */

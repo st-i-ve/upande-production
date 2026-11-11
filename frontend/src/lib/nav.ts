@@ -22,11 +22,14 @@ import {
   LineChart,
   Map as MapIcon,
   Repeat,
+  ScanLine,
   SlidersHorizontal,
   Sunrise,
   Table2,
+  Tractor,
   UserRoundCheck,
   Users,
+  Route as RouteIcon,
 } from "lucide-react";
 import type { Crop } from "@/lib/api";
 import { isFlowerCrop, viewLabel } from "@/lib/crops";
@@ -82,7 +85,13 @@ const ICONS: Record<View, IconType> = {
   "farm-map": MapIcon,
   "planting-calendars": CalendarRange,
   "protocol-versions": ScrollText,
+  machines: Tractor,
+  allocations: RouteIcon,
+  scan: ScanLine,
 };
+
+/** Machines are farm-wide: every crop's sidebar has them, flower crops included. */
+export const MACHINE_VIEWS: View[] = ["machines", "allocations", "scan"];
 
 /** The screens a flower crop has (and only those): the Crop Production ones, ported. */
 export const FLOWER_VIEWS: View[] = [
@@ -129,6 +138,7 @@ const GROUPS: { label: string; views: View[] }[] = [
     label: "Forecast",
     views: ["forecast", "outlook", "block-forecast", "harvest-calendar", "picking-plan", "dry-matter", "dry-matter-monitoring", "dry-matter-tests"],
   },
+  { label: "Machines", views: MACHINE_VIEWS },
   { label: "Setup", views: ["settings"] },
 ];
 
@@ -137,6 +147,7 @@ const FLOWER_GROUPS: { label: string; views: View[] }[] = [
   { label: "Crop setup", views: ["protocols", "protocol-versions", "cut-stages"] },
   { label: "Planting and beds", views: ["greenhouses", "flower-cycles", "farm-map"] },
   { label: "Planning and harvest", views: ["planting-calendars", "plan-form", "harvesting"] },
+  { label: "Machines", views: MACHINE_VIEWS },
 ];
 
 export function viewAllowed(
@@ -145,6 +156,7 @@ export function viewAllowed(
   crop?: (Pick<Crop, "dry_matter_testing"> & Partial<Pick<Crop, "desk_launcher" | "unit_label" | "parent_unit_label" | "sub_unit_label">>) | null,
 ): boolean {
   // Flower crops have their own screens and none of the others; nobody else has theirs.
+  if (MACHINE_VIEWS.includes(view)) return true;
   const flower = isFlowerCrop(crop as Parameters<typeof isFlowerCrop>[0]);
   if (FLOWER_VIEWS.includes(view)) return flower;
   if (flower) return false;

@@ -58,6 +58,11 @@ export const VIEWS = [
   // Summer flowers (Crop Production): planting calendars and protocol versions, ported from the desk lists.
   "planting-calendars",
   "protocol-versions",
+  // Machines (farm-wide, every crop's sidebar): the machine list with QR labels, allocations with a
+  // map of last positions, and the scan-to-allocate screen a machine's QR code opens.
+  "machines",
+  "allocations",
+  "scan",
 ] as const;
 
 export type View = (typeof VIEWS)[number];
