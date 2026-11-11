@@ -1,0 +1,347 @@
+{
+ "actions": [],
+ "creation": "2026-11-11 09:00:00.000000",
+ "custom": 0,
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "links": [],
+ "modified": "2026-11-11 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Production Asset Allocation",
+ "owner": "Administrator",
+ "states": [],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "track_changes": 1,
+ "autoname": "PAA-.YYYY.-.#####",
+ "naming_rule": "Expression (old style)",
+ "is_submittable": 1,
+ "title_field": "machine",
+ "search_fields": "machine,operator_name,allocated_to",
+ "fields": [
+  {
+   "fieldname": "machine",
+   "fieldtype": "Link",
+   "label": "Machine",
+   "options": "Production Machine",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "machine_type",
+   "fieldtype": "Data",
+   "label": "Machine Type",
+   "fetch_from": "machine.machine_type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "allocated_to",
+   "fieldtype": "Select",
+   "label": "Allocated To",
+   "options": "Feedlot\nProduction Unit\nSilage Cycle\nOther",
+   "default": "Feedlot",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "reference_doctype",
+   "fieldtype": "Link",
+   "label": "Reference Type",
+   "options": "DocType",
+   "description": "A Production Unit, a Silage Cycle\u2026"
+  },
+  {
+   "fieldname": "reference_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Reference",
+   "options": "reference_doctype",
+   "search_index": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "operator",
+   "fieldtype": "Link",
+   "label": "Operator",
+   "options": "Employee",
+   "reqd": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "operator_name",
+   "fieldtype": "Data",
+   "label": "Operator Name",
+   "fetch_from": "operator.employee_name",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "options": "Cost Center",
+   "reqd": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "read_only": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Open\nClosed\nPosted\nCancelled",
+   "default": "Open",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "section_time",
+   "fieldtype": "Section Break",
+   "label": "Time"
+  },
+  {
+   "fieldname": "start_time",
+   "fieldtype": "Datetime",
+   "label": "Start Time",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "end_time",
+   "fieldtype": "Datetime",
+   "label": "End Time",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "duration_hours",
+   "fieldtype": "Float",
+   "label": "Duration (hours)",
+   "read_only": 1,
+   "precision": "2",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "scanned",
+   "fieldtype": "Check",
+   "label": "Started by QR Scan",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "section_location",
+   "fieldtype": "Section Break",
+   "label": "Location (read when the QR code was scanned)",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "start_latitude",
+   "fieldtype": "Float",
+   "label": "Start Latitude",
+   "read_only": 1,
+   "precision": "7",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "start_longitude",
+   "fieldtype": "Float",
+   "label": "Start Longitude",
+   "read_only": 1,
+   "precision": "7",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "start_accuracy",
+   "fieldtype": "Float",
+   "label": "Start Accuracy (m)",
+   "read_only": 1,
+   "precision": "1",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "end_latitude",
+   "fieldtype": "Float",
+   "label": "End Latitude",
+   "read_only": 1,
+   "precision": "7",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "end_longitude",
+   "fieldtype": "Float",
+   "label": "End Longitude",
+   "read_only": 1,
+   "precision": "7",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "end_accuracy",
+   "fieldtype": "Float",
+   "label": "End Accuracy (m)",
+   "read_only": 1,
+   "precision": "1",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "section_diesel",
+   "fieldtype": "Section Break",
+   "label": "Diesel"
+  },
+  {
+   "fieldname": "diesel_litres",
+   "fieldtype": "Float",
+   "label": "Diesel Litres",
+   "precision": "2",
+   "description": "Issued from the Fuel Warehouse as a Material Issue on submit."
+  },
+  {
+   "fieldname": "fuel_item",
+   "fieldtype": "Link",
+   "label": "Fuel Item",
+   "options": "Item",
+   "fetch_from": "machine.fuel_item",
+   "fetch_if_empty": 1
+  },
+  {
+   "fieldname": "column_break_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "diesel_stock_entry",
+   "fieldtype": "Link",
+   "label": "Diesel Stock Entry",
+   "options": "Stock Entry",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "diesel_cost",
+   "fieldtype": "Currency",
+   "label": "Diesel Cost",
+   "read_only": 1,
+   "no_copy": 1,
+   "description": "The value of the diesel Stock Entry."
+  },
+  {
+   "fieldname": "section_notes",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "options": "Production Asset Allocation",
+   "read_only": 1,
+   "no_copy": 1,
+   "print_hide": 1
+  }
+ ],
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "write": 1,
+   "role": "System Manager",
+   "submit": 1,
+   "cancel": 1,
+   "amend": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "write": 1,
+   "role": "Production Manager",
+   "submit": 1,
+   "cancel": 1,
+   "amend": 1
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "write": 1,
+   "report": 1,
+   "print": 1,
+   "submit": 1,
+   "role": "Production Supervisor"
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "print": 1,
+   "role": "Production Viewer"
+  }
+ ],
+ "field_order": [
+  "machine",
+  "machine_type",
+  "allocated_to",
+  "reference_doctype",
+  "reference_name",
+  "column_break_1",
+  "operator",
+  "operator_name",
+  "cost_center",
+  "company",
+  "status",
+  "section_time",
+  "start_time",
+  "end_time",
+  "column_break_2",
+  "duration_hours",
+  "scanned",
+  "section_location",
+  "start_latitude",
+  "start_longitude",
+  "start_accuracy",
+  "column_break_3",
+  "end_latitude",
+  "end_longitude",
+  "end_accuracy",
+  "section_diesel",
+  "diesel_litres",
+  "fuel_item",
+  "column_break_4",
+  "diesel_stock_entry",
+  "diesel_cost",
+  "section_notes",
+  "notes",
+  "amended_from"
+ ]
+}

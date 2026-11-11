@@ -92,6 +92,11 @@ doctype_js = {"Production Crop": "public/js/production_crop.js"}
 # before_install = "upande_production.install.before_install"
 # after_install = "upande_production.install.after_install"
 
+# Custom fields this app declares in code (not fixtures), rebuilt on every migrate and on install:
+# the Stock Entry links from a diesel issue back to its machine allocation.
+after_install = ["upande_production.production.setup.stock_entry_fields.after_migrate"]
+after_migrate = ["upande_production.production.setup.stock_entry_fields.after_migrate"]
+
 # Uninstallation
 # ------------
 
