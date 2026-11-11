@@ -114,7 +114,7 @@ def silage_items(search=""):
 	filters = {"is_stock_item": 1, "disabled": 0}
 	or_filters = {"item_code": ("like", f"%{search}%"), "item_name": ("like", f"%{search}%")} if search else None
 	rows = frappe.get_all("Item", filters=filters, or_filters=or_filters, fields=["name", "item_name", "stock_uom"],
-		order_by="item_name asc", limit=50)
+		order_by="item_name asc", limit=500)
 	return {"ok": True, "items": [{"item_code": r.name, "item_name": r.item_name, "stock_uom": r.stock_uom} for r in rows]}
 
 
