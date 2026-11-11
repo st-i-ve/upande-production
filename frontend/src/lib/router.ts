@@ -58,6 +58,8 @@ export const VIEWS = [
   // Summer flowers (Crop Production): planting calendars and protocol versions, ported from the desk lists.
   "planting-calendars",
   "protocol-versions",
+  // Silage cycles, their cost per kg and the pit stock (crops marked Grown for Silage).
+  "silage",
 ] as const;
 
 export type View = (typeof VIEWS)[number];

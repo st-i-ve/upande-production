@@ -109,6 +109,8 @@ const PlantingCalendars = page(() => import("@/pages/flowers/FlowerLists").then(
 const ProtocolVersions = page(() => import("@/pages/flowers/FlowerLists").then((m) => ({ default: m.ProtocolVersions })));
 const FarmMap = page(() => import("@/pages/flowers/FarmMap").then((m) => ({ default: m.FarmMap })));
 
+const Silage = page(() => import("@/pages/Silage").then((m) => ({ default: m.Silage })));
+
 const DryMatterMonitoring = page(() =>
   import("@/pages/avocado/DryMatterMonitoring").then((m) => ({ default: m.DryMatterMonitoring })),
 );
@@ -153,6 +155,7 @@ const PAGES: Record<View, React.ComponentType> = {
   "farm-map": FarmMap,
   "planting-calendars": PlantingCalendars,
   "protocol-versions": ProtocolVersions,
+  silage: Silage,
 };
 
 /** Says why the workspace is empty, and what to do, in place of a blank page. */

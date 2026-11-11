@@ -138,6 +138,8 @@ export function viewLabel(view: View, crop?: Pick<Crop, "unit_label"> | null): s
       return "Planting Calendars";
     case "protocol-versions":
       return "Protocol Versions";
+    case "silage":
+      return "Silage";
   }
 }
 

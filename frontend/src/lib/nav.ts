@@ -15,6 +15,7 @@ import {
   TrendingUp,
   Scale,
   Waves,
+  Wheat,
   Stethoscope,
   Utensils,
   LayoutDashboard,
@@ -82,6 +83,7 @@ const ICONS: Record<View, IconType> = {
   "farm-map": MapIcon,
   "planting-calendars": CalendarRange,
   "protocol-versions": ScrollText,
+  silage: Wheat,
 };
 
 /** The screens a flower crop has (and only those): the Crop Production ones, ported. */
@@ -119,7 +121,7 @@ const NOT_FOR: Partial<Record<View, string[]>> = {
 
 const GROUPS: { label: string; views: View[] }[] = [
   { label: "Overview", views: ["overview", "approvals"] },
-  { label: "Field work", views: ["plan", "map", "casual-labourers"] },
+  { label: "Field work", views: ["plan", "map", "casual-labourers", "silage"] },
   {
     label: "Field logs",
     views: ["hive-inspections", "honey-harvest", "pond-batches", "water-quality", "feeding", "irrigation", "grading"],
@@ -142,7 +144,7 @@ const FLOWER_GROUPS: { label: string; views: View[] }[] = [
 export function viewAllowed(
   view: View,
   cropKey: string,
-  crop?: (Pick<Crop, "dry_matter_testing"> & Partial<Pick<Crop, "desk_launcher" | "unit_label" | "parent_unit_label" | "sub_unit_label">>) | null,
+  crop?: (Pick<Crop, "dry_matter_testing"> & Partial<Pick<Crop, "desk_launcher" | "unit_label" | "parent_unit_label" | "sub_unit_label" | "grown_for_silage">>) | null,
 ): boolean {
   // Flower crops have their own screens and none of the others; nobody else has theirs.
   const flower = isFlowerCrop(crop as Parameters<typeof isFlowerCrop>[0]);
@@ -150,6 +152,8 @@ export function viewAllowed(
   if (flower) return false;
   // Dry matter tests follow the crop's setting; avocado keeps its own Dry Matter page.
   if (view === "dry-matter-tests") return cropKey !== "avocado" && !!Number(crop?.dry_matter_testing);
+  // Silage follows the crop's Grown for Silage setting.
+  if (view === "silage") return !!Number(crop?.grown_for_silage);
   const only = ONLY_FOR[view];
   if (only && !only.includes(cropKey)) return false;
   return !(NOT_FOR[view] ?? []).includes(cropKey);
