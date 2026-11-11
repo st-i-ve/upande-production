@@ -298,8 +298,9 @@
    "write": 1,
    "report": 1,
    "print": 1,
-   "submit": 1,
-   "role": "Production Supervisor"
+   "submit": 0,
+   "role": "Production Supervisor",
+   "cancel": 0
   },
   {
    "read": 1,

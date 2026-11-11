@@ -863,7 +863,8 @@ refused (one open allocation per machine). Returns `{status, name, allocation, m
 
 ### productionCloseAllocation
 Params: `code` (or `allocation`), the GPS fix of the closing scan, `diesel_litres` (in the fuel item's stock
-UOM), `notes`, `submit` (1 to post now). Submitting issues the diesel from the Fuel Warehouse as a Material
+UOM), `notes`, `submit` (1 to post now; needs the submit right, Production Manager, which
+`productionAllocationForm` reports as `can_submit`; a supervisor closes and a manager posts). Submitting issues the diesel from the Fuel Warehouse as a Material
 Issue on the allocation's cost centre; `diesel_cost` is that Stock Entry's value.
 
 ### productionListAllocations
