@@ -17,6 +17,9 @@ class SilageCycle(Document):
 		silage.post_pit_receipt(self)
 
 	def before_cancel(self):
+		# The input issues and machine diesel stay submitted and stay the cycle's: cancelling a closed cycle
+		# reverses only its pit receipt. Without this the issues' link back to the cycle refuses the cancel.
+		self.ignore_linked_doctypes = ("Stock Entry", "Production Asset Allocation")
 		silage.reverse_pit_receipt(self)
 
 	def on_cancel(self):

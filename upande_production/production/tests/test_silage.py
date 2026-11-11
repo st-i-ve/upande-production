@@ -37,7 +37,7 @@ class TestSilage(IntegrationTestCase):
 		cls.crop = _make("Production Crop", crop_name="SL Maize", crop_key="sl-maize", unit_label="Field",
 			yield_uom="Kg", enabled=1, uses_crop_cycles=1, grown_for_silage=1)
 		cls.unit = _make("Production Unit", unit_name="SL Field 1", crop=cls.crop.name, farm=cls.farm.name,
-			unit_type="Other Unit Type", company=cls.company)
+			unit_type="Other", company=cls.company)
 		cls.store = H.new_warehouse("SL Input Store", cls.company, farm=cls.farm.name)
 		cls.pit = H.new_warehouse("SL Pit 1", cls.company, farm=cls.farm.name)
 		cls.seed = _make("Item", item_code="SL Seed", item_name="SL Seed", item_group="All Item Groups",
@@ -142,6 +142,8 @@ class TestSilage(IntegrationTestCase):
 		name = frappe.generate_hash(length=10)
 		frappe.db.sql("""insert into `tabCasual Labour Work` (name, docstatus, unit, work_date, pay_value, creation, modified)
 			values (%s, 1, %s, %s, 900, now(), now())""", (name, self.unit.name, add_days(today(), -3)))
+		# The tests share one field; left behind, this pay lands in every later cycle's total.
+		self.addCleanup(frappe.db.delete, "Casual Labour Work", {"name": name})
 		c.reload()
 		c.save()
 		self.assertEqual(c.casual_labour_cost, 900)

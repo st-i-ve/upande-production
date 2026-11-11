@@ -9,6 +9,7 @@ from upande_production.api import asset_allocation as api
 from upande_production.production.logic import asset_allocation as aa
 from upande_production.production.logic import geo, qr
 from upande_production.production.setup.stock_entry_fields import ensure_stock_entry_fields
+from upande_production.production.logic.harvest import new_warehouse
 
 
 class TestAssetAllocationPure(unittest.TestCase):
@@ -55,12 +56,9 @@ class TestAssetAllocation(IntegrationTestCase):
 			frappe.get_doc({"doctype": "Item Group", "item_group_name": "All Item Groups", "is_group": 1}).insert()
 		cls.diesel = frappe.get_doc({"doctype": "Item", "item_code": "AA Diesel", "item_name": "AA Diesel",
 			"item_group": "All Item Groups", "stock_uom": "Litre", "is_stock_item": 1}).insert()
-		abbr = frappe.db.get_value("Company", cls.company, "abbr")
-		cls.wh = f"AA Fuel Store - {abbr}"
-		if not frappe.db.exists("Warehouse", cls.wh):
-			frappe.get_doc({"doctype": "Warehouse", "warehouse_name": "AA Fuel Store", "company": cls.company,
-				"parent_warehouse": frappe.db.get_value("Warehouse", {"company": cls.company, "is_group": 1,
-					"parent_warehouse": ("is", "not set")})}).insert()
+		# Through the app's own helper: it sets the Farm another installed app makes mandatory on Warehouse.
+		cls.wh = new_warehouse("AA Fuel Store", cls.company,
+			farm=frappe.db.get_value("Farm", {}, "name") if frappe.db.exists("DocType", "Farm") else None)
 		receipt = frappe.get_doc({"doctype": "Stock Entry", "stock_entry_type": "Material Receipt",
 			"purpose": "Material Receipt", "company": cls.company, "set_posting_time": 1,
 			"posting_date": add_days(today(), -30), "items": [{"item_code": cls.diesel.name, "qty": 1000,
