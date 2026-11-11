@@ -827,3 +827,51 @@ other-company warehouse is refused with `{"error": ...}` and the crates stay ope
   and `target_met` (true / false, null when there is no target).
 * The app shows the target next to the quantity: the person's override for the task's operation, else the task's
   `daily_target`.
+
+## Machine allocation by QR scan  (new)
+
+Endpoints are in `upande_production/mobile/asset_allocation.py`
+(`POST /api/method/upande_production.mobile.asset_allocation.<function>`), same envelope as above.
+
+Every Production Machine has a label whose QR code encodes a link,
+`https://<site>/production_app?machine=<TOKEN>#/_/scan`. Send whatever the scanner read as `code`: the
+link or the bare token (typed by hand from the label) both work.
+
+**GPS is read once, at the moment the QR code is scanned**, never in the background. Send that fix with the
+start or close call: `latitude`, `longitude`, `accuracy` (metres) and `scanned_at` (`YYYY-MM-DD HH:MM:SS`,
+when the scan happened; default now). All optional: a user who refuses location still allocates the
+machine. Half a fix, (0, 0) or an off-globe position is refused.
+
+| Screen | Calls |
+|---|---|
+| Machine list | `productionListMachines` |
+| Scan | `productionScanMachine` then `productionStartAllocation` or `productionCloseAllocation` |
+| Start sheet pickers | `productionAllocationForm` |
+| History | `productionListAllocations` |
+
+### productionScanMachine
+Params: `code`. Returns `{"machine": {name, machine_name, machine_type, fuel_item, qr_code, last_latitude,
+last_longitude, last_seen_at, ...}, "open_allocation": {...} | null}`. With an open allocation the scan
+closes it; without one it starts one. A disabled or unknown machine is `{"error": ...}`.
+
+### productionStartAllocation
+Params: `code`, `operator` (Employee, required), `allocated_to` (`Feedlot` · `Production Unit` ·
+`Silage Cycle` · `Other`, default Feedlot), `reference_doctype` / `reference_name` (a Production Unit or
+a Silage Cycle), `cost_center` (default: the reference's, else the Feedlot Cost Center in Production
+Settings for the feedlot, else the machine's default), the GPS fix, `notes`. A machine already allocated is
+refused (one open allocation per machine). Returns `{status, name, allocation, message}`.
+
+### productionCloseAllocation
+Params: `code` (or `allocation`), the GPS fix of the closing scan, `diesel_litres` (in the fuel item's stock
+UOM), `notes`, `submit` (1 to post now). Submitting issues the diesel from the Fuel Warehouse as a Material
+Issue on the allocation's cost centre; `diesel_cost` is that Stock Entry's value.
+
+### productionListAllocations
+Params: `from_date`, `to_date`, `status` (`Open` · `Closed` · `Posted` · `Cancelled`), `machine`,
+`allocated_to`. Open allocations are always listed; rows carry `running_hours` while open.
+
+### productionListMachines / productionAllocationForm
+Machines with `open_allocation` and last position; the start sheet's `employees`, `me` (the user's own
+Employee), `allocated_to`, `references` (`{"Production Unit": [...], "Silage Cycle": [...]}`),
+`cost_centers`, `settings` (`fuel_warehouse`, `feedlot_cost_center`) and rights (`can_allocate`,
+`can_submit`).
