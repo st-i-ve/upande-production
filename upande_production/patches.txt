@@ -31,3 +31,4 @@ upande_production.patches.add_avocado_production_manager_role
 upande_production.patches.set_times_per_week
 upande_production.patches.add_dm_fruit_tag_perms
 upande_production.patches.casual_labour_targets_and_paid
+upande_production.patches.seed_silage_settings

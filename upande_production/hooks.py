@@ -146,6 +146,10 @@ doc_events = {
 	"Avocado Fruit Count": {
 		"after_insert": "upande_production.api.avocadoapi.notify_new_fruit_count",
 	},
+	# A Stock Entry tagged with a silage cycle must be a Material Issue to an open cycle (its pit receipt aside).
+	"Stock Entry": {
+		"before_submit": "upande_production.production.logic.silage.check_stock_entry",
+	},
 }
 
 # Fixtures
@@ -166,6 +170,13 @@ fixtures = [
 	# desk-grid icon that opens that workspace.
 	{"doctype": "Custom HTML Block", "filters": [["name", "in", ["Production Navigation"]]]},
 	{"doctype": "Desktop Icon", "filters": [["name", "in", ["Production"]]]},
+]
+
+# Migration
+# ---------
+# Custom fields this app owns on shared doctypes, declared in code and rebuilt on every migrate (not fixtures).
+after_migrate = [
+	"upande_production.production.setup.silage_fields.ensure_silage_fields",
 ]
 
 # Scheduled Tasks
