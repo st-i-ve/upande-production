@@ -134,6 +134,7 @@ def get_bootstrap():
 		fields=[
 			"name", "crop_key", "accent_color", "icon_key", "unit_label", "parent_unit_label",
 			"sub_unit_label", "yield_uom", "uses_crop_cycles", "desk_launcher", "dry_matter_testing", "dry_matter_on", "dry_matter_target_pct",
+			"grown_for_silage",
 		],
 		order_by="sort_order asc, name asc",
 	)

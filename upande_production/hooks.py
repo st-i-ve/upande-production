@@ -93,9 +93,17 @@ doctype_js = {"Production Crop": "public/js/production_crop.js"}
 # after_install = "upande_production.install.after_install"
 
 # Custom fields this app declares in code (not fixtures), rebuilt on every migrate and on install:
-# the Stock Entry links from a diesel issue back to its machine allocation.
-after_install = ["upande_production.production.setup.stock_entry_fields.after_migrate"]
-after_migrate = ["upande_production.production.setup.stock_entry_fields.after_migrate"]
+# the Stock Entry links from a diesel issue back to its machine allocation, and from an input issue
+# or pit receipt to its silage cycle. ONE list each: a second assignment further down would replace
+# this one silently.
+after_install = [
+	"upande_production.production.setup.stock_entry_fields.after_migrate",
+	"upande_production.production.setup.silage_fields.ensure_silage_fields",
+]
+after_migrate = [
+	"upande_production.production.setup.stock_entry_fields.after_migrate",
+	"upande_production.production.setup.silage_fields.ensure_silage_fields",
+]
 
 # Uninstallation
 # ------------
@@ -150,6 +158,10 @@ after_migrate = ["upande_production.production.setup.stock_entry_fields.after_mi
 doc_events = {
 	"Avocado Fruit Count": {
 		"after_insert": "upande_production.api.avocadoapi.notify_new_fruit_count",
+	},
+	# A Stock Entry tagged with a silage cycle must be a Material Issue to an open cycle (its pit receipt aside).
+	"Stock Entry": {
+		"before_submit": "upande_production.production.logic.silage.check_stock_entry",
 	},
 }
 

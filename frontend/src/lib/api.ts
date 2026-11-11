@@ -39,6 +39,8 @@ export interface Crop {
   dry_matter_testing?: number | boolean;
   dry_matter_on?: "Fruit" | "Tuber" | "Bulb" | "Head" | "Leaf" | null;
   dry_matter_target_pct?: number | null;
+  /** Grown for silage: the crop has the Silage page. */
+  grown_for_silage?: number | boolean;
 }
 
 export interface Boot {

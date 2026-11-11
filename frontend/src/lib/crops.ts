@@ -144,6 +144,8 @@ export function viewLabel(view: View, crop?: Pick<Crop, "unit_label"> | null): s
       return "Allocations";
     case "scan":
       return "Scan a machine";
+    case "silage":
+      return "Silage";
   }
 }
 

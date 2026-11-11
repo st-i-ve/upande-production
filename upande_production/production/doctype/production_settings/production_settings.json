@@ -20,7 +20,12 @@
   "machines_section",
   "fuel_warehouse",
   "machines_column",
-  "feedlot_cost_center"
+  "feedlot_cost_center",
+  "silage_section",
+  "silage_input_warehouse",
+  "silage_pit_warehouse",
+  "silage_column",
+  "silage_labour_day_rate"
  ],
  "fields": [
   {
@@ -119,6 +124,36 @@
    "label": "Feedlot Cost Center",
    "options": "Cost Center",
    "description": "The cost centre a machine allocated to the Feedlot is charged to, unless the allocation names another."
+  },
+  {
+   "fieldname": "silage_section",
+   "fieldtype": "Section Break",
+   "label": "Silage"
+  },
+  {
+   "fieldname": "silage_input_warehouse",
+   "fieldtype": "Link",
+   "label": "Silage Input Warehouse",
+   "options": "Warehouse",
+   "description": "Default store seed, fertiliser, inoculant and sheeting are issued from to a silage cycle."
+  },
+  {
+   "fieldname": "silage_pit_warehouse",
+   "fieldtype": "Link",
+   "label": "Silage Pit Warehouse",
+   "options": "Warehouse",
+   "description": "Default pit a closed silage cycle receives its silage into."
+  },
+  {
+   "fieldname": "silage_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "silage_labour_day_rate",
+   "fieldtype": "Currency",
+   "label": "Silage Labour Day Rate",
+   "default": "400",
+   "description": "Pay per worker per day on a silage activity, used when the activity row gives no rate of its own."
   }
  ],
  "index_web_pages_for_search": 1,

@@ -1,0 +1,329 @@
+{
+ "actions": [],
+ "creation": "2026-11-11 09:00:00.000000",
+ "custom": 0,
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "name": "Silage Cycle",
+ "autoname": "SIL-.YYYY.-.####",
+ "naming_rule": "Expression (old style)",
+ "is_submittable": 1,
+ "track_changes": 1,
+ "title_field": "title",
+ "show_title_field_in_link": 1,
+ "search_fields": "crop,production_unit,status",
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "description": "Filled in from the crop, field and start date when left empty."
+  },
+  {
+   "fieldname": "crop",
+   "fieldtype": "Select",
+   "label": "Crop",
+   "options": "Maize\nNapier\nSorghum\nOther",
+   "default": "Maize",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "production_crop",
+   "fieldtype": "Link",
+   "label": "Production Crop",
+   "options": "Production Crop",
+   "description": "The crop as Production knows it, when it is set up there."
+  },
+  {
+   "fieldname": "production_unit",
+   "fieldtype": "Link",
+   "label": "Field",
+   "options": "Production Unit",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Where the forage is grown."
+  },
+  {
+   "fieldname": "crop_cycle",
+   "fieldtype": "Link",
+   "label": "Crop Cycle",
+   "options": "Production Crop Cycle",
+   "description": "Optional. When set, casual labour is the work booked to this crop cycle; otherwise the work on the field during the silage cycle."
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Planned\nGrowing\nHarvesting\nEnsiled\nClosed\nCancelled",
+   "default": "Planned",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "allow_on_submit": 1
+  },
+  {
+   "fieldname": "start_date",
+   "fieldtype": "Date",
+   "label": "Start Date",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "closed_on",
+   "fieldtype": "Date",
+   "label": "Closed On",
+   "read_only": 1,
+   "no_copy": 1,
+   "description": "The pit receipt's posting date."
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "options": "Cost Center",
+   "description": "Inputs are issued against it. Defaults to the field's cost centre."
+  },
+  {
+   "fieldname": "pit_section",
+   "fieldtype": "Section Break",
+   "label": "Pit"
+  },
+  {
+   "fieldname": "pit_warehouse",
+   "fieldtype": "Link",
+   "label": "Pit Warehouse",
+   "options": "Warehouse",
+   "description": "Where the silage goes. Defaults to the Silage Pit Warehouse in Production Settings."
+  },
+  {
+   "fieldname": "silage_item",
+   "fieldtype": "Link",
+   "label": "Silage Item",
+   "options": "Item",
+   "description": "The feed item livestock draws, e.g. Maize Silage."
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "ensiled_kg",
+   "fieldtype": "Float",
+   "label": "Ensiled Kg",
+   "description": "Kilos put into the pit. Needed to close the cycle."
+  },
+  {
+   "fieldname": "include_casual_labour",
+   "fieldtype": "Check",
+   "label": "Include Casual Labour",
+   "default": "1",
+   "description": "Count approved Casual Labour Work on the field (or crop cycle) in the silage cost."
+  },
+  {
+   "fieldname": "activities_section",
+   "fieldtype": "Section Break",
+   "label": "Activities"
+  },
+  {
+   "fieldname": "activities",
+   "fieldtype": "Table",
+   "label": "Activities",
+   "options": "Silage Cycle Activity"
+  },
+  {
+   "fieldname": "cost_section",
+   "fieldtype": "Section Break",
+   "label": "Cost",
+   "description": "Worked out from stock issues, machine allocations and labour. Frozen when the cycle is closed."
+  },
+  {
+   "fieldname": "inputs_cost",
+   "fieldtype": "Currency",
+   "label": "Inputs",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "diesel_cost",
+   "fieldtype": "Currency",
+   "label": "Diesel",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "diesel_litres",
+   "fieldtype": "Float",
+   "label": "Diesel Litres",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "machine_hours",
+   "fieldtype": "Float",
+   "label": "Machine Hours",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "labour_cost",
+   "fieldtype": "Currency",
+   "label": "Activity Labour",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "casual_labour_cost",
+   "fieldtype": "Currency",
+   "label": "Casual Labour",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "total_cost",
+   "fieldtype": "Currency",
+   "label": "Total Cost",
+   "read_only": 1,
+   "no_copy": 1,
+   "bold": 1
+  },
+  {
+   "fieldname": "cost_per_kg",
+   "fieldtype": "Currency",
+   "label": "Cost per Kg",
+   "read_only": 1,
+   "no_copy": 1,
+   "precision": "4",
+   "bold": 1
+  },
+  {
+   "fieldname": "posted_section",
+   "fieldtype": "Section Break",
+   "label": "Posted"
+  },
+  {
+   "fieldname": "receipt_stock_entry",
+   "fieldtype": "Link",
+   "label": "Pit Receipt",
+   "options": "Stock Entry",
+   "read_only": 1,
+   "no_copy": 1,
+   "description": "The Material Receipt of the silage into the pit, at cost per kg."
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "options": "Silage Cycle",
+   "read_only": 1,
+   "no_copy": 1,
+   "print_hide": 1
+  }
+ ],
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "write": 1,
+   "role": "System Manager",
+   "submit": 1,
+   "cancel": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "write": 1,
+   "role": "Production Manager",
+   "submit": 1,
+   "cancel": 1
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "write": 1,
+   "report": 1,
+   "role": "Production Supervisor"
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "Production Viewer"
+  }
+ ],
+ "field_order": [
+  "title",
+  "crop",
+  "production_crop",
+  "production_unit",
+  "crop_cycle",
+  "column_break_1",
+  "status",
+  "start_date",
+  "closed_on",
+  "company",
+  "cost_center",
+  "pit_section",
+  "pit_warehouse",
+  "silage_item",
+  "column_break_2",
+  "ensiled_kg",
+  "include_casual_labour",
+  "activities_section",
+  "activities",
+  "cost_section",
+  "inputs_cost",
+  "diesel_cost",
+  "diesel_litres",
+  "machine_hours",
+  "column_break_3",
+  "labour_cost",
+  "casual_labour_cost",
+  "total_cost",
+  "cost_per_kg",
+  "posted_section",
+  "receipt_stock_entry",
+  "notes",
+  "amended_from"
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-11-11 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "owner": "Administrator",
+ "states": [],
+ "sort_field": "creation",
+ "sort_order": "DESC"
+}

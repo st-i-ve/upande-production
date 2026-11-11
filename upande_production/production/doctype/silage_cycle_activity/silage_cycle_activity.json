@@ -1,0 +1,78 @@
+{
+ "actions": [],
+ "creation": "2026-11-11 09:00:00.000000",
+ "custom": 0,
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "name": "Silage Cycle Activity",
+ "istable": 1,
+ "editable_grid": 1,
+ "fields": [
+  {
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "label": "Date",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "activity",
+   "fieldtype": "Select",
+   "label": "Activity",
+   "options": "Land prep\nPlanting\nFertilising\nWeeding\nSpraying\nHarvest/Chopping\nCarting\nCompaction\nSealing\nOther",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "workers",
+   "fieldtype": "Int",
+   "label": "Workers",
+   "in_list_view": 1,
+   "columns": 1,
+   "description": "People on the job that day. With a day rate, labour is workers x day rate."
+  },
+  {
+   "fieldname": "day_rate",
+   "fieldtype": "Currency",
+   "label": "Day Rate",
+   "in_list_view": 1,
+   "columns": 1,
+   "description": "Defaults to the Silage Labour Day Rate in Production Settings."
+  },
+  {
+   "fieldname": "labour_cost",
+   "fieldtype": "Currency",
+   "label": "Labour Cost",
+   "in_list_view": 1,
+   "columns": 2,
+   "description": "Workers x day rate, or the amount paid when there is no head count."
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes",
+   "in_list_view": 1,
+   "columns": 2
+  }
+ ],
+ "permissions": [],
+ "field_order": [
+  "date",
+  "activity",
+  "workers",
+  "day_rate",
+  "labour_cost",
+  "notes"
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-11-11 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "owner": "Administrator",
+ "states": [],
+ "sort_field": "creation",
+ "sort_order": "DESC"
+}

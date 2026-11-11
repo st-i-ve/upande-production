@@ -63,6 +63,8 @@ export const VIEWS = [
   "machines",
   "allocations",
   "scan",
+  // Silage cycles, their cost per kg and the pit stock (crops marked Grown for Silage).
+  "silage",
 ] as const;
 
 export type View = (typeof VIEWS)[number];
