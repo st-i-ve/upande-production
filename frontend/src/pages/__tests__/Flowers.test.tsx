@@ -41,7 +41,7 @@ describe("flower crops", () => {
     expect(viewAllowed("farm-map", "avocado", CROP)).toBe(false);
     expect(viewAllowed("overview", "avocado", CROP)).toBe(true);
     const items = navForCrop(ROSES).flatMap((g) => g.items.map((i) => i.label));
-    expect(items).toEqual(["Overview", "Crop Protocols", "Protocol Versions", "Cut Stages", "Greenhouses", "Crop Cycles", "Farm Map", "Planting Calendars", "Weekly Plan", "Harvesting"]);
+    expect(items).toEqual(["Overview", "Crop Protocols", "Protocol Versions", "Cut Stages", "Greenhouses", "Crop Cycles", "Farm Map", "Planting Calendars", "Weekly Plan", "Harvesting", "Machines", "Allocations", "Scan a machine"]);
   });
 
   const BLOCKS = {
