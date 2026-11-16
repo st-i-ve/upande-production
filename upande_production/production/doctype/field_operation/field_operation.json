@@ -15,7 +15,8 @@
   "default_rate",
   "daily_target",
   "target_uom",
-  "is_harvest"
+  "is_harvest",
+  "wm_task"
  ],
  "fields": [
   {
@@ -83,11 +84,20 @@
    "fieldname": "color",
    "fieldtype": "Color",
    "label": "Color"
+  },
+  {
+   "fieldname": "wm_task",
+   "fieldtype": "Link",
+   "label": "Work Management Task",
+   "options": "Task",
+   "read_only": 1,
+   "no_copy": 1,
+   "description": "Filled by the Work Management link when it is active; the task this operation maps to."
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-28 12:00:00.000000",
+ "modified": "2026-11-16 09:00:00.000000",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Field Operation",

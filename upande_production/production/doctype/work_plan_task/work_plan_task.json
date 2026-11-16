@@ -26,7 +26,9 @@
   "note",
   "rule_status",
   "rule_notes",
-  "override_reason"
+  "override_reason",
+  "wm_planner",
+  "wm_assigner"
  ],
  "fields": [
   {
@@ -160,11 +162,27 @@
    "fieldtype": "Small Text",
    "label": "Override Reason",
    "read_only": 1
+  },
+  {
+   "fieldname": "wm_planner",
+   "fieldtype": "Data",
+   "label": "Work Management Planner",
+   "read_only": 1,
+   "no_copy": 1,
+   "description": "Name of the Work Management Planner this task mirrors."
+  },
+  {
+   "fieldname": "wm_assigner",
+   "fieldtype": "Data",
+   "label": "Work Management Assigner",
+   "read_only": 1,
+   "no_copy": 1,
+   "description": "Name of the Work Management Assigner for this task's crew."
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-28 09:00:00.000000",
+ "modified": "2026-11-16 09:00:00.000000",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Work Plan Task",

@@ -25,7 +25,20 @@
   "silage_input_warehouse",
   "silage_pit_warehouse",
   "silage_column",
-  "silage_labour_day_rate"
+  "silage_labour_day_rate",
+  "labour_section",
+  "labour_mode",
+  "pay_period",
+  "pay_week_starts_on",
+  "pay_day",
+  "daily_wage",
+  "labour_column",
+  "duplicate_rule",
+  "multiple_jobs_per_day",
+  "attendance_required",
+  "attendance_source",
+  "max_backdate_days",
+  "pay_reference_prefix"
  ],
  "fields": [
   {
@@ -154,11 +167,103 @@
    "label": "Silage Labour Day Rate",
    "default": "400",
    "description": "Pay per worker per day on a silage activity, used when the activity row gives no rate of its own."
+  },
+  {
+   "fieldname": "labour_section",
+   "fieldtype": "Section Break",
+   "label": "Labour & Pay"
+  },
+  {
+   "fieldname": "labour_mode",
+   "fieldtype": "Select",
+   "label": "Labour Mode",
+   "options": "Automatic\nBuilt-in only",
+   "default": "Automatic",
+   "description": "Automatic: when the Work Management app is installed, labour runs through it. Built-in only: production's own pay run, attendance and rate periods are always used."
+  },
+  {
+   "fieldname": "pay_period",
+   "fieldtype": "Select",
+   "label": "Pay Period",
+   "options": "Weekly\nFortnightly\nMonthly",
+   "default": "Weekly",
+   "description": "How long a pay run covers; sets the default dates of a new pay run."
+  },
+  {
+   "fieldname": "pay_week_starts_on",
+   "fieldtype": "Select",
+   "label": "Pay Week Starts On",
+   "options": "Monday\nTuesday\nWednesday\nThursday\nFriday\nSaturday\nSunday",
+   "default": "Monday",
+   "description": "First day of a weekly or fortnightly pay period."
+  },
+  {
+   "fieldname": "pay_day",
+   "fieldtype": "Select",
+   "label": "Pay Day",
+   "options": "Monday\nTuesday\nWednesday\nThursday\nFriday\nSaturday\nSunday",
+   "default": "Friday",
+   "description": "The weekday people are paid."
+  },
+  {
+   "fieldname": "daily_wage",
+   "fieldtype": "Currency",
+   "label": "Daily Wage",
+   "description": "One day's wage. A rate period with a daily target but no rate pays Daily Wage / Daily Target per unit."
+  },
+  {
+   "fieldname": "labour_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "duplicate_rule",
+   "fieldtype": "Select",
+   "label": "Duplicate Work",
+   "options": "Block\nWarn\nOff",
+   "default": "Block",
+   "description": "Same person, date, operation and unit entered twice: Block refuses it, Warn flags it, Off ignores it."
+  },
+  {
+   "fieldname": "multiple_jobs_per_day",
+   "fieldtype": "Select",
+   "label": "Several Jobs in a Day",
+   "options": "Allow\nWarn\nBlock",
+   "default": "Warn",
+   "description": "A person recorded on more than one job on the same date: Allow, Warn (flag it) or Block."
+  },
+  {
+   "fieldname": "attendance_required",
+   "fieldtype": "Check",
+   "label": "Attendance Required",
+   "default": "0",
+   "description": "When ticked, work can be recorded only for a day the person is marked Present or Half Day."
+  },
+  {
+   "fieldname": "attendance_source",
+   "fieldtype": "Select",
+   "label": "Attendance Source",
+   "options": "Production\nHRMS Attendance\nBoth",
+   "default": "Production",
+   "description": "Where attendance is read from: Casual Labour Attendance, HRMS submitted Attendance, or Both (either showing Present or Half Day counts)."
+  },
+  {
+   "fieldname": "max_backdate_days",
+   "fieldtype": "Int",
+   "label": "Max Backdate Days",
+   "default": "0",
+   "description": "Work older than this many days is refused. 0 = no limit. Work dated in the future is always refused."
+  },
+  {
+   "fieldname": "pay_reference_prefix",
+   "fieldtype": "Data",
+   "label": "Pay Reference Prefix",
+   "default": "PAY",
+   "description": "Pay runs are numbered PREFIX-YEAR-00001."
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-11 09:00:00.000000",
+ "modified": "2026-11-16 09:00:00.000000",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production Settings",
