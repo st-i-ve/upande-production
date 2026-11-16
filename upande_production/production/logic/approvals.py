@@ -10,7 +10,7 @@ import frappe
 from frappe import _
 from frappe.utils import add_days, cint, now_datetime, today
 
-from upande_production.production.logic import labourers, work
+from upande_production.production.logic import labourers, wm_bridge, work
 from upande_production.production.logic.units import retired_sql
 from upande_production.production.logic.settings import (
 	can_see_pay, get_stale_days, is_manager, is_supervisor,
@@ -52,6 +52,18 @@ def _docs(names, status):
 	return docs
 
 
+def _decided_in_wm(docs):
+	"""Work mirrored onto Work Management actuals is approved or returned there, not here."""
+	held = {d.name: wm_bridge.wm_row_of(d.name) for d in docs}
+	held = {n: a for n, a in held.items() if a}
+	if held:
+		frappe.throw(
+			_("{0} is decided in Work Management (actuals {1}). Approve or return it there.").format(
+				", ".join(list(held)[:5]), ", ".join(sorted(set(held.values())))),
+			frappe.ValidationError,
+		)
+
+
 def _refresh(docs):
 	for plan, task in dict.fromkeys((d.plan, d.plan_task) for d in docs):
 		work.refresh_task_done(plan, task)
@@ -60,6 +72,7 @@ def _refresh(docs):
 def approve(names) -> dict:
 	_need_manager()
 	docs = _docs(_names(names), "Pending")
+	_decided_in_wm(docs)
 	for d in docs:
 		d.submit()  # before_submit stamps Approved/reviewed_by/at; on_submit recounts the task
 	return {"approved": [d.name for d in docs]}
@@ -71,6 +84,7 @@ def send_back(names, note) -> dict:
 	if not note:
 		frappe.throw(_("A note is required when sending work back."), frappe.ValidationError)
 	docs = _docs(_names(names), "Pending")
+	_decided_in_wm(docs)
 	for d in docs:
 		d.approval_status = "Sent Back"
 		d.review_note = note
@@ -81,7 +95,7 @@ def send_back(names, note) -> dict:
 	return {"sent_back": [d.name for d in docs]}
 
 
-def resubmit(names, entries=None) -> dict:
+def resubmit(names, entries=None, override_reason=None) -> dict:
 	if not is_supervisor():
 		frappe.throw(_("You do not have permission to resubmit work."), frappe.PermissionError)
 	docs = _docs(_names(names), "Sent Back")
@@ -105,8 +119,12 @@ def resubmit(names, entries=None) -> dict:
 			d.employee = e["employee"]
 		d.approval_status = "Pending"
 		d.save()
+	wm = []
+	if wm_bridge.active():
+		reason = override_reason or next((d.override_reason for d in docs if d.override_reason), None)
+		wm = wm_bridge.repush([d.name for d in docs if d.wm_actuals], override_reason=reason)
 	_refresh(docs)
-	return {"resubmitted": [d.name for d in docs]}
+	return {"resubmitted": [d.name for d in docs], "wm": wm or None}
 
 
 # -- listing -----------------------------------------------------------------
@@ -147,7 +165,8 @@ def list_approvals(
 		args["hist"] = add_days(today(), -DEFAULT_HISTORY_DAYS)
 	rows = frappe.db.sql(
 		f"""select name, work_date, employee, employee_name, plan, plan_task, unit, crop, operation, qty, uom,
-		rate, pay_value, approval_status, rule_status, rule_notes, override_reason, review_note, reviewed_by, reviewed_at, submitted_by, creation
+		rate, pay_value, approval_status, rule_status, rule_notes, override_reason, review_note, reviewed_by, reviewed_at, submitted_by, creation,
+		wm_actuals
 		from `tabCasual Labour Work` where {' and '.join(cond)} order by creation asc""",
 		args, as_dict=True,
 	)
@@ -236,13 +255,14 @@ def list_approvals(
 			"reviewed_by": review.reviewed_by,
 			"reviewed_at": review.reviewed_at,
 			"names": [r.name for r in rs],
+			"wm_actuals": next((r.wm_actuals for r in rs if r.wm_actuals), None),
 			"entries": [{
 				"name": r.name, "employee": r.employee, "employee_name": r.employee_name, "qty": r.qty,
 				"uom": r.uom, "operation": r.operation, "rate": r.rate if pay else None,
 				"pay_value": r.pay_value if pay else None, "work_date": r.work_date,
 				"approval_status": r.approval_status, "review_note": r.review_note,
 				"rule_status": r.rule_status or "OK", "rule_notes": r.rule_notes,
-				"override_reason": r.override_reason,
+				"override_reason": r.override_reason, "wm_actuals": r.wm_actuals,
 			} for r in rs],
 		})
 	labourers.annotate_work([e for g in out for e in g["entries"]])

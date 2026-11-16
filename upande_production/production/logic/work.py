@@ -2,7 +2,7 @@ import frappe
 from frappe import _
 from frappe.utils import now_datetime, today
 
-from upande_production.production.logic import rules
+from upande_production.production.logic import rules, wm_bridge
 
 STATUSES = ("Open", "In Progress", "Done", "Partly Done", "Skipped")
 
@@ -81,10 +81,19 @@ def record_task_work(plan, task, status, entries, note="", work_date=None, overr
 		stamp = rules.enforce(breaches, override_reason or row.get("override_reason"))
 		row.rule_status, row.rule_notes, row.override_reason = (
 			stamp["rule_status"], stamp["rule_notes"], stamp["override_reason"])
+	wm = wm_bridge.active()
+	asg = None
+	if wm and entries:
+		# Work Management decides this work: its planner must be approved and the crew on its assignment
+		asg = wm_bridge.before_task_work(doc, row, [e.get("employee") for e in entries], override_reason)
 	names = [
 		_insert_vaw(e, work_date, row.unit, row.operation, row.uom, row.rate, row.cycle, plan, row.name, stamp)
 		for e in entries
 	]
+	wm_out = {}
+	if wm and (names or (status in ("Done", "Partly Done") and row.wm_assigner)):
+		wm_out = wm_bridge.push_actuals(asg or row.wm_assigner, names, submit=status in ("Done", "Partly Done"),
+			override_reason=override_reason or row.get("override_reason"))
 	row.done_qty = submitted_qty(plan, row.name)
 	row.pending_qty = pending_qty(plan, row.name)
 	now = now_datetime()
@@ -96,14 +105,21 @@ def record_task_work(plan, task, status, entries, note="", work_date=None, overr
 		row.note = note
 	doc.save()
 	row = next(t for t in doc.tasks if t.name == task)
-	return {"task": row.as_dict(), "work": names}
+	return {"task": row.as_dict(), "work": names, "wm": wm_out or None}
 
 
 def record_unplanned_work(unit, operation, entries, work_date, note="", override_reason=None) -> list[str]:
 	work_date = work_date or today()
 	stamp = rules.enforce(rules.check(unit=unit, operation=operation, on_date=work_date), override_reason)
 	op = frappe.db.get_value("Field Operation", operation, ["work_uom", "default_rate"], as_dict=True)
-	return [
+	asg = None
+	if wm_bridge.active() and entries:
+		asg = wm_bridge.before_unplanned_work(unit, operation, [e.get("employee") for e in entries], work_date,
+			sum(float(e.get("qty") or 0) for e in entries), override_reason)
+	names = [
 		_insert_vaw(e, work_date, unit, operation, op.work_uom, op.default_rate, stamp=stamp)
 		for e in entries
 	]
+	if asg and names:
+		wm_bridge.push_actuals(asg, names, override_reason=override_reason)
+	return names

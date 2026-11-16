@@ -2,7 +2,7 @@
 import frappe
 from frappe.utils import cint, getdate, today
 
-from upande_production.production.logic import analytics, approvals, labourers, plans, rules, work
+from upande_production.production.logic import analytics, approvals, labourers, plans, rules, wm_bridge, work
 from upande_production.production.logic.settings import can_see_pay
 from upande_production.production.logic.units import unit_filter
 from upande_production.production.logic.weeks import iso_of, iso_week_bounds
@@ -212,7 +212,9 @@ def productionUpdateTask():
 			"entries": _task_entries(_s(data, "plan")).get(_s(data, "task"), []),
 			"work": res["work"], "approval_status": "Pending" if res["work"] else None,
 			"message": f"{task.get('operation_name') or 'Task'} marked {task.get('status')}."
-				+ (" Work awaits manager approval." if res["work"] else ""),
+				+ ((" " + res["wm"]["message"]) if res.get("wm") else
+					" Work awaits manager approval." if res["work"] else ""),
+			"wm": res.get("wm"),
 		}
 
 	_run("productionUpdateTask", go)
@@ -235,7 +237,8 @@ def productionRecordUnplannedWork():
 		frappe.db.commit()
 		return {
 			"status": "success", "work": names, "approval_status": "Pending",
-			"message": f"{len(names)} work record(s) saved, awaiting manager approval.",
+			"message": f"{len(names)} work record(s) saved, awaiting "
+				+ ("approval in Work Management." if wm_bridge.active() else "manager approval."),
 		}
 
 	_run("productionRecordUnplannedWork", go)
@@ -269,7 +272,8 @@ def productionResubmitWork():
 		return _fail(err)
 
 	def go():
-		res = approvals.resubmit(data.get("names"), data.get("entries") or None)
+		res = approvals.resubmit(data.get("names"), data.get("entries") or None,
+			override_reason=_s(data, "override_reason") or None)
 		frappe.db.commit()
 		return {"status": "success", "approval_status": "Pending", "work": res["resubmitted"],
 			"message": f"{len(res['resubmitted'])} work record(s) resubmitted for approval."}

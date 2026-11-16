@@ -7,7 +7,7 @@ import frappe
 from frappe import _
 
 from upande_production.api.envelope import as_dict, run
-from upande_production.production.logic import attendance, labour, payrun, rates
+from upande_production.production.logic import attendance, labour, payrun, rates, wm_bridge
 from upande_production.production.logic.settings import can_see_pay, is_manager, is_supervisor
 
 
@@ -19,6 +19,12 @@ def _need_manager():
 def _need_pay():
 	if not can_see_pay():
 		frappe.throw(_("You do not have permission to see pay."), frappe.PermissionError)
+
+
+def _need_builtin_pay():
+	if labour.wm_active():
+		frappe.throw(_("Work Management pays casual labour while it is installed and Labour mode is Automatic: "
+			"use its payment runs (and payroll) instead of a pay run here."), frappe.ValidationError)
 
 
 # -- settings ----------------------------------------------------------------
@@ -39,6 +45,22 @@ def _settings() -> dict:
 @run
 def labour_mode_status():
 	return _mode()
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def wm_bridge_status():
+	"""What still needs mapping for production to drive Work Management: farms with a WM project, units with
+	no warehouse (WM's block), operations with no WM activity (Task) yet."""
+	return wm_bridge.status()
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def wm_sync():
+	"""Bring production's work rows in line with Work Management now (it also happens on its own)."""
+	_need_manager()
+	return {"synced": wm_bridge.reconcile()}
 
 
 @frappe.whitelist(methods=["POST"])
@@ -157,6 +179,7 @@ def list_pay_runs(status=None, limit=50):
 def new_pay_run(from_date=None, to_date=None, farm=None):
 	"""A draft run for the dates (default: the current pay period) filled with the work waiting to be paid."""
 	_need_manager()
+	_need_builtin_pay()
 	start, end = payrun.default_period(from_date or None)  # the period holding from_date, else today
 	doc = frappe.new_doc("Casual Labour Pay Run")
 	doc.update({"from_date": from_date or start, "to_date": to_date or end, "farm": farm or None})
@@ -171,6 +194,7 @@ def new_pay_run(from_date=None, to_date=None, farm=None):
 def refresh_pay_run(name):
 	"""Re-pull the eligible work into a draft run."""
 	_need_manager()
+	_need_builtin_pay()
 	doc = frappe.get_doc("Casual Labour Pay Run", name)
 	if doc.docstatus != 0:
 		frappe.throw(_("Only a draft pay run can be refreshed."), frappe.ValidationError)
@@ -191,6 +215,7 @@ def pay_run_detail(name):
 @run
 def approve_pay_run(name):
 	_need_manager()
+	_need_builtin_pay()
 	doc = frappe.get_doc("Casual Labour Pay Run", name)
 	doc.submit()
 	return _detail(doc)
@@ -200,6 +225,7 @@ def approve_pay_run(name):
 @run
 def mark_pay_run_paid(name, reference=None, paid_on=None):
 	_need_manager()
+	_need_builtin_pay()
 	return _detail(payrun.mark_paid(name, reference, paid_on))
 
 

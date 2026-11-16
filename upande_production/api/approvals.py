@@ -28,8 +28,8 @@ def send_back(names, note=""):
 
 @frappe.whitelist(methods=["POST"])
 @run
-def resubmit(names, entries=None):
-	return logic.resubmit(names, as_dict(entries) if entries else None)
+def resubmit(names, entries=None, override_reason=None):
+	return logic.resubmit(names, as_dict(entries) if entries else None, override_reason or None)
 
 
 @frappe.whitelist(methods=["POST"])
