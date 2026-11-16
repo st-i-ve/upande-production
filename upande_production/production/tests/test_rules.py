@@ -8,6 +8,7 @@ from upande_production.api import approvals as approvals_api
 from upande_production.api import production as desk
 from upande_production.production.logic import analytics, plans, protocols, rules, work
 from upande_production.production.logic.weeks import iso_of
+from upande_production.production.tests.labour_mode import use_builtin_labour
 
 BEFORE, AFTER = "Not within days before harvest", "Not within days after operation"
 
@@ -22,6 +23,7 @@ class TestRules(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
+		use_builtin_labour(cls)
 		cls.company = frappe.defaults.get_global_default("company") or frappe.db.get_value("Company", {}, "name")
 		if not frappe.db.exists("UOM", "Kg"):
 			_make("UOM", uom_name="Kg")

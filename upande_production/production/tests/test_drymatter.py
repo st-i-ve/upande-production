@@ -3,6 +3,7 @@ from frappe.tests import IntegrationTestCase
 
 from upande_production.api import drymatter
 from upande_production.api import production as prod_api
+from upande_production.production.tests.labour_mode import use_builtin_labour
 
 
 def _make(doctype, **kw):
@@ -15,6 +16,7 @@ class TestDryMatter(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
+		use_builtin_labour(cls)
 		cls.company = frappe.defaults.get_global_default("company") or frappe.db.get_value("Company", {}, "name")
 		for u in ("Kg", "Plant"):
 			if not frappe.db.exists("UOM", u):

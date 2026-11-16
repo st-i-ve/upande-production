@@ -8,6 +8,7 @@ from frappe.utils import add_days, today
 from upande_production.api import labourpay as api
 from upande_production.production.logic import attendance, labour, payrun, rates, work
 from upande_production.production.logic.labour import DEFAULTS
+from upande_production.production.tests.labour_mode import use_builtin_labour
 
 
 def _make(doctype, **kw):
@@ -27,6 +28,7 @@ class TestLabourPay(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
+		use_builtin_labour(cls)
 		cls.company = frappe.defaults.get_global_default("company") or frappe.db.get_value("Company", {}, "name")
 		if not frappe.db.exists("UOM", "Kg"):
 			_make("UOM", uom_name="Kg")
@@ -73,7 +75,9 @@ class TestLabourPay(IntegrationTestCase):
 		super().tearDownClass()
 
 	def setUp(self):
-		_set(**{k: v for k, v in DEFAULTS.items() if k != "daily_wage"}, daily_wage=0)
+		# built-in labour: with Work Management installed, Automatic would hand this work to WM
+		_set(**{k: v for k, v in DEFAULTS.items() if k not in ("daily_wage", "labour_mode")}, daily_wage=0,
+			labour_mode="Built-in only")
 		self._clean()
 
 	def tearDown(self):

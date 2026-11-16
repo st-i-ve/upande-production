@@ -8,6 +8,7 @@ from frappe.utils import add_days, today
 from upande_production.mobile import api
 from upande_production.production.logic import plans
 from upande_production.production.logic.weeks import iso_of
+from upande_production.production.tests.labour_mode import use_builtin_labour
 
 
 def _make(doctype, **kw):
@@ -20,6 +21,7 @@ class TestMobileApi(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
+		use_builtin_labour(cls)
 		# these tests re-key the same person on the same block and day; the duplicate guard has its own tests
 		cls.addClassCleanup(frappe.db.set_single_value, "Production Settings", "duplicate_rule", "Block")
 		frappe.db.set_single_value("Production Settings", "duplicate_rule", "Off")

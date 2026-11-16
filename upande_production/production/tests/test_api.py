@@ -5,6 +5,7 @@ from frappe.utils import add_days, getdate, today
 from upande_production.api import production as api
 from upande_production.production.logic import approvals, plans, work
 from upande_production.production.logic.weeks import iso_of
+from upande_production.production.tests.labour_mode import use_builtin_labour
 
 
 def _monday(d):
@@ -22,6 +23,7 @@ class TestApi(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
+		use_builtin_labour(cls)
 		cls.company = frappe.defaults.get_global_default("company") or frappe.db.get_value("Company", {}, "name")
 		if not frappe.db.exists("UOM", "Kg"):
 			_make("UOM", uom_name="Kg")

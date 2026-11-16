@@ -10,6 +10,7 @@ from upande_production.api import breakeven, coverage, establishment, overview
 from upande_production.api import production as api
 from upande_production.production.logic import analytics, plans, units
 from upande_production.production.logic.weeks import iso_of
+from upande_production.production.tests.labour_mode import use_builtin_labour
 
 
 def _make(doctype, **kw):
@@ -27,6 +28,7 @@ class TestRetiredUnits(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
+		use_builtin_labour(cls)
 		frappe.set_user("Administrator")
 		cls.company = frappe.defaults.get_global_default("company") or frappe.db.get_value("Company", {}, "name")
 		if not frappe.db.exists("UOM", "Kg"):
@@ -170,6 +172,11 @@ class TestRetiredUnits(IntegrationTestCase):
 
 
 class TestRetireClosesOpenWork(IntegrationTestCase):
+	@classmethod
+	def setUpClass(cls):
+		super().setUpClass()
+		use_builtin_labour(cls)
+
 	def test_retiring_closes_cycles_and_skips_tasks(self):
 		frappe.set_user("Administrator")
 		T = TestRetiredUnits

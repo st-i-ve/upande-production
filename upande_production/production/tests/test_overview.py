@@ -4,6 +4,7 @@ from frappe.tests import IntegrationTestCase
 from frappe.utils import today
 
 from upande_production.api import overview as api
+from upande_production.production.tests.labour_mode import use_builtin_labour
 
 
 def _make(doctype, **kw):
@@ -16,6 +17,7 @@ class TestOverviewExtras(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
+		use_builtin_labour(cls)
 		cls.company = frappe.defaults.get_global_default("company") or frappe.db.get_value("Company", {}, "name")
 		if not frappe.db.exists("UOM", "Kg"):
 			_make("UOM", uom_name="Kg")

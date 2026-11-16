@@ -5,6 +5,7 @@ from frappe.utils import add_days, getdate, today
 from upande_production.production.doctype.production_variety.production_variety import derive
 from upande_production.production.logic import plans, protocols as P, stages
 from upande_production.production.logic.weeks import iso_of
+from upande_production.production.tests.labour_mode import use_builtin_labour
 
 
 def _make(doctype, **kw):
@@ -21,6 +22,7 @@ class TestVarieties(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
+		use_builtin_labour(cls)
 		if not frappe.db.exists("UOM", "Kg"):
 			_make("UOM", uom_name="Kg")
 		cls.company = frappe.defaults.get_global_default("company") or frappe.db.get_value("Company", {}, "name")

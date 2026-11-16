@@ -6,6 +6,7 @@ from upande_production.api import protocols as api
 from upande_production.production.doctype.production_protocol.production_protocol import validate_tables
 from upande_production.production.logic import approvals, plans, protocols as P
 from upande_production.production.logic.weeks import iso_of
+from upande_production.production.tests.labour_mode import use_builtin_labour
 
 
 def _make(doctype, **kw):
@@ -24,6 +25,7 @@ class TestProtocols(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
+		use_builtin_labour(cls)
 		for uom in ("Kg",):
 			if not frappe.db.exists("UOM", uom):
 				_make("UOM", uom_name=uom)

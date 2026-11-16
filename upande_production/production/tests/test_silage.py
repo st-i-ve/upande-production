@@ -8,6 +8,7 @@ from upande_production.api import silage as api
 from upande_production.production.logic import harvest as H
 from upande_production.production.logic import silage as S
 from upande_production.production.setup.silage_fields import ensure_silage_fields
+from upande_production.production.tests.labour_mode import use_builtin_labour
 
 
 def _make(doctype, **kw):
@@ -22,6 +23,7 @@ class TestSilage(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
+		use_builtin_labour(cls)
 		frappe.set_user("Administrator")
 		ensure_silage_fields()
 		cls.company = frappe.defaults.get_global_default("company") or frappe.db.get_value("Company", {}, "name")

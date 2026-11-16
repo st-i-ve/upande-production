@@ -6,6 +6,7 @@ from upande_production.mobile import harvest as api
 from upande_production.production import avocado_defaults
 from upande_production.production.demo import seed
 from upande_production.production.logic import harvest as H
+from upande_production.production.tests.labour_mode import use_builtin_labour
 
 
 def _make(doctype, **kw):
@@ -20,6 +21,7 @@ class TestHarvest(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
+		use_builtin_labour(cls)
 		frappe.set_user("Administrator")
 		seed.seed_core()  # the Avocado crop the avocado-block tests look up, built when the site has none
 		avocado = frappe.db.get_value("Production Crop", {"crop_key": "avocado"})

@@ -5,6 +5,7 @@ from frappe.tests import IntegrationTestCase
 
 from upande_production.api import coverage
 from upande_production.api.coverage import progress_pct, unit_state
+from upande_production.production.tests.labour_mode import use_builtin_labour
 
 
 def _t(planned, done, status="Open", pending=0, late=False, uom="Kg"):
@@ -38,6 +39,7 @@ class TestCoverageMap(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
+		use_builtin_labour(cls)
 		cls.company = frappe.defaults.get_global_default("company") or frappe.db.get_value("Company", {}, "name")
 		for u in ("Kg", "Bed"):
 			if not frappe.db.exists("UOM", u):
