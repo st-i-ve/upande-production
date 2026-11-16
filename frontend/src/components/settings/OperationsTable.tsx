@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Plus } from "lucide-react";
+import { CalendarClock, Plus } from "lucide-react";
 import { FilterSelect } from "@/components/FilterSelect";
 import { useToast } from "@/components/Toast";
+import { RatePeriodsDialog } from "@/components/settings/RatePeriodsDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -86,6 +87,7 @@ export function OperationsTable({
   const [drafts, setDrafts] = useState<Draft[]>(() => rows.map(toDraft));
   const [fresh, setFresh] = useState<Draft[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  const [periods, setPeriods] = useState<Draft | null>(null);
   const counter = useRef(0);
 
   // A re-read from the server replaces the saved rows; unsaved new rows stay.
@@ -142,10 +144,15 @@ export function OperationsTable({
   const nothingMatches = everything.length > 0 && all.length === 0;
   const emptyText = nothingMatches ? "No activities match these filters." : "No operations defined for this crop yet.";
 
+  const dialog = periods?.name && (
+    <RatePeriodsDialog operation={periods.name} operationName={periods.operation_name} workUom={periods.work_uom} canEdit={canEdit} onClose={() => setPeriods(null)} />
+  );
+
   if (!canEdit) {
     return all.length === 0 ? (
       <p className="px-1 py-6 text-center text-[13px] text-[var(--sd-muted)]">{emptyText}</p>
     ) : (
+      <>
       <div className="overflow-x-auto rounded-[var(--sd-radius-lg)] border border-[var(--sd-line)]">
         <table className="w-full min-w-[48rem] text-[13px]">
           <thead>
@@ -158,6 +165,7 @@ export function OperationsTable({
               {canSeePay && <th className={`${TH} text-right`}>Rate per unit</th>}
               <th className={`${TH} text-right`}>Daily target</th>
               <th className={TH}>Harvest</th>
+              {canSeePay && <th className={TH} />}
             </tr>
           </thead>
           <tbody>
@@ -175,11 +183,18 @@ export function OperationsTable({
                   {d.daily_target ? `${d.daily_target} ${d.target_uom || d.work_uom}`.trim() : "—"}
                 </td>
                 <td className="px-3 py-2.5 text-[var(--sd-muted)]">{d.is_harvest ? "Yes" : "No"}</td>
+                {canSeePay && (
+                  <td className="px-3 py-2.5 text-right">
+                    <RateButton d={d} onOpen={setPeriods} />
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      {dialog}
+      </>
     );
   }
 
@@ -194,7 +209,7 @@ export function OperationsTable({
         <p className="px-1 py-6 text-center text-[13px] text-[var(--sd-muted)]">{emptyText}</p>
       ) : (
         <div className="overflow-x-auto rounded-[var(--sd-radius-lg)] border border-[var(--sd-line)]">
-          <table className="w-full min-w-[72rem] text-[13px]">
+          <table className="w-full min-w-[78rem] text-[13px]">
             <thead>
               <tr className="border-b border-[var(--sd-line)] text-left text-[11px] uppercase tracking-[0.1em] text-[var(--sd-quiet)]">
                 <th className={TH}>Operation</th>
@@ -205,6 +220,7 @@ export function OperationsTable({
                 {canSeePay && <th className={`${TH} text-right`}>Rate per unit (KES)</th>}
                 <th className={`${TH} text-right`}>Daily target</th>
                 <th className={TH}>Harvest</th>
+                {canSeePay && <th className={TH} />}
                 <th className={TH} />
               </tr>
             </thead>
@@ -244,6 +260,11 @@ export function OperationsTable({
                     <td className="px-3 py-2">
                       <Switch aria-label="Harvest operation" checked={d.is_harvest} onCheckedChange={(v) => patch(d.key, { is_harvest: v })} />
                     </td>
+                    {canSeePay && (
+                      <td className="px-3 py-2 text-right">
+                        {d.name && <RateButton d={d} onOpen={setPeriods} />}
+                      </td>
+                    )}
                     <td className="px-3 py-2 text-right">
                       <Button size="sm" variant="outline" className="h-8 rounded-full px-3 text-[12px]" disabled={!dirty || !valid || busy === d.key} onClick={() => save(d)} aria-label={`Save ${d.operation_name || "new operation"}`}>
                         {busy === d.key ? "Saving…" : "Save"}
@@ -256,6 +277,15 @@ export function OperationsTable({
           </table>
         </div>
       )}
+      {dialog}
     </div>
+  );
+}
+
+function RateButton({ d, onOpen }: { d: Draft; onOpen: (d: Draft) => void }) {
+  return (
+    <Button size="sm" variant="ghost" className="h-8 rounded-full px-3 text-[12px]" onClick={() => onOpen(d)} aria-label={`Rate periods for ${d.operation_name}`}>
+      <CalendarClock className="mr-1 h-3.5 w-3.5" /> Rate periods
+    </Button>
   );
 }

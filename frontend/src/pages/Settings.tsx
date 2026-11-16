@@ -16,6 +16,7 @@ import { Card, CardContent, CardDescription, CardHeaderRow, CardHeading, CardTit
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BandsPanel } from "@/components/settings/BandsPanel";
 import { BlockLinksPanel } from "@/components/settings/BlockLinksPanel";
+import { LabourPayPanel } from "@/components/settings/LabourPayPanel";
 import { CropModelPanel } from "@/components/settings/CropModelPanel";
 import { RulesPanel } from "@/components/varieties/RulesPanel";
 import { VarietiesPanel } from "@/components/varieties/VarietiesPanel";
@@ -176,6 +177,7 @@ export function Settings() {
             <TabsTrigger value="protocols">Protocols</TabsTrigger>
             <TabsTrigger value="varieties">Varieties</TabsTrigger>
             <TabsTrigger value="rules">Activity rules</TabsTrigger>
+            <TabsTrigger value="labour">Labour &amp; pay</TabsTrigger>
             <TabsTrigger value="model">Crop model</TabsTrigger>
             <TabsTrigger value="links">Block links</TabsTrigger>
             <TabsTrigger value="bands">Bands</TabsTrigger>
@@ -306,6 +308,20 @@ export function Settings() {
               ) : (
                 <RulesPanel crop={crop.name} rules={visibleRules} varieties={varieties} operations={opOptions} canEdit={canManage} onChanged={load} />
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="labour" className="mt-0">
+          <Card>
+            <CardHeaderRow>
+              <CardHeading>
+                <CardTitle>Labour &amp; pay</CardTitle>
+                <CardDescription>How casual labour is paid and checked: pay period, wages, duplicate and backdating guards, and attendance.</CardDescription>
+              </CardHeading>
+            </CardHeaderRow>
+            <CardContent>
+              <LabourPayPanel canEdit={canManage} canSeePay={canSeePay} />
             </CardContent>
           </Card>
         </TabsContent>
