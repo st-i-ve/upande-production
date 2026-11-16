@@ -18,6 +18,10 @@ describe("parseRoute", () => {
   it("reads hyphenated views and ignores a query string", () => {
     expect(parseRoute("#/fish/casual-labourers?x=1")).toEqual({ crop: "fish", view: "casual-labourers" });
   });
+  it("reads the labour pay views", () => {
+    expect(parseRoute("#/avocado/attendance").view).toBe("attendance");
+    expect(parseRoute("#/avocado/pay-runs").view).toBe("pay-runs");
+  });
   it("maps the retired value-adders route to casual-labourers", () => {
     expect(parseRoute("#/avocado/value-adders")).toEqual({ crop: "avocado", view: "casual-labourers" });
   });
