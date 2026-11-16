@@ -163,7 +163,35 @@ doc_events = {
 	"Stock Entry": {
 		"before_submit": "upande_production.production.logic.silage.check_stock_entry",
 	},
+	# Work Management bridge ("jigsaw" mode, see production/logic/wm_bridge.py). A plan's tasks mirror onto WM
+	# planners; WM's decisions and pay come back onto Casual Labour Work. The WM doctypes below only exist
+	# when WM is installed; without it these keys are never looked up.
+	"Production Work Plan": {
+		"on_update": "upande_production.production.logic.wm_bridge.on_plan_update",
+		"on_trash": "upande_production.production.logic.wm_bridge.on_plan_trash",
+	},
+	"Work Management Actuals": {
+		"on_update": "upande_production.production.logic.wm_bridge.on_wm_actuals",
+		"on_submit": "upande_production.production.logic.wm_bridge.on_wm_actuals",
+		"on_cancel": "upande_production.production.logic.wm_bridge.on_wm_actuals",
+		"on_update_after_submit": "upande_production.production.logic.wm_bridge.on_wm_actuals",
+		"on_trash": "upande_production.production.logic.wm_bridge.on_wm_actuals",
+	},
+	"Work Management Payment": {
+		"on_update": "upande_production.production.logic.wm_bridge.on_wm_payment",
+	},
+	"Salary Slip": {
+		"on_submit": "upande_production.production.logic.wm_bridge.on_salary_slip",
+		"on_cancel": "upande_production.production.logic.wm_bridge.on_salary_slip",
+	},
+	"Additional Salary": {
+		"on_cancel": "upande_production.production.logic.wm_bridge.on_additional_salary_cancel",
+	},
 }
+
+# WM's screens move records along its approval chain with db.set_value (no document events): a write to them
+# queues a reconcile that runs just before the request commits.
+before_request = ["upande_production.production.logic.wm_bridge.watch_request"]
 
 # Fixtures
 # --------
@@ -189,6 +217,10 @@ fixtures = [
 # ---------------
 
 scheduler_events = {
+	# safety net for the Work Management sync (requests and document events normally do it at once)
+	"cron": {
+		"*/15 * * * *": ["upande_production.production.logic.wm_bridge.scheduled_reconcile"],
+	},
 	"daily": [
 		"upande_production.production.logic.stages.refresh_all_open",
 		"upande_production.production.logic.cycle_chain.refresh_flags_all",
