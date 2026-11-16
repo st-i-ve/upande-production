@@ -16,6 +16,10 @@ class TestCasualLabourers(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
+		# these tests re-key the same person on the same block and day; the duplicate guard has its own tests
+		cls.addClassCleanup(frappe.db.set_single_value, "Production Settings", "duplicate_rule", "Block")
+		frappe.db.set_single_value("Production Settings", "duplicate_rule", "Off")
+		frappe.clear_document_cache("Production Settings", "Production Settings")
 		cls.company = frappe.defaults.get_global_default("company") or frappe.db.get_value("Company", {}, "name")
 		for u in ("Kg", "Tree"):
 			if not frappe.db.exists("UOM", u):
