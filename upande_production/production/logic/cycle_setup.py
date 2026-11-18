@@ -21,6 +21,7 @@ from upande_production.production.logic import stages
 
 CYCLE_DT = "Production Crop Cycle"
 RUNNING = ("Active", "Harvesting")
+STATUSES = ("Planned", "Active", "Harvesting", "Closed")
 CYCLE_TYPES = ("Season", "Planting")
 
 TEMPLATE_COLUMNS = [
@@ -28,6 +29,12 @@ TEMPLATE_COLUMNS = [
 	"last_flowering_date", "last_harvest_date",
 ]
 TEMPLATE_EXAMPLE = ["PH1-B1", "Hass", "2019-03-15", "1650", "10.2", "Fruit development", "42000", "2026-08-20", ""]
+# Other crops: the date the cycle was planted or started in the other system, an optional stage and harvest history.
+TEMPLATE_COLUMNS_OTHER = [
+	"block", "variety", "item", "protocol", "planting_date", "area_ha", "plant_count", "current_stage",
+	"already_harvesting", "last_harvest_date", "last_season_kg",
+]
+TEMPLATE_EXAMPLE_OTHER = ["FV-B1", "", "Tomato", "", "2026-09-01", "1.5", "", "", "", "", ""]
 _ALIASES = {
 	"block": "block", "unit": "block", "block_code": "block", "variety": "variety",
 	"planting_date": "planting_date", "planted": "planting_date", "planted_on": "planting_date",
@@ -35,6 +42,9 @@ _ALIASES = {
 	"area": "area_ha", "area_ha": "area_ha", "current_stage": "current_stage", "stage": "current_stage",
 	"last_season_kg": "last_season_kg", "last_season_yield_kg": "last_season_kg", "last_season_yield": "last_season_kg",
 	"last_flowering_date": "last_flowering_date", "last_harvest_date": "last_harvest_date",
+	"item": "item", "item_code": "item", "protocol": "protocol", "start_date": "planting_date", "started": "planting_date",
+	"started_on": "planting_date", "date_started": "planting_date", "already_harvesting": "already_harvesting",
+	"harvesting": "already_harvesting",
 }
 
 
@@ -89,6 +99,11 @@ def tree_age_years(planting_date, on=None):
 
 
 # -- building a cycle ---------------------------------------------------------------------------
+
+
+def is_avocado(crop) -> bool:
+	"""Avocado keeps its own rules (a stage is required, last flowering date, tree columns)."""
+	return bool(crop) and frappe.db.get_value("Production Crop", crop, "crop_key") == "avocado"
 
 
 def _variety(name):
@@ -147,24 +162,35 @@ def build_values(data) -> dict:
 		frappe.throw(_("{0} is a group; choose a block").format(unit.name), frappe.ValidationError)
 	if unit.status == "Retired":
 		frappe.throw(_("{0} is retired").format(unit.name), frappe.ValidationError)
-	if not data.get("variety"):
-		frappe.throw(_("Choose a variety."), frappe.ValidationError)
-	v = _variety(data.get("variety"))
+	existing = bool(data.get("existing"))
+	if not data.get("variety") and not (existing and data.get("item")):
+		frappe.throw(_("Choose a variety or an item.") if existing else _("Choose a variety."), frappe.ValidationError)
+	v = _variety(data.get("variety")) if data.get("variety") else frappe._dict(name=None, plants_per_ha=0)
 	area = flt(data.get("area_ha")) or flt(unit.area_ha)
 	trees = cint(data.get("plant_count")) or cint(unit.plant_count) or int(round(flt(v.plants_per_ha) * area))
 	vals = {"doctype": CYCLE_DT, "unit": unit.name, "crop": unit.crop, "variety": v.name, "area_ha": area,
 		"plant_count": trees, "cycle_type": data.get("cycle_type") or "Season", "protocol": data.get("protocol") or None}
-	if data.get("existing"):
+	if not v.name:
+		if not frappe.db.exists("Item", data.get("item")):
+			frappe.throw(_("Item {0} not found").format(data.get("item")), frappe.ValidationError)
+		vals["item"] = data.get("item")
+	if existing:
+		avocado = is_avocado(unit.crop)
 		planting = data.get("planting_date")
 		if not planting:
-			frappe.throw(_("Enter the planting date of an existing cycle."), frappe.ValidationError)
+			frappe.throw(_("Enter the planting date of an existing cycle.") if avocado
+				else _("Enter the date the cycle was planted or started."), frappe.ValidationError)
 		if getdate(planting) > getdate(today()):
 			frappe.throw(_("The planting date is in the future."), frappe.ValidationError)
-		start, flowering, actuals = existing_anchor(v.name, data.get("current_stage"), planting, data.get("last_flowering_date"))
-		rows = _stage_rows(v.name)
-		cur = _match_stage(rows, data.get("current_stage"))
+		stage_name = (data.get("current_stage") or "").strip()
+		if v.name and (stage_name or avocado):
+			start, flowering, actuals = existing_anchor(v.name, stage_name, planting, data.get("last_flowering_date"))
+			cur = _match_stage(_stage_rows(v.name), stage_name)
+		else:  # no stage to honour: the cycle runs from the date it was started in the other system
+			start, flowering, actuals, cur = getdate(planting), None, [], None
+		harvesting = bool((cur and cur["is_harvest"]) or cint(data.get("already_harvesting")))
 		vals.update(start_date=start, existing_cycle=1, planting_date=getdate(planting), schedule_from=getdate(today()),
-			status="Harvesting" if cur["is_harvest"] else "Active", actual_flowering_date=flowering,
+			status="Harvesting" if harvesting else "Active", actual_flowering_date=flowering,
 			last_harvest_date=data.get("last_harvest_date") or None,
 			last_season_yield_kg=flt(data.get("last_season_yield_kg")) or None, stage_actuals=actuals)
 	else:
@@ -175,22 +201,34 @@ def build_values(data) -> dict:
 	return vals
 
 
+def _keep_area(doc, area):
+	"""The doctype's area_ha is fetched from the block on every save; the area typed for the cycle wins."""
+	if area is not None and flt(doc.area_ha) != flt(area):
+		frappe.db.set_value(CYCLE_DT, doc.name, "area_ha", flt(area), update_modified=False)
+		doc.area_ha = flt(area)
+
+
 def create_cycle(data) -> dict:
 	"""Insert one cycle (permission checked by the caller). {name, warnings}."""
 	vals = build_values(data)
 	doc = frappe.get_doc(vals)
 	doc.insert()
+	_keep_area(doc, vals.get("area_ha"))
 	return {"name": doc.name, "warnings": capacity_warnings(doc.unit) if doc.status in RUNNING else []}
 
 
 # -- bulk import --------------------------------------------------------------------------------
 
 
-def template_csv() -> str:
+def template_columns(crop=None) -> list:
+	return TEMPLATE_COLUMNS if not crop or is_avocado(crop) else TEMPLATE_COLUMNS_OTHER
+
+
+def template_csv(crop=None) -> str:
 	buf = io.StringIO()
 	w = csv.writer(buf)
-	w.writerow(TEMPLATE_COLUMNS)
-	w.writerow(TEMPLATE_EXAMPLE)
+	w.writerow(template_columns(crop))
+	w.writerow(TEMPLATE_EXAMPLE if not crop or is_avocado(crop) else TEMPLATE_EXAMPLE_OTHER)
 	return buf.getvalue()
 
 
@@ -214,8 +252,8 @@ def parse_file(filename, content_b64) -> list:
 	if not grid:
 		return []
 	cols = [_norm(h) for h in grid[0]]
-	if "block" not in cols or "variety" not in cols:
-		frappe.throw(_("The first row must have the columns block and variety (see the template)."), frappe.ValidationError)
+	if "block" not in cols or not ("variety" in cols or "item" in cols):
+		frappe.throw(_("The first row must have the columns block and variety (or item); see the template."), frappe.ValidationError)
 	out = []
 	for r in grid[1:]:
 		row = {}
@@ -268,6 +306,7 @@ def check_rows(crop, rows) -> list:
 	"""[{row, values, errors, warnings}]: each import row normalised and validated. `values` is what
 	`create_cycle` takes. Capacity is counted across the rows of the same block."""
 	out, claimed = [], {}
+	avocado = is_avocado(crop)
 	for i, raw in enumerate(rows, start=2):  # 2: the sheet's first data row
 		errors, warnings, vals = [], [], {"existing": 1}
 		unit = _unit_for(crop, raw.get("block"))
@@ -275,9 +314,27 @@ def check_rows(crop, rows) -> list:
 			errors.append(_("Block {0} not found").format(raw.get("block") or "(empty)"))
 		vals["unit"] = unit
 		variety = _variety_for(crop, raw.get("variety"))
-		if not variety:
-			errors.append(_("Variety {0} not found").format(raw.get("variety") or "(empty)"))
+		item = str(raw.get("item") or "").strip()
+		if not variety and (avocado or raw.get("variety") or not item):
+			errors.append(_("Variety {0} not found").format(raw.get("variety") or "(empty)") if avocado or raw.get("variety")
+				else _("Variety or item is required"))
 		vals["variety"] = variety
+		if not variety and item:
+			if frappe.db.exists("Item", item):
+				vals["item"] = item
+			else:
+				errors.append(_("Item {0} not found").format(item))
+		proto_text = str(raw.get("protocol") or "").strip()
+		if proto_text:
+			proto = frappe.db.get_value("Production Protocol", {"name": proto_text, "crop": crop}, ["name", "version_status"], as_dict=True) or \
+				frappe.db.get_value("Production Protocol", {"protocol_name": proto_text, "crop": crop, "version_status": "Active"}, ["name", "version_status"], as_dict=True)
+			if not proto:
+				errors.append(_("Protocol {0} not found").format(proto_text))
+			elif proto.version_status != "Active":
+				errors.append(_("Protocol {0} is not Active").format(proto_text))
+			else:
+				vals["protocol"] = proto.name
+		vals["already_harvesting"] = 1 if str(raw.get("already_harvesting") or "").strip().lower() in ("1", "yes", "y", "true", "x") else 0
 		try:
 			planting = _date(raw.get("planting_date"))
 		except Exception:
@@ -301,7 +358,7 @@ def check_rows(crop, rows) -> list:
 		vals["plant_count"] = int(trees) if trees else None
 		vals["last_season_yield_kg"] = _num(raw.get("last_season_kg"))
 		stage_text = str(raw.get("current_stage") or "").strip()
-		if variety:
+		if variety and (stage_text or avocado):
 			st = _match_stage(_stage_rows(variety), stage_text)
 			if not st:
 				errors.append(_("Stage {0} is not a stage of {1}").format(stage_text or "(empty)", variety))
@@ -317,6 +374,73 @@ def check_rows(crop, rows) -> list:
 		out.append({"row": i, "raw": {k: (str(v) if v is not None else "") for k, v in raw.items()}, "values": vals,
 			"errors": errors, "warnings": warnings})
 	return out
+
+
+def update_cycle(name, data) -> dict:
+	"""Edit a cycle already made: {name, warnings, notes}. Changing the protocol or start date of a running
+	cycle re-plans from today (`schedule_from`), never back-fills; tasks already in weekly plans stay."""
+	doc = frappe.get_doc(CYCLE_DT, name)
+	data = data or {}
+	notes = []
+	old_unit, old_status = doc.unit, doc.status
+	status = data.get("status") if "status" in data else doc.status
+	if status not in STATUSES:
+		frappe.throw(_("Status must be one of {0}.").format(", ".join(STATUSES)), frappe.ValidationError)
+	if "unit" in data and data["unit"] != doc.unit:
+		if frappe.db.exists("Work Plan Task", {"cycle": name}):
+			frappe.throw(_("The block cannot change once the cycle has tasks."), frappe.ValidationError)
+		doc.unit = data["unit"]
+	unit = frappe.db.get_value("Production Unit", doc.unit, ["is_group", "status"], as_dict=True)
+	if not unit or unit.is_group:
+		frappe.throw(_("Choose a block."), frappe.ValidationError)
+	if unit.status == "Retired" and status != "Closed" and (doc.unit != old_unit or status != old_status):
+		frappe.throw(_("{0} is retired").format(doc.unit), frappe.ValidationError)
+
+	def d(key):
+		return getdate(data[key]) if data.get(key) else None
+
+	try:
+		start = d("start_date") if "start_date" in data else getdate(doc.start_date)
+		planting = d("planting_date") if "planting_date" in data else (getdate(doc.planting_date) if doc.planting_date else None)
+		h_from = d("expected_harvest_start") if "expected_harvest_start" in data else (getdate(doc.expected_harvest_start) if doc.expected_harvest_start else None)
+		h_to = d("expected_harvest_end") if "expected_harvest_end" in data else (getdate(doc.expected_harvest_end) if doc.expected_harvest_end else None)
+	except Exception:
+		frappe.throw(_("One of the dates is not a date."), frappe.ValidationError)
+	if not start:
+		frappe.throw(_("Enter the start date."), frappe.ValidationError)
+	if planting and planting > getdate(today()):
+		frappe.throw(_("The planting date is in the future."), frappe.ValidationError)
+	if h_from and h_to and h_to < h_from:
+		frappe.throw(_("Harvest until is before harvest from."), frappe.ValidationError)
+	if h_from and h_from < start:
+		frappe.throw(_("Harvest from is before the start date."), frappe.ValidationError)
+	for key in ("area_ha", "plant_count"):
+		if key in data and flt(data[key]) < 0:
+			frappe.throw(_("Area and plant count cannot be negative."), frappe.ValidationError)
+
+	replan = (("protocol" in data and (data["protocol"] or None) != (doc.protocol or None))
+		or ("start_date" in data and start != getdate(doc.start_date)))
+	if "variety" in data:
+		doc.variety = data["variety"] or None
+	if "protocol" in data:
+		doc.protocol = data["protocol"] or None
+	doc.start_date, doc.planting_date = start, planting
+	doc.expected_harvest_start, doc.expected_harvest_end = h_from, h_to
+	if "area_ha" in data:
+		doc.area_ha = flt(data["area_ha"])
+	if "plant_count" in data:
+		doc.plant_count = cint(data["plant_count"])
+	if "notes" in data:
+		doc.notes = data["notes"] or None
+	doc.status = status
+	if replan and status in RUNNING:
+		doc.schedule_from = getdate(today())
+		notes.append(_("Tasks are planned from today; nothing before today is back-filled. Tasks already in weekly plans are unchanged."))
+	area = flt(doc.area_ha)  # the loaded or the edited area, before the save fetches the block's
+	doc.save()
+	_keep_area(doc, area)
+	warnings = capacity_warnings(doc.unit) if doc.status in RUNNING else []  # the saved cycle is counted already
+	return {"name": doc.name, "warnings": warnings, "notes": notes}
 
 
 def import_rows(crop, rows) -> list:

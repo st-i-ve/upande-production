@@ -28,9 +28,10 @@ def add_cycle(data):
 
 @frappe.whitelist(methods=["POST"])
 @run
-def import_template():
-	_gate()
-	return {"filename": "crop-cycles-template.csv", "columns": cycle_setup.TEMPLATE_COLUMNS, "content": cycle_setup.template_csv()}
+def import_template(crop=None):
+	"""The CSV template for a crop (avocado keeps its tree columns; other crops get item, protocol and start date)."""
+	_gate(crop)
+	return {"filename": "crop-cycles-template.csv", "columns": cycle_setup.template_columns(crop), "content": cycle_setup.template_csv(crop)}
 
 
 @frappe.whitelist(methods=["POST"])
@@ -49,3 +50,16 @@ def import_cycles(crop, rows):
 	_gate(crop)
 	results = cycle_setup.import_rows(crop, as_dict(rows) or [])
 	return {"results": results, "created": sum(1 for r in results if r["ok"])}
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def update_cycle(name, data):
+	"""Edit a cycle: block (until it has tasks), variety, protocol, start / planting date, area, plant count,
+	expected harvest dates, status and notes. Returns {name, warnings, notes}; a changed protocol or start date on a
+	running cycle re-plans from today and says so in `notes`."""
+	frappe.has_permission("Production Crop Cycle", "write", doc=name, throw=True)
+	crop = frappe.db.get_value("Production Crop Cycle", name, "crop")
+	if crop and not crop_allowed(crop):
+		frappe.throw(_("You are not permitted to see this crop."), frappe.PermissionError)
+	return cycle_setup.update_cycle(name, as_dict(data) or {})
