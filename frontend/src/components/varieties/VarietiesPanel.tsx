@@ -3,6 +3,7 @@ import { Pencil, Plus } from "lucide-react";
 import { StageTimeline } from "@/components/varieties/StageEditor";
 import { VarietyDialog } from "@/components/varieties/VarietyDialog";
 import { Button } from "@/components/ui/button";
+import { Picker } from "@/components/ui/picker";
 import { qty } from "@/lib/format";
 import type { Variety } from "@/lib/varieties-api";
 
@@ -27,6 +28,7 @@ export function VarietiesPanel({
   protocols,
   canEdit,
   onChanged,
+  fieldCrops,
 }: {
   crop: string;
   accent: string;
@@ -34,12 +36,24 @@ export function VarietiesPanel({
   protocols: { value: string; label: string }[];
   canEdit: boolean;
   onChanged: () => void;
+  /** Sections with named crops: varieties show and filter by their crop. */
+  fieldCrops?: { name: string; crop_name: string }[];
 }) {
   // undefined: closed; null: a new variety; otherwise the one being edited.
   const [editing, setEditing] = useState<Variety | null | undefined>(undefined);
+  const [cropFilter, setCropFilter] = useState("");
+  const shown = cropFilter ? varieties.filter((v) => v.field_crop === cropFilter) : varieties;
   const protoLabel = (id: string | null) => protocols.find((p) => p.value === id)?.label ?? id ?? "—";
   return (
     <div className="flex flex-col gap-4">
+      {!!fieldCrops?.length && (
+        <div className="flex items-center gap-2 text-[13px] text-[var(--sd-muted)]">
+          <span>Crop</span>
+          <div className="w-52">
+            <Picker label="Crop" value={cropFilter} onChange={setCropFilter} options={fieldCrops.map((c) => ({ value: c.name, label: c.crop_name }))} clearable clearLabel="All crops" placeholder="All crops" />
+          </div>
+        </div>
+      )}
       {canEdit && (
         <div className="flex justify-end">
           <Button size="sm" onClick={() => setEditing(null)}>
@@ -47,15 +61,16 @@ export function VarietiesPanel({
           </Button>
         </div>
       )}
-      {varieties.length === 0 && (
+      {shown.length === 0 && (
         <p className="text-[13px] text-[var(--sd-muted)]">No varieties for {crop} yet.{canEdit ? " Use New variety to add one." : ""}</p>
       )}
-      {varieties.map((v) => (
+      {shown.map((v) => (
         <section key={v.name} className={CARD} aria-label={v.variety_name} data-testid={`variety-${v.name}`}>
           <header className="flex flex-wrap items-start gap-x-4 gap-y-2 px-4 pb-2 pt-4">
             <div className="min-w-[12rem] flex-1">
               <h3 className="flex flex-wrap items-center gap-2 text-[15px] font-semibold tracking-tight text-[var(--sd-ink)]">
                 {v.variety_name}
+                {v.field_crop && <span data-testid="variety-crop" className="rounded-full bg-[var(--sd-bg-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--sd-muted)]">{v.field_crop}</span>}
                 {!Number(v.enabled) && <span className="rounded-full bg-[var(--sd-bg-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--sd-quiet)]">Disabled</span>}
               </h3>
               <p className="break-words text-[12.5px] text-[var(--sd-muted)]">{v.item}</p>
@@ -90,6 +105,7 @@ export function VarietiesPanel({
           accent={accent}
           variety={editing}
           protocols={protocols}
+          fieldCrops={fieldCrops}
           onClose={() => setEditing(undefined)}
           onSaved={() => {
             setEditing(undefined);

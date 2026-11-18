@@ -19,6 +19,8 @@ import { BlockLinksPanel } from "@/components/settings/BlockLinksPanel";
 import { LabourPayPanel } from "@/components/settings/LabourPayPanel";
 import { CropModelPanel } from "@/components/settings/CropModelPanel";
 import { RulesPanel } from "@/components/varieties/RulesPanel";
+import { FieldCropsPanel } from "@/components/settings/FieldCropsPanel";
+import { hasFieldCrops } from "@/lib/field-crops";
 import { VarietiesPanel } from "@/components/varieties/VarietiesPanel";
 import { listOperations, listProtocols, type Row } from "@/lib/api";
 import { listRules, listVarieties, type ActivityRule, type Variety } from "@/lib/varieties-api";
@@ -51,6 +53,7 @@ export function Settings() {
   const [tab, setTab] = useState("operations");
   const [q, setQ] = useState("");
   const [category, setCategory] = useState("");
+  const [cropFilter, setCropFilter] = useState("");
   const [ops, setOps] = useState<Row[] | null>(null);
   const [protocols, setProtocols] = useState<ProtocolFamily[] | null>(null);
   const [varieties, setVarieties] = useState<Variety[] | null>(null);
@@ -107,12 +110,24 @@ export function Settings() {
     [rules, q],
   );
 
+  const withCrops = hasFieldCrops(crop);
+  // A protocol's crop: its own, else its variety's, else the variety whose item it is for.
+  const protocolCrop = useCallback(
+    (f: ProtocolFamily): string | null => {
+      const v = f.versions.find((x) => x.name === f.active) ?? f.versions[0];
+      const own = (v as { field_crop?: string | null } | undefined)?.field_crop;
+      if (own) return own;
+      const byVariety = (varieties ?? []).find((x) => x.name === v?.variety);
+      return byVariety?.field_crop ?? (varieties ?? []).find((x) => f.item && (x.item === f.item || x.product === f.item))?.field_crop ?? null;
+    },
+    [varieties],
+  );
   const visibleProtocols = useMemo(
     () =>
       (protocols ?? []).filter(
-        (p) => !q || matchesQuery(`${p.label} ${p.item ?? ""}`, q),
+        (p) => (!q || matchesQuery(`${p.label} ${p.item ?? ""}`, q)) && (!cropFilter || protocolCrop(p) === cropFilter),
       ),
-    [protocols, q],
+    [protocols, q, cropFilter, protocolCrop],
   );
 
   const stats = useMemo(() => {
@@ -158,7 +173,7 @@ export function Settings() {
   );
 
   const first = firstLoad(loading, !!ops && !!protocols);
-  const dirty = !!q || !!category;
+  const dirty = !!q || !!category || !!cropFilter;
   const categories = useMemo(() => {
     const seen = new Set((ops ?? []).map((o) => String(o.category ?? "")).filter(Boolean));
     return CATEGORIES.filter((c) => seen.has(c)).concat([...seen].filter((c) => !CATEGORIES.includes(c)));
@@ -176,6 +191,7 @@ export function Settings() {
             <TabsTrigger value="operations">Activities &amp; rates</TabsTrigger>
             <TabsTrigger value="protocols">Protocols</TabsTrigger>
             <TabsTrigger value="varieties">Varieties</TabsTrigger>
+            {withCrops && <TabsTrigger value="crops">Crops</TabsTrigger>}
             <TabsTrigger value="rules">Activity rules</TabsTrigger>
             <TabsTrigger value="labour">Labour &amp; pay</TabsTrigger>
             <TabsTrigger value="model">Crop model</TabsTrigger>
@@ -193,6 +209,9 @@ export function Settings() {
             tabs: ["operations"],
             node: <FilterSelect label="Category" value={category} onChange={setCategory} options={categories} allLabel="All categories" />,
           },
+          ...(withCrops
+            ? [{ key: "crop", tabs: ["protocols"], node: <FilterSelect label="Crop" value={cropFilter} onChange={setCropFilter} options={(crop.field_crops ?? []).map((c) => ({ value: c.name, label: c.crop_name }))} allLabel="All crops" /> }]
+            : []),
         ]}
         actions={
           <>
@@ -201,6 +220,7 @@ export function Settings() {
               onClear={() => {
                 setQ("");
                 setCategory("");
+                setCropFilter("");
               }}
             />
             <RefreshButton onClick={load} loading={loading} label="the settings" />
@@ -255,7 +275,7 @@ export function Settings() {
               )}
             </CardHeaderRow>
             <CardContent>
-              {!protocols ? <RowsSkeleton rows={4} /> : <ProtocolsList families={visibleProtocols} operations={protocolOps} canPlan={crop.boot.can_plan} canManage={canManage} actions={actions} openFamily={openFamily} />}
+              {!protocols ? <RowsSkeleton rows={4} /> : <ProtocolsList families={visibleProtocols} operations={protocolOps} canPlan={crop.boot.can_plan} canManage={canManage} actions={actions} openFamily={openFamily} cropOf={withCrops ? protocolCrop : undefined} />}
             </CardContent>
           </Card>
           {creating && (
@@ -288,11 +308,27 @@ export function Settings() {
               {!varieties ? (
                 <RowsSkeleton rows={4} />
               ) : (
-                <VarietiesPanel crop={crop.name} accent={crop.accent_color || "#3f7d3a"} varieties={visibleVarieties} protocols={activeProtocols} canEdit={canManage} onChanged={load} />
+                <VarietiesPanel crop={crop.name} accent={crop.accent_color || "#3f7d3a"} varieties={visibleVarieties} protocols={activeProtocols} canEdit={canManage} onChanged={load} fieldCrops={withCrops ? crop.field_crops : undefined} />
               )}
             </CardContent>
           </Card>
         </TabsContent>
+
+        {withCrops && (
+          <TabsContent value="crops" className="mt-0">
+            <Card>
+              <CardHeaderRow>
+                <CardHeading>
+                  <CardTitle>Crops</CardTitle>
+                  <CardDescription>The crops grown in {crop.name}, each with its product item and the unit its harvest is counted in (Pieces for cabbage, Kg for the rest).</CardDescription>
+                </CardHeading>
+              </CardHeaderRow>
+              <CardContent>
+                <FieldCropsPanel crop={crop.name} canEdit={canManage} onChanged={load} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
 
         <TabsContent value="rules" className="mt-0">
           <Card>

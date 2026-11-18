@@ -103,6 +103,27 @@ describe("Plan", () => {
     expect(within(screen.getByRole("region", { name: "Block B" })).getByText("Weeding")).toBeTruthy();
   });
 
+  it("labels each task with its crop and variety and filters by crop in a section with crops", async () => {
+    const fv: Crop = { ...crop, name: "Fruits & Vegetables", crop_key: "fruits-vegetables", has_field_crops: 1, field_crops: [] };
+    mocked.getPlan.mockResolvedValue({
+      plan: "PLAN-1",
+      week_start: "2026-10-26",
+      week_end: "2026-11-01",
+      tasks: [
+        task({ name: "T1", unit: "P1-B3", operation_name: "Weeding", field_crop: "Cabbage", variety: "Gloria F1", crop_label: "Cabbage (Gloria F1)" }),
+        task({ name: "T2", unit: "P1-B4", operation_name: "Weeding", field_crop: "Potato", variety: "Shangi", crop_label: "Potato (Shangi)" }),
+      ],
+    });
+    render(
+      <CropProvider crop={fv} boot={{ ...boot(), crops: [fv] }}>
+        <Plan />
+      </CropProvider>,
+    );
+    expect(await screen.findByText("Cabbage (Gloria F1)")).toBeTruthy();
+    expect(screen.getByText("Potato (Shangi)")).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: "Crop" }) ?? screen.getByText("Crop")).toBeTruthy();
+  });
+
   it("shows pending quantity apart from done, with an awaiting-approval chip", async () => {
     mocked.getPlan.mockResolvedValue({
       plan: "PLAN-1",

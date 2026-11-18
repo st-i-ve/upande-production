@@ -12,6 +12,7 @@ import { useToast } from "@/components/Toast";
 import { AccuracyTable, errorLimits, errorTone, vsForecast } from "@/components/forecast/AccuracyTable";
 import { CommitmentsPanel } from "@/components/forecast/CommitmentsPanel";
 import { FORECAST_CHART_HEIGHT, ForecastChart } from "@/components/forecast/ForecastChart";
+import { CropTotals } from "@/components/forecast/CropTotals";
 import { SamplesPanel } from "@/components/forecast/SamplesPanel";
 import { SEASONS_CHART_HEIGHT, SeasonsChart } from "@/components/forecast/SeasonsChart";
 import { Card, CardContent, CardDescription, CardHeaderRow, CardHeading, CardTitle } from "@/components/ui/card";
@@ -22,6 +23,7 @@ import { useVarietyFilter } from "@/lib/use-varieties";
 import { useCurrentCrop, viewLabel } from "@/lib/crops";
 import { isError } from "@/lib/frappe";
 import { qty } from "@/lib/format";
+import { hasFieldCrops } from "@/lib/field-crops";
 import { matchesQuery, todayISO, ymd } from "@/lib/utils";
 
 const EMPTY_TOTALS: ForecastTotals = { forecast: 0, forecast_to_date: 0, actual: 0, committed: 0, error_pct: null };
@@ -72,7 +74,9 @@ export function Forecast() {
     void load();
   }, [load]);
 
-  const uom = data?.uom || crop.yield_uom || "";
+  // A section with named crops: each crop is totalled in its own unit (Pieces, Kg), never into one number.
+  const byCrop = hasFieldCrops(crop);
+  const uom = byCrop ? "" : data?.uom || crop.yield_uom || "";
   const unitLabel = crop.unit_label || "Unit";
   const canEdit = crop.boot.can_plan || crop.boot.can_manage;
   const varietyUnits = useMemo(
@@ -176,7 +180,24 @@ export function Forecast() {
         )}
 
         <TabsContent value="overview" className="mt-0 flex flex-col gap-6">
-          <div className="grid grid-cols-2 gap-4 xl:grid-cols-3">
+          {byCrop && (
+            <Card>
+              <CardHeaderRow>
+                <CardHeading>
+                  <CardTitle>By crop</CardTitle>
+                  <CardDescription>Each crop in its own unit for this period.</CardDescription>
+                </CardHeading>
+              </CardHeaderRow>
+              <CardContent className="pt-0">
+                {!data ? <RowsSkeleton rows={4} /> : (data.by_crop ?? []).length === 0 ? (
+                  <p className="px-1 py-6 text-center text-[13px] text-[var(--sd-muted)]">No forecasts or harvests for this period.</p>
+                ) : (
+                  <CropTotals rows={data.by_crop ?? []} bands={data.bands} />
+                )}
+              </CardContent>
+            </Card>
+          )}
+          {!byCrop && (<><div className="grid grid-cols-2 gap-4 xl:grid-cols-3">
             <KpiCard loading={first} label="Forecast" value={data ? `${qty(totals.forecast)} ${uom}` : "—"} hint="in this period" series={series.forecast} />
             <KpiCard loading={first} label="Actual" value={data ? `${qty(totals.actual)} ${uom}` : "—"} hint="harvested" series={series.actual} goodDirection="up" />
             <KpiCard loading={first} label="Committed" value={data ? `${qty(totals.committed)} ${uom}` : "—"} hint="to buyers" series={series.committed} goodDirection="up" />
@@ -230,6 +251,7 @@ export function Forecast() {
               {!data ? <ChartSkeleton height={SEASONS_CHART_HEIGHT} /> : <SeasonsChart seasons={data.seasons} uom={uom} />}
             </CardContent>
           </Card>
+          </>)}
         </TabsContent>
 
         <TabsContent value="accuracy" className="mt-0">
@@ -265,7 +287,7 @@ export function Forecast() {
         <TabsContent value="commitments" className="mt-0">
           <Card>
             <CardContent className="pt-5">
-              <CommitmentsPanel crop={crop.name} uom={uom} canEdit={canEdit} canSeePay={crop.boot.can_see_pay} onSaved={load} />
+              <CommitmentsPanel crop={crop.name} uom={uom} fieldCrops={byCrop ? crop.field_crops : undefined} canEdit={canEdit} canSeePay={crop.boot.can_see_pay} onSaved={load} />
             </CardContent>
           </Card>
         </TabsContent>

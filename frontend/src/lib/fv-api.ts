@@ -162,6 +162,7 @@ export interface GradingRow {
   unit: string;
   cycle: string | null;
   item: string | null;
+  field_crop?: string | null;
   grading_date: ISODate;
   received_kg: number;
   received_crates: number | null;
@@ -179,8 +180,11 @@ export interface GradingPage {
   to_date: ISODate;
   unit: string | null;
   item: string | null;
+  field_crop?: string | null;
   units: string[];
   items: string[];
+  /** Crops (Cabbage, Maize ...) that have grading logs. */
+  field_crops?: string[];
   kpis: {
     graded_kg: number;
     received_kg: number;
@@ -193,12 +197,13 @@ export interface GradingPage {
   };
   grades: string[];
   by_item: GradeBucket[];
+  by_crop?: GradeBucket[];
   by_block: GradeBucket[];
   reasons: { reason: string; kg: number; pct: number }[];
   series: { week: ISODate; graded_kg: number; class1_pct: number; reject_pct: number }[];
   rows: GradingRow[];
   form: {
-    units: { name: string; parent: string | null; item: string | null; cycle: string | null }[];
+    units: { name: string; parent: string | null; item: string | null; cycle: string | null; field_crop?: string | null }[];
     reasons: string[];
     default_grades: string[];
   };
@@ -218,7 +223,7 @@ export interface GradingInput {
   lines: { grade: string; kg: number; crates?: number }[];
 }
 
-export const getGrading = (a: { from_date?: ISODate; to_date?: ISODate; unit?: string; item?: string } = {}) =>
+export const getGrading = (a: { from_date?: ISODate; to_date?: ISODate; unit?: string; item?: string; field_crop?: string } = {}) =>
   rpc<GradingPage>("grading", clean(a));
 
 export const saveGrading = (data: GradingInput) =>

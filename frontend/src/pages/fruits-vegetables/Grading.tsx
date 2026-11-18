@@ -33,6 +33,7 @@ export function Grading() {
   const [range, setRange] = useState<DateRange>(initial);
   const [unit, setUnit] = useState("");
   const [item, setItem] = useState("");
+  const [fieldCrop, setFieldCrop] = useState("");
   const [data, setData] = useState<GradingPage | null>(null);
   const [loading, setLoading] = useState(true);
   const [recording, setRecording] = useState(false);
@@ -41,7 +42,7 @@ export function Grading() {
   const load = useCallback(async () => {
     const mine = ++seq.current;
     setLoading(true);
-    const r = await getGrading({ from_date: range.from, to_date: range.to, unit: unit || undefined, item: item || undefined });
+    const r = await getGrading({ from_date: range.from, to_date: range.to, unit: unit || undefined, item: item || undefined, field_crop: fieldCrop || undefined });
     if (mine !== seq.current) return;
     setLoading(false);
     if (isError(r)) {
@@ -49,7 +50,7 @@ export function Grading() {
       return;
     }
     setData(r as GradingPage);
-  }, [range, unit, item, toast]);
+  }, [range, unit, item, fieldCrop, toast]);
 
   useEffect(() => {
     void load();
@@ -57,10 +58,11 @@ export function Grading() {
 
   const first = firstLoad(loading, !!data);
   const k = data?.kpis;
-  const dirty = !!unit || !!item || range.from !== initial.from || range.to !== initial.to;
+  const dirty = !!unit || !!item || !!fieldCrop || range.from !== initial.from || range.to !== initial.to;
   const clear = () => {
     setUnit("");
     setItem("");
+    setFieldCrop("");
     setRange(initial);
   };
 
@@ -73,6 +75,7 @@ export function Grading() {
         <>
           <DateRangePicker label="Period" value={range} onChange={setRange} max={todayISO()} />
           <FilterSelect label="Block" value={unit} onChange={setUnit} options={data?.units ?? []} allLabel="All blocks" />
+          {!!data?.field_crops?.length && <FilterSelect label="Crop" value={fieldCrop} onChange={setFieldCrop} options={data.field_crops} allLabel="All crops" />}
           <FilterSelect label="Crop item" value={item} onChange={setItem} options={data?.items ?? []} allLabel="All crops" />
           <ClearFiltersPill active={dirty} onClear={clear} />
           <RefreshButton onClick={load} loading={loading} label="the grading logs" />
@@ -102,7 +105,7 @@ export function Grading() {
             {first || !data ? <div className="px-5 pb-5"><ChartSkeleton height={160} /></div> : (
               <>
                 <GradeLegend grades={data.grades} accent={accent} />
-                <GradeBars rows={data.by_item} grades={data.grades} accent={accent} testId="by-item" />
+                <GradeBars rows={data.by_crop?.length ? data.by_crop : data.by_item} grades={data.grades} accent={accent} testId="by-item" />
               </>
             )}
           </Card>
@@ -171,7 +174,7 @@ export function Grading() {
                         <tr key={r.name} className={BODY_ROW} data-testid="grading-row">
                           <td className={TD}>{dayMonth(r.grading_date)}</td>
                           <td className={TD}>{r.unit}</td>
-                          <td className={TD}>{r.item ?? "—"}</td>
+                          <td className={TD}>{r.field_crop ? `${r.field_crop}${r.item ? ` (${r.item})` : ""}` : r.item ?? "—"}</td>
                           <td className={TDR}>{fmtNum(r.received_kg, 1)}</td>
                           <td className={TDR}>{fmtNum(r.class1_kg, 1)}</td>
                           <td className={TDR}>{fmtNum(r.graded_kg, 1)}</td>

@@ -56,6 +56,7 @@ export function VarietyDialog({
   accent,
   variety,
   protocols,
+  fieldCrops,
   onClose,
   onSaved,
 }: {
@@ -64,12 +65,15 @@ export function VarietyDialog({
   /** Null to create. */
   variety: Variety | null;
   protocols: { value: string; label: string }[];
+  /** Sections with named crops: the crop this variety belongs to. */
+  fieldCrops?: { name: string; crop_name: string }[];
   onClose: () => void;
   onSaved: () => void;
 }) {
   const toast = useToast();
   const [name, setName] = useState(variety?.variety_name ?? "");
   const [item, setItem] = useState(variety?.item ?? "");
+  const [fieldCrop, setFieldCrop] = useState(variety?.field_crop ?? "");
   const [product, setProduct] = useState(variety?.product ?? "");
   const [days, setDays] = useState(text(variety?.weeks_to_first_harvest));
   const [window, setWindow] = useState(text(variety?.harvest_window_weeks));
@@ -122,6 +126,7 @@ export function VarietyDialog({
       ...(variety ? { name: variety.name } : { variety_name: name.trim() }),
       crop,
       item: item.trim(),
+      field_crop: fieldCrop || null,
       product: product.trim() || null,
       lifespan_years: numOrNull(lifespan),
       harvest_pattern: pattern as HarvestPattern,
@@ -180,6 +185,12 @@ export function VarietyDialog({
             <Label htmlFor="v-item">Stock item</Label>
             <ItemField id="v-item" value={item} onChange={setItem} />
           </div>
+          {!!fieldCrops?.length && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="v-crop">Crop</Label>
+              <Picker id="v-crop" label="Crop" value={fieldCrop} onChange={setFieldCrop} options={fieldCrops.map((c) => ({ value: c.name, label: c.crop_name }))} clearable clearLabel="From the product" placeholder="From the product" />
+            </div>
+          )}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="v-product">Product (optional)</Label>
             <ItemField id="v-product" value={product} onChange={setProduct} />

@@ -380,7 +380,7 @@ const activityCount = (v: ProtocolVersion) =>
   (v.key_activities?.length ?? 0) + (v.cultural_activities?.length ?? 0) + (v.capital_activities?.length ?? 0);
 
 /** Protocol families, each opening to its versions (status chips, steps, actions). Edit only on Drafts. */
-export function ProtocolsList({ families, operations, canPlan, canManage, actions, openFamily }: {
+export function ProtocolsList({ families, operations, canPlan, canManage, actions, openFamily, cropOf }: {
   families: ProtocolFamily[];
   operations: OpOption[];
   canPlan: boolean;
@@ -388,6 +388,8 @@ export function ProtocolsList({ families, operations, canPlan, canManage, action
   actions: ProtocolActions;
   /** A family to open (e.g. one just created); its Draft shows in edit mode. */
   openFamily?: string | null;
+  /** Sections with named crops: the crop a protocol is for (Cabbage), shown beside its name. */
+  cropOf?: (f: ProtocolFamily) => string | null;
 }) {
   const [open, setOpen] = useState<string | null>(null);
   useEffect(() => {
@@ -411,7 +413,10 @@ export function ProtocolsList({ families, operations, canPlan, canManage, action
             >
               <ChevronRight className={cn("h-4 w-4 shrink-0 text-[var(--sd-quiet)] transition-transform", expanded && "rotate-90")} />
               <span className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-[13px] font-medium text-[var(--sd-ink)]">{f.label}</span>
+                <span className="truncate text-[13px] font-medium text-[var(--sd-ink)]">
+                  {f.label}
+                  {cropOf?.(f) && <span data-testid="protocol-crop" className="ml-2 rounded-full bg-[var(--sd-bg-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--sd-muted)]">{cropOf(f)}</span>}
+                </span>
                 {f.item ? <span className="text-[11.5px] text-[var(--sd-muted)]">{f.item}</span> : null}
               </span>
               <span className="flex shrink-0 items-center gap-2">

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { cropLabel, hasFieldCrops } from "@/lib/field-crops";
 import { Plus } from "lucide-react";
 import { ClearFiltersPill } from "@/components/ClearFiltersPill";
 import { FilterSelect } from "@/components/FilterSelect";
@@ -79,6 +80,7 @@ export function Cycles() {
   const [addingExisting, setAddingExisting] = useState(false);
   const [editing, setEditing] = useState<Cycle | null>(null);
   const [variety, setVariety] = useState(ALL);
+  const [fieldCrop, setFieldCrop] = useState(ALL);
   const [varieties, setVarieties] = useState<Variety[]>([]);
   const [rules, setRules] = useState<ActivityRule[]>([]);
   const [picked, setPicked] = useState<Cycle | null>(null);
@@ -134,7 +136,12 @@ export function Cycles() {
       ),
     [rules],
   );
-  const varietyOptions = useMemo(() => varieties.map((v) => ({ value: v.name, label: v.variety_name })), [varieties]);
+  const withCrops = hasFieldCrops(crop);
+  const cropOptions = useMemo(() => (crop.field_crops ?? []).map((c) => ({ value: c.name, label: c.crop_name })), [crop.field_crops]);
+  const varietyOptions = useMemo(
+    () => varieties.filter((v) => !fieldCrop || v.field_crop === fieldCrop).map((v) => ({ value: v.name, label: v.variety_name })),
+    [varieties, fieldCrop],
+  );
 
   const unitOptions = useMemo(() => units.map((u) => u.name), [units]);
   const statusOptions = useMemo(() => CYCLE_STATUSES.map((s) => ({ value: s, label: s })), []);
@@ -144,9 +151,10 @@ export function Cycles() {
       (cycles ?? []).filter(
         (c) =>
           (!variety || c.variety === variety) &&
-          (!q || matchesQuery(`${c.name} ${c.title} ${c.unit} ${c.item ?? ""} ${c.variety ?? ""} ${c.current_stage ?? ""} ${c.protocol ?? ""}`, q)),
+          (!fieldCrop || c.field_crop === fieldCrop) &&
+          (!q || matchesQuery(`${c.name} ${c.title} ${c.unit} ${c.item ?? ""} ${c.field_crop ?? ""} ${c.variety ?? ""} ${c.current_stage ?? ""} ${c.protocol ?? ""}`, q)),
       ),
-    [cycles, q, variety],
+    [cycles, q, variety, fieldCrop],
   );
 
   const kpis = useMemo(() => {
@@ -167,7 +175,7 @@ export function Cycles() {
   }, [shown, units]);
 
   const first = firstLoad(loading, !!cycles);
-  const filtered = !!status || !!unit || !!q || !!variety;
+  const filtered = !!status || !!unit || !!q || !!variety || !!fieldCrop;
   const unitWord = pluralise(crop.unit_label).toLowerCase();
   const empty = !!cycles && shown.length === 0;
 
@@ -188,6 +196,7 @@ export function Cycles() {
           <>
             <SearchInput size="md" value={q} onChange={setQ} placeholder="Search cycles" className="w-48" />
             <FilterSelect aria-label="Status" value={status} options={statusOptions} onChange={setStatus} allLabel="All statuses" />
+            {withCrops && <FilterSelect label="Crop" value={fieldCrop} options={cropOptions} onChange={(c) => { setFieldCrop(c); setVariety(ALL); }} allLabel="All crops" />}
             {varietyOptions.length > 0 && <FilterSelect label="Variety" value={variety} options={varietyOptions} onChange={setVariety} allLabel="All varieties" />}
             <FilterSelect aria-label={crop.unit_label} value={unit} options={unitOptions} onChange={setUnit} allLabel={`All ${unitWord}`} />
             <ClearFiltersPill
@@ -319,7 +328,7 @@ function CycleTable({ cycles, unitLabel, accent, onSelect, onRecord }: { cycles:
           {cycles.map((c) => (
             <tr key={c.name} className={BODY_ROW}>
               <td className={TD}>
-                <div className="font-medium text-[var(--sd-ink)]">{c.item || c.title || c.name}</div>
+                <div className="font-medium text-[var(--sd-ink)]">{c.field_crop ? cropLabel(c.field_crop, c.variety) : c.item || c.title || c.name}</div>
                 <div className="text-[11px] tabular-nums text-[var(--sd-quiet)]">
                   {c.name}
                   {(c.cycle_no ?? 1) > 1 ? ` · cycle ${c.cycle_no}` : ""}

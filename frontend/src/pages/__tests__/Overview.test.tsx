@@ -59,6 +59,26 @@ describe("Overview", () => {
     expect(screen.getByText("KES 98,000")).toBeTruthy();
   });
 
+  it("shows a section with crops harvest by crop and never one mixed total", async () => {
+    const FV = { ...AQUA, name: "Fruits & Vegetables", crop_key: "fruits-vegetables", uses_crop_cycles: 1, unit_label: "Block", has_field_crops: 1, field_crops: [] };
+    getOverview.mockResolvedValue({
+      tiles,
+      blocks: [{ unit: "P1-B3", unit_type: "Pivot Block", parent: "P1", area_ha: 2, cycle: "CYC-1", item: "Cabbage - Gloria F1", field_crop: "Cabbage", variety: "Gloria F1", tasks_open: 1, labour_cost_season: 0, harvest_qty_season: 1200 }],
+      harvest_by_crop: [
+        { field_crop: "Cabbage", uom: "Pieces", qty: 1200, value: 0 },
+        { field_crop: "Potato", uom: "Kg", qty: 3400, value: 0 },
+      ],
+      field_crops: { Cabbage: { uom: "Pieces", color: null }, Potato: { uom: "Kg", color: null } },
+    });
+    renderPage(<Overview />, true, FV);
+    const list = await screen.findByTestId("harvest-by-crop");
+    expect(list).toHaveTextContent("Cabbage");
+    expect(list).toHaveTextContent("1,200 Pieces");
+    expect(list).toHaveTextContent("3,400 Kg");
+    expect(screen.getAllByText("Cabbage (Gloria F1)").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/910,000/)).toBeNull();
+  });
+
   it("counts pending approvals as submissions and links to the Approvals page", async () => {
     getOverview.mockResolvedValue({ tiles, blocks: [] });
     vi.mocked(oapi.getOverviewExtras).mockResolvedValue({

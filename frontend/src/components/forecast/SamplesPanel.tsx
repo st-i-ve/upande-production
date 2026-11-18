@@ -65,6 +65,7 @@ export function SamplesPanel({
               <tr className={HEAD_ROW}>
                 <th className={TH}>Date</th>
                 <th className={TH}>{unitLabel}</th>
+                {rows.some((r) => r.field_crop) && <th className={TH}>Crop</th>}
                 <th className={TH}>Stage</th>
                 <th className={TH}>Basis</th>
                 <th className={THR}>Sample size</th>
@@ -77,6 +78,7 @@ export function SamplesPanel({
                 <tr key={String(r.name ?? i)} className={BODY_ROW}>
                   <td className="px-3 py-2.5 tabular-nums">{shortDate(r.sample_date as string)}</td>
                   <td className="px-3 py-2.5 font-medium text-[var(--sd-ink)]">{String(r.unit ?? "")}</td>
+                  {rows.some((x) => x.field_crop) && <td className="px-3 py-2.5">{String(r.field_crop ?? "—")}</td>}
                   <td className="px-3 py-2.5 text-[var(--sd-muted)]">{String(r.growth_stage || "—")}</td>
                   <td className="px-3 py-2.5 text-[var(--sd-muted)]">{String(r.sample_basis ?? "")}</td>
                   <td className="px-3 py-2.5 text-right tabular-nums">{qty(Number(r.sample_size), 1)}</td>

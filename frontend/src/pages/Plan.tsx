@@ -4,6 +4,7 @@ import { ActivityDot } from "@/components/ActivityDot";
 import { ClearFiltersPill } from "@/components/ClearFiltersPill";
 import { KpiCard, KpiGrid } from "@/components/KpiCard";
 import { FilterSelect } from "@/components/FilterSelect";
+import { cropLabel, hasFieldCrops } from "@/lib/field-crops";
 import { RowsSkeleton, firstLoad } from "@/components/Loading";
 import { PageShell } from "@/components/PageShell";
 import { useToast } from "@/components/Toast";
@@ -51,6 +52,7 @@ export function Plan() {
   const [farm, setFarm] = useState(boot.farms[0] ?? "");
   const [view, setView] = useState<"tasks" | "supervisors">("tasks");
   const [opFilter, setOpFilter] = useState("");
+  const [cropFilter, setCropFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [plan, setPlan] = useState<PlanData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -133,14 +135,17 @@ export function Plan() {
       allTasks.filter(
         (t) =>
           (!opFilter || t.operation_name === opFilter) &&
+          (!cropFilter || t.field_crop === cropFilter) &&
           (!statusFilter || (statusFilter === "Awaiting approval" ? (t.pending_qty ?? 0) > 0 : t.status === statusFilter)),
       ),
-    [allTasks, opFilter, statusFilter],
+    [allTasks, opFilter, cropFilter, statusFilter],
   );
+  const withCrops = hasFieldCrops(crop);
+  const cropOptions = useMemo(() => [...new Set(allTasks.map((t) => t.field_crop).filter((c): c is string => !!c))].sort(), [allTasks]);
   const opOptions = useMemo(() => [...new Set(allTasks.map((t) => t.operation_name))].sort(), [allTasks]);
   const hasPending = allTasks.some((t) => (t.pending_qty ?? 0) > 0);
   const statusOptions = hasPending ? [...STATUSES, "Awaiting approval"] : [...STATUSES];
-  const dirty = !!opFilter || !!statusFilter;
+  const dirty = !!opFilter || !!statusFilter || !!cropFilter;
   const unitByName = useMemo(() => new Map(units.map((u) => [u.name, u])), [units]);
 
   const groups = useMemo(() => {
@@ -150,6 +155,7 @@ export function Plan() {
       if (list) list.push(t);
       else m.set(t.unit, [t]);
     }
+    for (const list of m.values()) list.sort((a, b) => (a.field_crop ?? "").localeCompare(b.field_crop ?? ""));  // stable: one crop's tasks sit together on a block with several
     return [...m.entries()].sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }));
   }, [tasks]);
 
@@ -217,12 +223,14 @@ export function Plan() {
       <FilterSelect label="Farm" value={farm} options={farmOptions} onChange={setFarm} />
       {view === "tasks" && (
         <>
+          {withCrops && cropOptions.length > 0 && <FilterSelect label="Crop" value={cropFilter} options={cropOptions} onChange={setCropFilter} allLabel="All crops" />}
           <FilterSelect label="Operation" value={opFilter} options={opOptions} onChange={setOpFilter} allLabel="All operations" />
           <FilterSelect label="Status" value={statusFilter} options={statusOptions} onChange={setStatusFilter} allLabel="All statuses" />
           <ClearFiltersPill
             active={dirty}
             onClear={() => {
               setOpFilter("");
+              setCropFilter("");
               setStatusFilter("");
             }}
           />
@@ -266,7 +274,7 @@ export function Plan() {
   } else if (allTasks.length && !tasks.length) {
     body = (
       <Empty title="No tasks match these filters">
-        <Button variant="outline" onClick={() => { setOpFilter(""); setStatusFilter(""); }}>
+        <Button variant="outline" onClick={() => { setOpFilter(""); setCropFilter(""); setStatusFilter(""); }}>
           Clear filters
         </Button>
       </Empty>
@@ -324,6 +332,9 @@ export function Plan() {
                       <span className="min-w-[10rem] flex-1 truncate text-[13.5px] font-medium text-[var(--sd-ink)]">
                         <ActivityDot color={t.color} label={t.operation_name} />
                         {t.operation_name}
+                        {(t.crop_label || t.field_crop) && (
+                          <span data-testid="task-crop" className="ml-2 text-[12px] font-normal text-[var(--sd-muted)]">{cropLabel(t.field_crop, t.variety, t.crop_label)}</span>
+                        )}
                       </span>
                       <span className="flex w-44 flex-col gap-1">
                         <span className="text-[13px] tabular-nums text-[var(--sd-muted)]">

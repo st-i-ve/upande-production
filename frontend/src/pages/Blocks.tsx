@@ -1,4 +1,5 @@
 import { StageChip } from "@/components/varieties/StageChip";
+import { cropLabel } from "@/lib/field-crops";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, Plus, TriangleAlert } from "lucide-react";
 import { ClearFiltersPill } from "@/components/ClearFiltersPill";
@@ -130,7 +131,7 @@ export function Blocks() {
     if (!dirty) return flatten(all, collapsed, null);
     const hits = all.filter(
       (u) =>
-        matchesQuery(`${u.name} ${u.item ?? ""} ${u.variety ?? ""} ${u.current_stage ?? ""} ${usesCycles ? u.current_cycle ?? "" : ""}`, query) &&
+        matchesQuery(`${u.name} ${u.item ?? ""} ${u.field_crop ?? ""} ${u.variety ?? ""} ${u.current_stage ?? ""} ${usesCycles ? u.current_cycle ?? "" : ""}`, query) &&
         (!status || u.status === status) &&
         (!type || u.unit_type === type) &&
         (!usesCycles || !cycleOnly || !!u.current_cycle),
@@ -311,9 +312,9 @@ export function Blocks() {
                         <td className={TD}>
                           {(u.cycles?.length ?? 0) > 0 || u.current_cycle ? (
                             <>
-                              {(u.cycles?.length ? u.cycles : [{ name: u.current_cycle!, variety: u.variety, item: u.item, current_stage: u.current_stage }]).map((c) => (
+                              {(u.cycles?.length ? u.cycles : [{ name: u.current_cycle!, variety: u.variety, field_crop: u.field_crop, item: u.item, current_stage: u.current_stage }]).map((c) => (
                                 <div key={c.name} data-testid={`block-cycle-${c.name}`} className="mb-1 last:mb-0">
-                                  <div className="text-[var(--sd-ink)]">{c.variety || c.item || c.name}</div>
+                                  <div className="text-[var(--sd-ink)]">{c.field_crop ? cropLabel(c.field_crop, c.variety) : c.variety || c.item || c.name}</div>
                                   <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-[var(--sd-quiet)]">
                                     {c.variety && c.item ? <span>{c.item} ·</span> : null}
                                     <span>{c.name}</span>

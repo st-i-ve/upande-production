@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { cropLabel } from "@/lib/field-crops";
 import type { Cycle } from "@/lib/api";
 import { shortDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -162,7 +163,7 @@ export function CycleGantt({
                   <div key={f} className="break-words text-[11px] text-[var(--sd-sev-high)]">{f}</div>
                 ))}
                 <div className="break-words text-[11px] tabular-nums text-[var(--sd-quiet)]">
-                  {c.variety ? <span>{c.variety} · </span> : c.item ? <span>{c.item} · </span> : null}
+                  {c.field_crop ? <span>{cropLabel(c.field_crop, c.variety)} · </span> : c.variety ? <span>{c.variety} · </span> : c.item ? <span>{c.item} · </span> : null}
                   <span>{c.name}</span>
                 </div>
               </div>

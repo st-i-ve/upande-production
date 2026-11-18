@@ -14,6 +14,7 @@ import { listProtocols, type Crop, type UnitRow } from "@/lib/api";
 import { isError } from "@/lib/frappe";
 import { ha, qty } from "@/lib/format";
 import { cn, todayISO } from "@/lib/utils";
+import { hasFieldCrops } from "@/lib/field-crops";
 import { listVarieties, type Variety } from "@/lib/varieties-api";
 
 /** Cycle types an avocado block takes (a season of an established block, or a new planting). */
@@ -120,6 +121,7 @@ export function AddCycleDialog({
   const [item, setItem] = useState("");
   const [harvesting, setHarvesting] = useState(false);
   const [unit, setUnit] = useState(defaultUnit ?? "");
+  const [fieldCrop, setFieldCrop] = useState("");
   const [variety, setVariety] = useState("");
   const [varieties, setVarieties] = useState<Variety[]>([]);
   const [protocol, setProtocol] = useState("");
@@ -159,6 +161,10 @@ export function AddCycleDialog({
   }, [open, crop.name, defaultUnit, firstMode]);
 
   const unitRow = units.find((u) => u.name === unit);
+  // A section with named crops (Fruits & Vegetables): the crop is chosen first and the variety list follows it.
+  const withCrops = hasFieldCrops(crop);
+  const cropOptions = useMemo(() => (crop.field_crops ?? []).filter((c) => !!Number(c.enabled)).map((c) => ({ value: c.name, label: c.crop_name })), [crop.field_crops]);
+  const shownVarieties = useMemo(() => (withCrops && fieldCrop ? varieties.filter((x) => x.field_crop === fieldCrop) : varieties), [varieties, withCrops, fieldCrop]);
   const v = varieties.find((x) => x.name === variety);
   const stages = useMemo(() => (v?.stages ?? []).map((s) => s.stage), [v]);
   const stageDefs = v?.stages ?? [];
@@ -167,6 +173,9 @@ export function AddCycleDialog({
   const protoOptions = useMemo(() => protocols.filter((p) => !p.variety || p.variety === variety), [protocols, variety]);
 
   // Choosing a variety offers its stages and its own protocol; choosing a block offers its area and trees.
+  useEffect(() => {
+    if (variety && fieldCrop && v && v.field_crop && v.field_crop !== fieldCrop) setVariety("");
+  }, [fieldCrop, variety, v]);
   useEffect(() => {
     setProtocol((cur) => {
       if (cur && protoOptions.some((p) => p.value === cur)) return cur;
@@ -186,7 +195,7 @@ export function AddCycleDialog({
   const warnings = capacityWarnings(unitRow, areaN, treesN);
   const yearKg = v?.expected_yield_per_plant && treesN ? v.expected_yield_per_plant * treesN : null;
   const existing = mode === "existing";
-  const can = !!unit && !busy && (existing
+  const can = !!unit && !busy && (!withCrops || !!fieldCrop) && (existing
     ? !!planting && (avocado ? !!variety && !!stage : !!variety || !!item.trim())
     : !!variety && !!start);
 
@@ -194,6 +203,7 @@ export function AddCycleDialog({
     setBusy(true);
     const r = await addCycle({
       unit,
+      field_crop: withCrops ? fieldCrop || null : null,
       variety: variety || null,
       item: !variety && existing ? item.trim() || null : null,
       already_harvesting: existing && !avocado ? harvesting && !stageIsHarvest : false,
@@ -218,6 +228,7 @@ export function AddCycleDialog({
     toast(`Cycle ${ok.name} added.`);
     ok.warnings.forEach((w) => toast(w, "error"));
     setVariety("");
+    setFieldCrop("");
     setItem("");
     setHarvesting(false);
     setPlanting("");
@@ -272,13 +283,19 @@ export function AddCycleDialog({
                   options={units.filter((u) => !u.is_group).map((u) => ({ value: u.name, label: u.name }))}
                 />
               </Field>
+              {withCrops && (
+                <Field label="Crop" htmlFor="ac-crop">
+                  <Picker id="ac-crop" label="Crop" value={fieldCrop} onChange={setFieldCrop} options={cropOptions} placeholder="Choose a crop…" />
+                </Field>
+              )}
               <Field label="Variety" htmlFor="ac-variety">
                 <Picker
                   id="ac-variety"
                   label="Variety"
                   value={variety}
                   onChange={setVariety}
-                  options={varieties.map((x) => ({ value: x.name, label: x.variety_name }))}
+                  disabled={withCrops && !fieldCrop}
+                  options={shownVarieties.map((x) => ({ value: x.name, label: x.variety_name }))}
                   placeholder={avocado || !existing ? "Choose a variety…" : "No variety"}
                   clearable={!avocado && existing}
                   clearLabel="No variety"
@@ -400,6 +417,7 @@ function toBase64(buf: ArrayBuffer): string {
 function BulkImport({ crop, onDone, onCancel }: { crop: Crop; onDone: () => void; onCancel: () => void }) {
   const toast = useToast();
   const avocado = crop.crop_key === "avocado";
+  const withCrops = hasFieldCrops(crop);
   const input = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState("");
   const [rows, setRows] = useState<ImportRow[] | null>(null);
@@ -450,7 +468,9 @@ function BulkImport({ crop, onDone, onCancel }: { crop: Crop; onDone: () => void
       <p className="text-[13px] text-[var(--sd-muted)]">
         {avocado
           ? "Upload a CSV or Excel sheet of cycles that are already in production: block, variety, planting date, trees, area, current stage and last season’s kg per year."
-          : "Upload a CSV or Excel sheet of cycles that are already running in another application: block, variety or item, protocol, the date each was planted or started, area, current stage and last harvest."}{" "}
+          : withCrops
+            ? "Upload a CSV or Excel sheet of cycles that are already running in another application: block, crop (for example Cabbage), variety, protocol, the date each was planted or started, area, current stage and last harvest."
+            : "Upload a CSV or Excel sheet of cycles that are already running in another application: block, variety or item, protocol, the date each was planted or started, area, current stage and last harvest."}{" "}
         Rows are checked first; nothing is created until you confirm. {PICKS_UP_FROM_TODAY}
       </p>
       <div className="flex flex-wrap items-center gap-2">
@@ -477,6 +497,7 @@ function BulkImport({ crop, onDone, onCancel }: { crop: Crop; onDone: () => void
                 <tr className="text-left text-[11px] uppercase tracking-wide text-[var(--sd-quiet)]">
                   <th className="px-3 py-2">Row</th>
                   <th className="px-3 py-2">Block</th>
+                  {withCrops && <th className="px-3 py-2">Crop</th>}
                   <th className="px-3 py-2">{avocado ? "Variety" : "Variety / item"}</th>
                   {!avocado && <th className="px-3 py-2">Protocol</th>}
                   <th className="px-3 py-2">{avocado ? "Planted" : "Started"}</th>
@@ -494,6 +515,7 @@ function BulkImport({ crop, onDone, onCancel }: { crop: Crop; onDone: () => void
                     <tr key={r.row} className="border-t border-[var(--sd-line)] align-top">
                       <td className="px-3 py-2 tabular-nums text-[var(--sd-quiet)]">{r.row}</td>
                       <td className="px-3 py-2">{r.values.unit ?? r.raw.block}</td>
+                      {withCrops && <td className="px-3 py-2">{r.values.field_crop ?? r.raw.crop ?? "—"}</td>}
                       <td className="px-3 py-2">{r.values.variety ?? r.values.item ?? (r.raw.variety || r.raw.item)}</td>
                       {!avocado && <td className="px-3 py-2">{r.values.protocol ?? "—"}</td>}
                       <td className="px-3 py-2 tabular-nums">{r.values.planting_date ?? "—"}</td>

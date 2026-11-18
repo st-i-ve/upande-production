@@ -13,6 +13,7 @@ import { CYCLE_STATUSES } from "@/components/cycles/NewCycleDialog";
 import { listProtocols, type Crop, type Cycle, type UnitRow } from "@/lib/api";
 import { getCycleForEdit, updateCycle, type CycleEdit } from "@/lib/cycle-setup-api";
 import { isError } from "@/lib/frappe";
+import { cropLabel, hasFieldCrops } from "@/lib/field-crops";
 import { listVarieties, type Variety } from "@/lib/varieties-api";
 
 function Field({ label, htmlFor, hint, children, className }: { label: string; htmlFor?: string; hint?: string; children: React.ReactNode; className?: string }) {
@@ -48,6 +49,7 @@ export function EditCycleDialog({
   const toast = useToast();
   const [orig, setOrig] = useState<CycleEdit | null>(null);
   const [unit, setUnit] = useState("");
+  const [fieldCrop, setFieldCrop] = useState("");
   const [variety, setVariety] = useState("");
   const [protocol, setProtocol] = useState("");
   const [start, setStart] = useState("");
@@ -75,6 +77,7 @@ export function EditCycleDialog({
       const c = r as CycleEdit;
       setOrig(c);
       setUnit(c.unit);
+      setFieldCrop(c.field_crop ?? "");
       setVariety(c.variety ?? "");
       setProtocol(c.protocol ?? "");
       setStart(c.start_date ?? "");
@@ -107,6 +110,8 @@ export function EditCycleDialog({
     return orig?.protocol && !own.some((p) => p.value === orig.protocol) ? [...own, { value: orig.protocol, label: orig.protocol, variety: null }] : own;
   }, [protocols, variety, orig]);
 
+  const withCrops = hasFieldCrops(crop);
+  const shownVarieties = withCrops && fieldCrop ? varieties.filter((x) => x.field_crop === fieldCrop) : varieties;
   const running = status === "Active" || status === "Harvesting";
   const replans = !!orig && running && (protocol !== (orig.protocol ?? "") || start !== orig.start_date);
   const badRange = !!hFrom && !!hTo && hTo < hFrom;
@@ -155,7 +160,7 @@ export function EditCycleDialog({
           <DialogHeader>
             <DialogTitle>Edit cycle {cycle.name}</DialogTitle>
             <DialogDescription>
-              {cycle.unit} · {cycle.variety || cycle.item || cycle.name}. Tasks already in weekly plans are left as they are.
+              {cycle.unit} · {cropLabel(cycle.field_crop, cycle.variety) || cycle.item || cycle.name}. Tasks already in weekly plans are left as they are.
             </DialogDescription>
           </DialogHeader>
 
@@ -177,13 +182,28 @@ export function EditCycleDialog({
                     />
                   )}
                 </Field>
+                {withCrops && (
+                  <Field label="Crop" htmlFor="ec-crop">
+                    <Picker
+                      id="ec-crop"
+                      label="Crop"
+                      value={fieldCrop}
+                      onChange={(c) => {
+                        setFieldCrop(c);
+                        if (variety && varieties.find((x) => x.name === variety)?.field_crop !== c) setVariety("");
+                      }}
+                      options={(crop.field_crops ?? []).map((c) => ({ value: c.name, label: c.crop_name }))}
+                      placeholder="Choose a crop…"
+                    />
+                  </Field>
+                )}
                 <Field label="Variety" htmlFor="ec-variety" hint={!variety && orig.item ? `Item ${orig.item}` : undefined}>
                   <Picker
                     id="ec-variety"
                     label="Variety"
                     value={variety}
                     onChange={setVariety}
-                    options={varieties.map((x) => ({ value: x.name, label: x.variety_name }))}
+                    options={shownVarieties.map((x) => ({ value: x.name, label: x.variety_name }))}
                     clearable={!!orig.item}
                     clearLabel="No variety"
                     placeholder="No variety"

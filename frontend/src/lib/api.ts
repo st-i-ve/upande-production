@@ -41,6 +41,26 @@ export interface Crop {
   dry_matter_target_pct?: number | null;
   /** Grown for silage: the crop has the Silage page. */
   grown_for_silage?: number | boolean;
+  /** The named crops inside this section (Cabbage, Maize ... in Fruits & Vegetables); empty for the others. */
+  field_crops?: FieldCropOption[];
+  has_field_crops?: number | boolean;
+}
+
+export interface FieldCropOption {
+  name: string;
+  crop_name: string;
+  production_crop: string;
+  product: string | null;
+  harvest_uom: string;
+  color: string | null;
+  enabled: 0 | 1 | boolean;
+}
+
+/** One line of a section's harvest or forecast: a Field Crop in its own unit. */
+export interface CropQty {
+  field_crop: string | null;
+  uom: string | null;
+  qty: number;
 }
 
 export interface Boot {
@@ -77,11 +97,16 @@ export interface OverviewBlock {
   tasks_open: number;
   labour_cost_season: Money;
   harvest_qty_season: number;
+  field_crop?: string | null;
+  variety?: string | null;
 }
 
 export interface Overview {
   tiles: OverviewTiles;
   blocks: OverviewBlock[];
+  /** The season's harvest, one line per Field Crop and unit (empty ones for sections without field crops are not split). */
+  harvest_by_crop?: (CropQty & { value: number })[];
+  field_crops?: Record<string, { uom: string; color: string | null }>;
 }
 
 export const getOverview = (crop: string) => rpc<Overview>("get_overview", { crop });
@@ -102,6 +127,7 @@ export interface UnitRow {
   has_geojson: 0 | 1 | boolean;
   /** Variety and growth stage of the current cycle. */
   variety?: string | null;
+  field_crop?: string | null;
   current_stage?: string | null;
   /** Latest dry matter test; null when none (or the crop does not test). */
   dry_matter?: DryMatterLatest | null;
@@ -118,6 +144,7 @@ export interface RunningCycle {
   unit: string;
   item: string | null;
   variety: string | null;
+  field_crop?: string | null;
   current_stage: string | null;
   status: string;
   start_date: string;
@@ -181,6 +208,7 @@ export interface Cycle {
   due_for_uprooting?: 0 | 1 | boolean;
   proposed_next_cycle?: string | null;
   variety?: string | null;
+  field_crop?: string | null;
   current_stage?: string | null;
   plant_count?: number | null;
   /** An existing cycle, entered while already in production: tasks are planned from today. */
@@ -271,6 +299,10 @@ export interface PlanTask {
   rule_status?: RuleStatus | null;
   rule_notes?: string | null;
   override_reason?: string | null;
+  /** The cycle's crop and variety; `crop_label` reads "Cabbage (Gloria F1)". */
+  field_crop?: string | null;
+  variety?: string | null;
+  crop_label?: string | null;
   work: WorkEntry[];
   /** Set to 1 on a row passed to `savePlanTasks` to delete it. */
   _delete?: 1;
@@ -507,6 +539,18 @@ export interface ForecastSummary {
   seasons: Array<{ year: number; actual: number }>;
   /** Colour thresholds (Settings > Bands): see lib/bands.ts. */
   bands: Bands;
+  /** Per Field Crop and unit; empty for a section without field crops. */
+  by_crop?: ForecastCrop[];
+}
+
+export interface ForecastCrop {
+  field_crop: string | null;
+  uom: string | null;
+  forecast: number;
+  forecast_to_date: number;
+  actual: number;
+  committed: number;
+  error_pct: number | null;
 }
 
 export const forecastSummary = (crop: string, fromDate: string, toDate: string) =>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { FilterSelect } from "@/components/FilterSelect";
 import { flagCurrentWeek } from "@/components/Sparkline";
 import { KpiCard, KpiGrid } from "@/components/KpiCard";
+import { cropTotalsText, hasFieldCrops } from "@/lib/field-crops";
 import { RowsSkeleton, firstLoad } from "@/components/Loading";
 import { PageShell } from "@/components/PageShell";
 import { RefreshButton } from "@/components/RefreshButton";
@@ -78,6 +79,8 @@ export function Overview() {
   const units = pluralise(crop.unit_label).toLowerCase();
   const uom = crop.yield_uom;
   const usesCycles = cropUsesCycles(crop);
+  const withCrops = hasFieldCrops(crop);
+  const byCrop = data?.harvest_by_crop ?? [];
 
   const trend = extras?.trend;
   const series = (pick: (w: NonNullable<typeof trend>[number]) => number) =>
@@ -136,17 +139,17 @@ export function Overview() {
         )}
         <KpiCard
           label="Harvest this season"
-          value={t ? `${qty(t.harvest_qty_season)} ${uom}` : "—"}
-          hint="current calendar year"
-          series={series((w) => w.harvest)}
+          value={t ? (withCrops ? cropTotalsText(byCrop, qty) || "—" : `${qty(t.harvest_qty_season)} ${uom}`) : "—"}
+          hint={withCrops ? "current calendar year, by crop" : "current calendar year"}
+          series={withCrops ? undefined : series((w) => w.harvest)}
           goodDirection="up"
           loading={waiting}
         />
         <KpiCard
           label="Next 4 weeks"
-          value={t ? `${qty(t.forecast_next4)} ${uom}` : "—"}
-          hint={t ? `forecast, ${qty(t.committed_next4)} committed` : undefined}
-          series={fw?.map((w) => ({ week: w.week, value: w.forecast }))}
+          value={t ? (withCrops ? "By crop" : `${qty(t.forecast_next4)} ${uom}`) : "—"}
+          hint={withCrops ? "pieces and kg are not added; see Forecast" : t ? `forecast, ${qty(t.committed_next4)} committed` : undefined}
+          series={withCrops ? undefined : fw?.map((w) => ({ week: w.week, value: w.forecast }))}
           showDelta={false}
           loading={waiting}
         />
@@ -164,12 +167,34 @@ export function Overview() {
         <Panel title="This week by operation" hint="Approved work, with work awaiting approval hatched.">
           <OperationsProgress rows={extras?.operations} color={accent} loading={exLoading} />
         </Panel>
-        <Panel title="Harvest by week" hint={`Last 8 weeks, ${uom}.`}>
-          <HarvestTrend trend={trend} color={accent} uom={uom} loading={exLoading} />
-        </Panel>
-        <Panel title="Forecast vs committed" hint={`Next four weeks, ${uom}.`}>
-          <ForecastChart weeks={fw} color={accent} uom={uom} loading={exLoading} />
-        </Panel>
+        {withCrops ? (
+          <Panel title="Harvest by crop" hint="This season, each crop in its own unit." className="lg:col-span-2">
+            {waiting ? (
+              <RowsSkeleton rows={3} />
+            ) : byCrop.length === 0 ? (
+              <EmptyNote>No harvest recorded this season.</EmptyNote>
+            ) : (
+              <ul className="divide-y divide-[var(--sd-line-soft)]" data-testid="harvest-by-crop">
+                {byCrop.map((r) => (
+                  <li key={`${r.field_crop}-${r.uom}`} className="flex items-center gap-3 py-2.5 text-[13px]">
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: (r.field_crop && data?.field_crops?.[r.field_crop]?.color) || accent }} />
+                    <span className="flex-1 font-medium text-[var(--sd-ink)]">{r.field_crop ?? "Other"}</span>
+                    <span className="tabular-nums text-[var(--sd-ink)]">{qty(r.qty)} {r.uom}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
+        ) : (
+          <>
+            <Panel title="Harvest by week" hint={`Last 8 weeks, ${uom}.`}>
+              <HarvestTrend trend={trend} color={accent} uom={uom} loading={exLoading} />
+            </Panel>
+            <Panel title="Forecast vs committed" hint={`Next four weeks, ${uom}.`}>
+              <ForecastChart weeks={fw} color={accent} uom={uom} loading={exLoading} />
+            </Panel>
+          </>
+        )}
         <Panel title="Upcoming tasks" hint="Open work due soonest.">
           <UpcomingList rows={extras?.upcoming} loading={exLoading} />
         </Panel>
@@ -235,6 +260,7 @@ export function Overview() {
               extras={extraByUnit}
               canSeePay={boot.can_see_pay}
               uom={uom}
+              cropUnits={withCrops ? data.field_crops : undefined}
               unitLabel={crop.unit_label}
               usesCycles={usesCycles}
             />

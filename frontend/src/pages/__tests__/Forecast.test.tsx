@@ -67,6 +67,23 @@ describe("Forecast", () => {
     expect(await screen.findByRole("button", { name: /New sample/ })).toBeInTheDocument();
   });
 
+  it("splits a section with crops by crop, each in its own unit, with no grand total", async () => {
+    const FV = { ...CROP, name: "Fruits & Vegetables", crop_key: "fruits-vegetables", has_field_crops: 1, field_crops: [] };
+    fc.mockResolvedValue({
+      uom: "Kg", weeks: [], units: [], totals: { forecast: 5500, forecast_to_date: 4200, actual: 4600, committed: 2800, error_pct: 9.5 }, seasons: [], bands: BANDS,
+      by_crop: [
+        { field_crop: "Cabbage", uom: "Pieces", forecast: 1500, forecast_to_date: 1200, actual: 1200, committed: 800, error_pct: 0 },
+        { field_crop: "Potato", uom: "Kg", forecast: 4000, forecast_to_date: 3000, actual: 3400, committed: 2000, error_pct: 13.3 },
+      ],
+    });
+    renderPage(<Forecast />, {}, FV);
+    const t = await screen.findByTestId("forecast-by-crop");
+    expect(t).toHaveTextContent("Cabbage");
+    expect(t).toHaveTextContent("Pieces");
+    expect(t).toHaveTextContent("Potato");
+    expect(screen.queryByText("Buyer cover")).toBeNull();
+  });
+
   it("never links out to the standalone avocado pages", async () => {
     fc.mockResolvedValue({ uom: "Kg", weeks: [], units: [], totals: { forecast: 0, forecast_to_date: 0, actual: 0, committed: 0, error_pct: null }, seasons: [], bands: BANDS });
     renderPage(<Forecast />, {}, { ...CROP, crop_key: "avocado" });

@@ -1,4 +1,5 @@
 import { ScrollTable, STICKY_HEAD } from "@/components/ScrollTable";
+import { cropLabel } from "@/lib/field-crops";
 import { BODY_ROW, TD, TDR, TH, THEAD_ROW, THR } from "@/components/blocks/tableStyles";
 import { StatusPill } from "@/components/blocks/StatusPill";
 import { ha, kes, qty, shortDate } from "@/lib/format";
@@ -12,6 +13,7 @@ export function BlockTable({
   extras,
   canSeePay,
   uom,
+  cropUnits,
   unitLabel,
   usesCycles = true,
 }: {
@@ -19,6 +21,8 @@ export function BlockTable({
   extras?: Map<string, BlockExtra>;
   canSeePay: boolean;
   uom: string;
+  /** Sections with named crops: each block's harvest is in its own crop's unit (Pieces, Kg). */
+  cropUnits?: Record<string, { uom: string }>;
   unitLabel: string;
   usesCycles?: boolean;
 }) {
@@ -34,7 +38,7 @@ export function BlockTable({
             <th className={THR}>Open tasks</th>
             <th className={THR}>Crew (30d)</th>
             {canSeePay && <th className={THR}>Labour this season</th>}
-            <th className={THR}>Harvest{uom ? ` (${uom})` : ""}</th>
+            <th className={THR}>Harvest{uom && !cropUnits ? ` (${uom})` : ""}</th>
             <th className={TH}>Last activity</th>
           </tr>
         </thead>
@@ -54,7 +58,7 @@ export function BlockTable({
                 <td className={TD}>
                   {b.cycle ? (
                     <>
-                      <div className="text-[var(--sd-ink)]">{b.item || b.cycle}</div>
+                      <div className="text-[var(--sd-ink)]">{b.field_crop ? cropLabel(b.field_crop, b.variety) : b.item || b.cycle}</div>
                       <div className="text-[11px] text-[var(--sd-quiet)]">
                         {b.cycle}
                         {x?.cycle_day != null ? ` · day ${qty(x.cycle_day)}` : ""}
@@ -81,7 +85,7 @@ export function BlockTable({
                   )}
                 </td>
                 {canSeePay && <td className={cn(TDR, "text-[var(--sd-muted)]")}>{kes(b.labour_cost_season)}</td>}
-                <td className={TDR}>{qty(b.harvest_qty_season)}</td>
+                <td className={TDR}>{qty(b.harvest_qty_season)}{cropUnits && b.field_crop && cropUnits[b.field_crop] ? ` ${cropUnits[b.field_crop].uom}` : ""}</td>
                 <td className={cn(TD, "tabular-nums text-[var(--sd-muted)]")}>{shortDate(x?.last_activity)}</td>
               </tr>
             );

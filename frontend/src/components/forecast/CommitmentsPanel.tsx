@@ -29,8 +29,11 @@ export function CommitmentsPanel({
   canEdit,
   canSeePay,
   onSaved,
+  fieldCrops,
 }: {
   crop: string;
+  /** Crops of a section with named crops: a commitment names one, and is counted in its unit. */
+  fieldCrops?: { name: string; crop_name: string; harvest_uom: string }[];
   uom: string;
   canEdit: boolean;
   canSeePay: boolean;
@@ -75,8 +78,9 @@ export function CommitmentsPanel({
               <tr className={HEAD_ROW}>
                 <th className={TH}>Customer</th>
                 <th className={TH}>Week starting</th>
-                <th className={THR}>Committed ({uom})</th>
-                {canSeePay && <th className={THR}>Price / {uom}</th>}
+                {rows.some((r) => r.field_crop) && <th className={TH}>Crop</th>}
+                <th className={THR}>Committed{uom ? ` (${uom})` : ""}</th>
+                {canSeePay && <th className={THR}>Price{uom ? ` / ${uom}` : ""}</th>}
                 <th className={TH}>Status</th>
               </tr>
             </thead>
@@ -90,7 +94,8 @@ export function CommitmentsPanel({
                       {shortDate(r.week_start as string)}
                       {r.iso_week ? <span className="ml-1.5 text-[11px] text-[var(--sd-quiet)]">W{String(r.iso_week).padStart(2, "0")}</span> : null}
                     </td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">{qty(Number(r.committed_qty))}</td>
+                    {rows.some((x) => x.field_crop) && <td className="px-3 py-2.5">{String(r.field_crop ?? "—")}</td>}
+                    <td className="px-3 py-2.5 text-right tabular-nums">{qty(Number(r.committed_qty))}{!uom && r.uom ? ` ${String(r.uom)}` : ""}</td>
                     {canSeePay && <td className="px-3 py-2.5 text-right tabular-nums">{kes(r.price_per_uom as number | null)}</td>}
                     <td className="px-3 py-2.5">
                       <span className={cn("inline-flex rounded-[var(--sd-radius-pill)] px-2.5 py-1 text-[11px] font-medium", STATUS_CLASS[status] ?? STATUS_CLASS.Open)}>
@@ -108,6 +113,7 @@ export function CommitmentsPanel({
         <CommitmentDialog
           crop={crop}
           uom={uom}
+          fieldCrops={fieldCrops}
           canSeePay={canSeePay}
           onClose={() => setOpen(false)}
           onSaved={() => {
@@ -124,11 +130,13 @@ export function CommitmentsPanel({
 function CommitmentDialog({
   crop,
   uom,
+  fieldCrops,
   canSeePay,
   onClose,
   onSaved,
 }: {
   crop: string;
+  fieldCrops?: { name: string; crop_name: string; harvest_uom: string }[];
   uom: string;
   canSeePay: boolean;
   onClose: () => void;
@@ -141,14 +149,18 @@ function CommitmentDialog({
   const [price, setPrice] = useState("");
   const [status, setStatus] = useState("Open");
   const [saving, setSaving] = useState(false);
+  const [fieldCrop, setFieldCrop] = useState("");
+  const unit = fieldCrops?.find((c) => c.name === fieldCrop)?.harvest_uom ?? uom;
 
-  const valid = customer.trim() !== "" && Number(quantity) > 0;
+  const valid = customer.trim() !== "" && Number(quantity) > 0 && (!fieldCrops?.length || !!fieldCrop);
 
   async function save() {
     setSaving(true);
     const r = await saveCommitment({
       crop,
       customer: customer.trim(),
+      field_crop: fieldCrop || undefined,
+      uom: fieldCrop ? unit : undefined,
       week_start: ymd(weekStart(week)),
       committed_qty: Number(quantity),
       price_per_uom: price === "" ? undefined : Number(price),
@@ -182,11 +194,18 @@ function CommitmentDialog({
           <Field label="Status">
             <FilterSelect aria-label="Status" value={status} options={STATUSES.map((s) => ({ value: s, label: s }))} onChange={setStatus} />
           </Field>
-          <Field label={`Committed quantity (${uom})`} htmlFor="commit-qty">
+          {!!fieldCrops?.length && (
+            <div className="sm:col-span-2">
+              <Field label="Crop">
+                <FilterSelect aria-label="Crop" value={fieldCrop} options={fieldCrops.map((c) => ({ value: c.name, label: c.crop_name }))} onChange={setFieldCrop} allLabel="Choose a crop" />
+              </Field>
+            </div>
+          )}
+          <Field label={`Committed quantity${unit ? ` (${unit})` : ""}`} htmlFor="commit-qty">
             <Input id="commit-qty" type="number" min="0" inputMode="decimal" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
           </Field>
           {canSeePay && (
-            <Field label={`Price per ${uom} (KES, optional)`} htmlFor="commit-price">
+            <Field label={`Price${unit ? ` per ${unit}` : ""} (KES, optional)`} htmlFor="commit-price">
               <Input id="commit-price" type="number" min="0" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} />
             </Field>
           )}

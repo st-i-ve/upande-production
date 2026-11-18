@@ -6,6 +6,8 @@ const rpc = <T>(name: string, args: Record<string, unknown> = {}): Promise<Envel
 
 export interface AddCycleInput {
   unit: string;
+  /** Sections with named crops: the crop first, then a variety of it. */
+  field_crop?: string | null;
   variety?: string | null;
   protocol?: string | null;
   cycle_type?: string;
@@ -39,6 +41,7 @@ export interface ImportRow {
   values: {
     unit: string | null;
     variety: string | null;
+    field_crop?: string | null;
     item?: string | null;
     protocol?: string | null;
     already_harvesting?: number;
@@ -70,6 +73,7 @@ export interface CycleEdit {
   name: string;
   unit: string;
   crop: string;
+  field_crop?: string | null;
   variety: string | null;
   item: string | null;
   protocol: string | null;
