@@ -15,12 +15,12 @@ crate -> Harvest Crate; Crate Allocation -> Harvest Crate Scan. After "mark read
 import frappe
 from frappe.utils import add_days, flt, now_datetime, today
 
+from upande_production.mobile import access
 from upande_production.production.logic import harvest as H
 from upande_production.production.logic.analytics import current_cycles
 
 CRATE_SCAN = "Harvest Crate Scan"
 COLLECTED = ("Batched",)
-MANAGER_ROLES = {"Production Manager", "Production Supervisor", "System Manager", "Avocado Production Manager"}
 
 
 # ---------------------------------------------------------------- plumbing
@@ -77,7 +77,8 @@ def _can_scan() -> bool:
 
 
 def _is_manager() -> bool:
-	return frappe.session.user == "Administrator" or bool(MANAGER_ROLES & set(frappe.get_roles()))
+	"""Farm manager view (report): managers only, not supervisors."""
+	return access.has_capability("farm_report")
 
 
 def _period(period: str):
@@ -453,7 +454,7 @@ def get_session_info(**kw):
 		user = frappe.session.user
 		return {"user": user, "full_name": frappe.db.get_value("User", user, "full_name") or user,
 			"roles": frappe.get_roles(user), "is_loading_clerk": False, "is_packhouse_receiver": False,
-			"is_farm_manager": _is_manager()}
+			"is_farm_manager": _is_manager(), "capabilities": access.capabilities(user)}
 	except Exception as e:
 		return _fail("get_session_info", e)
 
@@ -475,6 +476,8 @@ def farm_manager_report(period=None, **kw):
 	script tracked: in_field = open crates, at_packhouse = crates closed into a batch (stock), on_road
 	and returned = 0. Extra: totals.estimated_kg, totals.batches, teams[].estimated_kg."""
 	try:
+		if not _is_manager():
+			return _err("Permission denied - the farm manager report needs a Production Manager role", 403)
 		period, label, start, end = _period(_s(period) or "today")
 		ca = "date(ca.allocated_at) between %(s)s and %(e)s"
 		args = {"s": start, "e": end}
@@ -588,7 +591,7 @@ def update_crate_block(crate_id=None, new_block=None, **kw):
 		crate_id, new_block = _s(crate_id), _s(new_block)
 		if not crate_id or not new_block:
 			return _err("crate_id and new_block are required", 400)
-		if not _is_manager():
+		if not access.has_capability("crate_admin"):
 			return _err("Permission denied - requires a Production Manager or Supervisor role", 403)
 		name = frappe.db.get_value(CRATE_SCAN, {"crate_id": crate_id}, "name", order_by="creation desc")
 		if not name:
@@ -614,7 +617,7 @@ def bulk_create_crates(count=None, farm=None, prefix=None, width=None, **kw):
 		count = int(count or 0)
 		if count <= 0 or count > 2000:
 			return _err("count must be between 1 and 2000", 400)
-		if not _is_manager():
+		if not access.has_capability("crate_admin"):
 			return _err("Permission denied - requires a Production Manager or Supervisor role", 403)
 		farm = H.resolve_farm(farm) if _s(farm) else None
 		prefix = _s(prefix)

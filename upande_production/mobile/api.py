@@ -2,6 +2,7 @@
 import frappe
 from frappe.utils import cint, getdate, today
 
+from upande_production.mobile import access
 from upande_production.production.logic import analytics, approvals, labourers, plans, rules, wm_bridge, work
 from upande_production.production.logic.settings import can_see_pay
 from upande_production.production.logic.units import unit_filter
@@ -37,6 +38,14 @@ def _denied(*checks) -> bool:
 		if not frappe.has_permission(doctype, ptype):
 			_fail("You do not have permission to do this.")
 			return True
+	return False
+
+
+def _need(cap: str) -> bool:
+	"""Refuse (error response, True) unless the user's roles grant the capability."""
+	if not access.has_capability(cap):
+		_fail("You do not have permission to do this.")
+		return True
 	return False
 
 
@@ -154,6 +163,8 @@ def productionListUnits():
 
 @frappe.whitelist()
 def productionGetWeekPlan():
+	if _need("plan_view"):
+		return
 	if _denied(("Production Work Plan", "read")):
 		return
 	data = _payload()
@@ -188,6 +199,8 @@ def productionGetWeekPlan():
 
 @frappe.whitelist()
 def productionUpdateTask():
+	if _need("plan_tick_off"):
+		return
 	if _denied(("Production Work Plan", "write")):
 		return
 	data = _payload()
@@ -222,6 +235,8 @@ def productionUpdateTask():
 
 @frappe.whitelist()
 def productionRecordUnplannedWork():
+	if _need("plan_tick_off"):
+		return
 	if _denied(("Casual Labour Work", "create")):
 		return
 	data = _payload()
@@ -247,6 +262,8 @@ def productionRecordUnplannedWork():
 @frappe.whitelist()
 def productionListSentBack():
 	"""Work the manager sent back for correction. Supervisors see their own; managers see all."""
+	if _need("plan_tick_off"):
+		return
 	if _denied(("Casual Labour Work", "read")):
 		return
 	data = _payload()
@@ -264,6 +281,8 @@ def productionListSentBack():
 
 @frappe.whitelist()
 def productionResubmitWork():
+	if _need("plan_tick_off"):
+		return
 	if _denied(("Casual Labour Work", "write")):
 		return
 	data = _payload()
@@ -283,6 +302,8 @@ def productionResubmitWork():
 
 @frappe.whitelist()
 def productionRecordHarvest():
+	if _need("harvest"):
+		return
 	if _denied(("Production Harvest", "create")):
 		return
 	data = _payload()
@@ -311,6 +332,8 @@ def productionRecordHarvest():
 
 @frappe.whitelist()
 def productionRecordSample():
+	if _need("harvest"):
+		return
 	if _denied(("Yield Sample", "create")):
 		return
 	data = _payload()
@@ -341,6 +364,8 @@ def productionRecordSample():
 
 @frappe.whitelist()
 def productionListCasualLabourers():
+	if _need("plan_tick_off"):
+		return
 	if _denied(("Casual Labour Work", "create")):
 		return
 	data = _payload()
@@ -550,6 +575,8 @@ def _task_entries(plan) -> dict:
 @frappe.whitelist()
 def productionListWeekPlans():
 	"""Plans (weeks) of a crop, newest week first, with task counts. Also says which week is current."""
+	if _need("plan_view"):
+		return
 	if _denied(("Production Work Plan", "read")):
 		return
 	data = _payload()
@@ -597,6 +624,8 @@ def productionListWeekPlans():
 @frappe.whitelist()
 def productionGetPlanDetail():
 	"""One week's plan for a crop (optionally one block): tasks grouped by block, each with its crew entries."""
+	if _need("plan_view"):
+		return
 	if _denied(("Production Work Plan", "read")):
 		return
 	data = _payload()
@@ -664,6 +693,8 @@ def productionGetPlanDetail():
 @frappe.whitelist()
 def productionAddTask():
 	"""Assign work: add a planned task to a crop's week plan (the plan is created when the week has none)."""
+	if _need("plan_manage"):
+		return
 	if _denied(("Production Work Plan", "write")):
 		return
 	data = _payload()
@@ -721,6 +752,8 @@ def productionAddTask():
 @frappe.whitelist()
 def productionGeneratePlan():
 	"""Generate the week's tasks from the cycles' protocols. Idempotent: steps already planned are skipped."""
+	if _need("plan_manage"):
+		return
 	if _denied(("Production Work Plan", "write")):
 		return
 	data = _payload()
