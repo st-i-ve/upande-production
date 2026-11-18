@@ -2,7 +2,7 @@ import { fireEvent, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Cycles } from "@/pages/Cycles";
 import * as api from "@/lib/api";
-import { renderPage } from "./testkit";
+import { CROP, renderPage } from "./testkit";
 
 vi.mock("@/lib/api", async (orig) => ({
   ...(await orig<typeof api>()),
@@ -83,5 +83,29 @@ describe("Cycles", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Save and close cycle" }));
     expect(await screen.findByText("Next cycle proposed: CYC-6")).toBeTruthy();
     expect(api.saveCycle).toHaveBeenCalledWith(expect.objectContaining({ name: "CYC-5", status: "Closed" }));
+  });
+
+  it("for fruits and vegetables keeps New cycle and adds Add existing cycle, with existing and import only", async () => {
+    const FV = { ...CROP, name: "Fruits & Vegetables", crop_key: "fruits-vegetables", unit_label: "Block" };
+    listCycles.mockResolvedValue({ cycles: [] });
+    renderPage(<Cycles />, true, FV);
+    await screen.findByText(/No crop cycles for Fruits/i);
+    expect(screen.getByRole("button", { name: /New cycle/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Add existing cycle/ }));
+    expect(await screen.findByText("Add crop cycle", { selector: "h2" })).toBeTruthy();
+    expect(screen.queryByRole("tab", { name: "New cycle" })).toBeNull();
+    expect(screen.getByRole("tab", { name: "Bulk import" })).toBeTruthy();
+  });
+
+  it("offers Edit from a cycle's dialog to managers only", async () => {
+    listCycles.mockResolvedValue({
+      cycles: [{ name: "CYC-9", title: "Hass", unit: "Block A1", item: "Hass", cycle_type: "Season", start_date: "2026-02-01", expected_harvest_start: null,
+        expected_harvest_end: null, protocol: null, status: "Active", area_ha: 8, previous_cycle: null, variety: "Hass", current_stage: "Flowering" }],
+    });
+    renderPage(<Cycles />);
+    await screen.findByTestId("gantt-CYC-9");
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "List" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Stages of CYC-9" }));
+    expect(await screen.findByRole("button", { name: "Edit" })).toBeTruthy();
   });
 });

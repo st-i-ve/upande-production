@@ -18,12 +18,13 @@ import { StageChip } from "@/components/varieties/StageChip";
 import { listRules, listVarieties, type ActivityRule, type Variety } from "@/lib/varieties-api";
 import { CycleGantt } from "@/components/cycles/CycleGantt";
 import { AddCycleDialog } from "@/components/cycles/AddCycleDialog";
+import { EditCycleDialog } from "@/components/cycles/EditCycleDialog";
 import { CYCLE_STATUSES, NewCycleDialog } from "@/components/cycles/NewCycleDialog";
 import { Card, CardContent, CardDescription, CardHeaderRow, CardHeading, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { listCycles, listUnits, type Cycle, type UnitRow } from "@/lib/api";
 import { pluralise, useCurrentCrop, viewLabel } from "@/lib/crops";
-import { canAddCycle } from "@/lib/cycle-setup-api";
+import { canAddCycle, canManageCycles, hasNewCycleTab } from "@/lib/cycle-setup-api";
 import { isError } from "@/lib/frappe";
 import { ha, qty, shortDate } from "@/lib/format";
 import { cn, matchesQuery, ymd } from "@/lib/utils";
@@ -65,6 +66,8 @@ export function Cycles() {
   const toast = useToast();
   const accent = crop.accent_color || "#3f7d3a";
   const addable = canAddCycle(crop);
+  const canEdit = canManageCycles(crop);
+  const fullDialog = addable && hasNewCycleTab(crop);
   const [cycles, setCycles] = useState<Cycle[] | null>(null);
   const [units, setUnits] = useState<UnitRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,6 +76,8 @@ export function Cycles() {
   const [q, setQ] = useState("");
   const [tab, setTab] = useState("timeline");
   const [creating, setCreating] = useState(false);
+  const [addingExisting, setAddingExisting] = useState(false);
+  const [editing, setEditing] = useState<Cycle | null>(null);
   const [variety, setVariety] = useState(ALL);
   const [varieties, setVarieties] = useState<Variety[]>([]);
   const [rules, setRules] = useState<ActivityRule[]>([]);
@@ -197,8 +202,14 @@ export function Cycles() {
             <RefreshButton onClick={load} loading={loading} label="the cycles" />
             <ToolbarButton onClick={() => setCreating(true)}>
               <Plus className="h-4 w-4" />
-              {addable ? "Add crop cycle" : "New cycle"}
+              {fullDialog ? "Add crop cycle" : "New cycle"}
             </ToolbarButton>
+            {addable && !fullDialog && (
+              <ToolbarButton onClick={() => setAddingExisting(true)}>
+                <Plus className="h-4 w-4" />
+                Add existing cycle
+              </ToolbarButton>
+            )}
           </>
         }
         description={`A ${crop.unit_label.toLowerCase()} can run several cycles at once. A protocol on the cycle drives its weekly plan.`}
@@ -251,14 +262,24 @@ export function Cycles() {
         </TabsContent>
 
         {picked && (
-          <CycleStageDialog cycle={picked} accent={accent} canRecord={crop.boot.can_plan} onRecordDates={crop.boot.can_plan ? () => { setRecording(picked); setPicked(null); } : undefined} onClose={() => setPicked(null)} onChanged={() => void load()} />
+          <CycleStageDialog cycle={picked} accent={accent} canRecord={crop.boot.can_plan} onRecordDates={crop.boot.can_plan ? () => { setRecording(picked); setPicked(null); } : undefined} onEdit={canEdit ? () => { setEditing(picked); setPicked(null); } : undefined} onClose={() => setPicked(null)} onChanged={() => void load()} />
         )}
 
         {recording && <CycleActualsDialog cycle={recording} onClose={() => setRecording(null)} onSaved={() => void load()} />}
 
-        {addable ? (
-          <AddCycleDialog crop={crop} units={units} defaultUnit={unit || undefined} open={creating} onOpenChange={setCreating} onSaved={() => void load()} />
-        ) : (
+        {editing && <EditCycleDialog cycle={editing} crop={crop} units={units} onClose={() => setEditing(null)} onSaved={() => void load()} />}
+
+        {addable && (
+          <AddCycleDialog
+            crop={crop}
+            units={units}
+            defaultUnit={unit || undefined}
+            open={fullDialog ? creating : addingExisting}
+            onOpenChange={fullDialog ? setCreating : setAddingExisting}
+            onSaved={() => void load()}
+          />
+        )}
+        {!fullDialog && (
         <NewCycleDialog
           crop={crop}
           units={units.map((u) => ({ name: u.name, is_group: !!u.is_group }))}

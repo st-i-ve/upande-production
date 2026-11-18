@@ -18,7 +18,7 @@ import { UnitDrawer } from "@/components/blocks/UnitDrawer";
 import { BODY_ROW, TD, TDR, TH, THEAD_ROW, THR } from "@/components/blocks/tableStyles";
 import { EmptyNote, Panel } from "@/components/overview/Panel";
 import { cycleFlags, getOverview, listUnits, type OverviewBlock, type UnitRow } from "@/lib/api";
-import { canAddCycle } from "@/lib/cycle-setup-api";
+import { canAddCycle, hasNewCycleTab } from "@/lib/cycle-setup-api";
 import { blockLinks } from "@/lib/blockcost-api";
 import { cropUsesCycles, pluralise, useCurrentCrop, viewLabel } from "@/lib/crops";
 import { isError } from "@/lib/frappe";
@@ -185,7 +185,7 @@ export function Blocks() {
       {addable && (
         <ToolbarButton onClick={() => setAdding({})}>
           <Plus className="h-4 w-4" />
-          Add crop cycle
+          {hasNewCycleTab(crop) ? "Add crop cycle" : "Add existing cycle"}
         </ToolbarButton>
       )}
     </>
@@ -331,14 +331,14 @@ export function Blocks() {
                           {addable && !group && (
                             <button
                               type="button"
-                              aria-label={`Add crop cycle to ${u.name}`}
+                              aria-label={`${hasNewCycleTab(crop) ? "Add crop cycle" : "Add existing cycle"} to ${u.name}`}
                               className="mt-1 block text-[11.5px] font-medium text-[var(--sd-muted)] underline-offset-2 hover:text-[var(--sd-ink)] hover:underline"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setAdding({ unit: u.name });
                               }}
                             >
-                              + Add crop cycle
+                              + {hasNewCycleTab(crop) ? "Add crop cycle" : "Add existing cycle"}
                             </button>
                           )}
                         </td>

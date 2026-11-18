@@ -376,6 +376,15 @@ def check_rows(crop, rows) -> list:
 	return out
 
 
+def edit_info(name) -> dict:
+	"""What the Edit cycle form starts from: the editable fields, and whether tasks exist (the block is then fixed)."""
+	doc = frappe.get_doc(CYCLE_DT, name)
+	out = {k: doc.get(k) for k in ("name", "unit", "crop", "variety", "item", "protocol", "start_date", "planting_date",
+		"area_ha", "plant_count", "expected_harvest_start", "expected_harvest_end", "status", "notes", "existing_cycle")}
+	out["has_tasks"] = bool(frappe.db.exists("Work Plan Task", {"cycle": name}))
+	return out
+
+
 def update_cycle(name, data) -> dict:
 	"""Edit a cycle already made: {name, warnings, notes}. Changing the protocol or start date of a running
 	cycle re-plans from today (`schedule_from`), never back-fills; tasks already in weekly plans stay."""

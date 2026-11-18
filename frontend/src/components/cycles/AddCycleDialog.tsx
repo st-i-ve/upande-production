@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Picker } from "@/components/ui/picker";
 import { SearchPicker } from "@/components/ui/search-picker";
-import { addCycle, importCycles, importTemplate, previewImport, type ImportResult, type ImportRow } from "@/lib/cycle-setup-api";
+import { ItemField } from "@/components/cycles/ItemField";
+import { addCycle, hasNewCycleTab, importCycles, importTemplate, previewImport, type ImportResult, type ImportRow } from "@/lib/cycle-setup-api";
 import { listProtocols, type Crop, type UnitRow } from "@/lib/api";
 import { isError } from "@/lib/frappe";
 import { ha, qty } from "@/lib/format";
@@ -82,16 +83,21 @@ function OptionalDate({ value, onChange, label, max }: { value: string; onChange
   );
 }
 
+/** Said in the existing-cycle form and the import: the scheduler plans nothing before today. */
+export const PICKS_UP_FROM_TODAY = "Picks up from today: nothing before today is planned.";
+
 /**
- * Add a crop cycle to an avocado block: a new one, one that is already in production (planting date, current
- * stage, history) or many from a sheet. Several cycles may run on one block; going past the block's area or
+ * Add a crop cycle to a block: a new one (avocado; other crops start theirs in their own form), one that is
+ * already in production in another application (planting or start date, current stage if the variety has
+ * stages, history) or many from a sheet. Several cycles may run on one block; going past the block's area or
  * trees warns and still saves.
  */
 export function AddCycleDialog({
   crop,
   units,
   defaultUnit,
-  defaultMode = "new",
+  defaultMode,
+  modes,
   open,
   onOpenChange,
   onSaved,
@@ -100,12 +106,19 @@ export function AddCycleDialog({
   units: UnitRow[];
   defaultUnit?: string;
   defaultMode?: Mode;
+  /** Which ways in to offer; avocado has all three, other crops add an existing cycle or import. */
+  modes?: Mode[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
 }) {
   const toast = useToast();
-  const [mode, setMode] = useState<Mode>(defaultMode);
+  const avocado = crop.crop_key === "avocado";
+  const offered = modes ?? (hasNewCycleTab(crop) ? MODES.map((m) => m.id) : (["existing", "import"] as Mode[]));
+  const firstMode = defaultMode && offered.includes(defaultMode) ? defaultMode : offered[0];
+  const [mode, setMode] = useState<Mode>(firstMode);
+  const [item, setItem] = useState("");
+  const [harvesting, setHarvesting] = useState(false);
   const [unit, setUnit] = useState(defaultUnit ?? "");
   const [variety, setVariety] = useState("");
   const [varieties, setVarieties] = useState<Variety[]>([]);
@@ -124,8 +137,10 @@ export function AddCycleDialog({
 
   useEffect(() => {
     if (!open) return;
-    setMode(defaultMode);
+    setMode(firstMode);
     setUnit(defaultUnit ?? "");
+    setItem("");
+    setHarvesting(false);
     let live = true;
     void listVarieties(crop.name).then((r) => live && !isError(r) && setVarieties(r.varieties.filter((v) => !!Number(v.enabled))));
     void listProtocols(crop.name).then((r) => {
@@ -141,11 +156,14 @@ export function AddCycleDialog({
     return () => {
       live = false;
     };
-  }, [open, crop.name, defaultUnit, defaultMode]);
+  }, [open, crop.name, defaultUnit, firstMode]);
 
   const unitRow = units.find((u) => u.name === unit);
   const v = varieties.find((x) => x.name === variety);
   const stages = useMemo(() => (v?.stages ?? []).map((s) => s.stage), [v]);
+  const stageDefs = v?.stages ?? [];
+  const pickedStage = stageDefs.find((s) => s.stage === stage);
+  const stageIsHarvest = !!pickedStage && !!Number(pickedStage.is_harvest);
   const protoOptions = useMemo(() => protocols.filter((p) => !p.variety || p.variety === variety), [protocols, variety]);
 
   // Choosing a variety offers its stages and its own protocol; choosing a block offers its area and trees.
@@ -168,14 +186,17 @@ export function AddCycleDialog({
   const warnings = capacityWarnings(unitRow, areaN, treesN);
   const yearKg = v?.expected_yield_per_plant && treesN ? v.expected_yield_per_plant * treesN : null;
   const existing = mode === "existing";
-  const can =
-    !!unit && !!variety && !busy && (existing ? !!planting && !!stage : !!start);
+  const can = !!unit && !busy && (existing
+    ? !!planting && (avocado ? !!variety && !!stage : !!variety || !!item.trim())
+    : !!variety && !!start);
 
   async function save() {
     setBusy(true);
     const r = await addCycle({
       unit,
-      variety,
+      variety: variety || null,
+      item: !variety && existing ? item.trim() || null : null,
+      already_harvesting: existing && !avocado ? harvesting && !stageIsHarvest : false,
       protocol: protocol || null,
       cycle_type: existing ? "Season" : type,
       start_date: existing ? null : start,
@@ -197,6 +218,8 @@ export function AddCycleDialog({
     toast(`Cycle ${ok.name} added.`);
     ok.warnings.forEach((w) => toast(w, "error"));
     setVariety("");
+    setItem("");
+    setHarvesting(false);
     setPlanting("");
     setLastFlower("");
     setLastHarvest("");
@@ -212,12 +235,12 @@ export function AddCycleDialog({
           <DialogTitle>Add crop cycle</DialogTitle>
           <DialogDescription>
             Several cycles can run on one {crop.unit_label.toLowerCase()} at the same time, for instance two varieties. An existing cycle
-            starts from the stage it is in now; nothing before today is planned.
+            carries on from where it is in another application.
           </DialogDescription>
         </DialogHeader>
 
         <div role="tablist" aria-label="Kind of cycle" className="flex flex-wrap gap-2">
-          {MODES.map((m) => (
+          {MODES.filter((m) => offered.includes(m.id)).map((m) => (
             <button
               key={m.id}
               role="tab"
@@ -250,21 +273,50 @@ export function AddCycleDialog({
                 />
               </Field>
               <Field label="Variety" htmlFor="ac-variety">
-                <Picker id="ac-variety" label="Variety" value={variety} onChange={setVariety} options={varieties.map((x) => ({ value: x.name, label: x.variety_name }))} placeholder="Choose a variety…" />
+                <Picker
+                  id="ac-variety"
+                  label="Variety"
+                  value={variety}
+                  onChange={setVariety}
+                  options={varieties.map((x) => ({ value: x.name, label: x.variety_name }))}
+                  placeholder={avocado || !existing ? "Choose a variety…" : "No variety"}
+                  clearable={!avocado && existing}
+                  clearLabel="No variety"
+                />
               </Field>
+              {existing && !avocado && !variety && (
+                <Field label="Item" htmlFor="ac-item" hint="What the cycle grows, when it has no variety">
+                  <ItemField id="ac-item" value={item} onChange={setItem} />
+                </Field>
+              )}
               <Field label="Protocol" htmlFor="ac-protocol" hint={variety && protoOptions.length === 0 ? "No active protocol for this variety." : undefined}>
                 <Picker id="ac-protocol" label="Protocol" value={protocol} onChange={setProtocol} options={protoOptions} clearable clearLabel="No protocol" placeholder="No protocol" />
               </Field>
 
               {existing ? (
                 <>
-                  <Field label="Planting date" hint={planting ? `Tree age ${treeAge(planting)}` : "When the trees were planted"}>
-                    <DatePicker value={planting} onChange={setPlanting} max={todayISO()} aria-label="Planting date" className="w-full" />
+                  <Field
+                    label={avocado ? "Planting date" : "Planted / started on"}
+                    hint={avocado ? (planting ? `Tree age ${treeAge(planting)}` : "When the trees were planted") : "The date it was planted or started in the other system"}
+                  >
+                    <DatePicker value={planting} onChange={setPlanting} max={todayISO()} aria-label={avocado ? "Planting date" : "Planted or started on"} className="w-full" />
                   </Field>
-                  <Field label="Current stage" htmlFor="ac-stage" hint={variety ? undefined : "Choose a variety first"}>
-                    <Picker id="ac-stage" label="Current stage" value={stage} onChange={setStage} options={stages} placeholder="Choose a stage…" disabled={!stages.length} />
-                  </Field>
-                  <Field label="Trees standing" htmlFor="ac-trees" hint={unitRow?.plant_count ? `Block records ${qty(unitRow.plant_count)} trees` : undefined}>
+                  {(avocado || stages.length > 0) && (
+                    <Field label="Current stage" htmlFor="ac-stage" hint={variety ? undefined : "Choose a variety first"}>
+                      <Picker
+                        id="ac-stage"
+                        label="Current stage"
+                        value={stage}
+                        onChange={setStage}
+                        options={stages}
+                        placeholder={avocado ? "Choose a stage…" : "Not known"}
+                        disabled={!stages.length}
+                        clearable={!avocado}
+                        clearLabel="Not known"
+                      />
+                    </Field>
+                  )}
+                  <Field label={avocado ? "Trees standing" : "Plants"} htmlFor="ac-trees" hint={unitRow?.plant_count ? `${crop.unit_label} records ${qty(unitRow.plant_count)}` : undefined}>
                     <Input id="ac-trees" inputMode="numeric" className="tabular-nums" value={trees} onChange={(e) => setTrees(e.target.value)} />
                   </Field>
                 </>
@@ -284,22 +336,31 @@ export function AddCycleDialog({
               <Field label="Area (ha)" htmlFor="ac-area" hint={unitRow?.area_ha ? `Block area ${ha(unitRow.area_ha)} ha` : undefined}>
                 <Input id="ac-area" inputMode="decimal" className="tabular-nums" value={area} onChange={(e) => setArea(e.target.value)} />
               </Field>
+              {existing && !avocado && !stageIsHarvest && (
+                <label className="flex items-center gap-2 self-end pb-2 text-[13px] text-[var(--sd-ink)]">
+                  <input type="checkbox" className="h-4 w-4" checked={harvesting} onChange={(e) => setHarvesting(e.target.checked)} />
+                  Already harvesting
+                </label>
+              )}
               {existing && (
                 <>
+                  {(avocado || v?.stage_anchor === "Flowering") && (
                   <Field label="Last flowering date (optional)">
                     <OptionalDate value={lastFlower} onChange={setLastFlower} label="Last flowering date" max={todayISO()} />
                   </Field>
+                  )}
                   <Field label="Last harvest date (optional)">
                     <OptionalDate value={lastHarvest} onChange={setLastHarvest} label="Last harvest date" max={todayISO()} />
                   </Field>
-                  <Field label="Last season yield (kg per year, optional)" htmlFor="ac-lastkg" hint={treesN && lastKg ? `${qty(Number(lastKg) / treesN, 1)} kg/tree/year` : undefined}>
+                  <Field label={avocado ? "Last season yield (kg per year, optional)" : "Last yield (kg, optional)"} htmlFor="ac-lastkg" hint={avocado && treesN && lastKg ? `${qty(Number(lastKg) / treesN, 1)} kg/tree/year` : undefined}>
                     <Input id="ac-lastkg" inputMode="decimal" className="tabular-nums" value={lastKg} onChange={(e) => setLastKg(e.target.value)} />
                   </Field>
                 </>
               )}
             </div>
 
-            {yearKg != null && (
+            {existing && <p className="text-[12.5px] text-[var(--sd-muted)]">{PICKS_UP_FROM_TODAY}</p>}
+            {yearKg != null && avocado && (
               <p className="text-[12.5px] text-[var(--sd-muted)]">
                 At {qty(v?.expected_yield_per_plant ?? 0, 1)} kg/tree/year this cycle is expected to give about{" "}
                 <span className="tabular-nums text-[var(--sd-ink)]">{qty(yearKg)} kg per year</span>.
@@ -338,6 +399,7 @@ function toBase64(buf: ArrayBuffer): string {
 
 function BulkImport({ crop, onDone, onCancel }: { crop: Crop; onDone: () => void; onCancel: () => void }) {
   const toast = useToast();
+  const avocado = crop.crop_key === "avocado";
   const input = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState("");
   const [rows, setRows] = useState<ImportRow[] | null>(null);
@@ -345,7 +407,7 @@ function BulkImport({ crop, onDone, onCancel }: { crop: Crop; onDone: () => void
   const [busy, setBusy] = useState(false);
 
   async function template() {
-    const r = await importTemplate();
+    const r = await importTemplate(crop.name);
     if (isError(r)) return toast(r.error, "error");
     const t = r as { filename: string; content: string };
     const url = URL.createObjectURL(new Blob([t.content], { type: "text/csv" }));
@@ -386,8 +448,10 @@ function BulkImport({ crop, onDone, onCancel }: { crop: Crop; onDone: () => void
   return (
     <div className="flex flex-col gap-4">
       <p className="text-[13px] text-[var(--sd-muted)]">
-        Upload a CSV or Excel sheet of cycles that are already in production: block, variety, planting date, trees, area, current stage and last
-        season&rsquo;s kg per year. Rows are checked first; nothing is created until you confirm.
+        {avocado
+          ? "Upload a CSV or Excel sheet of cycles that are already in production: block, variety, planting date, trees, area, current stage and last season’s kg per year."
+          : "Upload a CSV or Excel sheet of cycles that are already running in another application: block, variety or item, protocol, the date each was planted or started, area, current stage and last harvest."}{" "}
+        Rows are checked first; nothing is created until you confirm. {PICKS_UP_FROM_TODAY}
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="outline" onClick={template}>
@@ -413,12 +477,13 @@ function BulkImport({ crop, onDone, onCancel }: { crop: Crop; onDone: () => void
                 <tr className="text-left text-[11px] uppercase tracking-wide text-[var(--sd-quiet)]">
                   <th className="px-3 py-2">Row</th>
                   <th className="px-3 py-2">Block</th>
-                  <th className="px-3 py-2">Variety</th>
-                  <th className="px-3 py-2">Planted</th>
-                  <th className="px-3 py-2 text-right">Trees</th>
+                  <th className="px-3 py-2">{avocado ? "Variety" : "Variety / item"}</th>
+                  {!avocado && <th className="px-3 py-2">Protocol</th>}
+                  <th className="px-3 py-2">{avocado ? "Planted" : "Started"}</th>
+                  {avocado && <th className="px-3 py-2 text-right">Trees</th>}
                   <th className="px-3 py-2 text-right">Area (ha)</th>
                   <th className="px-3 py-2">Stage</th>
-                  <th className="px-3 py-2 text-right">Last kg/yr</th>
+                  {avocado && <th className="px-3 py-2 text-right">Last kg/yr</th>}
                   <th className="px-3 py-2">Check</th>
                 </tr>
               </thead>
@@ -429,12 +494,13 @@ function BulkImport({ crop, onDone, onCancel }: { crop: Crop; onDone: () => void
                     <tr key={r.row} className="border-t border-[var(--sd-line)] align-top">
                       <td className="px-3 py-2 tabular-nums text-[var(--sd-quiet)]">{r.row}</td>
                       <td className="px-3 py-2">{r.values.unit ?? r.raw.block}</td>
-                      <td className="px-3 py-2">{r.values.variety ?? r.raw.variety}</td>
+                      <td className="px-3 py-2">{r.values.variety ?? r.values.item ?? (r.raw.variety || r.raw.item)}</td>
+                      {!avocado && <td className="px-3 py-2">{r.values.protocol ?? "—"}</td>}
                       <td className="px-3 py-2 tabular-nums">{r.values.planting_date ?? "—"}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{r.values.plant_count ? qty(r.values.plant_count) : "—"}</td>
+                      {avocado && <td className="px-3 py-2 text-right tabular-nums">{r.values.plant_count ? qty(r.values.plant_count) : "—"}</td>}
                       <td className="px-3 py-2 text-right tabular-nums">{r.values.area_ha ? ha(r.values.area_ha) : "—"}</td>
-                      <td className="px-3 py-2">{r.values.current_stage || "—"}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{r.values.last_season_yield_kg ? qty(r.values.last_season_yield_kg) : "—"}</td>
+                      <td className="px-3 py-2">{r.values.current_stage || (!avocado && r.values.already_harvesting ? "Harvesting" : "—")}</td>
+                      {avocado && <td className="px-3 py-2 text-right tabular-nums">{r.values.last_season_yield_kg ? qty(r.values.last_season_yield_kg) : "—"}</td>}
                       <td className="px-3 py-2">
                         {r.errors.map((e) => (
                           <div key={e} className="text-[var(--sd-sev-high)]">{e}</div>

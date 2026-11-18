@@ -32,6 +32,17 @@ const unit = (over: Partial<api.UnitRow> = {}): api.UnitRow => ({
   ...over,
 });
 
+describe("canAddCycle", () => {
+  const boot = { can_manage: true, can_plan: true };
+  it("covers every crop that runs in cycles, for managers, but not bees, fish or flowers", () => {
+    expect(setup.canAddCycle({ ...CROP, boot } as never)).toBe(true);
+    expect(setup.canAddCycle({ ...CROP, crop_key: "fruits-vegetables", boot } as never)).toBe(true);
+    expect(setup.canAddCycle({ ...CROP, crop_key: "aquaculture", uses_crop_cycles: 0, boot } as never)).toBe(false);
+    expect(setup.canAddCycle({ ...CROP, desk_launcher: "Crop Production desk", boot } as never)).toBe(false);
+    expect(setup.canAddCycle({ ...CROP, boot: { can_manage: false, can_plan: true } } as never)).toBe(false);
+  });
+});
+
 describe("capacityWarnings", () => {
   it("is quiet while the cycles fit the block", () => {
     expect(capacityWarnings(unit(), 10, 1500)).toEqual([]);
@@ -85,5 +96,28 @@ describe("AddCycleDialog", () => {
     await waitFor(() => expect(setup.addCycle).toHaveBeenCalled());
     expect(vi.mocked(setup.addCycle).mock.calls[0][0]).toMatchObject({ unit: "PH1-B1", variety: "Hass", protocol: "P1", existing: false });
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
+  });
+
+  it("for another crop asks the date it was started, an optional stage and says it picks up from today", async () => {
+    const FV = { ...CROP, name: "Fruits & Vegetables", crop_key: "fruits-vegetables", unit_label: "Block" };
+    renderPage(<AddCycleDialog crop={FV} units={[unit()]} defaultUnit="PH1-B1" open onOpenChange={() => {}} onSaved={() => {}} />);
+    // no "New cycle" tab: those crops keep their own form for a new cycle
+    expect(screen.queryByRole("tab", { name: "New cycle" })).toBeNull();
+    expect(await screen.findByText("Planted / started on")).toBeTruthy();
+    expect(screen.getByText("Picks up from today: nothing before today is planned.")).toBeTruthy();
+    expect(screen.getByText("Already harvesting")).toBeTruthy();
+    expect(screen.queryByText("Last flowering date (optional)")).toBeNull();
+  });
+
+  it("for another crop without stages offers an item and Already harvesting, and no stage", async () => {
+    vi.mocked(varieties.listVarieties).mockResolvedValue({ varieties: [] } as never);
+    const FV = { ...CROP, name: "Fruits & Vegetables", crop_key: "fruits-vegetables", unit_label: "Block" };
+    renderPage(<AddCycleDialog crop={FV} units={[unit()]} defaultUnit="PH1-B1" open onOpenChange={() => {}} onSaved={() => {}} />);
+    const add = await screen.findByRole("button", { name: "Add existing cycle" });
+    expect((add as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(await screen.findByLabelText("Item"), { target: { value: "Tomato" } });
+    fireEvent.click(screen.getByLabelText("Already harvesting"));
+    expect((screen.getByLabelText("Already harvesting") as HTMLInputElement).checked).toBe(true);
+    expect(screen.queryByText("Current stage")).toBeNull();
   });
 });

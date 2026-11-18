@@ -63,3 +63,11 @@ def update_cycle(name, data):
 	if crop and not crop_allowed(crop):
 		frappe.throw(_("You are not permitted to see this crop."), frappe.PermissionError)
 	return cycle_setup.update_cycle(name, as_dict(data) or {})
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def get_cycle_for_edit(name):
+	"""The editable fields of one cycle and `has_tasks` (the block cannot change once it has tasks)."""
+	frappe.has_permission("Production Crop Cycle", "read", doc=name, throw=True)
+	return cycle_setup.edit_info(name)
