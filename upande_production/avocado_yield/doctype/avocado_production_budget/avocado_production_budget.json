@@ -111,6 +111,7 @@
   },
   {
    "fieldname": "set_by",
+   "ignore_user_permissions": 1,
    "fieldtype": "Link",
    "label": "Set By",
    "options": "Employee"
@@ -136,7 +137,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-09-17 04:50:00.000000",
+ "modified": "2026-11-18 07:31:38.140207",
  "modified_by": "Administrator",
  "module": "Avocado Yield",
  "name": "Avocado Production Budget",

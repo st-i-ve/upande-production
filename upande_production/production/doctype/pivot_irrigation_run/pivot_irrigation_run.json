@@ -93,6 +93,7 @@
   },
   {
    "fieldname": "operator",
+   "ignore_user_permissions": 1,
    "fieldtype": "Link",
    "label": "Operator",
    "options": "Employee"
@@ -130,7 +131,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-28 14:00:00.000000",
+ "modified": "2026-11-18 07:31:38.140207",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Pivot Irrigation Run",

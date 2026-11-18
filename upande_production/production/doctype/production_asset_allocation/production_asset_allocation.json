@@ -5,7 +5,7 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "links": [],
- "modified": "2026-11-11 09:00:00.000000",
+ "modified": "2026-11-18 07:31:38.140207",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production Asset Allocation",
@@ -67,6 +67,7 @@
   },
   {
    "fieldname": "operator",
+   "ignore_user_permissions": 1,
    "fieldtype": "Link",
    "label": "Operator",
    "options": "Employee",

@@ -16,6 +16,7 @@
  "fields": [
   {
    "fieldname": "employee",
+   "ignore_user_permissions": 1,
    "fieldtype": "Link",
    "label": "Employee",
    "options": "Employee",
@@ -70,7 +71,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-16 09:00:00.000000",
+ "modified": "2026-11-18 07:31:38.140207",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Casual Labour Attendance",

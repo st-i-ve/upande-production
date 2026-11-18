@@ -66,6 +66,7 @@
   },
   {
    "fieldname": "counted_by",
+   "ignore_user_permissions": 1,
    "fieldtype": "Link",
    "label": "Counted By",
    "options": "Employee"
@@ -201,7 +202,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-08-05 07:10:00.000000",
+ "modified": "2026-11-18 07:31:38.140207",
  "modified_by": "Administrator",
  "module": "Avocado Yield",
  "name": "Avocado Fruit Count",
