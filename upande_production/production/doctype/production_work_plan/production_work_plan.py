@@ -5,6 +5,7 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
+from upande_production.production.logic import supervisors
 from upande_production.production.logic.deviation import task_deviation
 from upande_production.production.logic.settings import get_company, get_tolerance_days
 from upande_production.production.logic.weeks import iso_week_bounds
@@ -24,6 +25,7 @@ class ProductionWorkPlan(Document):
 				_("A plan already exists for this crop, farm and week: {0}").format(dup[0][0]),
 				frappe.DuplicateEntryError,
 			)
+		supervisors.fill_plan_tasks(self)
 		tol = get_tolerance_days()
 		for t in self.tasks:
 			t.deviation = task_deviation(

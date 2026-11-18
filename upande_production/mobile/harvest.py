@@ -454,7 +454,8 @@ def get_session_info(**kw):
 		user = frappe.session.user
 		return {"user": user, "full_name": frappe.db.get_value("User", user, "full_name") or user,
 			"roles": frappe.get_roles(user), "is_loading_clerk": False, "is_packhouse_receiver": False,
-			"is_farm_manager": _is_manager(), "capabilities": access.capabilities(user)}
+			"is_farm_manager": _is_manager(), "capabilities": access.capabilities(user),
+			"employee": frappe.db.get_value("Employee", {"user_id": user, "status": "Active"}, "name")}
 	except Exception as e:
 		return _fail("get_session_info", e)
 

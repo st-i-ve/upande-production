@@ -137,7 +137,8 @@ or finished late.
 One week's plan, tasks grouped by block. Params: `crop` (required), `year`, `week`, `farm`,
 `unit` (only that block), `mine` (true: only tasks whose supervisor is the Employee linked to the
 logged-in user via `Employee.user_id`; a user with no Employee gets nothing; response carries `mine` and
-`employee`; `productionListWeekPlans` accepts `mine` too and counts only those tasks). No plan for the week gives `plan: null` and `blocks: []`.
+`employee`; `productionListWeekPlans` accepts `mine` too and counts only those tasks). See
+"Weekly supervisor assignment" below: for a supervisor `mine` is always applied by the server. No plan for the week gives `plan: null` and `blocks: []`.
 
 Per task: `planned_qty` + `uom`, `done_qty` (approved), `pending_qty` (awaiting approval), `due_date`,
 `status`, `deviation`, `is_late`, `supervisor` / `supervisor_name`, `protocol_ref` + `from_protocol`
@@ -687,6 +688,36 @@ has no crop). New optional params: `search` (matches name or id) and `limit`.
 ]
 ```
 
+
+## Weekly supervisor assignment (who sees which tasks)
+
+A manager assigns supervisors to blocks for each ISO week (desk: Plan page, Supervisors tab; doctype
+`Production Supervisor Assignment`, one supervisor per block per week per crop, a supervisor may hold many
+blocks). A plan task's `supervisor` is filled from the week's assignment for its block, unless a manager set
+the supervisor by hand. So "my tasks" on the phone means "the tasks of my blocks this week".
+
+**Server-side scope.** `productionGetWeekPlan`, `productionListWeekPlans` and `productionGetPlanDetail` apply it:
+
+| Caller | Tasks returned |
+|---|---|
+| Supervisor (`plan_tick_off`, no `plan_manage`) | Only tasks whose `supervisor` is their Employee, always. `mine: false` and `unit` do not widen it. |
+| Supervisor whose user has no Employee | No tasks, `message`: "Your user is not linked to an Employee — ask your manager." |
+| Manager (`plan_manage`) | All tasks; with `mine: true` only the tasks of their own Employee (the blocks they are assigned that week). |
+| Viewer (`plan_view` only) | All tasks, read-only. |
+
+Each of the three responses also carries `mine` (the filter applied), `employee` (the caller's Employee or
+`null`), `message` (`null` unless there is something to say) and `assignments`, the blocks the caller
+supervises in that week (the current week for the list), for the line "Your blocks this week: PH1-B1, PH1-B2":
+
+```json
+{"mine": true, "employee": "HR-EMP-00784", "message": null,
+ "assignments": {"employee": "HR-EMP-00784", "year": 2026, "week": 47,
+   "units": [{"unit": "PH1-B1", "unit_name": "PH1-B1"}, {"unit": "PH1-B2", "unit_name": "PH1-B2"}]}}
+```
+
+A manager is advised to open on "My blocks" when `assignments.units` is not empty, else on "All tasks".
+`get_session_info` (harvest module) also returns `employee`. Unplanned work stays open to every block;
+the app lists `assignments.units` first in its block picker.
 
 ## Activity rules (stage and calendar restrictions)
 

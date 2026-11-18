@@ -1,0 +1,283 @@
+from types import SimpleNamespace
+from unittest.mock import patch
+
+import frappe
+from frappe.tests import IntegrationTestCase
+from frappe.utils import add_days, today
+
+from upande_production.api import production as desk
+from upande_production.mobile import api as mobile
+from upande_production.production.logic import plans, supervisors
+from upande_production.production.logic.weeks import iso_of, iso_week_bounds
+from upande_production.production.tests.labour_mode import use_builtin_labour
+
+ROLES = {"manager": ["Production Manager"], "supervisor": ["Production Supervisor"], "viewer": ["Production Viewer"]}
+
+
+def _make(doctype, **kw):
+	doc = frappe.get_doc({"doctype": doctype, **kw})
+	doc.insert()
+	return doc
+
+
+def _user(email, role):
+	if not frappe.db.exists("User", email):
+		_make("User", email=email, first_name=email.split("@")[0], send_welcome_email=0, roles=[{"role": role}])
+	return email
+
+
+def _employee(first, company, user=None):
+	return _make(
+		"Employee", first_name=first, gender="Male", date_of_birth="1990-01-01",
+		date_of_joining="2020-01-01", company=company, user_id=user,
+	)
+
+
+class TestSupervisorPlan(IntegrationTestCase):
+	@classmethod
+	def setUpClass(cls):
+		super().setUpClass()
+		use_builtin_labour(cls)
+		cls.company = frappe.defaults.get_global_default("company") or frappe.db.get_value("Company", {}, "name")
+		if not frappe.db.exists("UOM", "Kg"):
+			_make("UOM", uom_name="Kg")
+		if not frappe.db.exists("Farm Type", "Has Blocks"):
+			_make("Farm Type", name="Has Blocks")
+		cls.farm = _make("Farm", farm_name="SP Farm", company=cls.company, abbreviation="SPF",
+			farm_type=[{"farm_type": "Has Blocks"}])
+		cls.crop = _make("Production Crop", crop_name="SP Crop", crop_key="sp-crop", unit_label="Block", yield_uom="Kg")
+		cls.op = _make("Field Operation", crop=cls.crop.name, operation_name="SP Weeding",
+			category="Other", work_uom="Kg", default_rate=40)
+		cls.u1 = _make("Production Unit", unit_name="SP B1", crop=cls.crop.name, farm=cls.farm.name,
+			unit_type="Orchard Block", company=cls.company)
+		cls.u2 = _make("Production Unit", unit_name="SP B2", crop=cls.crop.name, farm=cls.farm.name,
+			unit_type="Orchard Block", company=cls.company)
+		cls.sup_user = _user("sp.sup@x.test", "Production Supervisor")
+		cls.mgr_user = _user("sp.mgr@x.test", "Production Manager")
+		cls.noemp_user = _user("sp.noemp@x.test", "Production Supervisor")
+		cls.sup = _employee("SPSup", cls.company, cls.sup_user)
+		cls.mgr = _employee("SPMgr", cls.company, cls.mgr_user)
+		cls.other = _employee("SPOther", cls.company)
+		cls.year, cls.week = iso_of(today())
+
+	@classmethod
+	def tearDownClass(cls):
+		frappe.set_user("Administrator")
+		frappe.db.rollback()
+		super().tearDownClass()
+
+	def setUp(self):
+		# each test starts from the class fixtures only: assignments, plans and tasks go with its savepoint
+		frappe.db.savepoint("sp_test")
+		self.addCleanup(frappe.db.rollback, save_point="sp_test")
+
+	def assign(self, rows, **kw):
+		return supervisors.save_week(self.crop.name, self.farm.name, kw.get("year", self.year), kw.get("week", self.week), rows)
+
+	def plan_with_tasks(self, units=None):
+		plan = plans.get_or_create_plan(self.crop.name, self.farm.name, self.year, self.week)
+		for u in units or [self.u1.name, self.u2.name]:
+			plan.append("tasks", {"unit": u, "operation": self.op.name, "planned_qty": 5, "uom": "Kg", "rate": 40,
+				"due_date": today(), "status": "Open"})
+		plan.save()
+		return plan
+
+	def tasks(self, plan):
+		return {t.unit: t for t in frappe.get_doc("Production Work Plan", plan.name).tasks}
+
+	def call(self, fn, payload, user, roles):
+		frappe.response.pop("data", None)
+		with patch.multiple(frappe, get_roles=lambda u=None: ROLES[roles]), patch.dict(frappe.local.session, {"user": user}), \
+				patch.object(frappe.local, "request", SimpleNamespace(get_json=lambda: payload), create=True):
+			fn()
+		return frappe.response["data"]
+
+	# -- doctype ---------------------------------------------------------------
+
+	def test_one_supervisor_per_block_per_week_and_week_start(self):
+		a = _make("Production Supervisor Assignment", crop=self.crop.name, unit=self.u1.name,
+			supervisor=self.sup.name, plan_year=self.year, plan_week=self.week)
+		self.assertEqual(str(a.week_start), str(iso_week_bounds(self.year, self.week)[0]))
+		self.assertEqual(a.farm, self.farm.name)
+		self.assertEqual(a.supervisor_name, self.sup.employee_name)
+		self.assertEqual(a.user, self.sup_user)
+		with self.assertRaises(frappe.DuplicateEntryError):
+			_make("Production Supervisor Assignment", crop=self.crop.name, unit=self.u1.name,
+				supervisor=self.mgr.name, plan_year=self.year, plan_week=self.week)
+		# another week is fine, and one supervisor may hold many blocks
+		_make("Production Supervisor Assignment", crop=self.crop.name, unit=self.u1.name,
+			supervisor=self.mgr.name, plan_year=self.year, plan_week=self.week + 1 if self.week < 52 else 1)
+		_make("Production Supervisor Assignment", crop=self.crop.name, unit=self.u2.name,
+			supervisor=self.sup.name, plan_year=self.year, plan_week=self.week)
+
+	def test_block_must_belong_to_crop(self):
+		other = _make("Production Crop", crop_name="SP Other", crop_key="sp-other", unit_label="Block", yield_uom="Kg")
+		with self.assertRaises(frappe.ValidationError):
+			_make("Production Supervisor Assignment", crop=other.name, unit=self.u1.name,
+				supervisor=self.sup.name, plan_year=self.year, plan_week=self.week)
+
+	# -- save / copy -----------------------------------------------------------
+
+	def test_save_replaces_the_week(self):
+		self.assign([{"unit": self.u1.name, "supervisor": self.sup.name}, {"unit": self.u2.name, "supervisor": self.sup.name}])
+		self.assign([{"unit": self.u2.name, "supervisor": self.mgr.name}])
+		rows = {a.unit: a.supervisor for a in supervisors.assignments(self.crop.name, self.year, self.week)}
+		self.assertEqual(rows, {self.u2.name: self.mgr.name})
+
+	def test_save_refuses_a_non_manager_and_foreign_blocks(self):
+		with patch.multiple(frappe, get_roles=lambda u=None: ROLES["supervisor"]), patch.dict(frappe.local.session, {"user": self.sup_user}):
+			with self.assertRaises(frappe.PermissionError):
+				self.assign([{"unit": self.u1.name, "supervisor": self.sup.name}])
+		with self.assertRaises(frappe.ValidationError):
+			self.assign([{"unit": "no-such-block", "supervisor": self.sup.name}])
+		with self.assertRaises(frappe.ValidationError):
+			self.assign([{"unit": self.u1.name, "supervisor": self.sup.name}, {"unit": self.u1.name, "supervisor": self.mgr.name}])
+
+	def test_copy_last_week_into_an_empty_week(self):
+		py, pw = supervisors.previous_week(self.year, self.week)
+		self.assign([{"unit": self.u1.name, "supervisor": self.sup.name}], year=py, week=pw)
+		res = supervisors.copy_week(self.crop.name, self.farm.name, self.year, self.week)
+		self.assertEqual(res["copied"], 1)
+		self.assertEqual([a.supervisor for a in supervisors.assignments(self.crop.name, self.year, self.week)], [self.sup.name])
+		with self.assertRaises(frappe.ValidationError):  # now not empty
+			supervisors.copy_week(self.crop.name, self.farm.name, self.year, self.week)
+
+	def test_copy_refuses_when_last_week_is_empty(self):
+		with self.assertRaises(frappe.ValidationError):
+			supervisors.copy_week(self.crop.name, self.farm.name, self.year, self.week)
+
+	def test_get_week_lists_blocks_candidates_and_last_week(self):
+		py, pw = supervisors.previous_week(self.year, self.week)
+		self.assign([{"unit": self.u1.name, "supervisor": self.other.name}], year=py, week=pw)
+		self.assign([{"unit": self.u2.name, "supervisor": self.other.name}])
+		res = supervisors.get_week(self.crop.name, self.farm.name, self.year, self.week)
+		self.assertEqual({u.name for u in res["units"]}, {self.u1.name, self.u2.name})
+		names = {s.name for s in res["supervisors"]}
+		self.assertTrue({self.sup.name, self.mgr.name, self.other.name} <= names)  # other: already assigned
+		self.assertEqual([a.unit for a in res["last_week"]], [self.u1.name])
+		self.assertEqual(res["last_week_label"], {"year": py, "week": pw})
+
+	def test_leave_is_a_warning_not_a_block(self):
+		start, end = iso_week_bounds(self.year, self.week)
+		fake = [frappe._dict(employee=self.sup.name, employee_name="SPSup", from_date=start, to_date=end)]
+		real = frappe.get_all
+		with patch.object(frappe, "get_all", side_effect=lambda dt, *a, **k: fake if dt == "Leave Application" else real(dt, *a, **k)):
+			res = self.assign([{"unit": self.u1.name, "supervisor": self.sup.name}])
+		self.assertEqual(res["saved"], 1)
+		self.assertEqual(len(res["warnings"]), 1)
+		self.assertIn("approved leave", res["warnings"][0]["message"])
+
+	# -- tasks follow the mapping ----------------------------------------------
+
+	def test_generate_style_new_tasks_take_the_weeks_supervisor(self):
+		self.assign([{"unit": self.u1.name, "supervisor": self.sup.name}])
+		t = self.tasks(self.plan_with_tasks())
+		self.assertEqual(t[self.u1.name].supervisor, self.sup.name)
+		self.assertEqual(t[self.u1.name].supervisor_from_plan, 1)
+		self.assertFalse(t[self.u2.name].supervisor)
+
+	def test_saving_the_supervisor_plan_updates_existing_tasks_and_follows_changes(self):
+		plan = self.plan_with_tasks()
+		self.assertFalse(self.tasks(plan)[self.u1.name].supervisor)
+		res = self.assign([{"unit": self.u1.name, "supervisor": self.sup.name}])
+		self.assertEqual(res["tasks_updated"], 1)
+		self.assertEqual(self.tasks(plan)[self.u1.name].supervisor, self.sup.name)
+		self.assign([{"unit": self.u1.name, "supervisor": self.mgr.name}])
+		self.assertEqual(self.tasks(plan)[self.u1.name].supervisor, self.mgr.name)
+		self.assign([])  # the block is no longer assigned: the mapped supervisor goes
+		t = self.tasks(plan)[self.u1.name]
+		self.assertFalse(t.supervisor)
+		self.assertEqual(t.supervisor_from_plan, 0)
+
+	def test_a_hand_set_supervisor_is_never_overridden(self):
+		plan = self.plan_with_tasks()
+		desk.save_plan_tasks(self.crop.name, self.farm.name, self.year, self.week,
+			[{"name": next(t.name for t in plan.tasks if t.unit == self.u1.name), "supervisor": self.other.name}])
+		t = self.tasks(plan)[self.u1.name]
+		self.assertEqual((t.supervisor, t.supervisor_from_plan), (self.other.name, 0))
+		self.assign([{"unit": self.u1.name, "supervisor": self.sup.name}])
+		self.assertEqual(self.tasks(plan)[self.u1.name].supervisor, self.other.name)
+
+	def test_manager_overriding_a_mapped_supervisor_makes_it_hand_set(self):
+		self.assign([{"unit": self.u1.name, "supervisor": self.sup.name}])
+		plan = self.plan_with_tasks()
+		name = next(t.name for t in plan.tasks if t.unit == self.u1.name)
+		desk.save_plan_tasks(self.crop.name, self.farm.name, self.year, self.week, [{"name": name, "supervisor": self.other.name}])
+		self.assign([{"unit": self.u1.name, "supervisor": self.mgr.name}])
+		t = self.tasks(plan)[self.u1.name]
+		self.assertEqual((t.supervisor, t.supervisor_from_plan), (self.other.name, 0))
+
+	def test_added_task_takes_the_mapping(self):
+		self.assign([{"unit": self.u2.name, "supervisor": self.sup.name}])
+		plan = self.plan_with_tasks([self.u1.name])
+		desk.save_plan_tasks(self.crop.name, self.farm.name, self.year, self.week,
+			[{"unit": self.u2.name, "operation": self.op.name, "planned_qty": 3, "due_date": str(today())}])
+		self.assertEqual(self.tasks(plan)[self.u2.name].supervisor, self.sup.name)
+
+	# -- desk endpoints --------------------------------------------------------
+
+	def test_desk_endpoints_save_and_copy(self):
+		res = desk.save_supervisor_plan(self.crop.name, self.farm.name, self.year, self.week,
+			[{"unit": self.u1.name, "supervisor": self.sup.name}])
+		self.assertEqual(res["saved"], 1)
+		self.assertEqual([a["unit"] for a in res["assignments"]], [self.u1.name])
+		res = desk.get_supervisor_plan(self.crop.name, self.farm.name, self.year, self.week)
+		self.assertTrue(res["can_edit"])
+		py, pw = supervisors.previous_week(self.year, self.week + 1 if self.week < 52 else 1)
+		self.assertEqual((py, pw), (self.year, self.week))
+		res = desk.copy_supervisor_plan(self.crop.name, self.farm.name, *iso_of(add_days(iso_week_bounds(self.year, self.week)[0], 7)))
+		self.assertEqual(res["copied"], 1)
+		self.assertEqual([a["unit"] for a in res["assignments"]], [self.u1.name])
+
+	# -- the phone: only mine --------------------------------------------------
+
+	def phone_setup(self):
+		self.assign([{"unit": self.u1.name, "supervisor": self.sup.name}, {"unit": self.u2.name, "supervisor": self.mgr.name}])
+		return self.plan_with_tasks()
+
+	def units_of(self, res):
+		return sorted(t["unit"] for t in res["tasks"])
+
+	def test_supervisor_sees_only_their_tasks_even_asking_for_all(self):
+		self.phone_setup()
+		p = {"crop": self.crop.name, "farm": self.farm.name, "mine": False}
+		res = self.call(mobile.productionGetWeekPlan, p, self.sup_user, "supervisor")
+		self.assertEqual(self.units_of(res), [self.u1.name])
+		self.assertTrue(res["mine"])
+		self.assertEqual([u["unit"] for u in res["assignments"]["units"]], [self.u1.name])
+		det = self.call(mobile.productionGetPlanDetail, p, self.sup_user, "supervisor")
+		self.assertEqual([b["unit"] for b in det["blocks"]], [self.u1.name])
+		self.assertEqual(det["tasks_total"], 1)
+		lst = self.call(mobile.productionListWeekPlans, p, self.sup_user, "supervisor")
+		self.assertEqual(lst["plans"][0]["tasks_total"], 1)
+
+	def test_supervisor_cannot_ask_for_another_block_through_unit(self):
+		self.phone_setup()
+		det = self.call(mobile.productionGetPlanDetail,
+			{"crop": self.crop.name, "farm": self.farm.name, "unit": self.u2.name}, self.sup_user, "supervisor")
+		self.assertEqual(det["blocks"], [])
+
+	def test_supervisor_without_an_employee_gets_nothing_and_a_message(self):
+		self.phone_setup()
+		res = self.call(mobile.productionGetWeekPlan, {"crop": self.crop.name, "farm": self.farm.name}, self.noemp_user, "supervisor")
+		self.assertEqual(res["tasks"], [])
+		self.assertIn("not linked to an Employee", res["message"])
+		det = self.call(mobile.productionGetPlanDetail, {"crop": self.crop.name, "farm": self.farm.name}, self.noemp_user, "supervisor")
+		self.assertEqual(det["blocks"], [])
+		self.assertIn("not linked to an Employee", det["message"])
+
+	def test_manager_sees_all_by_default_and_mine_on_request(self):
+		self.phone_setup()
+		p = {"crop": self.crop.name, "farm": self.farm.name}
+		res = self.call(mobile.productionGetWeekPlan, p, self.mgr_user, "manager")
+		self.assertEqual(self.units_of(res), sorted([self.u1.name, self.u2.name]))
+		self.assertEqual([u["unit"] for u in res["assignments"]["units"]], [self.u2.name])
+		mine = self.call(mobile.productionGetWeekPlan, {**p, "mine": True}, self.mgr_user, "manager")
+		self.assertEqual(self.units_of(mine), [self.u2.name])
+		det = self.call(mobile.productionGetPlanDetail, {**p, "mine": True}, self.mgr_user, "manager")
+		self.assertEqual([b["unit"] for b in det["blocks"]], [self.u2.name])
+
+	def test_viewer_still_sees_the_whole_plan(self):
+		self.phone_setup()
+		res = self.call(mobile.productionGetWeekPlan, {"crop": self.crop.name, "farm": self.farm.name}, self.noemp_user, "viewer")
+		self.assertEqual(len(res["tasks"]), 2)

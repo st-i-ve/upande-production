@@ -3,7 +3,7 @@ import frappe
 from frappe.utils import cint, getdate, today
 
 from upande_production.mobile import access
-from upande_production.production.logic import analytics, approvals, labourers, plans, rules, wm_bridge, work
+from upande_production.production.logic import analytics, approvals, labourers, plans, rules, supervisors, wm_bridge, work
 from upande_production.production.logic.settings import can_see_pay
 from upande_production.production.logic.units import unit_filter
 from upande_production.production.logic.weeks import iso_of, iso_week_bounds
@@ -182,16 +182,18 @@ def productionGetWeekPlan():
 		filters["farm"] = farm if farm else ("in", ["", None])
 		name = frappe.db.get_value("Production Work Plan", filters)
 		tasks = []
+		mine, emp, message = _scope(data)
 		if name:
-			tasks = frappe.get_all(
-				"Work Plan Task", filters=unit_filter({"parent": name, "parenttype": "Production Work Plan"}),
-				fields=TASK_FIELDS, order_by="due_date asc, idx asc",
-			)
+			task_filters = unit_filter({"parent": name, "parenttype": "Production Work Plan"})
+			if mine:
+				task_filters["supervisor"] = emp or "\0no-employee"
+			tasks = frappe.get_all("Work Plan Task", filters=task_filters, fields=TASK_FIELDS, order_by="due_date asc, idx asc")
 			_strip_pay(tasks, "rate")
 			labourers.attach_operation_targets(tasks)
 		return {
 			"plan": name, "farm": farm or None, "crop": crop, "year": year, "week": week,
 			"week_start": str(start), "week_end": str(end), "tasks": tasks,
+			"mine": mine, "employee": emp, "message": message, "assignments": _my_blocks(crop, farm, year, week),
 		}
 
 	_run("productionGetWeekPlan", go)
@@ -539,6 +541,23 @@ def _mine(data) -> bool:
 	return cint(data.get("mine")) == 1 or str(data.get("mine")).lower() == "true"
 
 
+NO_EMPLOYEE_MESSAGE = "Your user is not linked to an Employee \u2014 ask your manager."
+
+
+def _scope(data) -> tuple[bool, str | None, str | None]:
+	"""(mine, employee, message). A supervisor (can tick off, cannot manage plans) only ever gets the tasks of
+	their own Employee, whatever the request says; a manager gets all tasks unless they ask for `mine`."""
+	forced = access.has_capability("plan_tick_off") and not access.has_capability("plan_manage")
+	mine = True if forced else _mine(data)
+	emp = _my_employee() if mine else None
+	return mine, emp, (NO_EMPLOYEE_MESSAGE if mine and not emp else None)
+
+
+def _my_blocks(crop, farm, year, week) -> dict:
+	"""The logged-in user's supervisor assignment for the week (blocks they supervise)."""
+	return supervisors.my_assignments(_my_employee(), crop, year, week, farm or None)
+
+
 def _is_late(t) -> bool:
 	if t.deviation == "Late":
 		return True
@@ -598,8 +617,7 @@ def productionListWeekPlans():
 			order_by="plan_year desc, plan_week desc", limit=cint(data.get("limit")) or 26,
 		)
 		task_filters = unit_filter({"parenttype": "Production Work Plan", "parent": ("in", [r.name for r in rows] or [""])})
-		mine = _mine(data)
-		emp = _my_employee() if mine else None
+		mine, emp, message = _scope(data)
 		if mine:
 			task_filters["supervisor"] = emp or "\0no-employee"
 		tasks = frappe.get_all(
@@ -614,7 +632,8 @@ def productionListWeekPlans():
 			r["is_current"] = (r.plan_year, r.plan_week) == (cur_year, cur_week)
 		return {
 			"crop": crop, "current_year": cur_year, "current_week": cur_week, "plans": rows,
-			"mine": mine, "employee": emp,
+			"mine": mine, "employee": emp, "message": message,
+			"assignments": _my_blocks(crop, farm, cur_year, cur_week),
 			"current_plan": next((r.name for r in rows if r["is_current"]), None),
 		}
 
@@ -643,6 +662,9 @@ def productionGetPlanDetail():
 			"tasks_total": 0, "tasks_open": 0, "tasks_done": 0, "tasks_pending_approval": 0,
 			"tasks_late": 0, "blocks": [],
 		}
+		mine, emp, message = _scope(data)
+		out.update({"mine": mine, "employee": emp, "message": message,
+			"assignments": _my_blocks(crop, farm or out["farm"], year, week)})
 		if not name:
 			return out
 		filters = {"parent": name, "parenttype": "Production Work Plan"}
@@ -650,9 +672,6 @@ def productionGetPlanDetail():
 			filters["unit"] = unit
 		else:
 			filters = unit_filter(filters)
-		mine = _mine(data)
-		emp = _my_employee() if mine else None
-		out["mine"], out["employee"] = mine, emp
 		if mine:
 			# only the logged-in supervisor's own tasks (nothing when the user has no Employee link)
 			filters["supervisor"] = emp or "\0no-employee"

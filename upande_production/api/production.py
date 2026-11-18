@@ -4,7 +4,7 @@ import frappe
 from frappe import _
 
 from upande_production.api.envelope import as_dict, run
-from upande_production.production.logic import analytics, bands, blockcost, cycle_chain, labourers, plans, rules, stages, work
+from upande_production.production.logic import analytics, bands, blockcost, cycle_chain, labourers, plans, rules, stages, supervisors, work
 from upande_production.production.logic import drymatter as drymatter_logic
 from upande_production.production.logic.settings import PAY_ROLES, avocado_only_crop_keys, can_see_pay, is_manager
 from upande_production.production.logic.units import unit_filter
@@ -342,6 +342,8 @@ def save_plan_tasks(crop, farm, year, week, tasks, override_reason=None):
 				frappe.throw(_("Task {0} not found on this plan").format(name), frappe.ValidationError)
 			if any(k in vals and vals[k] != row.get(k) for k in ("unit", "operation", "due_date")):
 				vals.update(_task_rules({**row.as_dict(), **vals}, override_reason, exclude_task=row.name))
+			if "supervisor" in vals and (vals["supervisor"] or None) != row.supervisor:
+				vals["supervisor_from_plan"] = 0  # a manager's own choice, so the supervisor plan leaves it alone
 			row.update(vals)
 		else:
 			if vals.get("operation") and not (vals.get("uom") and vals.get("rate")):
@@ -357,6 +359,32 @@ def save_plan_tasks(crop, farm, year, week, tasks, override_reason=None):
 		r.idx = i
 	plan.save()
 	return {"name": plan.name}
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def get_supervisor_plan(crop, farm, year, week):
+	"""The week's supervisor <-> block assignment: blocks, candidate supervisors, this and last week's rows."""
+	_need("Production Supervisor Assignment")
+	return supervisors.get_week(crop, _farm(farm), int(year), int(week))
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def save_supervisor_plan(crop, farm, year, week, assignments=None):
+	"""Replace the week's assignments ([{unit, supervisor}]); plan tasks of those blocks follow. Managers only."""
+	_need("Production Supervisor Assignment", "write")
+	res = supervisors.save_week(crop, _farm(farm), int(year), int(week), as_dict(assignments) or [])
+	return {**supervisors.get_week(crop, _farm(farm), int(year), int(week)), **res}
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def copy_supervisor_plan(crop, farm, year, week):
+	"""Copy last week's assignments into an empty week. Managers only."""
+	_need("Production Supervisor Assignment", "write")
+	res = supervisors.copy_week(crop, _farm(farm), int(year), int(week))
+	return {**supervisors.get_week(crop, _farm(farm), int(year), int(week)), **res}
 
 
 @frappe.whitelist(methods=["POST"])
