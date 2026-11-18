@@ -8,6 +8,7 @@
  "field_order": [
   "unit",
   "crop",
+  "field_crop",
   "cycle",
   "season",
   "source",
@@ -29,6 +30,12 @@
    "fieldtype": "Link",
    "label": "Crop",
    "options": "Production Crop"
+  },
+  {
+   "fieldname": "field_crop",
+   "fieldtype": "Link",
+   "label": "Field Crop",
+   "options": "Field Crop"
   },
   {
    "fieldname": "cycle",
@@ -68,7 +75,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-28 09:00:00.000000",
+ "modified": "2026-11-18 09:00:00.000000",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Crop Forecast",

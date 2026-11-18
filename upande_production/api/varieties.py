@@ -19,7 +19,7 @@ WATER_BAND_FIELDS = ["parameter", "min", "max", "unit"]
 YIELD_AGE_FIELDS = ["age_years", "kg_per_plant"]
 SEASON_FIELDS = ["season_name", "start_month", "weeks_flowering_to_harvest", "crop_share_pct"]
 VARIETY_FIELDS = [
-	"name", "variety_name", "crop", "product", "item", "enabled", "stage_anchor", "default_protocol",
+	"name", "variety_name", "crop", "field_crop", "product", "item", "enabled", "stage_anchor", "default_protocol",
 	"days_to_first_harvest", "harvest_window_days", "expected_yield_per_ha", "expected_yield_per_plant",
 	"plants_per_ha", "notes", "irrigation_mm_week", "biennial_off_factor", "on_years", "late_crop_share_pct",
 	*TEMPLATE_FIELDS,

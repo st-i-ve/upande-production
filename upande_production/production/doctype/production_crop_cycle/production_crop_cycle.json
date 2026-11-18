@@ -9,6 +9,7 @@
   "title",
   "unit",
   "crop",
+  "field_crop",
   "variety",
   "item",
   "cycle_type",
@@ -64,6 +65,14 @@
    "label": "Crop",
    "options": "Production Crop",
    "fetch_from": "unit.crop"
+  },
+  {
+   "fieldname": "field_crop",
+   "fieldtype": "Link",
+   "label": "Field Crop",
+   "options": "Field Crop",
+   "in_standard_filter": 1,
+   "description": "Set from the variety."
   },
   {
    "fieldname": "item",
@@ -266,7 +275,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-29 12:00:00.000000",
+ "modified": "2026-11-18 09:00:00.000000",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production Crop Cycle",

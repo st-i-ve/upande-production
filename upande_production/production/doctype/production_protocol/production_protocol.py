@@ -6,6 +6,8 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import cint
 
+from upande_production.production.logic import field_crops
+
 LOCKED = ("Active", "Superseded", "Pending Approval", "Rejected")
 
 
@@ -78,6 +80,9 @@ class ProductionProtocol(Document):
 					frappe.ValidationError)
 			if not self.item:
 				self.item = vitem
+		if not self.field_crop and (self.is_new() or not self.get_doc_before_save() or self.get_doc_before_save().version_status not in LOCKED):
+			self.field_crop = field_crops.from_variety(self.variety) or field_crops.from_item(self.item, self.crop)
+		field_crops.check_section(self.field_crop, self.crop)
 		if not self.version:
 			self.version = 1
 		if self.is_new():

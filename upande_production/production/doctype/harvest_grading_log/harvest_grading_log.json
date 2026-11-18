@@ -8,6 +8,7 @@
  "field_order": [
   "unit",
   "crop",
+  "field_crop",
   "cycle",
   "item",
   "grading_date",
@@ -39,6 +40,12 @@
    "label": "Crop",
    "options": "Production Crop",
    "read_only": 1
+  },
+  {
+   "fieldname": "field_crop",
+   "fieldtype": "Link",
+   "label": "Field Crop",
+   "options": "Field Crop"
   },
   {
    "fieldname": "cycle",
@@ -127,7 +134,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-28 14:00:00.000000",
+ "modified": "2026-11-18 09:00:00.000000",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Harvest Grading Log",

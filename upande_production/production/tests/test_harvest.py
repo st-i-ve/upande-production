@@ -145,6 +145,31 @@ class TestHarvest(IntegrationTestCase):
 		# nothing left to close
 		self.assertEqual(self.close()["crate_count"], 0)
 
+	def test_batch_of_a_field_crop_counted_in_pieces(self):
+		"""A block whose cycle is a Field Crop with its own unit: the batch, stock entry and harvest use that unit."""
+		frappe.db.savepoint("hv_field_crop")
+		try:
+			if not frappe.db.exists("UOM", "Pieces"):
+				_make("UOM", uom_name="Pieces")
+			fc = _make("Field Crop", crop_name="HV Heads", production_crop=self.crop.name, product=self.item.name, harvest_uom="Pieces")
+			frappe.db.set_value("Production Crop Cycle", {"unit": self.unit.name}, "field_crop", fc.name)
+			self.scan(3, harvestor=self.p1.name)
+			res = self.close()
+			batch = frappe.get_doc("Harvest Batch", res["batch"])
+			self.assertEqual((batch.field_crop, batch.uom, batch.estimated_kg), ("HV Heads", "Pieces", 30))
+			ph = frappe.get_doc("Production Harvest", batch.production_harvest)
+			self.assertEqual((ph.field_crop, ph.uom, ph.qty), ("HV Heads", "Pieces", 30))
+			se = frappe.get_doc("Stock Entry", batch.stock_entry)
+			self.assertEqual((se.items[0].qty, se.items[0].uom), (30, "Pieces"))
+			state = api.get_harvesting_state(block=self.unit.name)
+			self.assertEqual((state["batches"][0]["field_crop"], state["batches"][0]["uom"]), ("HV Heads", "Pieces"))
+			blocks = {b["name"]: b for b in api.get_blocks(farm=self.farm.farm_name)}
+			self.assertEqual((blocks[self.unit.name]["field_crop"], blocks[self.unit.name]["harvest_uom"]), ("HV Heads", "Pieces"))
+			report = api.farm_manager_report(period="today")
+			self.assertIn({"field_crop": "HV Heads", "uom": "Pieces", "batches": 1, "crates": 3, "quantity": 30}, report["by_crop"])
+		finally:
+			frappe.db.rollback(save_point="hv_field_crop")
+
 	def test_item_override_and_zero_valuation_fallback(self):
 		self.scan(2, unit=self.unit2)
 		res = self.close(self.unit2)
@@ -279,7 +304,7 @@ class TestHarvest(IntegrationTestCase):
 		self.assertEqual((res["team_number"], res["block"], len(res["crates_marked"])), ("HV-T2", self.unit4.name, 2))
 		state = api.get_harvesting_state(block=self.unit4.name)
 		self.assertEqual(state["totals"]["batches"], 1)
-		self.assertEqual(set(state["batches"][0]), {"batch_id", "delivery_note", "status", "team_id", "creation", "stock_entry", "crates", "estimated_kg"})
+		self.assertEqual(set(state["batches"][0]), {"batch_id", "delivery_note", "status", "team_id", "creation", "stock_entry", "crates", "estimated_kg", "field_crop", "uom"})
 		today_ = api.get_team_harvest_today(team_id="HV-T2")
 		self.assertEqual(set(today_), {"team_id", "total", "filling", "full", "ready", "in_transit", "received"})
 		self.assertEqual((today_["total"], today_["ready"], today_["filling"]), (2, 2, 0))
@@ -291,7 +316,7 @@ class TestHarvest(IntegrationTestCase):
 		self.assertEqual(set(sess) >= {"user", "full_name", "roles", "is_loading_clerk", "is_packhouse_receiver"}, True)
 		self.assertTrue(sess["is_farm_manager"])
 		rep = api.farm_manager_report(period="today")
-		self.assertEqual(set(rep), {"period", "label", "plan_total", "per_team_target", "active_team_count", "totals", "teams", "blocks", "block_changes"})
+		self.assertEqual(set(rep), {"period", "label", "plan_total", "per_team_target", "active_team_count", "totals", "teams", "blocks", "block_changes", "by_crop"})
 		self.assertEqual(set(rep["totals"]) >= {"harvested", "in_field", "on_road", "at_packhouse", "returned", "delivery_rate_pct"}, True)
 		team = next(t for t in rep["teams"] if t["team_number"] == "HV-T2")
 		self.assertEqual(set(team) >= {"team_id", "team_number", "leader_name", "harvested", "in_field", "on_road", "at_packhouse", "returned",

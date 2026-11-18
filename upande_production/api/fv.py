@@ -303,7 +303,7 @@ def compute_grading(logs, frm, to, grades=None):
 	is_top_grade_ = lambda name: is_top_grade(name, grades)
 	total_graded = total_received = total_rejects = top = 0.0
 	grades_seen = []
-	by_item, by_block = {}, {}
+	by_item, by_block, by_crop = {}, {}, {}
 	reasons = defaultdict(float)
 	weekly = defaultdict(lambda: {"graded": 0.0, "top": 0.0, "rejects": 0.0, "received": 0.0})
 
@@ -328,7 +328,7 @@ def compute_grading(logs, frm, to, grades=None):
 		w["top"] += g_top
 		w["rejects"] += rej
 		w["received"] += rec
-		for d, key in ((by_item, g.get("item") or "Unspecified"), (by_block, g["unit"])):
+		for d, key in ((by_item, g.get("item") or "Unspecified"), (by_block, g["unit"]), (by_crop, g.get("field_crop") or "Unspecified")):
 			b = bucket(d, key)
 			b["graded_kg"] += graded
 			b["rejects_kg"] += rej
@@ -365,14 +365,14 @@ def compute_grading(logs, frm, to, grades=None):
 			"top_reject_pct": reason_rows[0]["pct"] if reason_rows else 0.0,
 			"logs": len(logs),
 		},
-		"grades": order, "by_item": finish(by_item), "by_block": finish(by_block),
+		"grades": order, "by_item": finish(by_item), "by_block": finish(by_block), "by_crop": finish(by_crop),
 		"reasons": reason_rows, "series": series,
 	}
 
 
 @frappe.whitelist()
 @run
-def grading(from_date=None, to_date=None, unit=None, item=None):
+def grading(from_date=None, to_date=None, unit=None, item=None, field_crop=None):
 	_need_read("Harvest Grading Log")
 	frm, to = _range(from_date, to_date)
 	filters = unit_filter({"grading_date": ("between", [str(frm), str(to)])})
@@ -380,9 +380,11 @@ def grading(from_date=None, to_date=None, unit=None, item=None):
 		filters["unit"] = unit
 	if item:
 		filters["item"] = item
+	if field_crop:
+		filters["field_crop"] = field_crop
 	rows = frappe.get_all(
 		"Harvest Grading Log", filters=filters,
-		fields=["name", "unit", "cycle", "item", "grading_date", "received_kg", "received_crates", "graded_kg",
+		fields=["name", "unit", "cycle", "item", "field_crop", "grading_date", "received_kg", "received_crates", "graded_kg",
 				"rejects_kg", "reject_reason", "graded_by", "notes"],
 		order_by="grading_date desc, name desc",
 	)
@@ -394,9 +396,10 @@ def grading(from_date=None, to_date=None, unit=None, item=None):
 	grades = grade_rules()
 	out = compute_grading(logs, frm, to, grades)
 	out["rows"] = [{**g, "class1_kg": round(sum(l["kg"] for l in g["lines"] if is_top_grade(l["grade"], grades)), 1)} for g in logs]
-	opts_rows = frappe.get_all("Harvest Grading Log", filters=unit_filter(), fields=["unit", "item"], limit_page_length=0)
+	opts_rows = frappe.get_all("Harvest Grading Log", filters=unit_filter(), fields=["unit", "item", "field_crop"], limit_page_length=0)
 	out.update({
 		"from_date": str(frm), "to_date": str(to), "unit": unit or None, "item": item or None,
+		"field_crop": field_crop or None, "field_crops": sorted({r.field_crop for r in opts_rows if r.field_crop}),
 		"units": sorted({r.unit for r in opts_rows if r.unit}), "items": sorted({r.item for r in opts_rows if r.item}),
 		"form": {"units": _grading_units(), "reasons": ["Undersize", "Greening", "Rot", "Mechanical damage", "Pest damage"],
 				 "default_grades": [g["grade"] for g in grades]},
@@ -408,14 +411,14 @@ def _grading_units():
 	"""Blocks that carry a crop cycle, with the item and cycle to default the dialog from."""
 	cycles = frappe.get_all(
 		"Production Crop Cycle", filters=unit_filter({"status": ("in", ["Active", "Harvesting"])}),
-		fields=["name", "unit", "item"], order_by="start_date desc",
+		fields=["name", "unit", "item", "field_crop"], order_by="start_date desc",
 	)
 	seen, out = set(), []
 	units = {u.name: u for u in frappe.get_all("Production Unit", filters={"unit_type": "Pivot Block"}, fields=["name", "parent_production_unit as parent"])}
 	for c in cycles:
 		if c.unit in units and c.unit not in seen:
 			seen.add(c.unit)
-			out.append({"name": c.unit, "parent": units[c.unit].parent, "item": c.item, "cycle": c.name})
+			out.append({"name": c.unit, "parent": units[c.unit].parent, "item": c.item, "cycle": c.name, "field_crop": c.field_crop})
 	return sorted(out, key=lambda u: u["name"])
 
 

@@ -17,7 +17,7 @@ import frappe
 from frappe import _
 from frappe.utils import add_days, cint, flt, getdate, today
 
-from upande_production.production.logic import stages
+from upande_production.production.logic import field_crops, stages
 
 CYCLE_DT = "Production Crop Cycle"
 RUNNING = ("Active", "Harvesting")
@@ -35,6 +35,10 @@ TEMPLATE_COLUMNS_OTHER = [
 	"already_harvesting", "last_harvest_date", "last_season_kg",
 ]
 TEMPLATE_EXAMPLE_OTHER = ["FV-B1", "", "Tomato", "", "2026-09-01", "1.5", "", "", "", "", ""]
+# A section with Field Crops (Fruits & Vegetables) names the crop of each row: Cabbage, Maize, Onion ...
+TEMPLATE_COLUMNS_FIELD_CROPS = ["block", "crop", "variety", "protocol", "planting_date", "area_ha", "plant_count", "current_stage",
+	"already_harvesting", "last_harvest_date", "last_season_kg"]
+TEMPLATE_EXAMPLE_FIELD_CROPS = ["P1-B3", "Cabbage", "Gloria F1", "", "2026-09-01", "1.5", "", "", "", "", ""]
 _ALIASES = {
 	"block": "block", "unit": "block", "block_code": "block", "variety": "variety",
 	"planting_date": "planting_date", "planted": "planting_date", "planted_on": "planting_date",
@@ -44,7 +48,7 @@ _ALIASES = {
 	"last_flowering_date": "last_flowering_date", "last_harvest_date": "last_harvest_date",
 	"item": "item", "item_code": "item", "protocol": "protocol", "start_date": "planting_date", "started": "planting_date",
 	"started_on": "planting_date", "date_started": "planting_date", "already_harvesting": "already_harvesting",
-	"harvesting": "already_harvesting",
+	"harvesting": "already_harvesting", "crop": "field_crop", "field_crop": "field_crop",
 }
 
 
@@ -107,7 +111,7 @@ def is_avocado(crop) -> bool:
 
 
 def _variety(name):
-	v = frappe.db.get_value("Production Variety", name, ["name", "crop", "plants_per_ha", "stage_anchor"], as_dict=True) if name else None
+	v = frappe.db.get_value("Production Variety", name, ["name", "crop", "plants_per_ha", "stage_anchor", "field_crop"], as_dict=True) if name else None
 	if not v:
 		frappe.throw(_("Variety {0} not found").format(name), frappe.ValidationError)
 	return v
@@ -165,11 +169,17 @@ def build_values(data) -> dict:
 	existing = bool(data.get("existing"))
 	if not data.get("variety") and not (existing and data.get("item")):
 		frappe.throw(_("Choose a variety or an item.") if existing else _("Choose a variety."), frappe.ValidationError)
-	v = _variety(data.get("variety")) if data.get("variety") else frappe._dict(name=None, plants_per_ha=0)
+	v = _variety(data.get("variety")) if data.get("variety") else frappe._dict(name=None, plants_per_ha=0, field_crop=None)
+	chosen = data.get("field_crop") or None
+	if chosen:
+		field_crops.check_section(chosen, unit.crop)
+		if v.name and v.field_crop and v.field_crop != chosen:
+			frappe.throw(_("{0} is a {1} variety, not {2}.").format(v.name, v.field_crop, chosen), frappe.ValidationError)
 	area = flt(data.get("area_ha")) or flt(unit.area_ha)
 	trees = cint(data.get("plant_count")) or cint(unit.plant_count) or int(round(flt(v.plants_per_ha) * area))
 	vals = {"doctype": CYCLE_DT, "unit": unit.name, "crop": unit.crop, "variety": v.name, "area_ha": area,
-		"plant_count": trees, "cycle_type": data.get("cycle_type") or "Season", "protocol": data.get("protocol") or None}
+		"plant_count": trees, "cycle_type": data.get("cycle_type") or "Season", "protocol": data.get("protocol") or None,
+		"field_crop": v.field_crop or chosen}
 	if not v.name:
 		if not frappe.db.exists("Item", data.get("item")):
 			frappe.throw(_("Item {0} not found").format(data.get("item")), frappe.ValidationError)
@@ -221,14 +231,17 @@ def create_cycle(data) -> dict:
 
 
 def template_columns(crop=None) -> list:
-	return TEMPLATE_COLUMNS if not crop or is_avocado(crop) else TEMPLATE_COLUMNS_OTHER
+	if not crop or is_avocado(crop):
+		return TEMPLATE_COLUMNS
+	return TEMPLATE_COLUMNS_FIELD_CROPS if field_crops.has_field_crops(crop) else TEMPLATE_COLUMNS_OTHER
 
 
 def template_csv(crop=None) -> str:
 	buf = io.StringIO()
 	w = csv.writer(buf)
 	w.writerow(template_columns(crop))
-	w.writerow(TEMPLATE_EXAMPLE if not crop or is_avocado(crop) else TEMPLATE_EXAMPLE_OTHER)
+	w.writerow(TEMPLATE_EXAMPLE if not crop or is_avocado(crop) else
+		TEMPLATE_EXAMPLE_FIELD_CROPS if field_crops.has_field_crops(crop) else TEMPLATE_EXAMPLE_OTHER)
 	return buf.getvalue()
 
 
@@ -294,12 +307,21 @@ def _unit_for(crop, text):
 	return None
 
 
-def _variety_for(crop, text):
+def _field_crop_for(crop, text):
 	t = str(text or "").strip()
 	if not t:
 		return None
-	return frappe.db.get_value("Production Variety", {"name": t, "crop": crop}, "name") or frappe.db.get_value(
-		"Production Variety", {"variety_name": t, "crop": crop}, "name")
+	return frappe.db.get_value("Field Crop", {"name": t, "production_crop": crop}, "name") or frappe.db.get_value(
+		"Field Crop", {"crop_name": t, "production_crop": crop}, "name")
+
+
+def _variety_for(crop, text, field_crop=None):
+	t = str(text or "").strip()
+	if not t:
+		return None
+	extra = {"field_crop": field_crop} if field_crop else {}
+	return frappe.db.get_value("Production Variety", {"name": t, "crop": crop, **extra}, "name") or frappe.db.get_value(
+		"Production Variety", {"variety_name": t, "crop": crop, **extra}, "name")
 
 
 def check_rows(crop, rows) -> list:
@@ -313,12 +335,28 @@ def check_rows(crop, rows) -> list:
 		if not unit:
 			errors.append(_("Block {0} not found").format(raw.get("block") or "(empty)"))
 		vals["unit"] = unit
-		variety = _variety_for(crop, raw.get("variety"))
+		field_crop = None
+		crop_text = raw.get("field_crop") if raw.get("field_crop") not in (None, "") else raw.get("crop")
+		if crop_text not in (None, ""):
+			field_crop = _field_crop_for(crop, crop_text)
+			if not field_crop:
+				errors.append(_("Crop {0} not found").format(crop_text))
+		variety = _variety_for(crop, raw.get("variety"), field_crop)
 		item = str(raw.get("item") or "").strip()
 		if not variety and (avocado or raw.get("variety") or not item):
-			errors.append(_("Variety {0} not found").format(raw.get("variety") or "(empty)") if avocado or raw.get("variety")
-				else _("Variety or item is required"))
+			if field_crop and raw.get("variety") and _variety_for(crop, raw.get("variety")):
+				errors.append(_("Variety {0} is not a {1} variety").format(raw.get("variety"), field_crop))
+			else:
+				errors.append(_("Variety {0} not found").format(raw.get("variety") or "(empty)") if avocado or raw.get("variety")
+					else _("Variety or item is required"))
 		vals["variety"] = variety
+		if variety and not field_crop:
+			field_crop = field_crops.from_variety(variety)
+		elif not variety and not field_crop and item:
+			field_crop = field_crops.from_item(item, crop)
+		if not field_crop and not errors and field_crops.has_field_crops(crop):
+			errors.append(_("Crop is required"))
+		vals["field_crop"] = field_crop
 		if not variety and item:
 			if frappe.db.exists("Item", item):
 				vals["item"] = item
@@ -379,7 +417,7 @@ def check_rows(crop, rows) -> list:
 def edit_info(name) -> dict:
 	"""What the Edit cycle form starts from: the editable fields, and whether tasks exist (the block is then fixed)."""
 	doc = frappe.get_doc(CYCLE_DT, name)
-	out = {k: doc.get(k) for k in ("name", "unit", "crop", "variety", "item", "protocol", "start_date", "planting_date",
+	out = {k: doc.get(k) for k in ("name", "unit", "crop", "field_crop", "variety", "item", "protocol", "start_date", "planting_date",
 		"area_ha", "plant_count", "expected_harvest_start", "expected_harvest_end", "status", "notes", "existing_cycle")}
 	out["has_tasks"] = bool(frappe.db.exists("Work Plan Task", {"cycle": name}))
 	return out

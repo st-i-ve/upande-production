@@ -17,6 +17,7 @@ from frappe.utils.nestedset import get_descendants_of
 from frappe import _
 from frappe.utils import flt, getdate, now_datetime, today
 
+from upande_production.production.logic import field_crops
 from upande_production.production.logic.analytics import current_cycles
 from upande_production.production.logic.settings import get_company
 
@@ -269,6 +270,8 @@ def validate_batch(doc):
 	assign_pickers(doc.crates, doc.team)
 	doc.crate_count = len(doc.crates)
 	doc.item, doc.cycle = current_item(doc.unit, doc.crop)
+	doc.field_crop = frappe.db.get_value("Production Crop Cycle", doc.cycle, "field_crop") if doc.cycle else None
+	doc.uom = field_crops.harvest_uom(doc.field_crop, "Kg")
 	doc.avg_kg_per_crate = avg_kg_per_crate(doc.item, doc.crop)
 	doc.estimated_kg = round(doc.crate_count * doc.avg_kg_per_crate, 3)
 	doc.warehouse = check_store(doc.warehouse or default_store(doc.farm), unit.company)
@@ -287,7 +290,8 @@ def _stock_entry(doc, company: str):
 		"production_harvest_batch": doc.name,
 		"remarks": _("Harvest {0}: {1} crate(s) from {2}, team {3}").format(doc.name, doc.crate_count, doc.unit, doc.team_number or doc.team),
 		"items": [{
-			"item_code": doc.item, "qty": doc.estimated_kg, "uom": "Kg", "stock_uom": "Kg", "conversion_factor": 1,
+			"item_code": doc.item, "qty": doc.estimated_kg, "uom": doc.uom or "Kg",
+			"stock_uom": frappe.db.get_value("Item", doc.item, "stock_uom") or doc.uom or "Kg", "conversion_factor": 1,
 			"t_warehouse": doc.warehouse, "cost_center": doc.cost_center, "basic_rate": rate,
 			"allow_zero_valuation_rate": 0 if rate else 1,
 			"production_harvest_batch": doc.name, "production_unit": doc.unit, "production_crates": doc.crate_count,
@@ -327,7 +331,7 @@ def post_batch(doc):
 	se = _stock_entry(doc, company)
 	harvest = frappe.get_doc({
 		"doctype": "Production Harvest", "harvest_date": doc.harvest_date, "unit": doc.unit, "crop": doc.crop,
-		"cycle": doc.cycle, "item": doc.item, "qty": doc.estimated_kg, "uom": "Kg",
+		"cycle": doc.cycle, "field_crop": doc.field_crop, "item": doc.item, "qty": doc.estimated_kg, "uom": doc.uom or "Kg",
 		"harvest_batch": doc.name, "stock_entry": se.name,
 	})
 	harvest.insert(ignore_permissions=True)

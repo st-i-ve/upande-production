@@ -8,7 +8,7 @@ from datetime import timedelta
 import frappe
 from frappe.utils import add_days, getdate, today
 
-from upande_production.production.logic import rules, schedule
+from upande_production.production.logic import field_crops, rules, schedule
 from upande_production.production.logic.cycles import crop_uses_cycles
 from upande_production.production.logic.units import retired_sql, unit_filter
 from upande_production.production.logic.weeks import iso_of
@@ -64,7 +64,7 @@ def running_cycles(crop):
 	rows = frappe.get_all(
 		"Production Crop Cycle",
 		filters=unit_filter({"crop": crop, "status": ("in", ["Active", "Harvesting"])}),
-		fields=["name", "unit", "item", "start_date", "variety", "current_stage", "juvenile", "status", "area_ha",
+		fields=["name", "unit", "item", "start_date", "variety", "field_crop", "current_stage", "juvenile", "status", "area_ha",
 			"plant_count", "existing_cycle", "planting_date"],
 		order_by="start_date asc, creation asc",
 	)
@@ -82,7 +82,7 @@ def current_cycles(crop):
 	rows = frappe.get_all(
 		"Production Crop Cycle",
 		filters=unit_filter({"crop": crop, "status": ("in", ["Active", "Harvesting"])}),
-		fields=["name", "unit", "item", "start_date", "variety", "current_stage", "juvenile"],
+		fields=["name", "unit", "item", "start_date", "variety", "field_crop", "current_stage", "juvenile"],
 		order_by="start_date asc",
 	)
 	return {r.unit: r for r in rows}
@@ -108,6 +108,16 @@ def _harvest_by_unit(names, frm, to):
 		{"u": tuple(names), "f": frm, "t": to},
 	)
 	return {r[0]: float(r[1] or 0) for r in rows}, {r[0]: float(r[2] or 0) for r in rows}
+
+
+def harvest_by_field_crop(crop, frm, to):
+	"""[{field_crop, uom, qty, value}] of a section's harvests: one line per Field Crop and unit (pieces and kg are never added)."""
+	rows = frappe.db.sql(
+		"""select ifnull(field_crop, '') fc, ifnull(uom, '') uom, sum(qty) qty, sum(value) value from `tabProduction Harvest`
+		where crop = %s and harvest_date between %s and %s and unit not in %s group by fc, uom order by fc, uom""",
+		(crop, frm, to, retired_sql()),
+	)
+	return [{"field_crop": fc or None, "uom": u or None, "qty": float(q or 0), "value": float(v or 0)} for fc, u, q, v in rows]
 
 
 def _inputs_by_cc(ccs, frm, to):
@@ -195,6 +205,8 @@ def overview(crop, can_see_pay):
 			"committed_next4": float(committed_next4 or 0),
 			"harvest_qty_season": sum(harvest_qty.values()),
 		},
+		"harvest_by_crop": harvest_by_field_crop(crop, season_from, t),
+		"field_crops": field_crops.with_units(crop),
 		"blocks": [
 			{
 				"unit": u.name,
@@ -203,6 +215,8 @@ def overview(crop, can_see_pay):
 				"area_ha": u.area_ha or 0,
 				"cycle": cycles[u.name].name if u.name in cycles else None,
 				"item": cycles[u.name].item if u.name in cycles else None,
+				"field_crop": cycles[u.name].field_crop if u.name in cycles else None,
+				"variety": cycles[u.name].variety if u.name in cycles else None,
 				"tasks_open": open_roll.get(u.name, 0),
 				"labour_cost_season": _pay(round(labour_season.get(u.name, 0), 2), can_see_pay),
 				"harvest_qty_season": harvest_roll.get(u.name, 0),
@@ -556,4 +570,44 @@ def forecast_summary(crop, from_date, to_date):
 	return {
 		"uom": uom, "weeks": weeks, "units": units, "totals": totals,
 		"seasons": [{"year": int(y), "actual": float(q or 0)} for y, q in seasons],
+		"by_crop": forecast_by_crop(crop, frm, to, this_monday),
 	}
+
+
+def forecast_by_crop(crop, frm, to, this_monday=None):
+	"""[{field_crop, uom, forecast, forecast_to_date, actual, committed, error_pct}], one line per Field Crop and
+	unit. Empty for a section without Field Crops, so the page keeps its single total."""
+	if not field_crops.has_field_crops(crop):
+		return []
+	this_monday = this_monday or _monday(today())
+	rows = {}
+
+	def line(fc, uom):
+		return rows.setdefault((fc or "", uom or ""), {"forecast": 0.0, "forecast_to_date": 0.0, "actual": 0.0, "committed": 0.0})
+
+	for fc, uom, ws, q in frappe.db.sql(
+		"""select ifnull(f.field_crop, ''), ifnull(f.uom, ''), w.week_start, sum(w.expected_qty)
+		from `tabCrop Forecast Week` w join `tabCrop Forecast` f on f.name = w.parent
+		where f.crop = %s and w.week_start between %s and %s and f.unit not in %s group by 1, 2, 3""",
+		(crop, frm, to, retired_sql()),
+	):
+		r = line(fc, uom)
+		r["forecast"] += float(q or 0)
+		if getdate(ws) <= this_monday:
+			r["forecast_to_date"] += float(q or 0)
+	for fc, uom, q in frappe.db.sql(
+		"""select ifnull(field_crop, ''), ifnull(uom, ''), sum(qty) from `tabProduction Harvest`
+		where crop = %s and harvest_date between %s and %s and unit not in %s group by 1, 2""",
+		(crop, frm, to, retired_sql()),
+	):
+		line(fc, uom)["actual"] += float(q or 0)
+	for fc, uom, q in frappe.db.sql(
+		"""select ifnull(field_crop, ''), ifnull(uom, ''), sum(committed_qty) from `tabBuyer Commitment`
+		where crop = %s and status != 'Cancelled' and week_start between %s and %s group by 1, 2""",
+		(crop, frm, to),
+	):
+		line(fc, uom)["committed"] += float(q or 0)
+	return [
+		{"field_crop": fc or None, "uom": uom or None, **r, "error_pct": _pct(r["actual"], r["forecast_to_date"])}
+		for (fc, uom), r in sorted(rows.items())
+	]

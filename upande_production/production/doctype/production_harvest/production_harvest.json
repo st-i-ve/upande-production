@@ -9,6 +9,7 @@
   "harvest_date",
   "unit",
   "crop",
+  "field_crop",
   "cycle",
   "item",
   "qty",
@@ -40,6 +41,13 @@
    "fieldtype": "Link",
    "label": "Crop",
    "options": "Production Crop"
+  },
+  {
+   "fieldname": "field_crop",
+   "fieldtype": "Link",
+   "label": "Field Crop",
+   "options": "Field Crop",
+   "in_standard_filter": 1
   },
   {
    "fieldname": "cycle",
@@ -100,7 +108,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-28 09:00:00.000000",
+ "modified": "2026-11-18 09:00:00.000000",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production Harvest",

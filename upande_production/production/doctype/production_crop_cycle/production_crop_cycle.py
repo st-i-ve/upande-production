@@ -6,7 +6,7 @@ from frappe import _
 from frappe.model.document import Document
 
 from upande_production.production.logic.cycles import crop_uses_cycles
-from upande_production.production.logic import cycle_chain, cycle_setup
+from upande_production.production.logic import cycle_chain, cycle_setup, field_crops
 from upande_production.production.logic.stages import apply_variety_defaults
 
 
@@ -16,6 +16,7 @@ class ProductionCropCycle(Document):
 			self.crop = frappe.db.get_value("Production Unit", self.unit, "crop")
 		if self.crop and not crop_uses_cycles(self.crop):
 			frappe.throw(f"{self.crop} does not use crop cycles.")
+		self.set_field_crop()
 		if self.is_new() or self.has_value_changed("previous_cycle") or not self.cycle_no:
 			self.cycle_no = cycle_chain.cycle_number(self)
 		cycle_chain.sync_actuals(self)
@@ -30,3 +31,14 @@ class ProductionCropCycle(Document):
 	def on_update(self):
 		if not self.proposed_next_cycle:
 			cycle_chain.propose_next(self)
+
+	def set_field_crop(self):
+		"""The cycle's crop is its variety's; with no variety (an existing cycle given by item) it is the item's."""
+		fc = field_crops.from_variety(self.variety) if self.variety else None
+		if not fc and not self.variety and not self.field_crop:
+			fc = field_crops.from_item(self.item, self.crop)
+		if fc:
+			self.field_crop = fc
+		field_crops.check_section(self.field_crop, self.crop)
+		if not frappe.flags.in_demo_seed:
+			field_crops.require_on_cycle(self)

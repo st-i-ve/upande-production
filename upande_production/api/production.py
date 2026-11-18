@@ -4,6 +4,7 @@ import frappe
 from frappe import _
 
 from upande_production.api.envelope import as_dict, run
+from upande_production.production.logic import field_crops
 from upande_production.production.logic import analytics, bands, blockcost, cycle_chain, labourers, plans, rules, stages, supervisors, work
 from upande_production.production.logic import drymatter as drymatter_logic
 from upande_production.production.logic.settings import PAY_ROLES, avocado_only_crop_keys, can_see_pay, is_manager
@@ -78,6 +79,7 @@ def _unit_rows(crop):
 		r["current_cycle"] = cy.name if cy else None
 		r["item"] = cy.item if cy else None
 		r["variety"] = cy.variety if cy else None
+		r["field_crop"] = cy.field_crop if cy else None
 		r["current_stage"] = cy.current_stage if cy else None
 		r["flags"] = flag_by_cycle.get(cy.name, []) if cy else []
 		r["cycles"] = [dict(c, flags=flag_by_cycle.get(c.name, [])) for c in running.get(r.name, [])]
@@ -143,6 +145,9 @@ def get_bootstrap():
 		crops = [c for c in crops if c["crop_key"] in only]
 	for c in crops:  # the page gate: the crop's default is on, or one of its varieties says Yes
 		c["dry_matter_testing"] = int(drymatter_logic.crop_tests_dry_matter(c["name"]))
+	for c in crops:  # a section with Field Crops (Fruits & Vegetables): Cabbage, Maize ... each with its harvest unit
+		c["field_crops"] = field_crops.list_for(c["name"], enabled_only=True)
+		c["has_field_crops"] = int(bool(c["field_crops"]))
 	return {
 		"crops": crops,
 		"farms": frappe.get_all("Farm", pluck="name", order_by="name asc"),
@@ -200,7 +205,7 @@ _CYCLE_FIELDS = [
 	"expected_harvest_end", "protocol", "status", "area_ha", "previous_cycle", "variety", "current_stage",
 	"cycle_no", "expected_flowering_date", "actual_flowering_date", "actual_harvest_start", "actual_harvest_end",
 	"due_for_uprooting", "proposed_next_cycle", "protocol_flags", "flowering_season", "juvenile",
-	"plant_count", "existing_cycle", "planting_date", "last_harvest_date", "last_season_yield_kg",
+	"plant_count", "existing_cycle", "planting_date", "last_harvest_date", "last_season_yield_kg", "field_crop",
 ]
 
 
@@ -305,6 +310,7 @@ def get_plan(crop, farm, year, week):
 	)
 	colors = dict(frappe.get_all("Field Operation", fields=["name", "color"], as_list=True))
 	labourers.attach_operation_targets(tasks)
+	field_crops.annotate_cycles(tasks)
 	for t in tasks:
 		t["color"] = colors.get(t.operation) or None
 		t["rate"] = _pay(t["rate"], pay)

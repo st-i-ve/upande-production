@@ -6,6 +6,8 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import cint, flt
 
+from upande_production.production.logic import field_crops
+
 
 def _get(doc, key):
 	return doc.get(key) if hasattr(doc, "get") else getattr(doc, key, None)
@@ -96,6 +98,9 @@ def validate_yield_model(doc) -> None:
 
 class ProductionVariety(Document):
 	def validate(self):
+		field_crops.check_section(self.field_crop, self.crop)
+		if not self.field_crop and self.product and self.crop:
+			self.field_crop = frappe.db.get_value("Field Crop", {"product": self.product, "production_crop": self.crop}, "name")
 		derive(self)
 		validate_flowering(self)
 		validate_yield_model(self)

@@ -156,6 +156,11 @@ after_migrate = [
 # Hook on document methods and events
 
 doc_events = {
+	# the Field Crop of records that only carry it for reports (a sample, forecast, commitment or grading log)
+	"Yield Sample": {"validate": "upande_production.production.logic.field_crops.stamp_doc_event"},
+	"Crop Forecast": {"validate": "upande_production.production.logic.field_crops.stamp_doc_event"},
+	"Buyer Commitment": {"validate": "upande_production.production.logic.field_crops.stamp_doc_event"},
+	"Harvest Grading Log": {"validate": "upande_production.production.logic.field_crops.stamp_doc_event"},
 	"Avocado Fruit Count": {
 		"after_insert": "upande_production.api.avocadoapi.notify_new_fruit_count",
 	},

@@ -16,7 +16,7 @@ import frappe
 from frappe.utils import add_days, flt, now_datetime, today
 
 from upande_production.mobile import access
-from upande_production.production.logic import harvest as H
+from upande_production.production.logic import field_crops, harvest as H
 from upande_production.production.logic.analytics import current_cycles
 
 CRATE_SCAN = "Harvest Crate Scan"
@@ -167,16 +167,21 @@ def get_blocks(farm=None, section=None, crop=None, **kw):
 		if not _s(farm):
 			return _err("farm is required")
 		section = _s(section)
-		items = {}
+		cycles = {}
+		units_of = field_crops.with_units()
 		out = []
 		for u in _crate_units(farm_name, _s(crop) or None):
 			sec = u.parent_production_unit or u.crop
 			if section and sec != section:
 				continue
-			if u.crop not in items:
-				items[u.crop] = {k: v.item for k, v in current_cycles(u.crop).items()}
+			if u.crop not in cycles:
+				cycles[u.crop] = current_cycles(u.crop)
+			cy = cycles[u.crop].get(u.name)
+			fc = cy.field_crop if cy else None
 			out.append({"name": u.name, "label": u.unit_name, "crop": u.crop, "section": sec,
-				"item": items[u.crop].get(u.name), "cost_center": u.cost_center})
+				"item": cy.item if cy else None, "cost_center": u.cost_center,
+				"field_crop": fc, "variety": cy.variety if cy else None,
+				"harvest_uom": (units_of.get(fc) or {}).get("uom") if fc else None})
 		return out
 	except Exception as e:
 		return _fail("get_blocks", e)
@@ -249,7 +254,7 @@ def get_harvesting_state(block=None, **kw):
 			"status": c.status, "allocated_at": str(c.allocated_at) if c.allocated_at else None}
 			for c in crates if c.status in H.OPEN_STATUSES]
 		batches = frappe.get_all("Harvest Batch", filters={"unit": block, "docstatus": 1, "creation": (">=", _today_start())},
-			fields=["name", "stock_entry", "status", "team", "creation", "crate_count", "estimated_kg"], order_by="creation desc")
+			fields=["name", "stock_entry", "status", "team", "creation", "crate_count", "estimated_kg", "field_crop", "uom"], order_by="creation desc")
 		return {
 			"totals": {"total": len(crates), "filling": sum(c.status == "Filling" for c in crates),
 				"full": sum(c.status == "Full" for c in crates), "in_transit": 0, "batches": len(batches),
@@ -257,7 +262,7 @@ def get_harvesting_state(block=None, **kw):
 			"by_harvestor": by_harvestor,
 			"batches": [{"batch_id": b.name, "delivery_note": b.stock_entry, "status": b.status, "team_id": b.team,
 				"creation": str(b.creation), "stock_entry": b.stock_entry, "crates": b.crate_count,
-				"estimated_kg": b.estimated_kg} for b in batches],
+				"estimated_kg": b.estimated_kg, "field_crop": b.field_crop, "uom": b.uom or "Kg"} for b in batches],
 			"not_collected": not_collected,
 		}
 	except Exception as e:
@@ -379,6 +384,7 @@ def mark_ready_for_collection(block=None, team_id=None, warehouse=None, **kw):
 				"crate_count": batch.crate_count, "crates_marked": [r.crate_id for r in batch.crates],
 				"batch": batch.name, "stock_entry": batch.stock_entry, "item": batch.item,
 				"estimated_kg": batch.estimated_kg, "avg_kg_per_crate": batch.avg_kg_per_crate,
+				"field_crop": batch.field_crop, "uom": batch.uom or "Kg",
 				"production_harvest": batch.production_harvest, "warehouse": batch.warehouse,
 				"work": frappe.get_all("Casual Labour Work", filters={"harvest_batch": batch.name}, pluck="name"),
 			})
@@ -544,6 +550,11 @@ def farm_manager_report(period=None, **kw):
 		blocks = [{"block": r.block, "harvested": int(r.harvested or 0), "at_packhouse": int(r.at_packhouse or 0),
 			"delivery_rate_pct": round(int(r.at_packhouse or 0) / int(r.harvested) * 100, 1) if r.harvested else None,
 			"teams_active": int(r.teams_active or 0)} for r in blk_rows]
+		by_crop = [{"field_crop": r.field_crop or None, "uom": r.uom or "Kg", "batches": int(r.batches or 0),
+			"crates": int(r.crates or 0), "quantity": flt(r.quantity)} for r in frappe.db.sql(
+			"""select field_crop, uom, count(*) batches, sum(crate_count) crates, sum(estimated_kg) quantity
+			from `tabHarvest Batch` where docstatus = 1 and harvest_date between %s and %s
+			group by field_crop, uom order by field_crop, uom""", (start, end), as_dict=True)]
 		th, tap = int(t.harvested or 0), int(t.at_packhouse or 0)
 		bt = frappe.db.sql("select count(*), sum(estimated_kg) from `tabHarvest Batch` where docstatus = 1 and harvest_date between %s and %s", (start, end))[0]
 		return {
@@ -553,6 +564,7 @@ def farm_manager_report(period=None, **kw):
 				"delivery_rate_pct": round(tap / th * 100, 1) if th else None,
 				"batches": int(bt[0] or 0), "estimated_kg": flt(bt[1])},
 			"teams": teams, "blocks": blocks, "block_changes": changes,
+			"by_crop": by_crop,  # one line per Field Crop and unit (Pieces, Kg), never added together
 		}
 	except Exception as e:
 		return _fail("farm_manager_report", e)

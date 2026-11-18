@@ -3,7 +3,7 @@ import frappe
 from frappe.utils import cint, getdate, today
 
 from upande_production.mobile import access
-from upande_production.production.logic import analytics, approvals, labourers, plans, rules, supervisors, wm_bridge, work
+from upande_production.production.logic import analytics, approvals, field_crops, labourers, plans, rules, supervisors, wm_bridge, work
 from upande_production.production.logic.settings import can_see_pay
 from upande_production.production.logic.units import unit_filter
 from upande_production.production.logic.weeks import iso_of, iso_week_bounds
@@ -132,12 +132,18 @@ def _with_stage(row: dict, info: dict) -> dict:
 def productionListCrops():
 	if _denied(("Production Crop", "read")):
 		return
-	_run("productionListCrops", lambda: frappe.get_all(
-		"Production Crop", filters={"enabled": 1},
-		fields=["name", "crop_name", "crop_key", "accent_color", "icon_key", "unit_label",
-			"sub_unit_label", "yield_uom"],
-		order_by="sort_order asc, crop_name asc",
-	))
+	def go():
+		rows = frappe.get_all(
+			"Production Crop", filters={"enabled": 1},
+			fields=["name", "crop_name", "crop_key", "accent_color", "icon_key", "unit_label",
+				"sub_unit_label", "yield_uom"],
+			order_by="sort_order asc, crop_name asc",
+		)
+		for r in rows:  # Cabbage, Maize ... inside a section like Fruits & Vegetables, each with its harvest unit
+			r["field_crops"] = field_crops.list_for(r.name, enabled_only=True)
+		return rows
+
+	_run("productionListCrops", go)
 
 
 @frappe.whitelist()
@@ -190,6 +196,7 @@ def productionGetWeekPlan():
 			tasks = frappe.get_all("Work Plan Task", filters=task_filters, fields=TASK_FIELDS, order_by="due_date asc, idx asc")
 			_strip_pay(tasks, "rate")
 			labourers.attach_operation_targets(tasks)
+			field_crops.annotate_cycles(tasks)
 		return {
 			"plan": name, "farm": farm or None, "crop": crop, "year": year, "week": week,
 			"week_start": str(start), "week_end": str(end), "tasks": tasks,
@@ -321,13 +328,14 @@ def productionRecordHarvest():
 		uom = _s(data, "uom") or (frappe.db.get_value("Production Crop", crop, "yield_uom") if crop else None)
 		doc = frappe.get_doc({
 			"doctype": "Production Harvest", "unit": unit, "crop": crop,
-			"cycle": _s(data, "cycle") or None, "item": _s(data, "item") or None,
+			"cycle": _s(data, "cycle") or None, "item": _s(data, "item") or None, "field_crop": _s(data, "field_crop") or None,
 			"qty": float(data.get("qty")), "uom": uom, "grade": _s(data, "grade") or None,
 			"harvest_date": _s(data, "harvest_date") or today(),
 		})
 		doc.insert()
 		frappe.db.commit()
-		return {"status": "success", "name": doc.name, "value": doc.value, "message": "Harvest recorded."}
+		return {"status": "success", "name": doc.name, "value": doc.value, "field_crop": doc.field_crop, "uom": doc.uom,
+			"message": "Harvest recorded."}
 
 	_run("productionRecordHarvest", go)
 
@@ -684,10 +692,11 @@ def productionGetPlanDetail():
 		unit_names = dict(frappe.get_all("Production Unit", filters={"crop": crop},
 			fields=["name", "unit_name"], as_list=True))
 		out.update(_counts(tasks))
+		field_crops.annotate_cycles(tasks)
 		blocks = {}
 		for t in tasks:
 			row = {k: t.get(k) for k in PLAN_TASK_FIELDS}
-			row.update({
+			row.update({"field_crop": t.get("field_crop"), "variety": t.get("variety"), "crop_label": t.get("crop_label"),
 				"supervisor_name": sup_names.get(t.supervisor), "is_late": _is_late(t),
 				"deviation": t.deviation or None, "entries": crew.get(t.name, []),
 				"from_protocol": bool(t.protocol_ref),
@@ -702,7 +711,7 @@ def productionGetPlanDetail():
 		for b in blocks.values():
 			_with_stage(b, info)
 			for t in b["tasks"]:
-				t.update({k: b[k] for k in _NO_STAGE})
+				t.update({k: b[k] for k in _NO_STAGE if not (k == "variety" and t.get("variety"))})
 		out["blocks"] = sorted(blocks.values(), key=lambda b: b["unit_name"])
 		return out
 
