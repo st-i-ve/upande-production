@@ -10,6 +10,8 @@ import { useToast } from "@/components/Toast";
 import { ToolbarButton } from "@/components/ToolbarButton";
 import { Button } from "@/components/ui/button";
 import { WeekPicker } from "@/components/WeekPicker";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SupervisorPlanView } from "@/components/plan/SupervisorPlanView";
 import { AddTaskDialog, type OperationOption } from "@/components/plan/AddTaskDialog";
 import { AvatarStack, DeviationBadge, STATUSES, StatusPill } from "@/components/plan/badges";
 import { PendingChip, QtyBar } from "@/components/plan/QtyBar";
@@ -47,6 +49,7 @@ export function Plan() {
   const toast = useToast();
   const [week, setWeek] = useState<IsoWeek>(currentIsoWeek);
   const [farm, setFarm] = useState(boot.farms[0] ?? "");
+  const [view, setView] = useState<"tasks" | "supervisors">("tasks");
   const [opFilter, setOpFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [plan, setPlan] = useState<PlanData | null>(null);
@@ -212,16 +215,20 @@ export function Plan() {
     <>
       <WeekPicker value={week} onChange={setWeek} />
       <FilterSelect label="Farm" value={farm} options={farmOptions} onChange={setFarm} />
-      <FilterSelect label="Operation" value={opFilter} options={opOptions} onChange={setOpFilter} allLabel="All operations" />
-      <FilterSelect label="Status" value={statusFilter} options={statusOptions} onChange={setStatusFilter} allLabel="All statuses" />
-      <ClearFiltersPill
-        active={dirty}
-        onClear={() => {
-          setOpFilter("");
-          setStatusFilter("");
-        }}
-      />
-      {boot.can_plan && (
+      {view === "tasks" && (
+        <>
+          <FilterSelect label="Operation" value={opFilter} options={opOptions} onChange={setOpFilter} allLabel="All operations" />
+          <FilterSelect label="Status" value={statusFilter} options={statusOptions} onChange={setStatusFilter} allLabel="All statuses" />
+          <ClearFiltersPill
+            active={dirty}
+            onClear={() => {
+              setOpFilter("");
+              setStatusFilter("");
+            }}
+          />
+        </>
+      )}
+      {view === "tasks" && boot.can_plan && (
         <>
           {cropUsesCycles(crop) && (
             <ToolbarButton onClick={generate} disabled={generating || !farm}>
@@ -326,6 +333,9 @@ export function Plan() {
                         <QtyBar planned={t.planned_qty} done={t.done_qty} pending={t.pending_qty ?? 0} color={accent} className="h-1.5" />
                       </span>
                       <span className="w-24 text-[12.5px] tabular-nums text-[var(--sd-muted)]">{rowDate(t.due_date)}</span>
+                      <span className="w-32 truncate text-[12.5px] text-[var(--sd-muted)]" title={t.supervisor_name ? `Supervisor: ${t.supervisor_name}` : "No supervisor"}>
+                        {t.supervisor_name || "No supervisor"}
+                      </span>
                       <StatusPill status={t.status} />
                       <DeviationBadge deviation={t.deviation} />
                       <RuleFlag status={t.rule_status} notes={t.rule_notes} overrideReason={t.override_reason} />
@@ -366,7 +376,15 @@ export function Plan() {
     </div>
   );
 
-  const showSummary = !!farm && !error && (loading ? false : allTasks.length > 0);
+  const showSummary = view === "tasks" && !!farm && !error && (loading ? false : allTasks.length > 0);
+  const viewTabs = (
+    <Tabs value={view} onValueChange={(v) => setView(v as "tasks" | "supervisors")} className="mb-4">
+      <TabsList aria-label="Plan view">
+        <TabsTrigger value="tasks">Tasks</TabsTrigger>
+        <TabsTrigger value="supervisors">Supervisors</TabsTrigger>
+      </TabsList>
+    </Tabs>
+  );
 
   return (
     <PageShell
@@ -377,6 +395,23 @@ export function Plan() {
         plan?.week_end ?? ymd(addDays(weekStart(week), 6)),
       )}. Tap a task to record the work.`}
     >
+      {viewTabs}
+      {view === "supervisors" ? (
+        farm ? (
+          <SupervisorPlanView
+            crop={crop.name}
+            farm={farm}
+            year={week.year}
+            week={week.week}
+            unitLabel={unitLabel}
+            canEdit={!!boot.can_manage}
+            onSaved={() => void load(true)}
+          />
+        ) : (
+          <Empty title="No farm to plan for">Add a farm to this crop's settings and it will appear here.</Empty>
+        )
+      ) : (
+        <>
       {(showSummary || (loading && !!farm && !plan)) && (
         <div className="mb-4">
           <KpiGrid cols={boot.can_see_pay ? 5 : 4}>
@@ -416,6 +451,8 @@ export function Plan() {
       {skippedPanel}
       <ProtocolCheckPanel check={check} />
       {body}
+        </>
+      )}
       {selected && plan?.plan && (
         <TickOffDialog
           key={selected.name}

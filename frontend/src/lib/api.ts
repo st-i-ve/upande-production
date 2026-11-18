@@ -309,6 +309,69 @@ export interface SkippedStep {
 export const generatePlanWeek = (crop: string, farm: string, year: number, week: number) =>
   rpc<{ name: string; created: number; skipped?: SkippedStep[] }>("generate_plan_week", { crop, farm, year, week });
 
+// -- Weekly supervisor plan -----------------------------------------------------
+
+export interface SupervisorBlock {
+  name: string;
+  unit_name: string | null;
+  area_ha: number | null;
+  farm: string | null;
+}
+
+export interface SupervisorCandidate {
+  name: string;
+  employee_name: string;
+  user: string | null;
+}
+
+export interface SupervisorAssignment {
+  name: string;
+  unit: string;
+  supervisor: string;
+  supervisor_name: string | null;
+}
+
+export interface SupervisorWarning {
+  unit: string;
+  supervisor: string;
+  supervisor_name: string | null;
+  message: string;
+}
+
+export interface SupervisorPlan {
+  week_start: string;
+  week_end: string;
+  /** Managers may change it; everyone else reads. */
+  can_edit: boolean;
+  units: SupervisorBlock[];
+  supervisors: SupervisorCandidate[];
+  assignments: SupervisorAssignment[];
+  last_week: SupervisorAssignment[];
+  last_week_label: { year: number; week: number };
+  /** Approved leave over the week (a warning, never a block). */
+  warnings: SupervisorWarning[];
+  /** After a save: how many plan tasks took the new supervisor. */
+  tasks_updated?: number;
+  saved?: number;
+  copied?: number;
+}
+
+export const getSupervisorPlan = (crop: string, farm: string, year: number, week: number) =>
+  rpc<SupervisorPlan>("get_supervisor_plan", { crop, farm, year, week });
+
+/** Replaces the week's assignments with `assignments` ([{unit, supervisor}]); the week's plan tasks follow. */
+export const saveSupervisorPlan = (
+  crop: string,
+  farm: string,
+  year: number,
+  week: number,
+  assignments: Array<{ unit: string; supervisor: string }>,
+) => rpc<SupervisorPlan>("save_supervisor_plan", { crop, farm, year, week, assignments });
+
+/** Copies last week's assignments into this week when it has none. */
+export const copySupervisorPlan = (crop: string, farm: string, year: number, week: number) =>
+  rpc<SupervisorPlan>("copy_supervisor_plan", { crop, farm, year, week });
+
 export interface WorkInput {
   employee: string;
   qty?: number;

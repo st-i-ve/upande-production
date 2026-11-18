@@ -10,6 +10,9 @@ vi.mock("@/lib/api", () => ({
   listCasualLabourers: vi.fn(),
   recordTaskWork: vi.fn(),
   savePlanTasks: vi.fn(),
+  getSupervisorPlan: vi.fn(),
+  saveSupervisorPlan: vi.fn(),
+  copySupervisorPlan: vi.fn(),
 }));
 
 import * as api from "@/lib/api";
