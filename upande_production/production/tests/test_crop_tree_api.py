@@ -74,8 +74,19 @@ class TestCropTreeApi(IntegrationTestCase):
 		self.assertEqual([x["name"] for x in row["sub_crops"]], [s["name"]])
 		s2 = api.save_sub_crop({"name": s["name"], "sub_crop_name": "CTA Fig Black", "field_crop": c["name"], "enabled": 0})
 		self.assertEqual(s2["name"], s["name"])
+		self.assertEqual(frappe.db.get_value("Production Sub Crop", s["name"], "enabled"), 0)
 		g2 = api.save_crop_group({"name": "CTA Group", "group_name": "CTA Group", "parent": None, "sort_order": 5})
 		self.assertEqual(frappe.db.get_value("Production Crop Group", "CTA Group", "sort_order"), 5)
+
+	def test_group_partial_update(self):
+		api.save_crop_group({"group_name": "CTA Part", "parent": "Fruit Crops", "sort_order": 2})
+		get = lambda f: frappe.db.get_value("Production Crop Group", "CTA Part", f)
+		api.save_crop_group({"name": "CTA Part", "sort_order": 4})
+		self.assertEqual((get("parent_production_crop_group"), get("sort_order")), ("Fruit Crops", 4))
+		api.save_crop_group({"name": "CTA Part", "parent": "Vegetable Crops"})
+		self.assertEqual((get("parent_production_crop_group"), get("sort_order")), ("Vegetable Crops", 4))
+		api.save_crop_group({"name": "CTA Part", "parent": None})
+		self.assertEqual((get("parent_production_crop_group"), get("sort_order")), (None, 4))
 
 	def test_writes_are_manager_only(self):
 		frappe.set_user(self.users["Production Viewer"])
@@ -85,7 +96,7 @@ class TestCropTreeApi(IntegrationTestCase):
 			(api.save_sub_crop, {"sub_crop_name": "CTA Nope", "field_crop": "x"}),
 		):
 			out = fn(data)
-			self.assertIn("error", out, fn.__name__)
+			self.assertIn("Only a Production Manager", out.get("error", ""), fn.__name__)
 		frappe.set_user("Administrator")
 		self.assertFalse(frappe.db.exists("Production Crop Group", "CTA Nope"))
 		frappe.set_user(self.users["Production Manager"])

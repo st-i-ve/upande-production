@@ -43,14 +43,14 @@ def save_crop_group(data):
 	"""Insert, or update when data.name is set. Keys: name, group_name, parent, sort_order. Managers only."""
 	_managers_only()
 	data = dict(as_dict(data) or {})
-	row = {"group_name": data.get("group_name"), "parent_production_crop_group": data.get("parent") or None,
-		"sort_order": data.get("sort_order") or 0}
-	if data.get("name"):
+	keys = {"parent": "parent_production_crop_group", "sort_order": "sort_order"}
+	row = {col: (data.get(k) or (None if k == "parent" else 0)) for k, col in keys.items() if k in data}
+	if data.get("name"):  # an update changes only the keys that were sent
 		doc = frappe.get_doc("Production Crop Group", data["name"])
-		doc.update({k: v for k, v in row.items() if k != "group_name"})
+		doc.update(row)
 		doc.save()
 	else:
-		doc = frappe.get_doc({"doctype": "Production Crop Group", "is_group": 1, **row}).insert()
+		doc = frappe.get_doc({"doctype": "Production Crop Group", "is_group": 1, "group_name": data.get("group_name"), **row}).insert()
 	return {"name": doc.name}
 
 
