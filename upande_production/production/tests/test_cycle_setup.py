@@ -238,6 +238,21 @@ class TestCycleSetupOtherCrops(IntegrationTestCase):
 		self.assertEqual(made[0].protocol, self.protocol)
 		self.assertTrue(all(getdate(m.schedule_from) == getdate(today()) for m in made))
 
+	def test_sub_crop_is_set_on_create_shown_and_edited(self):
+		fc = _make("Production Field Crop", crop_name="CS Rose", crop_group="Fruit Crops", harvest_uom="Kg")
+		a = _make("Production Sub Crop", sub_crop_name="CS Standard", field_crop=fc.name, harvest_uom="Kg")
+		b = _make("Production Sub Crop", sub_crop_name="CS Spray", field_crop=fc.name, harvest_uom="Pieces")
+		self.addCleanup(frappe.db.set_value, "Production Variety", self.staged, "field_crop", None)
+		frappe.db.set_value("Production Variety", self.staged, "field_crop", fc.name)
+		u = self._unit()
+		name = cycle_setup.create_cycle({"unit": u.name, "variety": self.staged, "start_date": today(), "sub_crop": a.name})["name"]
+		self.assertEqual(frappe.db.get_value("Production Crop Cycle", name, "sub_crop"), a.name)
+		self.assertEqual(cycle_setup.edit_info(name)["sub_crop"], a.name)
+		cycle_setup.update_cycle(name, {"sub_crop": b.name})
+		self.assertEqual(frappe.db.get_value("Production Crop Cycle", name, "sub_crop"), b.name)
+		cycle_setup.update_cycle(name, {"sub_crop": None})
+		self.assertIsNone(frappe.db.get_value("Production Crop Cycle", name, "sub_crop"))
+
 	def test_update_cycle_rules(self):
 		u, u2 = self._unit(), self._unit()
 		name = cycle_setup.create_cycle({"unit": u.name, "item": self.item, "existing": 1, "planting_date": add_days(today(), -30),

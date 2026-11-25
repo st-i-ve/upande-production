@@ -124,6 +124,17 @@ describe("Plan", () => {
     expect(screen.getByRole("combobox", { name: "Crop" }) ?? screen.getByText("Crop")).toBeTruthy();
   });
 
+  it("names only the variety of a task in a section with a single crop", async () => {
+    mocked.getPlan.mockResolvedValue({
+      plan: "PLAN-1",
+      week_start: "2026-10-26",
+      week_end: "2026-11-01",
+      tasks: [task({ name: "T1", unit: "B1", operation_name: "Pruning", field_crop: "Avocado", variety: "Hass", crop_label: "Hass" })],
+    });
+    renderPlan();
+    expect((await screen.findByTestId("task-crop")).textContent).toBe("Hass");
+  });
+
   it("shows pending quantity apart from done, with an awaiting-approval chip", async () => {
     mocked.getPlan.mockResolvedValue({
       plan: "PLAN-1",

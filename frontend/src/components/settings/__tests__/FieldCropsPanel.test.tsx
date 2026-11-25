@@ -70,6 +70,22 @@ describe("FieldCropsPanel", () => {
     expect(vi.mocked(fc.saveFieldCrop).mock.calls[0][0]).toMatchObject({ crop_name: "Maize", crop_group: "Vegetable Crops", harvest_uom: "Kg" });
   });
 
+  it("editing a crop does not null the fields it did not change", async () => {
+    vi.mocked(fc.getCropTree).mockResolvedValue({
+      ...tree,
+      crops: tree.crops.map((c) => (c.name === "Cabbage" ? { ...c, scientific_name: "Brassica oleracea" } : c)),
+    });
+    renderPage(<FieldCropsPanel canEdit />);
+    fireEvent.click(await screen.findByRole("button", { name: "Vegetable Crops" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit Cabbage" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Save crop" }));
+    await waitFor(() => expect(fc.saveFieldCrop).toHaveBeenCalled());
+    const sent = vi.mocked(fc.saveFieldCrop).mock.calls[0][0];
+    expect(sent).toMatchObject({ name: "Cabbage", harvest_uom: "Pieces" });
+    expect(sent).not.toHaveProperty("scientific_name");
+    expect(sent).not.toHaveProperty("product");
+  });
+
   it("adds a sub-crop to a crop", async () => {
     renderPage(<FieldCropsPanel canEdit />);
     fireEvent.click(await screen.findByRole("button", { name: "Add sub-crop to Rose" }));

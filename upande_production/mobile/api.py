@@ -140,7 +140,8 @@ def productionListCrops():
 			order_by="sort_order asc, crop_name asc",
 		)
 		for r in rows:  # Cabbage, Maize ... inside a section like Fruits & Vegetables, each with its harvest unit
-			r["field_crops"] = field_crops.list_for(r.name, enabled_only=True)
+			# list_for falls back to every crop for a section with none (Apiary); a section shows only its own
+			r["field_crops"] = field_crops.list_for(r.name, enabled_only=True) if field_crops.crops_of(r.name) else []
 		return rows
 
 	_run("productionListCrops", go)

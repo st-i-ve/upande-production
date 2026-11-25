@@ -30,10 +30,10 @@ def only_crop(section):
 
 
 def crops_of(section) -> list:
-	"""The distinct enabled crops of a section's varieties."""
+	"""The distinct enabled crops of a section's enabled varieties."""
 	if not section:
 		return []
-	names = frappe.get_all("Production Variety", filters={"crop": section, "field_crop": ("is", "set")}, pluck="field_crop", distinct=True)
+	names = frappe.get_all("Production Variety", filters={"crop": section, "field_crop": ("is", "set"), "enabled": 1}, pluck="field_crop", distinct=True)
 	return frappe.get_all(DT, filters={"name": ("in", names), "enabled": 1}, pluck="name", order_by="name asc") if names else []
 
 
@@ -46,12 +46,16 @@ def list_for(section, enabled_only=False) -> list:
 		names = crops_of(section)
 		if names:
 			filters["name"] = ("in", names)
-	rows = frappe.get_all(DT, filters=filters, fields=["name", "crop_name", "crop_group", "product", "harvest_uom", "color", "enabled"],
+	rows = frappe.get_all(DT, filters=filters, fields=["name", "crop_name", "crop_group", "scientific_name", "product", "harvest_uom", "color", "enabled"],
 		order_by="crop_name asc", limit_page_length=0)
+	sub_filters = {"field_crop": ("in", [r.name for r in rows] or [""])}
+	if enabled_only:  # pickers show enabled sub-crops only; the tree and settings see them all
+		sub_filters["enabled"] = 1
 	subs = {}
-	for s_ in frappe.get_all(SUB, filters={"field_crop": ("in", [r.name for r in rows] or [""]), "enabled": 1},
-			fields=["name", "field_crop", "harvest_uom"], order_by="sub_crop_name asc", limit_page_length=0):
-		subs.setdefault(s_.field_crop, []).append({"name": s_.name, "harvest_uom": s_.harvest_uom})
+	for s_ in frappe.get_all(SUB, filters=sub_filters, fields=["name", "sub_crop_name", "field_crop", "product", "harvest_uom", "enabled"],
+			order_by="sub_crop_name asc", limit_page_length=0):
+		subs.setdefault(s_.field_crop, []).append({"name": s_.name, "sub_crop_name": s_.sub_crop_name, "product": s_.product,
+			"harvest_uom": s_.harvest_uom, "enabled": s_.enabled})
 	for r in rows:
 		r["sub_crops"] = subs.get(r.name, [])
 	return rows
@@ -145,6 +149,8 @@ def stamp(doc, *, cycle_field="cycle", with_uom=False) -> None:
 		if not fc:
 			fc = only_crop(doc.get("crop") or (frappe.db.get_value("Production Unit", doc.unit, "crop") if doc.get("unit") else None))
 		doc.field_crop = fc
+	if doc.meta.has_field("sub_crop") and not doc.get("sub_crop") and doc.get(cycle_field):
+		doc.sub_crop = frappe.db.get_value("Production Crop Cycle", doc.get(cycle_field), "sub_crop")
 	if doc.meta.has_field("sub_crop") and not doc.get("sub_crop") and doc.get("variety"):
 		doc.sub_crop = frappe.db.get_value("Production Variety", doc.variety, "sub_crop")
 	check_variety(doc)
@@ -315,18 +321,22 @@ def label(field_crop, variety=None, sub_crop=None) -> str | None:
 
 
 def annotate_cycles(rows, cycle_key="cycle") -> None:
-	"""Add field_crop, sub_crop, variety and crop_label to rows (dicts) that point at a cycle."""
+	"""Add field_crop, sub_crop, variety and crop_label to rows (dicts) that point at a cycle. The label names the crop
+	only in a section with more than one crop; elsewhere (Avocado) it is the variety alone."""
 	names = list({r.get(cycle_key) for r in rows if r.get(cycle_key)})
 	info = {}
 	if names:
 		info = {c.name: c for c in frappe.get_all("Production Crop Cycle", filters={"name": ("in", names)},
-			fields=["name", "field_crop", "sub_crop", "variety"], limit_page_length=0)}
+			fields=["name", "crop", "field_crop", "sub_crop", "variety"], limit_page_length=0)}
+	multi = {}
 	for r in rows:
 		c = info.get(r.get(cycle_key))
 		r["field_crop"] = c.field_crop if c else None
 		r["sub_crop"] = c.sub_crop if c else None
 		r["variety"] = c.variety if c else None
-		r["crop_label"] = label(r["field_crop"], r["variety"], r["sub_crop"])
+		if c and c.crop not in multi:
+			multi[c.crop] = has_field_crops(c.crop)
+		r["crop_label"] = label(r["field_crop"], r["variety"], r["sub_crop"]) if c and multi[c.crop] else r["variety"]
 
 
 def with_units(section=None) -> dict:

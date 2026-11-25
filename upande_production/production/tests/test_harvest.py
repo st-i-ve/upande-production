@@ -170,6 +170,22 @@ class TestHarvest(IntegrationTestCase):
 		finally:
 			frappe.db.rollback(save_point="hv_field_crop")
 
+	def test_batch_and_harvest_take_the_sub_crop_and_its_unit_from_the_cycle(self):
+		frappe.db.savepoint("hv_sub_crop")
+		try:
+			if not frappe.db.exists("UOM", "Pieces"):
+				_make("UOM", uom_name="Pieces")
+			fc = _make("Production Field Crop", crop_name="HV Rose", crop_group="Vegetable Crops", product=self.item.name, harvest_uom="Kg")
+			sub = _make("Production Sub Crop", sub_crop_name="HV Spray", field_crop=fc.name, harvest_uom="Pieces")
+			frappe.db.set_value("Production Crop Cycle", {"unit": self.unit.name}, {"field_crop": fc.name, "sub_crop": sub.name})
+			self.scan(3, harvestor=self.p1.name)
+			batch = frappe.get_doc("Harvest Batch", self.close()["batch"])
+			self.assertEqual((batch.field_crop, batch.sub_crop, batch.uom), ("HV Rose", "HV Spray", "Pieces"))
+			ph = frappe.get_doc("Production Harvest", batch.production_harvest)
+			self.assertEqual((ph.field_crop, ph.sub_crop, ph.uom), ("HV Rose", "HV Spray", "Pieces"))
+		finally:
+			frappe.db.rollback(save_point="hv_sub_crop")
+
 	def test_item_override_and_zero_valuation_fallback(self):
 		self.scan(2, unit=self.unit2)
 		res = self.close(self.unit2)

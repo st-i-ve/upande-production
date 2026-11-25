@@ -49,6 +49,7 @@ export function CycleGantt({
   unitLabel,
   preHarvestDays,
   onSelect,
+  withCrops = false,
 }: {
   cycles: Cycle[];
   accent: string;
@@ -56,6 +57,8 @@ export function CycleGantt({
   /** Days before harvest in which some work (spraying) is forbidden; shaded on the bar. */
   preHarvestDays?: (c: Cycle) => number;
   onSelect?: (c: Cycle) => void;
+  /** The section has more than one crop: only then is the crop named. */
+  withCrops?: boolean;
 }) {
   const today = useMemo(() => {
     const d = new Date();
@@ -163,7 +166,7 @@ export function CycleGantt({
                   <div key={f} className="break-words text-[11px] text-[var(--sd-sev-high)]">{f}</div>
                 ))}
                 <div className="break-words text-[11px] tabular-nums text-[var(--sd-quiet)]">
-                  {c.field_crop ? <span>{cropLabel(c.field_crop, c.variety, null, c.sub_crop)} · </span> : c.variety ? <span>{c.variety} · </span> : c.item ? <span>{c.item} · </span> : null}
+                  {withCrops && c.field_crop ? <span>{cropLabel(c.field_crop, c.variety, null, c.sub_crop)} · </span> : c.variety ? <span>{c.variety} · </span> : c.item ? <span>{c.item} · </span> : null}
                   <span>{c.name}</span>
                 </div>
               </div>

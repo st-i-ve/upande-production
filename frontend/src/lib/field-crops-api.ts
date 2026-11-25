@@ -17,6 +17,7 @@ export interface CropGroup {
 
 export interface SubCrop {
   name: string;
+  sub_crop_name?: string;
   harvest_uom: string;
   product?: string | null;
   enabled?: 0 | 1 | boolean;

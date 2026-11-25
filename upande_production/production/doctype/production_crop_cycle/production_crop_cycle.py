@@ -14,12 +14,14 @@ CYCLE_DT = "Production Crop Cycle"
 
 
 def _recorded_against(cycle) -> bool:
-	"""True when any record other than a cycle links to `cycle` (harvests, tasks, labour, samples ...)."""
-	for df in frappe.get_all("DocField", filters={"fieldtype": "Link", "options": CYCLE_DT, "parent": ("!=", CYCLE_DT)},
-			fields=["parent", "fieldname"]):
-		if frappe.get_meta(df.parent).istable:
-			continue
-		if frappe.db.exists(df.parent, {df.fieldname: cycle}):
+	"""True when any record other than a cycle links to `cycle` (harvests, plan tasks, labour, samples ...): rows of
+	child tables count (a Work Plan Task row), and so do links added by Custom Fields."""
+	links = frappe.get_all("DocField", filters={"fieldtype": "Link", "options": CYCLE_DT, "parent": ("!=", CYCLE_DT)},
+		fields=["parent", "fieldname"])
+	links += frappe.get_all("Custom Field", filters={"fieldtype": "Link", "options": CYCLE_DT, "dt": ("!=", CYCLE_DT)},
+		fields=["dt as parent", "fieldname"])
+	for df in links:
+		if frappe.db.table_exists(df.parent) and frappe.db.exists(df.parent, {df.fieldname: cycle}):
 			return True
 	return False
 

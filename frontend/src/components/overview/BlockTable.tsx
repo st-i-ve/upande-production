@@ -58,7 +58,7 @@ export function BlockTable({
                 <td className={TD}>
                   {b.cycle ? (
                     <>
-                      <div className="text-[var(--sd-ink)]">{b.field_crop ? cropLabel(b.field_crop, b.variety, null, b.sub_crop) : b.item || b.cycle}</div>
+                      <div className="text-[var(--sd-ink)]">{cropUnits && b.field_crop ? cropLabel(b.field_crop, b.variety, null, b.sub_crop) : b.item || b.cycle}</div>
                       <div className="text-[11px] text-[var(--sd-quiet)]">
                         {b.cycle}
                         {x?.cycle_day != null ? ` · day ${qty(x.cycle_day)}` : ""}

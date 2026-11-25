@@ -75,6 +75,9 @@ class TestCropTreeApi(IntegrationTestCase):
 		s2 = api.save_sub_crop({"name": s["name"], "sub_crop_name": "CTA Fig Black", "field_crop": c["name"], "enabled": 0})
 		self.assertEqual(s2["name"], s["name"])
 		self.assertEqual(frappe.db.get_value("Production Sub Crop", s["name"], "enabled"), 0)
+		row = next(r for r in api.get_crop_tree()["crops"] if r["name"] == c["name"])  # a disabled sub-crop stays in the tree
+		self.assertIn("scientific_name", row)
+		self.assertEqual([(x["name"], x["enabled"], x["harvest_uom"], x["product"]) for x in row["sub_crops"]], [(s["name"], 0, "Kg", None)])
 		g2 = api.save_crop_group({"name": "CTA Group", "group_name": "CTA Group", "parent": None, "sort_order": 5})
 		self.assertEqual(frappe.db.get_value("Production Crop Group", "CTA Group", "sort_order"), 5)
 

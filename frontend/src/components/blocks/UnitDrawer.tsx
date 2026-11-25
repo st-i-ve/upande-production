@@ -26,6 +26,7 @@ export function UnitDrawer({
   usesCycles = true,
   accent = "#3f7d3a",
   cropName,
+  withCrops = false,
   onAddCycle,
   onClose,
 }: {
@@ -39,6 +40,8 @@ export function UnitDrawer({
   accent?: string;
   /** With the crop's name, the cycle cards show the expected kg per year of each variety. */
   cropName?: string;
+  /** The section has more than one crop: only then do cycles show their crop. */
+  withCrops?: boolean;
   /** Shows an Add crop cycle button (avocado blocks). */
   onAddCycle?: () => void;
   onClose: () => void;
@@ -137,7 +140,7 @@ export function UnitDrawer({
                 )}
               </div>
               {data.cycles.some((c) => c.status === "Active" || c.status === "Harvesting") ? (
-                <RunningCycles cycles={data.cycles} blockArea={u.area_ha} blockTrees={u.plant_count} accent={accent} yieldPerTree={yields} />
+                <RunningCycles withCrops={withCrops} cycles={data.cycles} blockArea={u.area_ha} blockTrees={u.plant_count} accent={accent} yieldPerTree={yields} />
               ) : (
                 <p className="text-[13px] text-[var(--sd-muted)]">No cycle is running on this {unitLabel.toLowerCase()}.</p>
               )}
@@ -164,7 +167,7 @@ export function UnitDrawer({
                       {data.cycles.map((c) => (
                         <tr key={c.name} className={BODY_ROW}>
                           <td className={TD}>
-                            <div className="font-medium text-[var(--sd-ink)]">{c.field_crop ? cropLabel(c.field_crop, c.variety, null, c.sub_crop) : c.item || c.title || c.name}</div>
+                            <div className="font-medium text-[var(--sd-ink)]">{withCrops && c.field_crop ? cropLabel(c.field_crop, c.variety, null, c.sub_crop) : c.item || c.title || c.name}</div>
                             <div className="text-[11px] text-[var(--sd-quiet)]">{c.cycle_type}</div>
                           </td>
                           <td className={cn(TD, "tabular-nums")}>{shortDate(c.start_date)}</td>

@@ -72,6 +72,23 @@ class TestCycleChain(IntegrationTestCase):
 		self.assertFalse(frappe.db.exists("Production Crop Cycle", nxt))
 		self.assertFalse(frappe.db.get_value("Production Crop Cycle", c.name, "proposed_next_cycle"))
 
+	def test_planned_next_with_a_plan_task_stays_when_its_parent_is_deleted(self):
+		from upande_production.production.logic import plans
+
+		c = self._cycle(actual_flowering_date=add_days(today(), -60))
+		nxt = frappe.db.get_value("Production Crop Cycle", c.name, "proposed_next_cycle")
+		self.assertTrue(nxt)
+		op = _make("Field Operation", crop=self.crop.name, operation_name="CC Weeding", category="Other", work_uom="Kg", default_rate=10)
+		y, w = getdate(today()).isocalendar()[:2]
+		plan = plans.get_or_create_plan(self.crop.name, self.farm.name, y, w)
+		plan.append("tasks", {"unit": frappe.db.get_value("Production Crop Cycle", nxt, "unit"), "operation": op.name, "planned_qty": 1,
+			"uom": "Kg", "rate": 10, "due_date": today(), "status": "Open", "cycle": nxt})
+		plan.save()
+		frappe.delete_doc("Production Crop Cycle", c.name)
+		self.assertFalse(frappe.db.exists("Production Crop Cycle", c.name))
+		self.assertTrue(frappe.db.exists("Production Crop Cycle", nxt))
+		self.assertIsNone(frappe.db.get_value("Production Crop Cycle", nxt, "previous_cycle"))
+
 	def test_flowering_actual_shifts_harvest(self):
 		c = self._cycle(start="2026-01-01")
 		self.assertEqual(c.expected_flowering_date, getdate("2026-02-26"))

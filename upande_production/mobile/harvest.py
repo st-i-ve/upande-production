@@ -168,6 +168,7 @@ def get_blocks(farm=None, section=None, crop=None, **kw):
 			return _err("farm is required")
 		section = _s(section)
 		cycles = {}
+		multi = {}
 		units_of = field_crops.with_units()
 		out = []
 		for u in _crate_units(farm_name, _s(crop) or None):
@@ -178,9 +179,14 @@ def get_blocks(farm=None, section=None, crop=None, **kw):
 				cycles[u.crop] = current_cycles(u.crop)
 			cy = cycles[u.crop].get(u.name)
 			fc = cy.field_crop if cy else None
+			if u.crop not in multi:
+				multi[u.crop] = field_crops.has_field_crops(u.crop)
+			# the crop is named only in a section with several crops; elsewhere (Avocado) the variety alone
+			crop_label = (field_crops.label(fc, cy.variety, cy.sub_crop) if multi[u.crop] else cy.variety) if cy else None
 			out.append({"name": u.name, "label": u.unit_name, "crop": u.crop, "section": sec,
 				"item": cy.item if cy else None, "cost_center": u.cost_center,
 				"field_crop": fc, "sub_crop": cy.sub_crop if cy else None, "variety": cy.variety if cy else None,
+				"crop_label": crop_label,
 				"harvest_uom": field_crops.harvest_uom(fc, default=(units_of.get(fc) or {}).get("uom"),
 					sub_crop=cy.sub_crop if cy else None) if fc else None})
 		return out

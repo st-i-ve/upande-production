@@ -1,8 +1,8 @@
 import type { Crop } from "@/lib/api";
 
-/** Does this section have named crops inside it (Fruits & Vegetables)? Avocado and the rest: no. */
-export const hasFieldCrops = (crop?: Pick<Crop, "has_field_crops" | "field_crops"> | null): boolean =>
-  !!crop && (!!Number(crop.has_field_crops ?? 0) || (crop.field_crops?.length ?? 0) > 0);
+/** Does this section have more than one named crop (Fruits & Vegetables)? Only the server's flag says so: a section with
+ * a single crop (Avocado) still lists it in field_crops but keeps its single-crop pages. */
+export const hasFieldCrops = (crop?: Pick<Crop, "has_field_crops"> | null): boolean => !!crop && !!Number(crop.has_field_crops ?? 0);
 
 /** "Rose · Spray rose (Red Naomi)": a cycle or task as the screens name it; whichever parts are missing are left out. */
 export function cropLabel(fieldCrop?: string | null, variety?: string | null, label?: string | null, subCrop?: string | null): string {

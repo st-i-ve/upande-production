@@ -6,7 +6,7 @@ from frappe.tests import IntegrationTestCase
 from frappe.utils import add_days, today
 
 from upande_production.mobile import api
-from upande_production.production.logic import plans
+from upande_production.production.logic import field_crops, plans
 from upande_production.production.logic.weeks import iso_of
 from upande_production.production.tests.labour_mode import use_builtin_labour
 
@@ -260,18 +260,31 @@ class TestMobileApi(IntegrationTestCase):
 		frappe.db.set_value("Production Crop Cycle", cyc.name, {"field_crop": fc.name, "sub_crop": sub.name})
 		plan, task = self._plan_with_task(due_date=today(), supervisor=self.emp.name, cycle=cyc.name)
 		y, w = iso_of(today())
-		det = self._call(api.productionGetPlanDetail, {"crop": self.crop.name, "farm": self.farm.name, "year": y, "week": w})
+		with patch.object(field_crops, "has_field_crops", return_value=True):  # a section with several crops names them
+			det = self._call(api.productionGetPlanDetail, {"crop": self.crop.name, "farm": self.farm.name, "year": y, "week": w})
 		blk = next(b for b in det["blocks"] if b["unit"] == self.unit.name)
 		t = next(t for t in blk["tasks"] if t["name"] == task)
 		self.assertEqual((t["field_crop"], t["sub_crop"], t["crop_label"]), ("TM Rose", "TM Spray rose", "TM Rose \u00b7 TM Spray rose"))
-		with patch.object(mobile_harvest, "_crate_units", return_value=[self.unit]), \
-				patch.object(mobile_harvest, "current_cycles", return_value={self.unit.name: frappe.get_doc("Production Crop Cycle", cyc.name)}):
+		det = self._call(api.productionGetPlanDetail, {"crop": self.crop.name, "farm": self.farm.name, "year": y, "week": w})
+		t = next(t for t in next(b for b in det["blocks"] if b["unit"] == self.unit.name)["tasks"] if t["name"] == task)
+		self.assertIsNone(t["crop_label"])  # this section has no varieties of its own: single-crop, no crop shown
+		with patch.object(mobile_harvest, "_crate_units", return_value=[self.unit]):
 			b = mobile_harvest.get_blocks(farm=self.farm.name)[0]
 		self.assertEqual((b["field_crop"], b["sub_crop"], b["harvest_uom"]), ("TM Rose", "TM Spray rose", "Pieces"))
+		self.assertIsNone(b["crop_label"])  # a single-crop section names no crop (no variety on this cycle)
+		with patch.object(mobile_harvest, "_crate_units", return_value=[self.unit]), patch.object(field_crops, "has_field_crops", return_value=True):
+			self.assertEqual(mobile_harvest.get_blocks(farm=self.farm.name)[0]["crop_label"], "TM Rose \u00b7 TM Spray rose")
 		frappe.db.set_value("Production Sub Crop", sub.name, "harvest_uom", None)
-		with patch.object(mobile_harvest, "_crate_units", return_value=[self.unit]), \
-				patch.object(mobile_harvest, "current_cycles", return_value={self.unit.name: frappe.get_doc("Production Crop Cycle", cyc.name)}):
+		with patch.object(mobile_harvest, "_crate_units", return_value=[self.unit]):
 			self.assertEqual(mobile_harvest.get_blocks(farm=self.farm.name)[0]["harvest_uom"], "Kg")
+
+	def test_list_crops_only_lists_a_sections_own_crops(self):
+		if not frappe.db.exists("Production Field Crop", "TM Other"):
+			_make("Production Field Crop", crop_name="TM Other", crop_group="Fruit Crops", harvest_uom="Kg")
+		self.addCleanup(lambda: frappe.delete_doc("Production Field Crop", "TM Other", force=True, ignore_permissions=True))
+		rows = self._call(api.productionListCrops, {})
+		mine = next(r for r in rows if r["name"] == self.crop.name)
+		self.assertEqual(mine["field_crops"], [])  # a section with no crops is not given every crop
 
 	def test_generate_plan_without_cycles_explains(self):
 		res = self._call(api.productionGeneratePlan, {"crop": self.crop.name, "farm": self.farm.name})

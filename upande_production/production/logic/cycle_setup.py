@@ -178,7 +178,7 @@ def build_values(data) -> dict:
 	trees = cint(data.get("plant_count")) or cint(unit.plant_count) or int(round(flt(v.plants_per_ha) * area))
 	vals = {"doctype": CYCLE_DT, "unit": unit.name, "crop": unit.crop, "variety": v.name, "area_ha": area,
 		"plant_count": trees, "cycle_type": data.get("cycle_type") or "Season", "protocol": data.get("protocol") or None,
-		"field_crop": v.field_crop or chosen}
+		"field_crop": v.field_crop or chosen, "sub_crop": data.get("sub_crop") or None}
 	if not v.name:
 		if not frappe.db.exists("Item", data.get("item")):
 			frappe.throw(_("Item {0} not found").format(data.get("item")), frappe.ValidationError)
@@ -416,7 +416,7 @@ def check_rows(crop, rows) -> list:
 def edit_info(name) -> dict:
 	"""What the Edit cycle form starts from: the editable fields, and whether tasks exist (the block is then fixed)."""
 	doc = frappe.get_doc(CYCLE_DT, name)
-	out = {k: doc.get(k) for k in ("name", "unit", "crop", "field_crop", "variety", "item", "protocol", "start_date", "planting_date",
+	out = {k: doc.get(k) for k in ("name", "unit", "crop", "field_crop", "sub_crop", "variety", "item", "protocol", "start_date", "planting_date",
 		"area_ha", "plant_count", "expected_harvest_start", "expected_harvest_end", "status", "notes", "existing_cycle")}
 	out["has_tasks"] = bool(frappe.db.exists("Work Plan Task", {"cycle": name}))
 	return out
@@ -468,6 +468,8 @@ def update_cycle(name, data) -> dict:
 		or ("start_date" in data and start != getdate(doc.start_date)))
 	if "variety" in data:
 		doc.variety = data["variety"] or None
+	if "sub_crop" in data:  # after the variety: the cycle's own choice wins, and is checked against the variety on save
+		doc.sub_crop = data["sub_crop"] or None
 	if "protocol" in data:
 		doc.protocol = data["protocol"] or None
 	doc.start_date, doc.planting_date = start, planting

@@ -227,6 +227,48 @@ class TestFieldCrops(IntegrationTestCase):
 		self.assertEqual(rows[0].crop_label, f"{CAB} (FCX Gloria)")
 		self.assertIsNone(rows[1].crop_label)
 
+	def test_single_crop_section_labels_only_the_variety(self):
+		add_field_crops.execute()
+		cyc = _make("Production Crop Cycle", unit=self.single_unit, crop=self.single.name, variety=self.lone, cycle_type="Season",
+			start_date=today(), status="Active")
+		frappe.db.set_value("Production Crop Cycle", cyc.name, "field_crop", CAB)
+		rows = [frappe._dict(cycle=cyc.name)]
+		field_crops.annotate_cycles(rows)
+		self.assertEqual(rows[0].crop_label, "FCX Lone")
+		self.assertEqual(rows[0].field_crop, CAB)
+
+	def test_stamp_fills_the_sub_crop_from_the_cycle(self):
+		add_field_crops.execute()
+		fc = _make("Production Field Crop", crop_name="FCX Rose", crop_group="Vegetable Crops", harvest_uom="Kg")
+		sub = _make("Production Sub Crop", sub_crop_name="FCX Spray", field_crop=fc.name, harvest_uom="Pieces")
+		cyc = self._cycle(self.unit, self.gloria)
+		frappe.db.set_value("Production Crop Cycle", cyc.name, {"field_crop": CAB, "sub_crop": sub.name})
+		doc = frappe.get_doc({"doctype": "Yield Sample", "cycle": cyc.name, "unit": self.unit, "crop": self.section.name})
+		doc.sub_crop = None
+		field_crops.stamp(doc)
+		self.assertEqual(doc.sub_crop, sub.name)
+
+	def test_crops_of_ignores_disabled_varieties(self):
+		add_field_crops.execute()
+		self.assertEqual(set(field_crops.crops_of(self.section.name)), {CAB, POT})
+		frappe.db.set_value("Production Variety", self.shangi, "enabled", 0)
+		self.assertEqual(field_crops.crops_of(self.section.name), [CAB])
+		self.assertFalse(field_crops.has_field_crops(self.section.name))
+
+	def test_list_for_carries_what_the_settings_dialogs_edit(self):
+		fc = _make("Production Field Crop", crop_name="FCX Sci", crop_group="Vegetable Crops", harvest_uom="Kg", scientific_name="Scientia fcx")
+		_make("Production Sub Crop", sub_crop_name="FCX Sci A", field_crop=fc.name, harvest_uom="Pieces", product="FCX Lone")
+		_make("Production Sub Crop", sub_crop_name="FCX Sci B", field_crop=fc.name, harvest_uom="Kg", enabled=0)
+		row = next(r for r in field_crops.list_for(None) if r.name == fc.name)
+		self.assertEqual(row.scientific_name, "Scientia fcx")
+		subs = {x["name"]: x for x in row.sub_crops}
+		self.assertEqual(set(subs), {"FCX Sci A", "FCX Sci B"})
+		self.assertEqual((subs["FCX Sci A"]["product"], subs["FCX Sci A"]["harvest_uom"], subs["FCX Sci A"]["enabled"], subs["FCX Sci A"]["sub_crop_name"]),
+			("FCX Lone", "Pieces", 1, "FCX Sci A"))
+		self.assertEqual(subs["FCX Sci B"]["enabled"], 0)
+		picker = next(r for r in field_crops.list_for(None, enabled_only=True) if r.name == fc.name)
+		self.assertEqual([x["name"] for x in picker.sub_crops], ["FCX Sci A"])
+
 	# -- crop logic: sections, sub-crops, groups -------------------------------------------
 
 	def _two_crops(self):

@@ -30,6 +30,7 @@ export function RunningCycles({
   blockTrees,
   accent,
   yieldPerTree,
+  withCrops = false,
 }: {
   cycles: RunningCycleCard[];
   blockArea?: number | null;
@@ -37,6 +38,8 @@ export function RunningCycles({
   accent: string;
   /** variety -> expected kg per tree per year. */
   yieldPerTree?: Record<string, number>;
+  /** The section has more than one crop: only then is the crop named. */
+  withCrops?: boolean;
 }) {
   const running = cycles.filter((c) => c.status === "Active" || c.status === "Harvesting");
   if (!running.length) return null;
@@ -60,7 +63,7 @@ export function RunningCycles({
             <div key={c.name} data-testid={`running-cycle-${c.name}`} className="flex flex-col gap-1.5 rounded-[var(--sd-radius-md)] border border-[var(--sd-line)] bg-[var(--sd-card)] p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <div className="truncate text-[14px] font-semibold text-[var(--sd-ink)]">{c.field_crop ? cropLabel(c.field_crop, c.variety, null, c.sub_crop) : c.variety || c.item || c.name}</div>
+                  <div className="truncate text-[14px] font-semibold text-[var(--sd-ink)]">{withCrops && c.field_crop ? cropLabel(c.field_crop, c.variety, null, c.sub_crop) : c.variety || c.item || c.name}</div>
                   <div className="text-[11px] tabular-nums text-[var(--sd-quiet)]">
                     {c.name}
                     {c.existing_cycle ? " · existing cycle" : ""}

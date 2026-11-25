@@ -270,8 +270,8 @@ def validate_batch(doc):
 	assign_pickers(doc.crates, doc.team)
 	doc.crate_count = len(doc.crates)
 	doc.item, doc.cycle = current_item(doc.unit, doc.crop)
-	doc.field_crop = frappe.db.get_value("Production Crop Cycle", doc.cycle, "field_crop") if doc.cycle else None
-	doc.uom = field_crops.harvest_uom(doc.field_crop, "Kg")
+	doc.field_crop, doc.sub_crop = (frappe.db.get_value("Production Crop Cycle", doc.cycle, ["field_crop", "sub_crop"]) if doc.cycle else None) or (None, None)
+	doc.uom = field_crops.harvest_uom(doc.field_crop, "Kg", doc.sub_crop)
 	doc.avg_kg_per_crate = avg_kg_per_crate(doc.item, doc.crop)
 	doc.estimated_kg = round(doc.crate_count * doc.avg_kg_per_crate, 3)
 	doc.warehouse = check_store(doc.warehouse or default_store(doc.farm), unit.company)
@@ -331,7 +331,7 @@ def post_batch(doc):
 	se = _stock_entry(doc, company)
 	harvest = frappe.get_doc({
 		"doctype": "Production Harvest", "harvest_date": doc.harvest_date, "unit": doc.unit, "crop": doc.crop,
-		"cycle": doc.cycle, "field_crop": doc.field_crop, "item": doc.item, "qty": doc.estimated_kg, "uom": doc.uom or "Kg",
+		"cycle": doc.cycle, "field_crop": doc.field_crop, "sub_crop": doc.sub_crop, "item": doc.item, "qty": doc.estimated_kg, "uom": doc.uom or "Kg",
 		"harvest_batch": doc.name, "stock_entry": se.name,
 	})
 	harvest.insert(ignore_permissions=True)

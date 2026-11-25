@@ -165,7 +165,7 @@ export function EditCycleDialog({
           <DialogHeader>
             <DialogTitle>Edit cycle {cycle.name}</DialogTitle>
             <DialogDescription>
-              {cycle.unit} · {cropLabel(cycle.field_crop, cycle.variety, null, cycle.sub_crop) || cycle.item || cycle.name}. Tasks already in weekly plans are left as they are.
+              {cycle.unit} · {(withCrops ? cropLabel(cycle.field_crop, cycle.variety, null, cycle.sub_crop) : cycle.variety) || cycle.item || cycle.name}. Tasks already in weekly plans are left as they are.
             </DialogDescription>
           </DialogHeader>
 

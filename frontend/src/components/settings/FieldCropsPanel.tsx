@@ -243,8 +243,9 @@ function FieldCropDialog({ groups, group, fieldCrop, onClose, onSaved }: { group
     const r = await saveFieldCrop({
       ...(fieldCrop ? { name: fieldCrop.name } : { crop_name: name.trim() }),
       crop_group: cropGroup,
-      scientific_name: scientific.trim() || null,
-      product: product.trim() || null,
+      // an edit sends only what the form shows and the person changed: nothing else is nulled
+      ...(!fieldCrop || scientific.trim() !== (fieldCrop.scientific_name ?? "") ? { scientific_name: scientific.trim() || null } : {}),
+      ...(!fieldCrop || product.trim() !== (fieldCrop.product ?? "") ? { product: product.trim() || null } : {}),
       harvest_uom: uom.trim(),
       color: color || null,
       enabled: enabled ? 1 : 0,
@@ -374,7 +375,7 @@ function SubCropDialog({ crop, sub, onClose, onSaved }: { crop: FieldCrop; sub: 
     const r = await saveSubCrop({
       ...(sub ? { name: sub.name } : { sub_crop_name: name.trim(), field_crop: crop.name }),
       harvest_uom: uom.trim(),
-      product: product.trim() || null,
+      ...(!sub || product.trim() !== (sub.product ?? "") ? { product: product.trim() || null } : {}),
       enabled: enabled ? 1 : 0,
     });
     setBusy(false);

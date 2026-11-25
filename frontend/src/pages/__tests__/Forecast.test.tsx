@@ -84,6 +84,17 @@ describe("Forecast", () => {
     expect(screen.queryByText("Buyer cover")).toBeNull();
   });
 
+  it("keeps the single-crop layout for a section whose one crop is listed (Avocado)", async () => {
+    const AV = { ...CROP, name: "Avocado", crop_key: "avocado", has_field_crops: 0, field_crops: [{ name: "Avocado", crop_name: "Avocado", harvest_uom: "Kg" }] } as never;
+    fc.mockResolvedValue({
+      uom: "Kg", weeks: [], units: [], totals: { forecast: 5500, forecast_to_date: 4200, actual: 4600, committed: 2800, error_pct: 9.5 }, seasons: [], bands: BANDS,
+      by_crop: [{ field_crop: "Avocado", uom: "Kg", forecast: 5500, forecast_to_date: 4200, actual: 4600, committed: 2800, error_pct: 9.5 }],
+    });
+    renderPage(<Forecast />, {}, AV);
+    await screen.findByText(/No weekly forecast/i);
+    expect(screen.queryByTestId("forecast-by-crop")).toBeNull();
+  });
+
   it("never links out to the standalone avocado pages", async () => {
     fc.mockResolvedValue({ uom: "Kg", weeks: [], units: [], totals: { forecast: 0, forecast_to_date: 0, actual: 0, committed: 0, error_pct: null }, seasons: [], bands: BANDS });
     renderPage(<Forecast />, {}, { ...CROP, crop_key: "avocado" });

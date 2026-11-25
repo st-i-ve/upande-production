@@ -79,6 +79,21 @@ describe("Overview", () => {
     expect(screen.queryByText(/910,000/)).toBeNull();
   });
 
+  it("keeps the single-crop layout for a section whose one crop is listed (Avocado)", async () => {
+    const AV = { ...AQUA, name: "Avocado", crop_key: "avocado", uses_crop_cycles: 1, has_field_crops: 0, field_crops: [{ name: "Avocado", crop_name: "Avocado", harvest_uom: "Kg" }] };
+    getOverview.mockResolvedValue({
+      tiles,
+      blocks: [{ unit: "B1", unit_type: "Block", parent: "P1", area_ha: 2, cycle: "CYC-1", item: "Avocado - Hass", field_crop: "Avocado", variety: "Hass", tasks_open: 1, labour_cost_season: 0, harvest_qty_season: 1200 }],
+      harvest_by_crop: [{ field_crop: "Avocado", uom: "Kg", qty: 1200, value: 0 }],
+      field_crops: { Avocado: { uom: "Kg", color: null } },
+    });
+    renderPage(<Overview />, true, AV as never);
+    await waitFor(() => expect(getOverview).toHaveBeenCalled());
+    expect(await screen.findByText("current calendar year")).toBeInTheDocument();
+    expect(screen.queryByTestId("harvest-by-crop")).toBeNull();
+    expect(screen.queryByText("current calendar year, by crop")).toBeNull();
+  });
+
   it("counts pending approvals as submissions and links to the Approvals page", async () => {
     getOverview.mockResolvedValue({ tiles, blocks: [] });
     vi.mocked(oapi.getOverviewExtras).mockResolvedValue({

@@ -6,7 +6,8 @@ describe("field crops", () => {
     expect(hasFieldCrops(null)).toBe(false);
     expect(hasFieldCrops({})).toBe(false);
     expect(hasFieldCrops({ has_field_crops: 1 })).toBe(true);
-    expect(hasFieldCrops({ field_crops: [{ name: "Cabbage" } as never] })).toBe(true);
+    expect(hasFieldCrops({ has_field_crops: 0, field_crops: [{ name: "Avocado" }] } as never)).toBe(false);
+    expect(hasFieldCrops({ field_crops: [{ name: "Cabbage" }] } as never)).toBe(false);
   });
 
   it("names a cycle or task as crop and variety", () => {

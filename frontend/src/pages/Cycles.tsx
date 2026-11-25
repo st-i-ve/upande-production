@@ -245,7 +245,7 @@ export function Cycles() {
               </CardHeading>
             </CardHeaderRow>
             <CardContent>
-              {first ? <RowsSkeleton rows={6} /> : empty ? <p className="text-[13px] text-[var(--sd-muted)]">{emptyText}</p> : <CycleGantt cycles={shown} accent={accent} unitLabel={crop.unit_label} preHarvestDays={preHarvestDays} onSelect={setPicked} />}
+              {first ? <RowsSkeleton rows={6} /> : empty ? <p className="text-[13px] text-[var(--sd-muted)]">{emptyText}</p> : <CycleGantt withCrops={withCrops} cycles={shown} accent={accent} unitLabel={crop.unit_label} preHarvestDays={preHarvestDays} onSelect={setPicked} />}
             </CardContent>
           </Card>
         </TabsContent>
@@ -264,7 +264,7 @@ export function Cycles() {
               ) : empty ? (
                 <p className="text-[13px] text-[var(--sd-muted)]">{emptyText}</p>
               ) : (
-                <CycleTable cycles={shown} unitLabel={crop.unit_label} accent={accent} onSelect={setPicked} onRecord={crop.boot.can_plan ? setRecording : undefined} />
+                <CycleTable withCrops={withCrops} cycles={shown} unitLabel={crop.unit_label} accent={accent} onSelect={setPicked} onRecord={crop.boot.can_plan ? setRecording : undefined} />
               )}
             </CardContent>
           </Card>
@@ -303,7 +303,7 @@ export function Cycles() {
   );
 }
 
-function CycleTable({ cycles, unitLabel, accent, onSelect, onRecord }: { cycles: Cycle[]; unitLabel: string; accent: string; onSelect: (c: Cycle) => void; onRecord?: (c: Cycle) => void }) {
+function CycleTable({ cycles, unitLabel, accent, onSelect, onRecord, withCrops = false }: { withCrops?: boolean; cycles: Cycle[]; unitLabel: string; accent: string; onSelect: (c: Cycle) => void; onRecord?: (c: Cycle) => void }) {
   return (
     <ScrollTable tall>
       <table className="w-full min-w-[1100px] text-[13px]">
@@ -328,7 +328,7 @@ function CycleTable({ cycles, unitLabel, accent, onSelect, onRecord }: { cycles:
           {cycles.map((c) => (
             <tr key={c.name} className={BODY_ROW}>
               <td className={TD}>
-                <div className="font-medium text-[var(--sd-ink)]">{c.field_crop ? cropLabel(c.field_crop, c.variety, null, c.sub_crop) : c.item || c.title || c.name}</div>
+                <div className="font-medium text-[var(--sd-ink)]">{withCrops && c.field_crop ? cropLabel(c.field_crop, c.variety, null, c.sub_crop) : c.item || c.title || c.name}</div>
                 <div className="text-[11px] tabular-nums text-[var(--sd-quiet)]">
                   {c.name}
                   {(c.cycle_no ?? 1) > 1 ? ` · cycle ${c.cycle_no}` : ""}

@@ -1,5 +1,5 @@
 import { StageChip } from "@/components/varieties/StageChip";
-import { cropLabel } from "@/lib/field-crops";
+import { cropLabel, hasFieldCrops } from "@/lib/field-crops";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, Plus, TriangleAlert } from "lucide-react";
 import { ClearFiltersPill } from "@/components/ClearFiltersPill";
@@ -314,7 +314,7 @@ export function Blocks() {
                             <>
                               {(u.cycles?.length ? u.cycles : [{ name: u.current_cycle!, variety: u.variety, field_crop: u.field_crop, sub_crop: u.sub_crop, item: u.item, current_stage: u.current_stage }]).map((c) => (
                                 <div key={c.name} data-testid={`block-cycle-${c.name}`} className="mb-1 last:mb-0">
-                                  <div className="text-[var(--sd-ink)]">{c.field_crop ? cropLabel(c.field_crop, c.variety, null, c.sub_crop) : c.variety || c.item || c.name}</div>
+                                  <div className="text-[var(--sd-ink)]">{hasFieldCrops(crop) && c.field_crop ? cropLabel(c.field_crop, c.variety, null, c.sub_crop) : c.variety || c.item || c.name}</div>
                                   <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-[var(--sd-quiet)]">
                                     {c.variety && c.item ? <span>{c.item} ·</span> : null}
                                     <span>{c.name}</span>
@@ -392,6 +392,7 @@ export function Blocks() {
           usesCycles={usesCycles}
           accent={accent}
           cropName={crop.name}
+          withCrops={hasFieldCrops(crop)}
           onAddCycle={addable ? () => { setAdding({ unit: open }); setOpen(null); } : undefined}
           onClose={() => setOpen(null)}
         />
