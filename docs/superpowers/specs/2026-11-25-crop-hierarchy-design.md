@@ -66,19 +66,19 @@ Onion, Potato, Cabbage, Maize). No Rose, flowers or Coffee on Mutara.
 
 | Doctype | Status | Fields |
 |---|---|---|
-| `Crop Group` | new, tree (NestedSet) | group_name (autoname), parent_crop_group, is_group (1 on every record, so any group can take sub-groups; crops are a separate doctype), sort_order, description |
-| `Crop Species` | **rename of `Field Crop`** | crop_name (autoname), crop_group (Link Crop Group, reqd), scientific_name, product (Item), harvest_uom (UOM), color, enabled. Drop `production_crop` (a crop is not tied to one section; which sections use a crop comes from their varieties) |
-| `Sub Crop` | new | sub_crop_name (autoname), crop (Link Crop Species, reqd), product (Item), harvest_uom (UOM), enabled |
+| `Production Crop Group` | new, tree (NestedSet) | group_name (autoname), parent_crop_group, is_group (1 on every record, so any group can take sub-groups; crops are a separate doctype), sort_order, description |
+| `Production Field Crop` | **rename of `Field Crop`** | crop_name (autoname), crop_group (Link Production Crop Group, reqd), scientific_name, product (Item), harvest_uom (UOM), color, enabled. Drop `production_crop` (a crop is not tied to one section; which sections use a crop comes from their varieties) |
+| `Production Sub Crop` | new | sub_crop_name (autoname), crop (Link Production Field Crop, reqd), product (Item), harvest_uom (UOM), enabled |
 | `Production Crop` | unchanged doctype, relabelled "Farm Section" in our UI | as today |
-| `Production Variety` | changed | `field_crop` → `crop_species`; new `sub_crop`; `crop` (section) stays **required as today**: a variety belongs to one section and one crop, so every section-based picker, query and inherited section setting (dry matter, count sizes, grades) keeps working unchanged. A crop grown in two sections gets its variety records per section |
+| `Production Variety` | changed | `field_crop` (now Link Production Field Crop); new `sub_crop`; `crop` (section) stays **required as today**: a variety belongs to one section and one crop, so every section-based picker, query and inherited section setting (dry matter, count sizes, grades) keeps working unchanged. A crop grown in two sections gets its variety records per section |
 
 Naming: `Field Crop` was never deployed to any live site, so renaming it now costs only local data. "Field Crop" is
 also the agronomist's name for cereals/pulses/forage and would read wrongly for roses. Never use "Crop Type" (exists
-on Kaitet live) or "Crop" (ERPNext agriculture). `Crop Group`, `Crop Species`, `Sub Crop` are unused on the
-Mutara, Margin Par and Kaitet benches (checked).
+on Kaitet live) or "Crop" (ERPNext agriculture). `Production Crop Group`, `Production Field Crop`, `Production Sub Crop` are unused on the
+Mutara, Margin Par and Kaitet benches.
 
-### Fields renamed on the records that carry the crop
-`field_crop` → `crop_species` (and a new `sub_crop` beside it) on: Buyer Commitment, Crop Forecast, Harvest Batch,
+### Fields on the records that carry the crop
+`field_crop` keeps its fieldname (Link now to Production Field Crop), and a new `sub_crop` sits beside it on: Buyer Commitment, Crop Forecast, Harvest Batch,
 Harvest Grading Log, Production Crop Cycle, Production Harvest, Production Protocol, Production Variety, Yield Sample.
 `sub_crop` is fetched from the variety where there is one; on Production Protocol it is optional (a protocol can be
 for the whole crop or for one sub-crop).
@@ -87,11 +87,11 @@ for the whole crop or for one sub-crop).
 Runs on every site after `add_field_crops` (which stays in patches.txt so live gets the same history).
 
 1. Create the six standard Crop Groups if missing.
-2. `Field Crop` → `Crop Species` (doctype rename with its records), field renames above (rename_field, data kept).
+2. `Field Crop` → `Production Field Crop` (doctype rename with its records), field renames above (rename_field, data kept).
 3. Give each existing crop a group: Avocado/Passion Fruit → Fruit Crops; Onion/Potato/Cabbage → Vegetable Crops;
    Maize → Fodder Crops. Any other crop: from a small name map; unknown → left without group and listed in the patch
    log for a manager to set (crop_group reqd is enforced on save, not in the patch).
-4. **Avocado becomes a crop too**: create Crop Species "Avocado" (Fruit Crops, product = the avocado item, unit Kg),
+4. **Avocado becomes a crop too**: create Production Field Crop "Avocado" (Fruit Crops, product = the avocado item, unit Kg),
    set it on the Avocado varieties (Hass, Fuerte), protocols, cycles, harvests, forecasts, samples of the Avocado
    section. Same rule for any section whose varieties have no crop yet but which is clearly a single crop (only
    Avocado on Mutara). Apiary and Aquaculture are skipped.
@@ -105,7 +105,7 @@ before deleting.
 
 ## When a section shows the crop
 Replaces today's `has_field_crops(section)` switch (which keyed on `Field Crop.production_crop`).
-- A section's crops = the distinct `crop_species` of its enabled varieties (`crops_of(section)`).
+- A section's crops = the distinct `field_crop` of its enabled varieties (`crops_of(section)`).
 - **More than one crop** (Fruits & Vegetables): behaves as F&V does today with Field Crops: crop picker shown,
   crop required on cycles, per-crop totals, crop columns in the cycle upload template.
 - **Exactly one crop** (Avocado): the crop is filled in silently from the variety (or the only crop) on every record
@@ -133,7 +133,7 @@ Replaces today's `has_field_crops(section)` switch (which keyed on `Field Crop.p
 - The Crops tab variety dialog asks for section as well as crop (variety keeps its section).
 
 ### Phone (upande-production, branch `mutara`)
-- Rename the `field_crop` keys it reads to `crop_species`, show "Crop · Sub-crop · Variety" on plan tasks and
+- Keeps the `field_crop` keys; show "Crop · Sub-crop · Variety" on plan tasks and
   harvest, harvest unit from sub-crop else crop. Unpushed commit fe2b9b9 is reworked, not shipped as is.
 
 ## Goals
@@ -159,8 +159,8 @@ Replaces today's `has_field_crops(section)` switch (which keyed on `Field Crop.p
 - Data loss in the move, or a live deploy that needs hand-fixing of hundreds of records.
 
 ## Margin Par mapping (for later)
-`Crop Type` "Rose" → Crop Species Rose + Sub Crop "Standard rose"; "Spray Rose" → same crop, Sub Crop "Spray rose";
-each summer flower type → its own Crop Species under the Summer Flowers group.
+`Crop Type` "Rose" → Production Field Crop Rose + Production Sub Crop "Standard rose"; "Spray Rose" → same crop, Production Sub Crop "Spray rose";
+each summer flower type → its own Production Field Crop under the Summer Flowers group.
 
 ## Approaches considered
 - **A. Each species becomes a `Production Crop`.** Rejected: Production Crop is a farm section with its own land,
@@ -179,7 +179,7 @@ each summer flower type → its own Crop Species under the Summer Flowers group.
 - Sections stay separate from the classification. Animal production comes later.
 
 ## Calls made by the designer (check these)
-- Doctype names `Crop Group`, `Crop Species`, `Sub Crop`; renaming `Field Crop` and `field_crop` now (never deployed).
+- Doctype names chosen by the user (2026-11-25): `Production Crop Group`, `Production Field Crop`, `Production Sub Crop`; `Field Crop` renamed now (never deployed); fieldnames stay `field_crop`.
 - Section settings stay on the section this round.
 - Crop Group is a tree so Summer Flowers can nest; only six standard groups are seeded.
 - Group roll-up totals only add up crops that share a unit.
