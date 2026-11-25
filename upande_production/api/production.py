@@ -347,6 +347,9 @@ def save_plan_tasks(crop, farm, year, week, tasks, override_reason=None):
 			task_schedule.require_reschedule()
 			if name and task_schedule.has_work(name):
 				frappe.throw(_("Work is recorded against this task; mark it Skipped instead."), frappe.ValidationError)
+			for r in plan.tasks:
+				if r.name == name:
+					task_schedule._drop_ref(plan, r.protocol_ref)
 			plan.tasks = [r for r in plan.tasks if r.name != name]
 			continue
 		vals = {k: t.get(k) for k in _TASK_EDITABLE if k in t}
