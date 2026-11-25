@@ -345,7 +345,7 @@ def save_plan_tasks(crop, farm, year, week, tasks, override_reason=None):
 		name = t.get("name")
 		if t.get("_delete"):
 			task_schedule.require_reschedule()
-			if task_schedule.has_work(name):
+			if name and task_schedule.has_work(name):
 				frappe.throw(_("Work is recorded against this task; mark it Skipped instead."), frappe.ValidationError)
 			plan.tasks = [r for r in plan.tasks if r.name != name]
 			continue
@@ -377,6 +377,27 @@ def save_plan_tasks(crop, farm, year, week, tasks, override_reason=None):
 		r.idx = i
 	plan.save()
 	return {"name": plan.name}
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def move_plan_task(plan, task, new_date, override_reason=None):
+	_need("Production Work Plan", "write")
+	return task_schedule.move_task(plan, task, new_date, override_reason)
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def postpone_plan_task(plan, task, new_date, reason, override_reason=None):
+	_need("Production Work Plan", "write")
+	return task_schedule.postpone_task(plan, task, new_date, reason, override_reason)
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def delete_plan_task(plan, task, reason):
+	_need("Production Work Plan", "write")
+	return task_schedule.delete_task(plan, task, reason)
 
 
 @frappe.whitelist(methods=["POST"])

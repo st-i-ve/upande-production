@@ -30,4 +30,4 @@ class ProductionWorkPlan(Document):
 		for t in self.tasks:
 			t.deviation = task_deviation(
 				t.status, t.due_date, t.completed_at, t.planned_qty, t.done_qty, tol
-			)
+			) or ("Late" if t.postpone_count else "")  # a postponed task stays Late
