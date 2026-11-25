@@ -1,5 +1,6 @@
 import type { ForecastCrop } from "@/lib/api";
 import { qty } from "@/lib/format";
+import { groupTotals } from "@/lib/field-crops";
 import { cn } from "@/lib/utils";
 import { errorTone, vsForecast } from "@/components/forecast/AccuracyTable";
 import type { Bands } from "@/lib/bands";
@@ -10,7 +11,12 @@ const TONE = { good: "text-[var(--sd-sev-moderate)]", fair: "text-[var(--sd-sev-
  * Forecast, actual and committed for each crop of a section, in the crop's own unit. A line is one crop in one
  * unit; pieces and kilograms are never added into a total.
  */
-export function CropTotals({ rows, bands }: { rows: ForecastCrop[]; bands: Bands | undefined }) {
+export function CropTotals({ rows, bands, crops }: { rows: ForecastCrop[]; bands: Bands | undefined; crops?: { name: string; crop_group?: string | null }[] }) {
+  // Roll-up per crop group, when the crops' groups are known: only crops in the same unit are added.
+  const rollUp = (pick: (r: ForecastCrop) => number) => groupTotals(rows.map((r) => ({ field_crop: r.field_crop, uom: r.uom, qty: pick(r) })), crops);
+  const groups = crops ? rollUp((r) => r.forecast) : [];
+  const actual = crops ? rollUp((r) => r.actual) : [];
+  const committed = crops ? rollUp((r) => r.committed) : [];
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-[13px]" data-testid="forecast-by-crop">
@@ -37,6 +43,19 @@ export function CropTotals({ rows, bands }: { rows: ForecastCrop[]; bands: Bands
           ))}
         </tbody>
       </table>
+      {groups.length > 0 && (
+        <ul className="mt-3 flex flex-col gap-1 border-t border-[var(--sd-line-soft)] pt-3 text-[12.5px]" aria-label="By crop group">
+          {groups.map((g, i) => (
+            <li key={`${g.group}-${g.uom}`} data-testid="group-total" className="flex flex-wrap gap-x-4 text-[var(--sd-muted)]">
+              <span className="font-medium text-[var(--sd-ink)]">{g.group}</span>
+              <span>{g.uom ?? "—"}</span>
+              <span className="tabular-nums">Forecast {qty(g.qty)}</span>
+              <span className="tabular-nums">Actual {qty(actual[i].qty)}</span>
+              <span className="tabular-nums">Committed {qty(committed[i].qty)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

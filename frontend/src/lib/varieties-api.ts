@@ -65,6 +65,8 @@ export interface Variety {
   crop: string;
   /** The named crop inside the section (Cabbage); derived from the product when left blank. */
   field_crop?: string | null;
+  /** The division of the crop (Spray rose); required when the crop has sub-crops. */
+  sub_crop?: string | null;
   product: string | null;
   /** The variety's own stock item. */
   item: string;

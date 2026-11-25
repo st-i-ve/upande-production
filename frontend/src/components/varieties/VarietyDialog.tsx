@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { SubCropField } from "@/components/cycles/SubCropField";
 import { ItemField } from "@/components/cycles/ItemField";
 import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { Picker } from "@/components/ui/picker";
 import { Switch } from "@/components/ui/switch";
 import { YieldModelEditor, toYieldModelDraft, yieldModelPayload, yieldModelProblem } from "@/components/varieties/YieldModelEditor";
 import { StageEditor, fromStageDrafts, stageProblem, toStageDrafts, type StageDraft } from "@/components/varieties/StageEditor";
+import { cropPickerOptions, subCropsOf } from "@/lib/field-crops";
 import { qty } from "@/lib/format";
 import { isError } from "@/lib/frappe";
 import { DRY_MATTER_PARTS, FLOWERING_PATTERNS, HARVEST_PATTERNS, MONTHS, WATER_PARAMETERS, firstHarvestWeeks, saveVariety, type FloweringPattern, type FloweringSeason, type DryMatterPart, type HarvestPattern, type StageAnchor, type Variety, type WaterBand } from "@/lib/varieties-api";
@@ -57,6 +59,7 @@ export function VarietyDialog({
   variety,
   protocols,
   fieldCrops,
+  sections,
   onClose,
   onSaved,
 }: {
@@ -65,15 +68,20 @@ export function VarietyDialog({
   /** Null to create. */
   variety: Variety | null;
   protocols: { value: string; label: string }[];
-  /** Sections with named crops: the crop this variety belongs to. */
-  fieldCrops?: { name: string; crop_name: string }[];
+  /** The crops a variety can belong to (with their group and sub-crops). */
+  fieldCrops?: { name: string; crop_name: string; crop_group?: string | null; sub_crops?: { name: string; harvest_uom: string }[] }[];
+  /** Sections to choose from; when given, the dialog asks for the section as well. A variety keeps its section. */
+  sections?: string[];
   onClose: () => void;
   onSaved: () => void;
 }) {
   const toast = useToast();
   const [name, setName] = useState(variety?.variety_name ?? "");
   const [item, setItem] = useState(variety?.item ?? "");
+  const [section, setSection] = useState(variety?.crop ?? crop);
   const [fieldCrop, setFieldCrop] = useState(variety?.field_crop ?? "");
+  const [subCrop, setSubCrop] = useState(variety?.sub_crop ?? "");
+  const cropSubs = subCropsOf(fieldCrops, fieldCrop);
   const [product, setProduct] = useState(variety?.product ?? "");
   const [days, setDays] = useState(text(variety?.weeks_to_first_harvest));
   const [window, setWindow] = useState(text(variety?.harvest_window_weeks));
@@ -115,6 +123,7 @@ export function VarietyDialog({
   const shareOff = seasonal && shareTotal != null && Math.abs(shareTotal - 100) > 0.001;
   const setSeason = (i: number, patch: Partial<SeasonDraft>) => setSeasons((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   const problem =
+    (cropSubs.length && !subCrop ? "Choose the sub-crop: this crop is grown in more than one kind." : null) ??
     varietyProblem(
       { variety_name: name, item, days: flowering ? "" : days, window, pattern: flowering ? (floweringPattern as FloweringPattern) : null, seasons, intervalWeeks: floweringInterval },
       rows,
@@ -124,9 +133,10 @@ export function VarietyDialog({
     setBusy(true);
     const r = await saveVariety({
       ...(variety ? { name: variety.name } : { variety_name: name.trim() }),
-      crop,
+      crop: section,
       item: item.trim(),
       field_crop: fieldCrop || null,
+      sub_crop: cropSubs.length ? subCrop || null : null,
       product: product.trim() || null,
       lifespan_years: numOrNull(lifespan),
       harvest_pattern: pattern as HarvestPattern,
@@ -185,12 +195,19 @@ export function VarietyDialog({
             <Label htmlFor="v-item">Stock item</Label>
             <ItemField id="v-item" value={item} onChange={setItem} />
           </div>
+          {!!sections?.length && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="v-section">Section</Label>
+              <Picker id="v-section" label="Section" value={section} onChange={setSection} options={sections} />
+            </div>
+          )}
           {!!fieldCrops?.length && (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="v-crop">Crop</Label>
-              <Picker id="v-crop" label="Crop" value={fieldCrop} onChange={setFieldCrop} options={fieldCrops.map((c) => ({ value: c.name, label: c.crop_name }))} clearable clearLabel="From the product" placeholder="From the product" />
+              <Picker id="v-crop" label="Crop" value={fieldCrop} onChange={(c) => { setFieldCrop(c); setSubCrop(""); }} options={cropPickerOptions(fieldCrops, { includeDisabled: true })} clearable clearLabel="From the product" placeholder="From the product" />
             </div>
           )}
+          <SubCropField id="v-subcrop" subCrops={cropSubs} value={subCrop} onChange={setSubCrop} />
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="v-product">Product (optional)</Label>
             <ItemField id="v-product" value={product} onChange={setProduct} />

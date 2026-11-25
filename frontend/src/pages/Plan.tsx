@@ -333,7 +333,7 @@ export function Plan() {
                         <ActivityDot color={t.color} label={t.operation_name} />
                         {t.operation_name}
                         {(t.crop_label || t.field_crop) && (
-                          <span data-testid="task-crop" className="ml-2 text-[12px] font-normal text-[var(--sd-muted)]">{cropLabel(t.field_crop, t.variety, t.crop_label)}</span>
+                          <span data-testid="task-crop" className="ml-2 text-[12px] font-normal text-[var(--sd-muted)]">{cropLabel(t.field_crop, t.variety, t.crop_label, t.sub_crop)}</span>
                         )}
                       </span>
                       <span className="flex w-44 flex-col gap-1">

@@ -15,7 +15,8 @@ import { Picker } from "@/components/ui/picker";
 import { SearchPicker } from "@/components/ui/search-picker";
 import { listProtocols, saveCycle, type Crop } from "@/lib/api";
 import { isError } from "@/lib/frappe";
-import { hasFieldCrops } from "@/lib/field-crops";
+import { SubCropField } from "@/components/cycles/SubCropField";
+import { cropPickerOptions, hasFieldCrops, subCropsOf } from "@/lib/field-crops";
 import { listVarieties, type Variety } from "@/lib/varieties-api";
 import { todayISO } from "@/lib/utils";
 
@@ -48,6 +49,7 @@ export function NewCycleDialog({
   const [protocol, setProtocol] = useState("");
   const [protocols, setProtocols] = useState<{ value: string; label: string }[]>([]);
   const [fieldCrop, setFieldCrop] = useState("");
+  const [subCrop, setSubCrop] = useState("");
   const [variety, setVariety] = useState("");
   const [varieties, setVarieties] = useState<Variety[]>([]);
   const [busy, setBusy] = useState(false);
@@ -76,8 +78,9 @@ export function NewCycleDialog({
 
   const label = crop.unit_label;
   const withCrops = hasFieldCrops(crop);
-  const shownVarieties = withCrops && fieldCrop ? varieties.filter((v) => v.field_crop === fieldCrop) : varieties;
-  const can = !!unit && !!start && !busy && (!withCrops || !!fieldCrop);
+  const cropSubs = subCropsOf(crop.field_crops, fieldCrop);
+  const shownVarieties = withCrops && fieldCrop ? varieties.filter((v) => v.field_crop === fieldCrop && (!subCrop || !v.sub_crop || v.sub_crop === subCrop)) : varieties;
+  const can = !!unit && !!start && !busy && (!withCrops || (!!fieldCrop && (!cropSubs.length || !!subCrop)));
 
   async function save() {
     setBusy(true);
@@ -85,6 +88,7 @@ export function NewCycleDialog({
       crop: crop.name,
       unit,
       field_crop: withCrops ? fieldCrop || null : undefined,
+      sub_crop: withCrops && cropSubs.length ? subCrop || null : undefined,
       variety: variety || null,
       item: variety ? undefined : item.trim() || null,
       cycle_type: type,
@@ -102,6 +106,7 @@ export function NewCycleDialog({
     setItem("");
     setVariety("");
     setFieldCrop("");
+    setSubCrop("");
     setHStart("");
     setHEnd("");
     setProtocol("");
@@ -141,13 +146,15 @@ export function NewCycleDialog({
                 value={fieldCrop}
                 onChange={(c) => {
                   setFieldCrop(c);
+                  setSubCrop("");
                   setVariety("");
                 }}
-                options={(crop.field_crops ?? []).filter((c) => !!Number(c.enabled)).map((c) => ({ value: c.name, label: c.crop_name }))}
+                options={cropPickerOptions(crop.field_crops)}
                 placeholder="Choose a crop…"
               />
             </div>
           )}
+          {withCrops && <SubCropField id="cy-subcrop" subCrops={cropSubs} value={subCrop} onChange={(s) => { setSubCrop(s); setVariety(""); }} />}
           {varieties.length > 0 && (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="cy-variety">Variety</Label>

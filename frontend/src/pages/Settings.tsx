@@ -21,6 +21,7 @@ import { CropModelPanel } from "@/components/settings/CropModelPanel";
 import { RulesPanel } from "@/components/varieties/RulesPanel";
 import { FieldCropsPanel } from "@/components/settings/FieldCropsPanel";
 import { hasFieldCrops } from "@/lib/field-crops";
+import { getCropTree, type FieldCrop } from "@/lib/field-crops-api";
 import { VarietiesPanel } from "@/components/varieties/VarietiesPanel";
 import { listOperations, listProtocols, type Row } from "@/lib/api";
 import { listRules, listVarieties, type ActivityRule, type Variety } from "@/lib/varieties-api";
@@ -59,6 +60,7 @@ export function Settings() {
   const [varieties, setVarieties] = useState<Variety[] | null>(null);
   const [rules, setRules] = useState<ActivityRule[] | null>(null);
   const [activeProtocols, setActiveProtocols] = useState<{ value: string; label: string }[]>([]);
+  const [cropTree, setCropTree] = useState<{ crops: FieldCrop[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [openFamily, setOpenFamily] = useState<string | null>(null);
@@ -83,6 +85,11 @@ export function Settings() {
     setOps(isError(o) ? [] : (o.rows ?? []));
     setProtocols(isError(p) ? [] : (p.families ?? []));
   }, [crop.name, toast]);
+
+  const loadTree = useCallback(() => {
+    void Promise.resolve(getCropTree()).then((r) => r && !isError(r) && setCropTree(r));
+  }, []);
+  useEffect(loadTree, [loadTree]);
 
   useEffect(() => {
     setOps(null);
@@ -191,7 +198,7 @@ export function Settings() {
             <TabsTrigger value="operations">Activities &amp; rates</TabsTrigger>
             <TabsTrigger value="protocols">Protocols</TabsTrigger>
             <TabsTrigger value="varieties">Varieties</TabsTrigger>
-            {withCrops && <TabsTrigger value="crops">Crops</TabsTrigger>}
+            {(withCrops || canManage) && <TabsTrigger value="crops">Crops</TabsTrigger>}
             <TabsTrigger value="rules">Activity rules</TabsTrigger>
             <TabsTrigger value="labour">Labour &amp; pay</TabsTrigger>
             <TabsTrigger value="model">Crop model</TabsTrigger>
@@ -308,23 +315,23 @@ export function Settings() {
               {!varieties ? (
                 <RowsSkeleton rows={4} />
               ) : (
-                <VarietiesPanel crop={crop.name} accent={crop.accent_color || "#3f7d3a"} varieties={visibleVarieties} protocols={activeProtocols} canEdit={canManage} onChanged={load} fieldCrops={withCrops ? crop.field_crops : undefined} />
+                <VarietiesPanel crop={crop.name} accent={crop.accent_color || "#3f7d3a"} varieties={visibleVarieties} protocols={activeProtocols} canEdit={canManage} onChanged={load} fieldCrops={withCrops ? crop.field_crops : undefined} dialogCrops={cropTree?.crops} sections={crop.boot.crops.map((c) => c.name)} />
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        {withCrops && (
+        {(withCrops || canManage) && (
           <TabsContent value="crops" className="mt-0">
             <Card>
               <CardHeaderRow>
                 <CardHeading>
                   <CardTitle>Crops</CardTitle>
-                  <CardDescription>The crops grown in {crop.name}, each with its product item and the unit its harvest is counted in (Pieces for cabbage, Kg for the rest).</CardDescription>
+                  <CardDescription>Every crop, under its crop group, with its sub-crops, the product item it is sold as and the unit its harvest is counted in.</CardDescription>
                 </CardHeading>
               </CardHeaderRow>
               <CardContent>
-                <FieldCropsPanel crop={crop.name} canEdit={canManage} onChanged={load} />
+                <FieldCropsPanel canEdit={canManage} onChanged={() => { loadTree(); void load(); }} />
               </CardContent>
             </Card>
           </TabsContent>

@@ -29,6 +29,8 @@ export function VarietiesPanel({
   canEdit,
   onChanged,
   fieldCrops,
+  dialogCrops,
+  sections,
 }: {
   crop: string;
   accent: string;
@@ -38,6 +40,9 @@ export function VarietiesPanel({
   onChanged: () => void;
   /** Sections with named crops: varieties show and filter by their crop. */
   fieldCrops?: { name: string; crop_name: string }[];
+  /** Every crop (with groups and sub-crops) a variety can be given, and the sections it can sit in. */
+  dialogCrops?: React.ComponentProps<typeof VarietyDialog>["fieldCrops"];
+  sections?: string[];
 }) {
   // undefined: closed; null: a new variety; otherwise the one being edited.
   const [editing, setEditing] = useState<Variety | null | undefined>(undefined);
@@ -105,7 +110,8 @@ export function VarietiesPanel({
           accent={accent}
           variety={editing}
           protocols={protocols}
-          fieldCrops={fieldCrops}
+          fieldCrops={dialogCrops ?? fieldCrops}
+          sections={sections}
           onClose={() => setEditing(undefined)}
           onSaved={() => {
             setEditing(undefined);

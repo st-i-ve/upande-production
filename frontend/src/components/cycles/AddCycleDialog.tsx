@@ -1,3 +1,4 @@
+import { SubCropField } from "@/components/cycles/SubCropField";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, TriangleAlert, Upload } from "lucide-react";
 import { DatePicker } from "@/components/DatePicker";
@@ -14,7 +15,7 @@ import { listProtocols, type Crop, type UnitRow } from "@/lib/api";
 import { isError } from "@/lib/frappe";
 import { ha, qty } from "@/lib/format";
 import { cn, todayISO } from "@/lib/utils";
-import { hasFieldCrops } from "@/lib/field-crops";
+import { cropPickerOptions, hasFieldCrops, subCropsOf } from "@/lib/field-crops";
 import { listVarieties, type Variety } from "@/lib/varieties-api";
 
 /** Cycle types an avocado block takes (a season of an established block, or a new planting). */
@@ -122,6 +123,7 @@ export function AddCycleDialog({
   const [harvesting, setHarvesting] = useState(false);
   const [unit, setUnit] = useState(defaultUnit ?? "");
   const [fieldCrop, setFieldCrop] = useState("");
+  const [subCrop, setSubCrop] = useState("");
   const [variety, setVariety] = useState("");
   const [varieties, setVarieties] = useState<Variety[]>([]);
   const [protocol, setProtocol] = useState("");
@@ -163,8 +165,9 @@ export function AddCycleDialog({
   const unitRow = units.find((u) => u.name === unit);
   // A section with named crops (Fruits & Vegetables): the crop is chosen first and the variety list follows it.
   const withCrops = hasFieldCrops(crop);
-  const cropOptions = useMemo(() => (crop.field_crops ?? []).filter((c) => !!Number(c.enabled)).map((c) => ({ value: c.name, label: c.crop_name })), [crop.field_crops]);
-  const shownVarieties = useMemo(() => (withCrops && fieldCrop ? varieties.filter((x) => x.field_crop === fieldCrop) : varieties), [varieties, withCrops, fieldCrop]);
+  const cropOptions = useMemo(() => cropPickerOptions(crop.field_crops), [crop.field_crops]);
+  const cropSubs = useMemo(() => subCropsOf(crop.field_crops, fieldCrop), [crop.field_crops, fieldCrop]);
+  const shownVarieties = useMemo(() => (withCrops && fieldCrop ? varieties.filter((x) => x.field_crop === fieldCrop && (!subCrop || !x.sub_crop || x.sub_crop === subCrop)) : varieties), [varieties, withCrops, fieldCrop, subCrop]);
   const v = varieties.find((x) => x.name === variety);
   const stages = useMemo(() => (v?.stages ?? []).map((s) => s.stage), [v]);
   const stageDefs = v?.stages ?? [];
@@ -195,7 +198,7 @@ export function AddCycleDialog({
   const warnings = capacityWarnings(unitRow, areaN, treesN);
   const yearKg = v?.expected_yield_per_plant && treesN ? v.expected_yield_per_plant * treesN : null;
   const existing = mode === "existing";
-  const can = !!unit && !busy && (!withCrops || !!fieldCrop) && (existing
+  const can = !!unit && !busy && (!withCrops || (!!fieldCrop && (!cropSubs.length || !!subCrop))) && (existing
     ? !!planting && (avocado ? !!variety && !!stage : !!variety || !!item.trim())
     : !!variety && !!start);
 
@@ -204,6 +207,7 @@ export function AddCycleDialog({
     const r = await addCycle({
       unit,
       field_crop: withCrops ? fieldCrop || null : null,
+      sub_crop: withCrops && cropSubs.length ? subCrop || null : null,
       variety: variety || null,
       item: !variety && existing ? item.trim() || null : null,
       already_harvesting: existing && !avocado ? harvesting && !stageIsHarvest : false,
@@ -229,6 +233,7 @@ export function AddCycleDialog({
     ok.warnings.forEach((w) => toast(w, "error"));
     setVariety("");
     setFieldCrop("");
+    setSubCrop("");
     setItem("");
     setHarvesting(false);
     setPlanting("");
@@ -285,9 +290,10 @@ export function AddCycleDialog({
               </Field>
               {withCrops && (
                 <Field label="Crop" htmlFor="ac-crop">
-                  <Picker id="ac-crop" label="Crop" value={fieldCrop} onChange={setFieldCrop} options={cropOptions} placeholder="Choose a crop…" />
+                  <Picker id="ac-crop" label="Crop" value={fieldCrop} onChange={(c) => { setFieldCrop(c); setSubCrop(""); }} options={cropOptions} placeholder="Choose a crop…" />
                 </Field>
               )}
+              {withCrops && <SubCropField id="ac-subcrop" subCrops={cropSubs} value={subCrop} onChange={setSubCrop} />}
               <Field label="Variety" htmlFor="ac-variety">
                 <Picker
                   id="ac-variety"

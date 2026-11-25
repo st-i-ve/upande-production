@@ -10,6 +10,7 @@ export interface RunningCycleCard {
   item?: string | null;
   variety?: string | null;
   field_crop?: string | null;
+  sub_crop?: string | null;
   current_stage?: string | null;
   status: string;
   start_date?: string | null;
@@ -59,7 +60,7 @@ export function RunningCycles({
             <div key={c.name} data-testid={`running-cycle-${c.name}`} className="flex flex-col gap-1.5 rounded-[var(--sd-radius-md)] border border-[var(--sd-line)] bg-[var(--sd-card)] p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <div className="truncate text-[14px] font-semibold text-[var(--sd-ink)]">{c.field_crop ? cropLabel(c.field_crop, c.variety) : c.variety || c.item || c.name}</div>
+                  <div className="truncate text-[14px] font-semibold text-[var(--sd-ink)]">{c.field_crop ? cropLabel(c.field_crop, c.variety, null, c.sub_crop) : c.variety || c.item || c.name}</div>
                   <div className="text-[11px] tabular-nums text-[var(--sd-quiet)]">
                     {c.name}
                     {c.existing_cycle ? " · existing cycle" : ""}

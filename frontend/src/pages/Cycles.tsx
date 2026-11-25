@@ -328,7 +328,7 @@ function CycleTable({ cycles, unitLabel, accent, onSelect, onRecord }: { cycles:
           {cycles.map((c) => (
             <tr key={c.name} className={BODY_ROW}>
               <td className={TD}>
-                <div className="font-medium text-[var(--sd-ink)]">{c.field_crop ? cropLabel(c.field_crop, c.variety) : c.item || c.title || c.name}</div>
+                <div className="font-medium text-[var(--sd-ink)]">{c.field_crop ? cropLabel(c.field_crop, c.variety, null, c.sub_crop) : c.item || c.title || c.name}</div>
                 <div className="text-[11px] tabular-nums text-[var(--sd-quiet)]">
                   {c.name}
                   {(c.cycle_no ?? 1) > 1 ? ` · cycle ${c.cycle_no}` : ""}

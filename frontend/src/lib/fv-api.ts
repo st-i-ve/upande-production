@@ -163,6 +163,7 @@ export interface GradingRow {
   cycle: string | null;
   item: string | null;
   field_crop?: string | null;
+  sub_crop?: string | null;
   grading_date: ISODate;
   received_kg: number;
   received_crates: number | null;
@@ -181,6 +182,7 @@ export interface GradingPage {
   unit: string | null;
   item: string | null;
   field_crop?: string | null;
+  sub_crop?: string | null;
   units: string[];
   items: string[];
   /** Crops (Cabbage, Maize ...) that have grading logs. */

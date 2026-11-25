@@ -13,7 +13,7 @@ import { CYCLE_STATUSES } from "@/components/cycles/NewCycleDialog";
 import { listProtocols, type Crop, type Cycle, type UnitRow } from "@/lib/api";
 import { getCycleForEdit, updateCycle, type CycleEdit } from "@/lib/cycle-setup-api";
 import { isError } from "@/lib/frappe";
-import { cropLabel, hasFieldCrops } from "@/lib/field-crops";
+import { cropLabel, cropPickerOptions, hasFieldCrops } from "@/lib/field-crops";
 import { listVarieties, type Variety } from "@/lib/varieties-api";
 
 function Field({ label, htmlFor, hint, children, className }: { label: string; htmlFor?: string; hint?: string; children: React.ReactNode; className?: string }) {
@@ -160,7 +160,7 @@ export function EditCycleDialog({
           <DialogHeader>
             <DialogTitle>Edit cycle {cycle.name}</DialogTitle>
             <DialogDescription>
-              {cycle.unit} · {cropLabel(cycle.field_crop, cycle.variety) || cycle.item || cycle.name}. Tasks already in weekly plans are left as they are.
+              {cycle.unit} · {cropLabel(cycle.field_crop, cycle.variety, null, cycle.sub_crop) || cycle.item || cycle.name}. Tasks already in weekly plans are left as they are.
             </DialogDescription>
           </DialogHeader>
 
@@ -192,7 +192,7 @@ export function EditCycleDialog({
                         setFieldCrop(c);
                         if (variety && varieties.find((x) => x.name === variety)?.field_crop !== c) setVariety("");
                       }}
-                      options={(crop.field_crops ?? []).map((c) => ({ value: c.name, label: c.crop_name }))}
+                      options={cropPickerOptions(crop.field_crops, { includeDisabled: true })}
                       placeholder="Choose a crop…"
                     />
                   </Field>

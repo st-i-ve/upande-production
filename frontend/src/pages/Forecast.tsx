@@ -192,7 +192,7 @@ export function Forecast() {
                 {!data ? <RowsSkeleton rows={4} /> : (data.by_crop ?? []).length === 0 ? (
                   <p className="px-1 py-6 text-center text-[13px] text-[var(--sd-muted)]">No forecasts or harvests for this period.</p>
                 ) : (
-                  <CropTotals rows={data.by_crop ?? []} bands={data.bands} />
+                  <CropTotals rows={data.by_crop ?? []} bands={data.bands} crops={crop.field_crops} />
                 )}
               </CardContent>
             </Card>

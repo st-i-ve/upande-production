@@ -8,6 +8,7 @@ export interface AddCycleInput {
   unit: string;
   /** Sections with named crops: the crop first, then a variety of it. */
   field_crop?: string | null;
+  sub_crop?: string | null;
   variety?: string | null;
   protocol?: string | null;
   cycle_type?: string;
@@ -74,6 +75,7 @@ export interface CycleEdit {
   unit: string;
   crop: string;
   field_crop?: string | null;
+  sub_crop?: string | null;
   variety: string | null;
   item: string | null;
   protocol: string | null;

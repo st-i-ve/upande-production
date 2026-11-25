@@ -49,7 +49,8 @@ export interface Crop {
 export interface FieldCropOption {
   name: string;
   crop_name: string;
-  production_crop: string;
+  crop_group?: string | null;
+  sub_crops?: { name: string; harvest_uom: string }[];
   product: string | null;
   harvest_uom: string;
   color: string | null;
@@ -59,6 +60,7 @@ export interface FieldCropOption {
 /** One line of a section's harvest or forecast: a Field Crop in its own unit. */
 export interface CropQty {
   field_crop: string | null;
+  sub_crop?: string | null;
   uom: string | null;
   qty: number;
 }
@@ -98,6 +100,7 @@ export interface OverviewBlock {
   labour_cost_season: Money;
   harvest_qty_season: number;
   field_crop?: string | null;
+  sub_crop?: string | null;
   variety?: string | null;
 }
 
@@ -128,6 +131,7 @@ export interface UnitRow {
   /** Variety and growth stage of the current cycle. */
   variety?: string | null;
   field_crop?: string | null;
+  sub_crop?: string | null;
   current_stage?: string | null;
   /** Latest dry matter test; null when none (or the crop does not test). */
   dry_matter?: DryMatterLatest | null;
@@ -145,6 +149,7 @@ export interface RunningCycle {
   item: string | null;
   variety: string | null;
   field_crop?: string | null;
+  sub_crop?: string | null;
   current_stage: string | null;
   status: string;
   start_date: string;
@@ -209,6 +214,7 @@ export interface Cycle {
   proposed_next_cycle?: string | null;
   variety?: string | null;
   field_crop?: string | null;
+  sub_crop?: string | null;
   current_stage?: string | null;
   plant_count?: number | null;
   /** An existing cycle, entered while already in production: tasks are planned from today. */
@@ -301,6 +307,7 @@ export interface PlanTask {
   override_reason?: string | null;
   /** The cycle's crop and variety; `crop_label` reads "Cabbage (Gloria F1)". */
   field_crop?: string | null;
+  sub_crop?: string | null;
   variety?: string | null;
   crop_label?: string | null;
   work: WorkEntry[];
@@ -545,6 +552,7 @@ export interface ForecastSummary {
 
 export interface ForecastCrop {
   field_crop: string | null;
+  sub_crop?: string | null;
   uom: string | null;
   forecast: number;
   forecast_to_date: number;

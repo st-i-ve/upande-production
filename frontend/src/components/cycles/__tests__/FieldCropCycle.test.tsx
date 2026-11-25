@@ -16,8 +16,9 @@ const FV: api.Crop = {
   crop_key: "fruits-vegetables",
   has_field_crops: 1,
   field_crops: [
-    { name: "Cabbage", crop_name: "Cabbage", production_crop: "Fruits & Vegetables", product: "Cabbage", harvest_uom: "Pieces", color: null, enabled: 1 },
-    { name: "Potato", crop_name: "Potato", production_crop: "Fruits & Vegetables", product: "Potatoes", harvest_uom: "Kg", color: null, enabled: 1 },
+    { name: "Cabbage", crop_name: "Cabbage", crop_group: "Vegetable Crops", product: "Cabbage", harvest_uom: "Pieces", color: null, enabled: 1 },
+    { name: "Potato", crop_name: "Potato", crop_group: "Vegetable Crops", product: "Potatoes", harvest_uom: "Kg", color: null, enabled: 1 },
+    { name: "Rose", crop_name: "Rose", crop_group: "Floriculture", product: null, harvest_uom: "Stem", color: null, enabled: 1, sub_crops: [{ name: "Spray rose", harvest_uom: "Stem" }] },
   ],
 };
 const block: api.UnitRow = { name: "P1-B3", unit_type: "Pivot Block", parent: null, is_group: 0, area_ha: 2, plant_count: 0, cost_center: null, status: "Active", current_cycle: null, item: null, has_geojson: 0, cycles: [] };
@@ -49,6 +50,20 @@ describe("AddCycleDialog for a section with crops", () => {
     fireEvent.click(create);
     await waitFor(() => expect(setup.addCycle).toHaveBeenCalled());
     expect(vi.mocked(setup.addCycle).mock.calls[0][0]).toMatchObject({ unit: "P1-B3", field_crop: "Cabbage", variety: "Gloria F1" });
+  });
+
+  it("lists crops under their group headings and shows the sub-crop select only for a crop that has sub-crops", async () => {
+    renderPage(<AddCycleDialog crop={FV} units={[block]} defaultUnit="P1-B3" modes={["new"]} open onOpenChange={() => {}} onSaved={() => {}} />, true, FV);
+    fireEvent.click(await screen.findByRole("combobox", { name: "Crop" }));
+    expect(await screen.findByText("Vegetable Crops")).toBeTruthy();
+    expect(screen.getByText("Floriculture")).toBeTruthy();
+    fireEvent.click(screen.getByRole("option", { name: "Cabbage" }));
+    expect(screen.queryByRole("combobox", { name: "Sub-crop" })).toBeNull();
+    fireEvent.click(screen.getByRole("combobox", { name: "Crop" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Rose" }));
+    fireEvent.click(await screen.findByRole("combobox", { name: "Sub-crop" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Spray rose" }));
+    expect(screen.getByRole("combobox", { name: "Sub-crop" }).textContent).toContain("Spray rose");
   });
 
   it("does not offer a crop picker for a section without crops", async () => {

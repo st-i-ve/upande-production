@@ -1,7 +1,9 @@
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -28,6 +30,8 @@ const NONE = "__none__";
 export interface PickerOption {
   value: string;
   label: string;
+  /** Options sharing a group are listed under its heading (the crop group of a crop). */
+  group?: string;
 }
 
 export function Picker({
@@ -73,11 +77,22 @@ export function Picker({
       </SelectTrigger>
       <SelectContent>
         {clearable && <SelectItem value={NONE}>{clearLabel}</SelectItem>}
-        {rows.map((o) => (
-          <SelectItem key={o.value} value={o.value}>
-            {o.label}
-          </SelectItem>
-        ))}
+        {rows.some((o) => o.group)
+          ? [...new Set(rows.map((o) => o.group ?? ""))].map((g) => (
+              <SelectGroup key={g || "__ungrouped__"}>
+                {g && <SelectLabel>{g}</SelectLabel>}
+                {rows.filter((o) => (o.group ?? "") === g).map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            ))
+          : rows.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
       </SelectContent>
     </Select>
   );
