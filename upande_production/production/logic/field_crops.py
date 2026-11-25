@@ -10,20 +10,29 @@ import frappe
 from frappe import _
 from frappe.utils import flt
 
-DT = "Field Crop"
+DT = "Production Field Crop"
 DEFAULT_UOM = "Kg"
 
 
 def has_field_crops(section) -> bool:
-	"""True when the section has at least one enabled Field Crop."""
-	return bool(section) and bool(frappe.db.exists(DT, {"production_crop": section, "enabled": 1}))
+	"""True when the section has a variety that names an enabled crop (Task 2 replaces this with crops_of)."""
+	return bool(section) and bool(crops_of(section))
+
+
+def crops_of(section) -> list:
+	"""The distinct enabled crops of a section's varieties."""
+	if not section:
+		return []
+	names = frappe.get_all("Production Variety", filters={"crop": section, "field_crop": ("is", "set")}, pluck="field_crop", distinct=True)
+	return frappe.get_all(DT, filters={"name": ("in", names), "enabled": 1}, pluck="name") if names else []
 
 
 def list_for(section, enabled_only=False) -> list:
-	filters = {"production_crop": section}
+	names = frappe.get_all("Production Variety", filters={"crop": section, "field_crop": ("is", "set")}, pluck="field_crop", distinct=True)
+	filters = {"name": ("in", names or [""])}
 	if enabled_only:
 		filters["enabled"] = 1
-	return frappe.get_all(DT, filters=filters, fields=["name", "crop_name", "production_crop", "product", "harvest_uom", "color", "enabled"],
+	return frappe.get_all(DT, filters=filters, fields=["name", "crop_name", "crop_group", "product", "harvest_uom", "color", "enabled"],
 		order_by="crop_name asc", limit_page_length=0)
 
 
@@ -55,22 +64,15 @@ def from_item(item, section=None):
 	row = frappe.db.get_value("Production Variety", {"item": item}, "field_crop")
 	if row:
 		return row
-	filters = {"product": item}
-	if section:
-		filters["production_crop"] = section
-	row = frappe.db.get_value(DT, filters, "name")
+	row = frappe.db.get_value(DT, {"product": item}, "name")
 	if row:
 		return row
 	return frappe.db.get_value("Production Variety", {"product": item, "field_crop": ("is", "set")}, "field_crop")
 
 
 def check_section(field_crop, section):
-	"""A Field Crop belongs to one section; throws when it is used under another."""
-	if not field_crop or not section:
-		return
-	owner = frappe.db.get_value(DT, field_crop, "production_crop")
-	if owner and owner != section:
-		frappe.throw(_("{0} belongs to {1}, not {2}").format(field_crop, owner, section), frappe.ValidationError)
+	"""A crop is no longer tied to one section (any section's varieties may name it), so nothing to check."""
+	return
 
 
 def for_unit(unit, section=None):
@@ -159,28 +161,42 @@ def align_items(field_crop) -> None:
 		align_item_uom(item, uom)
 
 
+def crop_for_product(product):
+	"""The crop of an item: by its product item, else by the singular of its item name."""
+	if not product:
+		return None
+	name = frappe.db.get_value(DT, {"product": product}, "name")
+	if name:
+		return name
+	item_name = frappe.db.get_value("Item", product, "item_name") or product
+	return frappe.db.get_value(DT, {"crop_name": singular(item_name)}, "name")
+
+
 def create_from_varieties(min_products=2) -> list:
-	"""A Field Crop per distinct product item of each section whose varieties grow `min_products` or more
-	products (a mixed section such as Fruits & Vegetables). Matches by the product's item name and returns the
-	names of the Field Crops made now."""
+	"""A crop per distinct product item of each section whose varieties grow `min_products` or more products
+	(a mixed section such as Fruits & Vegetables). Crops are matched by name, not by section. A new crop gets its
+	group from the standard map when the name is known (else crop_hierarchy sets or lists it). Returns the names
+	of the crops made now."""
+	from upande_production.patches import crop_hierarchy
+
+	crop_hierarchy.ensure_groups()
 	made = []
 	for section in frappe.get_all("Production Crop", pluck="name"):
-		products = [p for p in frappe.get_all("Production Variety", filters={"crop": section, "product": ("is", "set")},
-			pluck="product", distinct=True)]
-		if len(products) < min_products and not frappe.db.exists(DT, {"production_crop": section}):
+		products = frappe.get_all("Production Variety", filters={"crop": section, "product": ("is", "set")}, pluck="product", distinct=True)
+		if len(products) < min_products:
 			continue
 		for product in products:
-			if frappe.db.exists(DT, {"production_crop": section, "product": product}):
+			if frappe.db.exists(DT, {"product": product}):
 				continue
 			item_name, stock_uom = frappe.db.get_value("Item", product, ["item_name", "stock_uom"]) or (product, None)
 			name = singular(item_name or product)
 			if frappe.db.exists(DT, name):
-				if frappe.db.get_value(DT, name, "production_crop") == section:
+				if not frappe.db.get_value(DT, name, "product"):
 					frappe.db.set_value(DT, name, "product", product)
-					continue
-				name = f"{name} ({section})"  # the name is taken by another section's crop
-			doc = frappe.get_doc({"doctype": DT, "crop_name": name, "production_crop": section, "product": product,
+				continue
+			doc = frappe.get_doc({"doctype": DT, "crop_name": name, "crop_group": crop_hierarchy.group_of(name), "product": product,
 				"harvest_uom": _default_uom(item_name, stock_uom), "enabled": 1})
+			doc.flags.ignore_mandatory = True  # the group of an unknown crop is set by hand
 			doc.insert(ignore_permissions=True)
 			made.append(doc.name)
 	return made
@@ -195,24 +211,22 @@ def link_records() -> dict:
 		frappe.db.set_value(doctype, name, "field_crop", fc, update_modified=False)
 		counts[doctype] = counts.get(doctype, 0) + 1
 
-	sections = {fc.production_crop for fc in frappe.get_all(DT, fields=["production_crop"])}
-	if not sections:
+	if not frappe.db.count(DT):
 		return counts
-	by_product = {}
-	for fc in frappe.get_all(DT, fields=["name", "product", "production_crop"]):
-		if fc.product:
-			by_product[(fc.production_crop, fc.product)] = fc.name
-	for v in frappe.get_all("Production Variety", filters={"crop": ("in", list(sections)), "field_crop": ("is", "not set")},
-			fields=["name", "crop", "product"]):
-		fc = by_product.get((v.crop, v.product))
+	for v in frappe.get_all("Production Variety", filters={"field_crop": ("is", "not set"), "product": ("is", "set")},
+			fields=["name", "product"]):
+		fc = crop_for_product(v.product)
 		if fc:
 			setv("Production Variety", v.name, fc)
-	for p in frappe.get_all("Production Protocol", filters={"crop": ("in", list(sections)), "field_crop": ("is", "not set")},
+	sections = list(set(frappe.get_all("Production Variety", filters={"field_crop": ("is", "set")}, pluck="crop")))
+	if not sections:
+		return counts
+	for p in frappe.get_all("Production Protocol", filters={"crop": ("in", sections), "field_crop": ("is", "not set")},
 			fields=["name", "crop", "item", "variety"]):
 		fc = from_variety(p.variety) or from_item(p.item, p.crop)
 		if fc:
 			setv("Production Protocol", p.name, fc)
-	for c in frappe.get_all("Production Crop Cycle", filters={"crop": ("in", list(sections)), "field_crop": ("is", "not set")},
+	for c in frappe.get_all("Production Crop Cycle", filters={"crop": ("in", sections), "field_crop": ("is", "not set")},
 			fields=["name", "crop", "item", "variety"]):
 		fc = from_variety(c.variety) or from_item(c.item, c.crop)
 		if fc:
@@ -222,7 +236,7 @@ def link_records() -> dict:
 		fields = ["name", "crop"] + (["cycle"] if frappe.get_meta(doctype).has_field("cycle") else []) \
 			+ (["item"] if frappe.get_meta(doctype).has_field("item") else []) \
 			+ (["unit"] if frappe.get_meta(doctype).has_field("unit") else [])
-		for r in frappe.get_all(doctype, filters={"crop": ("in", list(sections)), "field_crop": ("is", "not set")}, fields=fields,
+		for r in frappe.get_all(doctype, filters={"crop": ("in", sections), "field_crop": ("is", "not set")}, fields=fields,
 				limit_page_length=0):
 			fc = cycle_crop.get(r.get("cycle")) or from_item(r.get("item"), r.crop) or (for_unit(r.get("unit")) if r.get("unit") else None)
 			if fc:
@@ -256,7 +270,10 @@ def annotate_cycles(rows, cycle_key="cycle") -> None:
 
 def with_units(section=None) -> dict:
 	"""{field_crop: {"uom", "color"}} for the section (all sections when empty)."""
-	filters = {"production_crop": section} if section else {}
+	filters = {}
+	if section:
+		names = frappe.get_all("Production Variety", filters={"crop": section, "field_crop": ("is", "set")}, pluck="field_crop", distinct=True)
+		filters = {"name": ("in", names or [""])}
 	return {r.name: {"uom": r.harvest_uom, "color": r.color} for r in frappe.get_all(DT, filters=filters, fields=["name", "harvest_uom", "color"], limit_page_length=0)}
 
 

@@ -311,8 +311,8 @@ def _field_crop_for(crop, text):
 	t = str(text or "").strip()
 	if not t:
 		return None
-	return frappe.db.get_value("Field Crop", {"name": t, "production_crop": crop}, "name") or frappe.db.get_value(
-		"Field Crop", {"crop_name": t, "production_crop": crop}, "name")
+	return frappe.db.get_value("Production Field Crop", {"name": t}, "name") or frappe.db.get_value(
+		"Production Field Crop", {"crop_name": t}, "name")
 
 
 def _variety_for(crop, text, field_crop=None):

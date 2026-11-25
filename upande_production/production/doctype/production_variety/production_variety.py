@@ -100,7 +100,7 @@ class ProductionVariety(Document):
 	def validate(self):
 		field_crops.check_section(self.field_crop, self.crop)
 		if not self.field_crop and self.product and self.crop:
-			self.field_crop = frappe.db.get_value("Field Crop", {"product": self.product, "production_crop": self.crop}, "name")
+			self.field_crop = frappe.db.get_value("Production Field Crop", {"product": self.product}, "name")
 		derive(self)
 		validate_flowering(self)
 		validate_yield_model(self)

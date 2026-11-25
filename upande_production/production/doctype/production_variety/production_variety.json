@@ -9,6 +9,7 @@
   "variety_name",
   "crop",
   "field_crop",
+  "sub_crop",
   "product",
   "item",
   "enabled",
@@ -65,7 +66,7 @@
   {
    "fieldname": "crop",
    "fieldtype": "Link",
-   "label": "Crop",
+   "label": "Section",
    "options": "Production Crop",
    "reqd": 1,
    "in_list_view": 1,
@@ -74,10 +75,17 @@
   {
    "fieldname": "field_crop",
    "fieldtype": "Link",
-   "label": "Field Crop",
-   "options": "Field Crop",
+   "label": "Crop",
+   "options": "Production Field Crop",
    "in_standard_filter": 1,
    "in_list_view": 1
+  },
+  {
+   "fieldname": "sub_crop",
+   "fieldtype": "Link",
+   "label": "Sub-crop",
+   "options": "Production Sub Crop",
+   "in_standard_filter": 1
   },
   {
    "fieldname": "product",
@@ -339,7 +347,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-11-18 09:00:00.000000",
+ "modified": "2026-11-25 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production Variety",

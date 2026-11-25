@@ -40,7 +40,7 @@
   {
    "fieldname": "crop",
    "fieldtype": "Link",
-   "label": "Crop",
+   "label": "Section",
    "options": "Production Crop",
    "in_standard_filter": 1
   },
@@ -117,7 +117,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-10-28 12:00:00.000000",
+ "modified": "2026-11-25 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Dry Matter Test",

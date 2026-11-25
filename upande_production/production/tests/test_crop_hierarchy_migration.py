@@ -1,0 +1,96 @@
+import frappe
+from frappe.tests import IntegrationTestCase
+
+from upande_production.patches import crop_hierarchy
+from upande_production.production.logic import field_crops
+
+LINKED = crop_hierarchy.LINKED
+MUTARA = {"Avocado": "Fruit Crops", "Passion Fruit": "Fruit Crops", "Onion": "Vegetable Crops", "Potato": "Vegetable Crops",
+	"Cabbage": "Vegetable Crops", "Maize": "Fodder Crops"}
+
+
+def _counts():
+	return {
+		"groups": frappe.db.count("Production Crop Group"),
+		"crops": frappe.db.count("Production Field Crop"),
+		**{dt: frappe.db.count(dt, {"field_crop": ("is", "set")}) for dt in LINKED},
+	}
+
+
+class TestCropHierarchyMigration(IntegrationTestCase):
+	"""Runs against the migrated mutara.local data; each test rolls back."""
+
+	def setUp(self):
+		frappe.set_user("Administrator")
+		frappe.db.savepoint("ch_test")
+
+	def tearDown(self):
+		frappe.db.rollback(save_point="ch_test")
+
+	def test_standard_groups_exist(self):
+		for name, parent in crop_hierarchy.STANDARD_GROUPS:
+			self.assertTrue(frappe.db.exists("Production Crop Group", name), name)
+			self.assertEqual(frappe.db.get_value("Production Crop Group", name, "parent_production_crop_group") or None, parent)
+		self.assertEqual([g for g, _p in crop_hierarchy.STANDARD_GROUPS][:2], ["Floriculture", "Summer Flowers"])
+		self.assertEqual(frappe.db.get_value("Production Crop Group", "Summer Flowers", "parent_production_crop_group"), "Floriculture")
+
+	def test_mutara_crops_grouped(self):
+		for crop, group in MUTARA.items():
+			if not frappe.db.exists("Production Field Crop", crop):
+				self.skipTest(f"{crop} is not on this site")
+			self.assertEqual(frappe.db.get_value("Production Field Crop", crop, "crop_group"), group, crop)
+
+	def test_avocado_is_a_crop(self):
+		section = frappe.db.get_value("Production Crop", {"crop_key": "avocado"}, "name")
+		if not section:
+			self.skipTest("no avocado section on this site")
+		self.assertTrue(frappe.db.exists("Production Field Crop", "Avocado"))
+		for v in ("Hass", "Fuerte"):
+			if frappe.db.exists("Production Variety", v):
+				self.assertEqual(frappe.db.get_value("Production Variety", v, "field_crop"), "Avocado", v)
+		for dt in ("Production Crop Cycle", "Production Protocol"):
+			self.assertFalse(frappe.db.exists(dt, {"crop": section, "field_crop": ("!=", "Avocado")}), dt)
+			self.assertFalse(frappe.db.exists(dt, {"crop": section, "field_crop": ("is", "not set")}), dt)
+
+	def test_crop_hierarchy_patch_idempotent(self):
+		crop_hierarchy.execute()
+		before = _counts()
+		crop_hierarchy.execute()
+		self.assertEqual(_counts(), before)
+
+	def test_fresh_site_patch_order(self):
+		"""A section whose varieties grow different products and has no crops yet: create_from_varieties then
+		crop_hierarchy give Production Field Crops that have a group."""
+		for uom in ("Kg", "Pieces"):
+			if not frappe.db.exists("UOM", uom):
+				frappe.get_doc({"doctype": "UOM", "uom_name": uom}).insert()
+		if not frappe.db.exists("Item Group", "All Item Groups"):
+			frappe.get_doc({"doctype": "Item Group", "item_group_name": "All Item Groups", "is_group": 1}).insert()
+		section = frappe.get_doc({"doctype": "Production Crop", "crop_name": "CHM Mixed", "crop_key": "chm-mixed", "unit_label": "Block",
+			"yield_uom": "Kg", "enabled": 1, "uses_crop_cycles": 1}).insert()
+		for code, name in (("CHM Beetroot", "CHM Beetroot"), ("CHM Coffee", "Coffee")):
+			frappe.get_doc({"doctype": "Item", "item_code": code, "item_name": name, "item_group": "All Item Groups", "stock_uom": "Kg",
+				"is_stock_item": 1}).insert()
+			frappe.get_doc({"doctype": "Production Variety", "variety_name": f"{name} V", "crop": section.name, "product": code,
+				"item": code}).insert()
+		made = field_crops.create_from_varieties()
+		crop_hierarchy.execute()
+		field_crops.link_records()
+		self.assertEqual(sorted(made), ["CHM Beetroot", "Coffee"])
+		self.assertIsNone(frappe.get_meta("Production Field Crop").get_field("production_crop"))
+		self.assertEqual(frappe.db.get_value("Production Field Crop", "Coffee", "crop_group"), "Plantation Crops")
+		# a crop the map does not know stays without a group, for a manager to set
+		self.assertFalse(frappe.db.get_value("Production Field Crop", "CHM Beetroot", "crop_group"))
+		self.assertEqual(frappe.db.get_value("Production Variety", {"variety_name": "Coffee V"}, "field_crop"), "Coffee")
+
+	def test_section_links_labelled_section(self):
+		bad = []
+		for dt in frappe.get_all("DocType", filters={"module": "Production", "istable": 0}, pluck="name"):
+			for df in frappe.get_meta(dt).get("fields", {"fieldtype": "Link", "options": "Production Crop"}):
+				if df.label != "Section":
+					bad.append((dt, df.fieldname, df.label))
+		for dt in frappe.get_all("DocType", filters={"module": "Production", "istable": 1}, pluck="name"):
+			for df in frappe.get_meta(dt).get("fields", {"fieldtype": "Link", "options": "Production Crop"}):
+				if df.label != "Section":
+					bad.append((dt, df.fieldname, df.label))
+		self.assertEqual(bad, [])

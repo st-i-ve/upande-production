@@ -6,7 +6,7 @@ from frappe import _
 from frappe.model.document import Document
 
 
-class FieldCrop(Document):
+class ProductionFieldCrop(Document):
 	def validate(self):
 		self.crop_name = (self.crop_name or "").strip()
 		if not self.crop_name:

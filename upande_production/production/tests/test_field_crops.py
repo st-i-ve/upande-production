@@ -13,7 +13,7 @@ def _make(doctype, **kw):
 	return doc
 
 
-CAB, POT = "Cabbage (FCX Mixed)", "Potato (FCX Mixed)"  # the real site already has Cabbage and Potato in Fruits & Vegetables
+CAB, POT = "Cabbage", "Potato"  # crops are matched by name across sections; the real site already has both
 
 
 class TestFieldCrops(IntegrationTestCase):
@@ -65,20 +65,25 @@ class TestFieldCrops(IntegrationTestCase):
 		"""The state of a site before the patch: no Field Crops, nothing linked."""
 		for dt in ("Production Variety", "Production Crop Cycle"):
 			frappe.db.set_value(dt, {"crop": ("in", [self.section.name, self.single.name]), "field_crop": ("is", "set")}, "field_crop", None)
-		frappe.db.delete("Field Crop", {"production_crop": ("in", [self.section.name, self.single.name])})
+		frappe.db.delete("Production Field Crop", {"name": ("in", [CAB, POT])})  # rolled back with the test
 		frappe.db.set_value("Production Variety", self.gloria, "product", "FCX Cabbage")
 		frappe.db.set_value("Production Variety", self.shangi, "product", "FCX Potatoes")
 
 	# -- doctype ---------------------------------------------------------------------------
 
 	def test_field_crop_doctype(self):
-		fc = _make("Field Crop", crop_name="FCX Beans", production_crop=self.section.name, harvest_uom="Kg")
+		fc = _make("Production Field Crop", crop_name="FCX Beans", crop_group="Vegetable Crops", harvest_uom="Kg")
 		self.assertEqual(fc.name, "FCX Beans")
 		self.assertEqual(fc.enabled, 1)
 		with self.assertRaises(frappe.DuplicateEntryError):
-			_make("Field Crop", crop_name="FCX Beans", production_crop=self.section.name, harvest_uom="Kg")
+			_make("Production Field Crop", crop_name="FCX Beans", crop_group="Vegetable Crops", harvest_uom="Kg")
 		with self.assertRaises(frappe.MandatoryError):
-			_make("Field Crop", crop_name="FCX NoUnit", production_crop=self.section.name)
+			_make("Production Field Crop", crop_name="FCX NoUnit", crop_group="Vegetable Crops")
+		with self.assertRaises(frappe.MandatoryError):
+			_make("Production Field Crop", crop_name="FCX NoGroup", harvest_uom="Kg")
+		# a section has crops through its varieties
+		self.assertFalse(field_crops.has_field_crops(self.section.name))
+		frappe.db.set_value("Production Variety", self.gloria, "field_crop", "FCX Beans")
 		self.assertTrue(field_crops.has_field_crops(self.section.name))
 		self.assertFalse(field_crops.has_field_crops(self.single.name))
 
@@ -90,11 +95,12 @@ class TestFieldCrops(IntegrationTestCase):
 		self.assertEqual(field_crops.singular("Onion"), "Onion")
 
 	def test_api_list_and_save(self):
-		r = fc_api.save_field_crop({"crop_name": "FCX Peas", "production_crop": self.section.name, "harvest_uom": "Kg"})
+		r = fc_api.save_field_crop({"crop_name": "FCX Peas", "crop_group": "Vegetable Crops", "harvest_uom": "Kg"})
 		self.assertEqual(r["message"]["name"] if "message" in r else r["name"], "FCX Peas")
-		fc_api.save_field_crop({"name": "FCX Peas", "harvest_uom": "Pieces", "crop_name": "renamed", "production_crop": "x"})
+		fc_api.save_field_crop({"name": "FCX Peas", "harvest_uom": "Pieces", "crop_name": "renamed"})
+		frappe.db.set_value("Production Variety", self.gloria, "field_crop", "FCX Peas")
 		row = next(x for x in fc_api.list_field_crops(self.section.name)["field_crops"] if x["name"] == "FCX Peas")
-		self.assertEqual((row["harvest_uom"], row["production_crop"]), ("Pieces", self.section.name))
+		self.assertEqual((row["harvest_uom"], row["crop_group"]), ("Pieces", "Vegetable Crops"))
 
 	# -- patch -----------------------------------------------------------------------------
 
@@ -105,9 +111,9 @@ class TestFieldCrops(IntegrationTestCase):
 			qty=10, uom="Kg", harvest_date=today())
 		self.assertFalse(frappe.db.get_value("Production Crop Cycle", cyc.name, "field_crop"))
 		add_field_crops.execute()
-		cabbage = frappe.db.get_value("Field Crop", {"product": "FCX Cabbage"}, ["name", "harvest_uom", "production_crop"], as_dict=True)
-		potato = frappe.db.get_value("Field Crop", {"product": "FCX Potatoes"}, ["name", "harvest_uom"], as_dict=True)
-		self.assertEqual((cabbage.name, cabbage.harvest_uom, cabbage.production_crop), (CAB, "Pieces", self.section.name))
+		cabbage = frappe.db.get_value("Production Field Crop", {"product": "FCX Cabbage"}, ["name", "harvest_uom"], as_dict=True)
+		potato = frappe.db.get_value("Production Field Crop", {"product": "FCX Potatoes"}, ["name", "harvest_uom"], as_dict=True)
+		self.assertEqual((cabbage.name, cabbage.harvest_uom), (CAB, "Pieces"))
 		self.assertEqual((potato.name, potato.harvest_uom), (POT, "Kg"))
 		self.assertEqual(frappe.db.get_value("Production Variety", self.gloria, "field_crop"), CAB)
 		self.assertEqual(frappe.db.get_value("Production Variety", self.shangi, "field_crop"), POT)
@@ -115,22 +121,20 @@ class TestFieldCrops(IntegrationTestCase):
 		self.assertEqual(frappe.db.get_value("Production Harvest", harvest.name, "field_crop"), CAB)
 		# the past harvest keeps the unit it was recorded in
 		self.assertEqual(frappe.db.get_value("Production Harvest", harvest.name, "uom"), "Kg")
-		# a single-product section gets no Field Crops
-		self.assertFalse(frappe.db.exists("Field Crop", {"production_crop": self.single.name}))
-		before = frappe.db.count("Field Crop")
+		# a single-product section gets no crop from this patch (crop_hierarchy handles Avocado)
+		self.assertFalse(frappe.db.get_value("Production Variety", self.lone, "field_crop"))
+		before = frappe.db.count("Production Field Crop")
 		add_field_crops.execute()
-		self.assertEqual(frappe.db.count("Field Crop"), before)
+		self.assertEqual(frappe.db.count("Production Field Crop"), before)
 		self.assertEqual(field_crops.link_records().get("Production Crop Cycle", 0), 0)
 
 	def test_patch_on_a_site_without_a_mixed_section(self):
 		self._legacy_state()
 		frappe.db.set_value("Production Variety", self.shangi, "product", "FCX Cabbage")
-		made = field_crops.create_from_varieties()
-		self.assertNotIn("Cabbage", [m for m in made if frappe.db.get_value("Field Crop", m, "production_crop") == self.section.name])
-		self.assertFalse(frappe.db.exists("Field Crop", {"production_crop": self.section.name}))
-		self.assertEqual(field_crops.link_records().get("Production Variety", 0), 0)
-		add_field_crops.execute()  # must not raise
-		self.assertFalse(frappe.db.exists("Field Crop", {"production_crop": self.single.name}))
+		field_crops.create_from_varieties()
+		self.assertFalse(field_crops.crops_of(self.section.name))  # one product only: no crop for this section
+		self.assertNotIn("FCX Cabbage", frappe.get_all("Production Field Crop", pluck="product"))
+		add_field_crops.execute()  # must not raise (crops are global now, so a same-named crop elsewhere may be linked)
 
 	# -- cycles ----------------------------------------------------------------------------
 
@@ -141,7 +145,7 @@ class TestFieldCrops(IntegrationTestCase):
 		self.assertEqual(frappe.db.get_value("Production Crop Cycle", cyc.name, "field_crop"), POT)
 
 	def test_cycle_needs_a_crop_when_the_section_has_crops(self):
-		_make("Field Crop", crop_name="FCX Cab2", production_crop=self.section.name, harvest_uom="Pieces")
+		add_field_crops.execute()  # the section now has crops through its varieties
 		frappe.db.set_value("Production Variety", self.gloria, "field_crop", None)
 		with self.assertRaises(frappe.ValidationError):
 			self._cycle(self.unit, self.gloria)

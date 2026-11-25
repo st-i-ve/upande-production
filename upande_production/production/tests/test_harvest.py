@@ -146,12 +146,12 @@ class TestHarvest(IntegrationTestCase):
 		self.assertEqual(self.close()["crate_count"], 0)
 
 	def test_batch_of_a_field_crop_counted_in_pieces(self):
-		"""A block whose cycle is a Field Crop with its own unit: the batch, stock entry and harvest use that unit."""
+		"""A block whose cycle is a crop with its own unit: the batch, stock entry and harvest use that unit."""
 		frappe.db.savepoint("hv_field_crop")
 		try:
 			if not frappe.db.exists("UOM", "Pieces"):
 				_make("UOM", uom_name="Pieces")
-			fc = _make("Field Crop", crop_name="HV Heads", production_crop=self.crop.name, product=self.item.name, harvest_uom="Pieces")
+			fc = _make("Production Field Crop", crop_name="HV Heads", crop_group="Vegetable Crops", product=self.item.name, harvest_uom="Pieces")
 			frappe.db.set_value("Production Crop Cycle", {"unit": self.unit.name}, "field_crop", fc.name)
 			self.scan(3, harvestor=self.p1.name)
 			res = self.close()
