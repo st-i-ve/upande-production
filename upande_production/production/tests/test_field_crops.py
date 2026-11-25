@@ -226,3 +226,71 @@ class TestFieldCrops(IntegrationTestCase):
 		field_crops.annotate_cycles(rows)
 		self.assertEqual(rows[0].crop_label, f"{CAB} (FCX Gloria)")
 		self.assertIsNone(rows[1].crop_label)
+
+	# -- crop logic: sections, sub-crops, groups -------------------------------------------
+
+	def _two_crops(self):
+		_make("Production Field Crop", crop_name="FCX Alpha", crop_group="Vegetable Crops", harvest_uom="Kg")
+		_make("Production Field Crop", crop_name="FCX Beta", crop_group="Vegetable Crops", harvest_uom="Kg")
+		frappe.db.set_value("Production Variety", self.gloria, "field_crop", "FCX Alpha")
+		frappe.db.set_value("Production Variety", self.shangi, "field_crop", "FCX Beta")
+
+	def test_single_crop_section_fills_silently(self):
+		_make("Production Field Crop", crop_name="FCX Solo", crop_group="Fruit Crops", harvest_uom="Kg")
+		frappe.db.set_value("Production Variety", self.lone, "field_crop", "FCX Solo")
+		cyc = _make("Production Crop Cycle", unit=self.single_unit, crop=self.single.name, variety=self.lone, cycle_type="Season",
+			start_date=today(), status="Active")
+		self.assertEqual(cyc.field_crop, "FCX Solo")
+		self.assertFalse(field_crops.has_field_crops(self.single.name))
+		self.assertEqual(field_crops.only_crop(self.single.name), "FCX Solo")
+
+	def test_fv_section_requires_crop(self):
+		self._two_crops()
+		frappe.db.set_value("Production Variety", self.gloria, "field_crop", None)
+		frappe.db.set_value("Production Variety", self.lone, "crop", self.section.name)  # a third variety, third crop
+		_make("Production Field Crop", crop_name="FCX Third", crop_group="Vegetable Crops", harvest_uom="Kg")
+		frappe.db.set_value("Production Variety", self.lone, "field_crop", "FCX Third")
+		self.assertTrue(field_crops.has_field_crops(self.section.name))
+		with self.assertRaises(frappe.ValidationError):
+			self._cycle(self.unit, self.gloria)
+
+	def test_variety_needs_sub_crop_when_crop_has_them(self):
+		_make("Production Field Crop", crop_name="FCX Gamma", crop_group="Fruit Crops", harvest_uom="Kg")
+		_make("Production Sub Crop", sub_crop_name="FCX Gamma Sub", field_crop="FCX Gamma")
+		v = frappe.get_doc({"doctype": "Production Variety", "variety_name": "FCX Gamma V", "crop": self.single.name, "item": "FCX Lone",
+			"field_crop": "FCX Gamma"})
+		with self.assertRaises(frappe.ValidationError):
+			v.insert()
+		v.sub_crop = "FCX Gamma Sub"
+		v.insert()
+		self.assertEqual(field_crops.list_for(self.single.name)[0]["sub_crops"][0]["name"], "FCX Gamma Sub")
+
+	def test_sub_crop_of_other_crop_refused(self):
+		_make("Production Field Crop", crop_name="FCX Gamma", crop_group="Fruit Crops", harvest_uom="Kg")
+		_make("Production Field Crop", crop_name="FCX Delta", crop_group="Fruit Crops", harvest_uom="Kg")
+		_make("Production Sub Crop", sub_crop_name="FCX Delta Sub", field_crop="FCX Delta")
+		v = frappe.get_doc({"doctype": "Production Variety", "variety_name": "FCX Gamma V2", "crop": self.single.name, "item": "FCX Lone",
+			"field_crop": "FCX Gamma", "sub_crop": "FCX Delta Sub"})
+		with self.assertRaises(frappe.ValidationError):
+			v.insert()
+
+	def test_record_disagreeing_with_variety_refused(self):
+		self._two_crops()
+		with self.assertRaises(frappe.ValidationError):
+			self._cycle(self.unit, self.gloria, field_crop="FCX Beta")
+		cyc = self._cycle(self.unit, self.gloria)
+		self.assertEqual(cyc.field_crop, "FCX Alpha")
+
+	def test_group_totals_per_unit(self):
+		rows = [{"field_crop": "Onion", "uom": "Kg", "qty": 10}, {"field_crop": "Potato", "uom": "Kg", "qty": 5},
+			{"field_crop": "Cabbage", "uom": "Pieces", "qty": 3}]
+		out = field_crops.group_totals(rows)
+		self.assertEqual(sorted((r["crop_group"], r["uom"], r["qty"]) for r in out),
+			[("Vegetable Crops", "Kg", 15), ("Vegetable Crops", "Pieces", 3)])
+
+	def test_harvest_uom_prefers_sub_crop(self):
+		_make("Production Field Crop", crop_name="FCX Eps", crop_group="Fruit Crops", harvest_uom="Kg")
+		_make("Production Sub Crop", sub_crop_name="FCX Eps Sub", field_crop="FCX Eps", harvest_uom="Pieces")
+		self.assertEqual(field_crops.harvest_uom("FCX Eps", sub_crop="FCX Eps Sub"), "Pieces")
+		self.assertEqual(field_crops.harvest_uom("FCX Eps"), "Kg")
+		self.assertEqual(field_crops.harvest_uom(None, default="Box"), "Box")

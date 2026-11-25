@@ -172,7 +172,6 @@ def build_values(data) -> dict:
 	v = _variety(data.get("variety")) if data.get("variety") else frappe._dict(name=None, plants_per_ha=0, field_crop=None)
 	chosen = data.get("field_crop") or None
 	if chosen:
-		field_crops.check_section(chosen, unit.crop)
 		if v.name and v.field_crop and v.field_crop != chosen:
 			frappe.throw(_("{0} is a {1} variety, not {2}.").format(v.name, v.field_crop, chosen), frappe.ValidationError)
 	area = flt(data.get("area_ha")) or flt(unit.area_ha)

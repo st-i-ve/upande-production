@@ -7,7 +7,7 @@ COPIED = ("crop_name", "product", "harvest_uom", "color", "enabled")
 def copy_rows(old=OLD, new=NEW) -> int:
 	"""Copy the rows of `old` into `new` (same name, crop_name, product, harvest_uom, color, enabled; the group
 	comes from the standard map when the name is known), skipping names already in `new`. Returns rows copied."""
-	from upande_production.patches import crop_hierarchy
+	from upande_production.production.logic import crop_groups
 
 	if not frappe.db.table_exists(old):
 		return 0
@@ -16,7 +16,7 @@ def copy_rows(old=OLD, new=NEW) -> int:
 		if frappe.db.exists(new, r.name):
 			continue
 		doc = frappe.get_doc({"doctype": new, "crop_name": r.crop_name or r.name, **{k: r.get(k) for k in COPIED[1:]},
-			"crop_group": crop_hierarchy.group_of(r.crop_name or r.name)})
+			"crop_group": crop_groups.group_of(r.crop_name or r.name)})
 		doc.flags.ignore_mandatory = True  # the group of an unknown crop is set by hand
 		doc.flags.ignore_links = True
 		doc.insert(ignore_permissions=True)

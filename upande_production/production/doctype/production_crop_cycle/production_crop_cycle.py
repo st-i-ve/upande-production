@@ -39,8 +39,8 @@ class ProductionCropCycle(Document):
 			fc = field_crops.from_item(self.item, self.crop)
 		if not fc and not self.field_crop:
 			fc = field_crops.only_crop(self.crop)  # a single-crop section (Avocado) fills its crop silently
-		if fc:
-			self.field_crop = fc
-		field_crops.check_section(self.field_crop, self.crop)
+		if fc and not self.field_crop:
+			self.field_crop = fc  # a crop given that the variety disagrees with is refused below
+		field_crops.check_variety(self)
 		if not frappe.flags.in_demo_seed:
 			field_crops.require_on_cycle(self)

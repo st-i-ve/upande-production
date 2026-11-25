@@ -10,13 +10,16 @@ import frappe
 from frappe import _
 from frappe.utils import flt
 
+from upande_production.production.logic import crop_groups
+
 DT = "Production Field Crop"
+SUB = "Production Sub Crop"
 DEFAULT_UOM = "Kg"
 
 
 def has_field_crops(section) -> bool:
 	"""True when the section has MORE THAN ONE crop (Fruits & Vegetables). A single-crop section (Avocado) keeps its
-	pages as they are; its crop is filled in silently (see only_crop). Task 2 refines this."""
+	pages as they are; its crop is filled in silently (see only_crop)."""
 	return bool(section) and len(crops_of(section)) > 1
 
 
@@ -35,15 +38,31 @@ def crops_of(section) -> list:
 
 
 def list_for(section, enabled_only=False) -> list:
-	names = frappe.get_all("Production Variety", filters={"crop": section, "field_crop": ("is", "set")}, pluck="field_crop", distinct=True)
-	filters = {"name": ("in", names or [""])}
+	"""Crops with their sub-crops. For a section: its crops_of when it has any, else every crop."""
+	filters = {}
 	if enabled_only:
 		filters["enabled"] = 1
-	return frappe.get_all(DT, filters=filters, fields=["name", "crop_name", "crop_group", "product", "harvest_uom", "color", "enabled"],
+	if section:
+		names = crops_of(section)
+		if names:
+			filters["name"] = ("in", names)
+	rows = frappe.get_all(DT, filters=filters, fields=["name", "crop_name", "crop_group", "product", "harvest_uom", "color", "enabled"],
 		order_by="crop_name asc", limit_page_length=0)
+	subs = {}
+	for s_ in frappe.get_all(SUB, filters={"field_crop": ("in", [r.name for r in rows] or [""]), "enabled": 1},
+			fields=["name", "field_crop", "harvest_uom"], order_by="sub_crop_name asc", limit_page_length=0):
+		subs.setdefault(s_.field_crop, []).append({"name": s_.name, "harvest_uom": s_.harvest_uom})
+	for r in rows:
+		r["sub_crops"] = subs.get(r.name, [])
+	return rows
 
 
-def harvest_uom(field_crop, default=None):
+def harvest_uom(field_crop, default=None, sub_crop=None):
+	"""The sub-crop's unit, else the crop's, else `default`."""
+	if sub_crop:
+		uom = frappe.db.get_value(SUB, sub_crop, "harvest_uom")
+		if uom:
+			return uom
 	if not field_crop:
 		return default
 	return frappe.db.get_value(DT, field_crop, "harvest_uom") or default
@@ -77,9 +96,26 @@ def from_item(item, section=None):
 	return frappe.db.get_value("Production Variety", {"product": item, "field_crop": ("is", "set")}, "field_crop")
 
 
-def check_section(field_crop, section):
-	"""A crop is no longer tied to one section (any section's varieties may name it), so nothing to check."""
-	return
+def check_variety(doc) -> None:
+	"""A record agrees with its variety on crop and sub-crop. On a Production Variety itself: a crop that has enabled
+	sub-crops needs one, and the sub-crop must belong to the variety's crop."""
+	if doc.doctype == "Production Variety":
+		sub = doc.get("sub_crop")
+		if sub:
+			owner = frappe.db.get_value(SUB, sub, "field_crop")
+			if owner != doc.get("field_crop"):
+				frappe.throw(_("Sub-crop {0} belongs to {1}, not {2}.").format(sub, owner, doc.get("field_crop") or _("no crop")),
+					frappe.ValidationError)
+		elif doc.get("field_crop") and frappe.db.exists(SUB, {"field_crop": doc.field_crop, "enabled": 1}):
+			frappe.throw(_("Choose the sub-crop of this variety: {0} has sub-crops.").format(doc.field_crop), frappe.ValidationError)
+		return
+	if not doc.get("variety"):
+		return
+	crop, sub = frappe.db.get_value("Production Variety", doc.variety, ["field_crop", "sub_crop"]) or (None, None)
+	if doc.get("field_crop") and crop and doc.field_crop != crop:
+		frappe.throw(_("{0} is a {1} variety, not {2}.").format(doc.variety, crop, doc.field_crop), frappe.ValidationError)
+	if doc.meta.has_field("sub_crop") and doc.get("sub_crop") and sub and doc.sub_crop != sub:
+		frappe.throw(_("{0} is a {1} variety, not {2}.").format(doc.variety, sub, doc.sub_crop), frappe.ValidationError)
 
 
 def for_unit(unit, section=None):
@@ -109,10 +145,12 @@ def stamp(doc, *, cycle_field="cycle", with_uom=False) -> None:
 		if not fc:
 			fc = only_crop(doc.get("crop") or (frappe.db.get_value("Production Unit", doc.unit, "crop") if doc.get("unit") else None))
 		doc.field_crop = fc
+	if doc.meta.has_field("sub_crop") and not doc.get("sub_crop") and doc.get("variety"):
+		doc.sub_crop = frappe.db.get_value("Production Variety", doc.variety, "sub_crop")
+	check_variety(doc)
 	if doc.field_crop:
-		check_section(doc.field_crop, doc.get("crop"))
 		if with_uom and doc.meta.has_field("uom"):
-			uom = harvest_uom(doc.field_crop)
+			uom = harvest_uom(doc.field_crop, sub_crop=doc.get("sub_crop"))
 			if uom:
 				doc.uom = uom
 
@@ -125,6 +163,19 @@ def stamp_doc_event(doc, method=None):
 def require_on_cycle(doc) -> None:
 	if not doc.get("field_crop") and has_field_crops(doc.get("crop")):
 		frappe.throw(_("Choose the crop of this cycle (the section {0} has crops).").format(doc.crop), frappe.ValidationError)
+
+
+def group_totals(rows, qty_key="qty") -> list:
+	"""[{crop_group, uom, qty}] from rows with field_crop, uom and qty: one line per (group, unit)."""
+	groups = {}
+	out = {}
+	for r in rows:
+		fc = r.get("field_crop")
+		if fc not in groups:
+			groups[fc] = frappe.db.get_value(DT, fc, "crop_group") if fc else None
+		k = (groups[fc] or "", r.get("uom") or "")
+		out[k] = out.get(k, 0) + flt(r.get(qty_key))
+	return [{"crop_group": g or None, "uom": u or None, "qty": q} for (g, u), q in sorted(out.items())]
 
 
 def totals_by_crop(rows, qty_key="qty", crop_key="field_crop", uom_key="uom") -> list:
@@ -184,11 +235,9 @@ def crop_for_product(product):
 def create_from_varieties(min_products=2) -> list:
 	"""A crop per distinct product item of each section whose varieties grow `min_products` or more products
 	(a mixed section such as Fruits & Vegetables). Crops are matched by name, not by section. A new crop gets its
-	group from the standard map when the name is known (else crop_hierarchy sets or lists it). Returns the names
+	group from the standard map when the name is known (else the crop_hierarchy patch lists it). Returns the names
 	of the crops made now."""
-	from upande_production.patches import crop_hierarchy
-
-	crop_hierarchy.ensure_groups()
+	crop_groups.ensure_groups()
 	made = []
 	for section in frappe.get_all("Production Crop", pluck="name"):
 		products = frappe.get_all("Production Variety", filters={"crop": section, "product": ("is", "set")}, pluck="product", distinct=True)
@@ -203,9 +252,10 @@ def create_from_varieties(min_products=2) -> list:
 				if not frappe.db.get_value(DT, name, "product"):
 					frappe.db.set_value(DT, name, "product", product)
 				continue
-			doc = frappe.get_doc({"doctype": DT, "crop_name": name, "crop_group": crop_hierarchy.group_of(name), "product": product,
+			doc = frappe.get_doc({"doctype": DT, "crop_name": name, "crop_group": crop_groups.group_of(name), "product": product,
 				"harvest_uom": _default_uom(item_name, stock_uom), "enabled": 1})
-			doc.flags.ignore_mandatory = True  # the group of an unknown crop is set by hand
+			if not doc.crop_group:
+				doc.flags.ignore_mandatory = True  # only a crop whose group is unknown: set by hand
 			doc.insert(ignore_permissions=True)
 			made.append(doc.name)
 	return made
