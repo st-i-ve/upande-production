@@ -57,6 +57,21 @@ class TestCycleChain(IntegrationTestCase):
 		return _make("Production Crop Cycle", unit=unit.name, crop=self.crop.name, variety=variety or self.hass,
 			start_date=start or add_days(today(), -100), status="Active", **kw)
 
+	def test_delete_cycle_takes_its_planned_next(self):
+		c = self._cycle(actual_flowering_date=add_days(today(), -60))  # a flowered cycle proposes its next
+		nxt = frappe.db.get_value("Production Crop Cycle", c.name, "proposed_next_cycle")
+		self.assertTrue(nxt)
+		frappe.delete_doc("Production Crop Cycle", c.name)
+		self.assertFalse(frappe.db.exists("Production Crop Cycle", c.name))
+		self.assertFalse(frappe.db.exists("Production Crop Cycle", nxt))
+
+	def test_delete_planned_next_alone_frees_its_parent(self):
+		c = self._cycle(actual_flowering_date=add_days(today(), -60))  # a flowered cycle proposes its next
+		nxt = frappe.db.get_value("Production Crop Cycle", c.name, "proposed_next_cycle")
+		frappe.delete_doc("Production Crop Cycle", nxt)
+		self.assertFalse(frappe.db.exists("Production Crop Cycle", nxt))
+		self.assertFalse(frappe.db.get_value("Production Crop Cycle", c.name, "proposed_next_cycle"))
+
 	def test_flowering_actual_shifts_harvest(self):
 		c = self._cycle(start="2026-01-01")
 		self.assertEqual(c.expected_flowering_date, getdate("2026-02-26"))

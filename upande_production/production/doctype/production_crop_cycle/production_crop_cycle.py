@@ -10,6 +10,20 @@ from upande_production.production.logic import cycle_chain, cycle_setup, field_c
 from upande_production.production.logic.stages import apply_variety_defaults
 
 
+CYCLE_DT = "Production Crop Cycle"
+
+
+def _recorded_against(cycle) -> bool:
+	"""True when any record other than a cycle links to `cycle` (harvests, tasks, labour, samples ...)."""
+	for df in frappe.get_all("DocField", filters={"fieldtype": "Link", "options": CYCLE_DT, "parent": ("!=", CYCLE_DT)},
+			fields=["parent", "fieldname"]):
+		if frappe.get_meta(df.parent).istable:
+			continue
+		if frappe.db.exists(df.parent, {df.fieldname: cycle}):
+			return True
+	return False
+
+
 class ProductionCropCycle(Document):
 	def validate(self):
 		if self.unit:
@@ -31,6 +45,21 @@ class ProductionCropCycle(Document):
 	def on_update(self):
 		if not self.proposed_next_cycle:
 			cycle_chain.propose_next(self)
+
+	def on_trash(self):
+		"""A cycle and the next one proposed from it point at each other, so neither could be deleted. The proposed
+		next cycle goes with this one while it is still only Planned and nothing records against it; otherwise it
+		stays, as a first cycle. A cycle that proposed this one forgets it, so it can propose again."""
+		nxt = self.proposed_next_cycle
+		if nxt and frappe.db.exists(CYCLE_DT, nxt):
+			frappe.db.set_value(CYCLE_DT, self.name, "proposed_next_cycle", None, update_modified=False)
+			if frappe.db.get_value(CYCLE_DT, nxt, "status") == "Planned" and not _recorded_against(nxt):
+				frappe.db.set_value(CYCLE_DT, nxt, "previous_cycle", None, update_modified=False)
+				frappe.delete_doc(CYCLE_DT, nxt, ignore_permissions=True)
+		for name in frappe.get_all(CYCLE_DT, filters={"previous_cycle": self.name}, pluck="name"):
+			frappe.db.set_value(CYCLE_DT, name, "previous_cycle", None, update_modified=False)
+		for name in frappe.get_all(CYCLE_DT, filters={"proposed_next_cycle": self.name}, pluck="name"):
+			frappe.db.set_value(CYCLE_DT, name, "proposed_next_cycle", None, update_modified=False)
 
 	def set_field_crop(self):
 		"""The cycle's crop is its variety's; with no variety (an existing cycle given by item) it is the item's."""
