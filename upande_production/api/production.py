@@ -7,7 +7,8 @@ from upande_production.api.envelope import as_dict, run
 from upande_production.production.logic import crop_groups, field_crops
 from upande_production.production.logic import analytics, bands, blockcost, cycle_chain, labourers, plans, rules, stages, supervisors, work
 from upande_production.production.logic import drymatter as drymatter_logic
-from upande_production.production.logic.settings import PAY_ROLES, avocado_only_crop_keys, can_see_pay, is_manager
+from upande_production.production.logic import task_schedule
+from upande_production.production.logic.settings import PAY_ROLES, avocado_only_crop_keys, can_reschedule, can_see_pay, is_manager
 from upande_production.production.logic.units import unit_filter
 from upande_production.production.logic.weeks import iso_week_bounds
 
@@ -156,6 +157,7 @@ def get_bootstrap():
 		"can_see_pay": _can_see_pay(),
 		"can_plan": admin or bool(PAY_ROLES & roles),
 		"can_manage": admin or bool(MANAGE_ROLES & roles),
+		"can_reschedule": can_reschedule(),
 	}
 
 
@@ -290,6 +292,7 @@ def get_plan(crop, farm, year, week):
 			"name", "unit", "cycle", "operation", "operation_name", "planned_qty", "done_qty", "pending_qty", "uom",
 			"rate", "due_date", "supervisor", "status", "deviation", "protocol_ref", "note",
 			"rule_status", "rule_notes", "override_reason", "times_per_week",
+			"original_due_date", "postpone_count", "postpone_reason", "postponed_by", "postponed_on",
 		],
 		order_by="idx asc",
 	)
@@ -341,6 +344,9 @@ def save_plan_tasks(crop, farm, year, week, tasks, override_reason=None):
 	for t in tasks:
 		name = t.get("name")
 		if t.get("_delete"):
+			task_schedule.require_reschedule()
+			if task_schedule.has_work(name):
+				frappe.throw(_("Work is recorded against this task; mark it Skipped instead."), frappe.ValidationError)
 			plan.tasks = [r for r in plan.tasks if r.name != name]
 			continue
 		vals = {k: t.get(k) for k in _TASK_EDITABLE if k in t}
@@ -348,6 +354,10 @@ def save_plan_tasks(crop, farm, year, week, tasks, override_reason=None):
 			row = next((r for r in plan.tasks if r.name == name), None)
 			if not row:
 				frappe.throw(_("Task {0} not found on this plan").format(name), frappe.ValidationError)
+			if "due_date" in vals and str(vals["due_date"] or "") != str(row.get("due_date") or ""):
+				task_schedule.require_reschedule()
+				if not row.get("original_due_date"):
+					vals["original_due_date"] = row.get("due_date")
 			if any(k in vals and vals[k] != row.get(k) for k in ("unit", "operation", "due_date")):
 				vals.update(_task_rules({**row.as_dict(), **vals}, override_reason, exclude_task=row.name))
 			if "supervisor" in vals and (vals["supervisor"] or None) != row.supervisor:

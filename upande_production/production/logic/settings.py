@@ -32,10 +32,16 @@ def get_stale_days() -> int:
 
 MANAGE_ROLES = {"Production Manager", "System Manager", "Avocado Production Manager"}
 SUPERVISE_ROLES = {"Production Supervisor"} | MANAGE_ROLES
+RESCHEDULE_ROLES = {"Production Plan Editor"} | MANAGE_ROLES
 
 
 def is_manager() -> bool:
 	return frappe.session.user == "Administrator" or bool(MANAGE_ROLES & set(frappe.get_roles()))
+
+
+def can_reschedule() -> bool:
+	"""May change a planned task's date, postpone it or delete it: managers and the Production Plan Editor role."""
+	return frappe.session.user == "Administrator" or bool(RESCHEDULE_ROLES & set(frappe.get_roles()))
 
 
 def is_supervisor() -> bool:

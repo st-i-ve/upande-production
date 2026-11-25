@@ -25,6 +25,11 @@
   "deviation",
   "protocol_ref",
   "note",
+  "original_due_date",
+  "postpone_count",
+  "postpone_reason",
+  "postponed_by",
+  "postponed_on",
   "rule_status",
   "rule_notes",
   "override_reason",
@@ -154,6 +159,37 @@
    "fieldname": "note",
    "fieldtype": "Small Text",
    "label": "Note"
+  },
+  {
+   "fieldname": "original_due_date",
+   "fieldtype": "Date",
+   "label": "Original Due Date",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "postpone_count",
+   "fieldtype": "Int",
+   "label": "Postpone Count",
+   "read_only": 1
+  },
+  {
+   "fieldname": "postpone_reason",
+   "fieldtype": "Small Text",
+   "label": "Postpone Reason"
+  },
+  {
+   "fieldname": "postponed_by",
+   "fieldtype": "Link",
+   "label": "Postponed By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "postponed_on",
+   "fieldtype": "Datetime",
+   "label": "Postponed On",
+   "read_only": 1
   },
   {
    "fieldname": "rule_status",
