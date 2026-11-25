@@ -5,7 +5,8 @@ from frappe import _
 
 from upande_production.api.envelope import as_dict, run
 from upande_production.api.production import _need, _save
-from upande_production.production.logic import field_crops
+from upande_production.production.logic import crop_groups, field_crops
+from upande_production.production.logic.settings import is_manager
 
 FIELDS = ["name", "crop_name", "crop_group", "product", "harvest_uom", "color", "enabled"]
 
@@ -23,12 +24,58 @@ def list_field_crops(crop):
 	return {"field_crops": rows}
 
 
+def _managers_only():
+	if not is_manager():
+		frappe.throw(_("Only a Production Manager can change crops."), frappe.PermissionError)
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def get_crop_tree():
+	"""{groups: [{name, parent, sort_order}], crops: [list_for rows]}"""
+	_need("Production Field Crop")
+	return {"groups": crop_groups.tree(), "crops": field_crops.list_for(None)}
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def save_crop_group(data):
+	"""Insert, or update when data.name is set. Keys: name, group_name, parent, sort_order. Managers only."""
+	_managers_only()
+	data = dict(as_dict(data) or {})
+	row = {"group_name": data.get("group_name"), "parent_production_crop_group": data.get("parent") or None,
+		"sort_order": data.get("sort_order") or 0}
+	if data.get("name"):
+		doc = frappe.get_doc("Production Crop Group", data["name"])
+		doc.update({k: v for k, v in row.items() if k != "group_name"})
+		doc.save()
+	else:
+		doc = frappe.get_doc({"doctype": "Production Crop Group", "is_group": 1, **row}).insert()
+	return {"name": doc.name}
+
+
 @frappe.whitelist(methods=["POST"])
 @run
 def save_field_crop(data):
-	"""Insert, or update when data.name is set. The name of a crop in use is fixed."""
+	"""Insert, or update when data.name is set. The name of a crop in use is fixed. Managers only."""
+	_managers_only()
 	data = dict(as_dict(data) or {})
 	data = {k: v for k, v in data.items() if k in FIELDS}
 	if data.get("name"):
 		data.pop("crop_name", None)
 	return {"name": _save("Production Field Crop", data).name}
+
+
+SUB_FIELDS = ["name", "sub_crop_name", "field_crop", "product", "harvest_uom", "enabled"]
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def save_sub_crop(data):
+	"""Insert, or update when data.name is set. Managers only."""
+	_managers_only()
+	data = dict(as_dict(data) or {})
+	data = {k: v for k, v in data.items() if k in SUB_FIELDS}
+	if data.get("name"):
+		data.pop("sub_crop_name", None)
+	return {"name": _save("Production Sub Crop", data).name}

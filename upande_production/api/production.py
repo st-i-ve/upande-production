@@ -4,7 +4,7 @@ import frappe
 from frappe import _
 
 from upande_production.api.envelope import as_dict, run
-from upande_production.production.logic import field_crops
+from upande_production.production.logic import crop_groups, field_crops
 from upande_production.production.logic import analytics, bands, blockcost, cycle_chain, labourers, plans, rules, stages, supervisors, work
 from upande_production.production.logic import drymatter as drymatter_logic
 from upande_production.production.logic.settings import PAY_ROLES, avocado_only_crop_keys, can_see_pay, is_manager
@@ -146,10 +146,12 @@ def get_bootstrap():
 	for c in crops:  # the page gate: the crop's default is on, or one of its varieties says Yes
 		c["dry_matter_testing"] = int(drymatter_logic.crop_tests_dry_matter(c["name"]))
 	for c in crops:  # a section with Field Crops (Fruits & Vegetables): Cabbage, Maize ... each with its harvest unit
-		c["field_crops"] = field_crops.list_for(c["name"], enabled_only=True)
-		c["has_field_crops"] = int(bool(c["field_crops"]))
+		has = bool(field_crops.crops_of(c["name"]))  # list_for falls back to every crop; the bootstrap wants the section's own
+		c["field_crops"] = field_crops.list_for(c["name"], enabled_only=True) if has else []
+		c["has_field_crops"] = int(field_crops.has_field_crops(c["name"]))
 	return {
 		"crops": crops,
+		"crop_groups": crop_groups.tree(),
 		"farms": frappe.get_all("Farm", pluck="name", order_by="name asc"),
 		"can_see_pay": _can_see_pay(),
 		"can_plan": admin or bool(PAY_ROLES & roles),
