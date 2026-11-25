@@ -71,6 +71,8 @@ export interface Boot {
   can_see_pay: boolean;
   can_plan: boolean;
   can_manage: boolean;
+  /** May change a task's date, postpone or delete it (Production Plan Editor). */
+  can_reschedule?: boolean;
 }
 
 export const getBootstrap = () => rpc<Boot>("get_bootstrap");
@@ -311,6 +313,11 @@ export interface PlanTask {
   variety?: string | null;
   crop_label?: string | null;
   work: WorkEntry[];
+  original_due_date?: string | null;
+  postpone_count?: number;
+  postpone_reason?: string | null;
+  postponed_by?: string | null;
+  postponed_on?: string | null;
   /** Set to 1 on a row passed to `savePlanTasks` to delete it. */
   _delete?: 1;
 }
@@ -334,6 +341,29 @@ export const savePlanTasks = (
   tasks: Array<Partial<PlanTask> & Row>,
   overrideReason?: string | null,
 ) => rpc<{ name: string }>("save_plan_tasks", { crop, farm, year, week, tasks, override_reason: overrideReason ?? null });
+
+/** Move a task to another day of its own week. */
+export const movePlanTask = (plan: string, task: string, newDate: string, overrideReason?: string | null) =>
+  rpc<{ plan: string; task: string }>("move_plan_task", { plan, task, new_date: newDate, override_reason: overrideReason ?? null });
+
+/** Push a task to a later date (into another week splits it when work exists). */
+export const postponePlanTask = (
+  plan: string,
+  task: string,
+  newDate: string,
+  reason: string,
+  overrideReason?: string | null,
+) =>
+  rpc<{ plan: string; task: string; split: boolean }>("postpone_plan_task", {
+    plan,
+    task,
+    new_date: newDate,
+    reason,
+    override_reason: overrideReason ?? null,
+  });
+
+export const deletePlanTask = (plan: string, task: string, reason: string) =>
+  rpc<{ deleted: string }>("delete_plan_task", { plan, task, reason });
 
 /** A protocol step the activity rules refused to plan (Block). */
 export interface SkippedStep {

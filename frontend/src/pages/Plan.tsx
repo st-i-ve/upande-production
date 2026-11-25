@@ -19,6 +19,7 @@ import { PendingChip, QtyBar } from "@/components/plan/QtyBar";
 import { addDays, q, rowDate } from "@/components/plan/fmt";
 import { RuleFlag } from "@/components/rules/RuleParts";
 import { ProtocolCheckPanel } from "@/components/plan/ProtocolCheckPanel";
+import { TaskActions } from "@/components/plan/TaskActions";
 import { TickOffDialog } from "@/components/plan/TickOffDialog";
 import {
   generatePlanWeek,
@@ -329,11 +330,11 @@ export function Plan() {
               </header>
               <ul className="divide-y divide-[var(--sd-line-soft)] px-1.5 pb-1.5">
                 {list.map((t) => (
-                  <li key={t.name ?? `${t.operation}-${t.due_date}`}>
+                  <li key={t.name ?? `${t.operation}-${t.due_date}`} className="flex items-center">
                     <button
                       type="button"
                       onClick={() => setPicked(t.name ?? null)}
-                      className="flex w-full flex-wrap items-center gap-x-3 gap-y-1.5 rounded-[var(--sd-radius)] px-2.5 py-2.5 text-left transition-colors hover:bg-[var(--sd-bg-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                      className="flex w-full min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1.5 rounded-[var(--sd-radius)] px-2.5 py-2.5 text-left transition-colors hover:bg-[var(--sd-bg-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                     >
                       <span className="min-w-[10rem] flex-1 truncate text-[13.5px] font-medium text-[var(--sd-ink)]">
                         <ActivityDot color={t.color} label={t.operation_name} />
@@ -360,7 +361,19 @@ export function Plan() {
                       <span className="ml-auto">
                         <AvatarStack names={t.work.map((w) => w.employee_name || w.employee)} />
                       </span>
+                      {(t.postpone_count ?? 0) > 0 && (
+                        <span
+                          data-testid="postponed-note"
+                          className="basis-full text-[12px] text-[var(--sd-muted)]"
+                          title={t.postpone_reason ?? undefined}
+                        >
+                          Postponed ×{t.postpone_count} from {rowDate(t.original_due_date)}
+                        </span>
+                      )}
                     </button>
+                    {boot.can_reschedule && plan?.plan && t.name && (
+                      <TaskActions plan={plan.plan} task={t} weekStart={weekStart(week)} onDone={() => void load(true)} />
+                    )}
                   </li>
                 ))}
               </ul>
