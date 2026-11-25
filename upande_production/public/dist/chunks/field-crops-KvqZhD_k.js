@@ -1,1 +1,0 @@
-const o=t=>{var e;return!!t&&(!!Number(t.has_field_crops??0)||(((e=t.field_crops)==null?void 0:e.length)??0)>0)};function s(t,e,n){return n||(t&&e?`${t} (${e})`:t||e||"")}function r(t,e){return t.filter(n=>n.qty).map(n=>`${n.field_crop??"Other"} ${e(n.qty)}${n.uom?` ${n.uom}`:""}`).join(" | ")}export{r as a,s as c,o as h};
