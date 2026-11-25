@@ -54,4 +54,24 @@ describe("EditCycleDialog", () => {
     await waitFor(() => expect(setup.updateCycle).toHaveBeenCalled());
     expect(vi.mocked(setup.updateCycle).mock.calls[0][1]).toMatchObject({ status: "Closed" });
   });
+
+  it("shows the sub-crop of a crop that has sub-crops and sends it on save", async () => {
+    const FL = {
+      ...CROP,
+      has_field_crops: 1,
+      field_crops: [
+        { name: "Rose", crop_name: "Rose", crop_group: "Floriculture", product: null, harvest_uom: "Stem", color: null, enabled: 1, sub_crops: [{ name: "Standard rose", harvest_uom: "Stem" }, { name: "Spray rose", harvest_uom: "Stem" }] },
+        { name: "Cabbage", crop_name: "Cabbage", crop_group: "Vegetable Crops", product: null, harvest_uom: "Pieces", color: null, enabled: 1 },
+      ],
+    } as api.Crop;
+    vi.mocked(setup.getCycleForEdit).mockResolvedValue(edit({ field_crop: "Rose", sub_crop: "Standard rose" } as never));
+    renderPage(<EditCycleDialog cycle={cycle} crop={FL} units={units} onClose={() => {}} onSaved={() => {}} />);
+    const sc = await screen.findByRole("combobox", { name: "Sub-crop" });
+    await waitFor(() => expect(sc.textContent).toContain("Standard rose"));
+    fireEvent.click(sc);
+    fireEvent.click(await screen.findByRole("option", { name: "Spray rose" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save cycle" }));
+    await waitFor(() => expect(setup.updateCycle).toHaveBeenCalled());
+    expect(vi.mocked(setup.updateCycle).mock.calls[0][1]).toMatchObject({ sub_crop: "Spray rose" });
+  });
 });

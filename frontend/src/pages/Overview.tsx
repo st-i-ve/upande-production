@@ -1,3 +1,4 @@
+import { GroupRollup } from "@/components/forecast/GroupRollup";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FilterSelect } from "@/components/FilterSelect";
 import { flagCurrentWeek } from "@/components/Sparkline";
@@ -184,6 +185,7 @@ export function Overview() {
                 ))}
               </ul>
             )}
+            {!waiting && byCrop.length > 0 && <GroupRollup rows={byCrop} crops={crop.field_crops} label="By crop group" />}
           </Panel>
         ) : (
           <>

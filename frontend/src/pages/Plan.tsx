@@ -141,7 +141,13 @@ export function Plan() {
     [allTasks, opFilter, cropFilter, statusFilter],
   );
   const withCrops = hasFieldCrops(crop);
-  const cropOptions = useMemo(() => [...new Set(allTasks.map((t) => t.field_crop).filter((c): c is string => !!c))].sort(), [allTasks]);
+  const cropOptions = useMemo(() => {
+    const names = [...new Set(allTasks.map((t) => t.field_crop).filter((c): c is string => !!c))].sort();
+    return names.map((n) => {
+      const g = crop.field_crops?.find((c) => c.name === n)?.crop_group;
+      return { value: n, label: n, ...(g ? { group: g } : {}) };
+    });
+  }, [allTasks, crop.field_crops]);
   const opOptions = useMemo(() => [...new Set(allTasks.map((t) => t.operation_name))].sort(), [allTasks]);
   const hasPending = allTasks.some((t) => (t.pending_qty ?? 0) > 0);
   const statusOptions = hasPending ? [...STATUSES, "Awaiting approval"] : [...STATUSES];

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { cropLabel, hasFieldCrops } from "@/lib/field-crops";
+import { cropLabel, cropPickerOptions, hasFieldCrops } from "@/lib/field-crops";
 import { Plus } from "lucide-react";
 import { ClearFiltersPill } from "@/components/ClearFiltersPill";
 import { FilterSelect } from "@/components/FilterSelect";
@@ -137,7 +137,7 @@ export function Cycles() {
     [rules],
   );
   const withCrops = hasFieldCrops(crop);
-  const cropOptions = useMemo(() => (crop.field_crops ?? []).map((c) => ({ value: c.name, label: c.crop_name })), [crop.field_crops]);
+  const cropOptions = useMemo(() => cropPickerOptions(crop.field_crops, { includeDisabled: true }), [crop.field_crops]);
   const varietyOptions = useMemo(
     () => varieties.filter((v) => !fieldCrop || v.field_crop === fieldCrop).map((v) => ({ value: v.name, label: v.variety_name })),
     [varieties, fieldCrop],

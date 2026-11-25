@@ -10,7 +10,7 @@
  * from `label` (or `aria-label`).
  */
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { HEADER_PILL } from "@/components/header-controls";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,8 @@ const ALL = "__all__";
 export interface FilterOption {
   value: string;
   label: string;
+  /** Options sharing a group are listed under its heading. */
+  group?: string;
 }
 
 export function FilterSelect({
@@ -67,11 +69,22 @@ export function FilterSelect({
       </SelectTrigger>
       <SelectContent>
         {allLabel && <SelectItem value={ALL}>{allLabel}</SelectItem>}
-        {opts.map((o) => (
-          <SelectItem key={o.value} value={o.value}>
-            {o.label}
-          </SelectItem>
-        ))}
+        {opts.some((o) => o.group)
+          ? [...new Set(opts.map((o) => o.group ?? ""))].map((g) => (
+              <SelectGroup key={g || "__ungrouped__"}>
+                {g && <SelectLabel>{g}</SelectLabel>}
+                {opts.filter((o) => (o.group ?? "") === g).map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            ))
+          : opts.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
       </SelectContent>
     </Select>
   );

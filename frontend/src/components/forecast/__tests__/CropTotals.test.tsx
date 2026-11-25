@@ -45,4 +45,28 @@ describe("CropTotals", () => {
     expect(lines[1].textContent).toContain("Pieces");
     expect(lines[1].textContent).toContain("1,500");
   });
+
+  it("keeps forecast, actual and committed of one group and unit together, whatever the row order", () => {
+    renderPage(
+      <CropTotals
+        bands={{}}
+        crops={[
+          { name: "Cabbage", crop_group: "Vegetable Crops" },
+          { name: "Rose", crop_group: "Floriculture" },
+          { name: "Potato", crop_group: "Vegetable Crops" },
+        ]}
+        rows={[
+          { field_crop: "Potato", uom: "Kg", forecast: 100, forecast_to_date: 0, actual: 10, committed: 1, error_pct: null },
+          { field_crop: "Rose", uom: "Stem", forecast: 500, forecast_to_date: 0, actual: 50, committed: 5, error_pct: null },
+          { field_crop: "Cabbage", uom: "Pieces", forecast: 200, forecast_to_date: 0, actual: 20, committed: 2, error_pct: null },
+          { field_crop: "Potato", uom: "Kg", forecast: 300, forecast_to_date: 0, actual: 30, committed: 3, error_pct: null },
+        ]}
+      />,
+    );
+    const lines = screen.getAllByTestId("group-total").map((l) => l.textContent);
+    expect(lines).toHaveLength(3);
+    expect(lines[0]).toMatch(/Floriculture.*Stem.*Forecast 500.*Actual 50.*Committed 5/);
+    expect(lines[1]).toMatch(/Vegetable Crops.*Kg.*Forecast 400.*Actual 40.*Committed 4/);
+    expect(lines[2]).toMatch(/Vegetable Crops.*Pieces.*Forecast 200.*Actual 20.*Committed 2/);
+  });
 });

@@ -20,7 +20,7 @@ import { LabourPayPanel } from "@/components/settings/LabourPayPanel";
 import { CropModelPanel } from "@/components/settings/CropModelPanel";
 import { RulesPanel } from "@/components/varieties/RulesPanel";
 import { FieldCropsPanel } from "@/components/settings/FieldCropsPanel";
-import { hasFieldCrops } from "@/lib/field-crops";
+import { cropPickerOptions, hasFieldCrops } from "@/lib/field-crops";
 import { getCropTree, type FieldCrop } from "@/lib/field-crops-api";
 import { VarietiesPanel } from "@/components/varieties/VarietiesPanel";
 import { listOperations, listProtocols, type Row } from "@/lib/api";
@@ -217,7 +217,7 @@ export function Settings() {
             node: <FilterSelect label="Category" value={category} onChange={setCategory} options={categories} allLabel="All categories" />,
           },
           ...(withCrops
-            ? [{ key: "crop", tabs: ["protocols"], node: <FilterSelect label="Crop" value={cropFilter} onChange={setCropFilter} options={(crop.field_crops ?? []).map((c) => ({ value: c.name, label: c.crop_name }))} allLabel="All crops" /> }]
+            ? [{ key: "crop", tabs: ["protocols"], node: <FilterSelect label="Crop" value={cropFilter} onChange={setCropFilter} options={cropPickerOptions(crop.field_crops, { includeDisabled: true })} allLabel="All crops" /> }]
             : []),
         ]}
         actions={

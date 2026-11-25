@@ -20,6 +20,8 @@ import { useToast } from "@/components/Toast";
 import { Card, CardDescription, CardHeaderRow, CardHeading, CardTitle } from "@/components/ui/card";
 import { TableBody } from "@/components/ui/table";
 import { useCurrentCrop, viewLabel } from "@/lib/crops";
+import { GroupRollup } from "@/components/forecast/GroupRollup";
+import { cropPickerOptions } from "@/lib/field-crops";
 import { isError } from "@/lib/frappe";
 import { getGrading, type GradingPage } from "@/lib/fv-api";
 import { todayISO } from "@/lib/utils";
@@ -75,7 +77,7 @@ export function Grading() {
         <>
           <DateRangePicker label="Period" value={range} onChange={setRange} max={todayISO()} />
           <FilterSelect label="Block" value={unit} onChange={setUnit} options={data?.units ?? []} allLabel="All blocks" />
-          {!!data?.field_crops?.length && <FilterSelect label="Crop" value={fieldCrop} onChange={setFieldCrop} options={data.field_crops} allLabel="All crops" />}
+          {!!data?.field_crops?.length && <FilterSelect label="Crop" value={fieldCrop} onChange={setFieldCrop} options={cropPickerOptions(data.field_crops.map((n) => ({ name: n, crop_name: n, crop_group: crop.field_crops?.find((c) => c.name === n)?.crop_group })))} allLabel="All crops" />}
           <FilterSelect label="Crop item" value={item} onChange={setItem} options={data?.items ?? []} allLabel="All crops" />
           <ClearFiltersPill active={dirty} onClear={clear} />
           <RefreshButton onClick={load} loading={loading} label="the grading logs" />
@@ -106,6 +108,7 @@ export function Grading() {
               <>
                 <GradeLegend grades={data.grades} accent={accent} />
                 <GradeBars rows={data.by_crop?.length ? data.by_crop : data.by_item} grades={data.grades} accent={accent} testId="by-item" />
+                {!!data.by_crop?.length && <div className="px-5 pb-4"><GroupRollup rows={data.by_crop.map((b) => ({ field_crop: b.key, uom: "Kg", qty: b.received_kg }))} crops={crop.field_crops} label="Received by crop group" /></div>}
               </>
             )}
           </Card>

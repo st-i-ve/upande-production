@@ -96,6 +96,7 @@ export const getCycleForEdit = (name: string) => rpc<CycleEdit>("get_cycle_for_e
 
 export interface UpdateCycleInput {
   unit?: string;
+  sub_crop?: string | null;
   variety?: string | null;
   protocol?: string | null;
   start_date?: string | null;

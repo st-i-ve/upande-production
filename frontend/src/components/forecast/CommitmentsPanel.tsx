@@ -1,3 +1,5 @@
+import { SubCropField } from "@/components/cycles/SubCropField";
+import { cropPickerOptions, subCropsOf } from "@/lib/field-crops";
 import { useCallback, useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { FilterSelect } from "@/components/FilterSelect";
@@ -33,7 +35,7 @@ export function CommitmentsPanel({
 }: {
   crop: string;
   /** Crops of a section with named crops: a commitment names one, and is counted in its unit. */
-  fieldCrops?: { name: string; crop_name: string; harvest_uom: string }[];
+  fieldCrops?: { name: string; crop_name: string; harvest_uom: string; crop_group?: string | null; sub_crops?: { name: string; harvest_uom: string }[] }[];
   uom: string;
   canEdit: boolean;
   canSeePay: boolean;
@@ -136,7 +138,7 @@ function CommitmentDialog({
   onSaved,
 }: {
   crop: string;
-  fieldCrops?: { name: string; crop_name: string; harvest_uom: string }[];
+  fieldCrops?: { name: string; crop_name: string; harvest_uom: string; crop_group?: string | null; sub_crops?: { name: string; harvest_uom: string }[] }[];
   uom: string;
   canSeePay: boolean;
   onClose: () => void;
@@ -150,9 +152,11 @@ function CommitmentDialog({
   const [status, setStatus] = useState("Open");
   const [saving, setSaving] = useState(false);
   const [fieldCrop, setFieldCrop] = useState("");
-  const unit = fieldCrops?.find((c) => c.name === fieldCrop)?.harvest_uom ?? uom;
+  const [subCrop, setSubCrop] = useState("");
+  const cropSubs = subCropsOf(fieldCrops, fieldCrop);
+  const unit = cropSubs.find((s) => s.name === subCrop)?.harvest_uom ?? fieldCrops?.find((c) => c.name === fieldCrop)?.harvest_uom ?? uom;
 
-  const valid = customer.trim() !== "" && Number(quantity) > 0 && (!fieldCrops?.length || !!fieldCrop);
+  const valid = customer.trim() !== "" && Number(quantity) > 0 && (!fieldCrops?.length || (!!fieldCrop && (!cropSubs.length || !!subCrop)));
 
   async function save() {
     setSaving(true);
@@ -160,6 +164,7 @@ function CommitmentDialog({
       crop,
       customer: customer.trim(),
       field_crop: fieldCrop || undefined,
+      sub_crop: cropSubs.length ? subCrop || undefined : undefined,
       uom: fieldCrop ? unit : undefined,
       week_start: ymd(weekStart(week)),
       committed_qty: Number(quantity),
@@ -197,8 +202,9 @@ function CommitmentDialog({
           {!!fieldCrops?.length && (
             <div className="sm:col-span-2">
               <Field label="Crop">
-                <FilterSelect aria-label="Crop" value={fieldCrop} options={fieldCrops.map((c) => ({ value: c.name, label: c.crop_name }))} onChange={setFieldCrop} allLabel="Choose a crop" />
+                <FilterSelect aria-label="Crop" value={fieldCrop} options={cropPickerOptions(fieldCrops, { includeDisabled: true })} onChange={(c) => { setFieldCrop(c); setSubCrop(""); }} allLabel="Choose a crop" />
               </Field>
+              <SubCropField id="commit-subcrop" subCrops={cropSubs} value={subCrop} onChange={setSubCrop} />
             </div>
           )}
           <Field label={`Committed quantity${unit ? ` (${unit})` : ""}`} htmlFor="commit-qty">

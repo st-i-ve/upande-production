@@ -13,7 +13,8 @@ import { CYCLE_STATUSES } from "@/components/cycles/NewCycleDialog";
 import { listProtocols, type Crop, type Cycle, type UnitRow } from "@/lib/api";
 import { getCycleForEdit, updateCycle, type CycleEdit } from "@/lib/cycle-setup-api";
 import { isError } from "@/lib/frappe";
-import { cropLabel, cropPickerOptions, hasFieldCrops } from "@/lib/field-crops";
+import { SubCropField } from "@/components/cycles/SubCropField";
+import { cropLabel, cropPickerOptions, hasFieldCrops, subCropsOf } from "@/lib/field-crops";
 import { listVarieties, type Variety } from "@/lib/varieties-api";
 
 function Field({ label, htmlFor, hint, children, className }: { label: string; htmlFor?: string; hint?: string; children: React.ReactNode; className?: string }) {
@@ -50,6 +51,7 @@ export function EditCycleDialog({
   const [orig, setOrig] = useState<CycleEdit | null>(null);
   const [unit, setUnit] = useState("");
   const [fieldCrop, setFieldCrop] = useState("");
+  const [subCrop, setSubCrop] = useState("");
   const [variety, setVariety] = useState("");
   const [protocol, setProtocol] = useState("");
   const [start, setStart] = useState("");
@@ -78,6 +80,7 @@ export function EditCycleDialog({
       setOrig(c);
       setUnit(c.unit);
       setFieldCrop(c.field_crop ?? "");
+      setSubCrop(c.sub_crop ?? "");
       setVariety(c.variety ?? "");
       setProtocol(c.protocol ?? "");
       setStart(c.start_date ?? "");
@@ -111,7 +114,8 @@ export function EditCycleDialog({
   }, [protocols, variety, orig]);
 
   const withCrops = hasFieldCrops(crop);
-  const shownVarieties = withCrops && fieldCrop ? varieties.filter((x) => x.field_crop === fieldCrop) : varieties;
+  const cropSubs = withCrops ? subCropsOf(crop.field_crops, fieldCrop) : [];
+  const shownVarieties = withCrops && fieldCrop ? varieties.filter((x) => x.field_crop === fieldCrop && (!subCrop || !x.sub_crop || x.sub_crop === subCrop)) : varieties;
   const running = status === "Active" || status === "Harvesting";
   const replans = !!orig && running && (protocol !== (orig.protocol ?? "") || start !== orig.start_date);
   const badRange = !!hFrom && !!hTo && hTo < hFrom;
@@ -123,6 +127,7 @@ export function EditCycleDialog({
     setBusy(true);
     const r = await updateCycle(orig.name, {
       unit,
+      ...(withCrops && cropSubs.length ? { sub_crop: subCrop || null } : {}),
       variety: variety || null,
       protocol: protocol || null,
       start_date: start,
@@ -190,6 +195,7 @@ export function EditCycleDialog({
                       value={fieldCrop}
                       onChange={(c) => {
                         setFieldCrop(c);
+                        setSubCrop("");
                         if (variety && varieties.find((x) => x.name === variety)?.field_crop !== c) setVariety("");
                       }}
                       options={cropPickerOptions(crop.field_crops, { includeDisabled: true })}
@@ -197,6 +203,7 @@ export function EditCycleDialog({
                     />
                   </Field>
                 )}
+                {withCrops && <SubCropField id="ec-subcrop" subCrops={cropSubs} value={subCrop} onChange={setSubCrop} />}
                 <Field label="Variety" htmlFor="ec-variety" hint={!variety && orig.item ? `Item ${orig.item}` : undefined}>
                   <Picker
                     id="ec-variety"

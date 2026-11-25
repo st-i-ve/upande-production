@@ -139,4 +139,31 @@ describe("Overview", () => {
     renderPage(<Overview />);
     expect(await screen.findByText("Every cycle is on protocol.")).toBeTruthy();
   });
+
+  it("rolls harvest up per crop group without adding Kg to Pieces", async () => {
+    const FV = {
+      ...AQUA, name: "Fruits & Vegetables", crop_key: "fruits-vegetables", uses_crop_cycles: 1, unit_label: "Block", has_field_crops: 1,
+      field_crops: [
+        { name: "Cabbage", crop_name: "Cabbage", crop_group: "Vegetable Crops", harvest_uom: "Pieces", product: null, color: null, enabled: 1 },
+        { name: "Potato", crop_name: "Potato", crop_group: "Vegetable Crops", harvest_uom: "Kg", product: null, color: null, enabled: 1 },
+        { name: "Onion", crop_name: "Onion", crop_group: "Vegetable Crops", harvest_uom: "Kg", product: null, color: null, enabled: 1 },
+      ],
+    };
+    getOverview.mockResolvedValue({
+      tiles,
+      blocks: [],
+      harvest_by_crop: [
+        { field_crop: "Cabbage", uom: "Pieces", qty: 1200, value: 0 },
+        { field_crop: "Potato", uom: "Kg", qty: 3400, value: 0 },
+        { field_crop: "Onion", uom: "Kg", qty: 600, value: 0 },
+      ],
+      field_crops: {},
+    } as never);
+    renderPage(<Overview />, true, FV as never);
+    await screen.findByTestId("harvest-by-crop");
+    const lines = screen.getAllByTestId("group-rollup").map((l) => l.textContent);
+    expect(lines).toHaveLength(2);
+    expect(lines.some((l) => /Vegetable Crops.*4,000 Kg/.test(l ?? ""))).toBe(true);
+    expect(lines.some((l) => /Vegetable Crops.*1,200 Pieces/.test(l ?? ""))).toBe(true);
+  });
 });

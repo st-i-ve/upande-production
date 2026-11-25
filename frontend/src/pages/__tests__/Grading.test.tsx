@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { renderPage } from "./helpers";
+import { CROP, renderPage } from "./helpers";
 
 vi.mock("@/lib/fv-api", () => ({ getIrrigation: vi.fn(), saveIrrigationRun: vi.fn(), getGrading: vi.fn(), saveGrading: vi.fn() }));
 import { getGrading, saveGrading } from "@/lib/fv-api";
@@ -101,5 +101,22 @@ describe("Grading", () => {
       }),
     );
     await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+  });
+
+  it("rolls received kg up per crop group", async () => {
+    get.mockResolvedValue({ ...payload(), field_crops: ["Cabbage", "Potato"], by_crop: [bucket("Cabbage", 4000, 1000, 250), bucket("Potato", 2300, 2200, 250)] } as never);
+    const FV = {
+      ...CROP, has_field_crops: 1,
+      field_crops: [
+        { name: "Cabbage", crop_name: "Cabbage", crop_group: "Vegetable Crops", harvest_uom: "Pieces", product: null, color: null, enabled: 1 },
+        { name: "Potato", crop_name: "Potato", crop_group: "Vegetable Crops", harvest_uom: "Kg", product: null, color: null, enabled: 1 },
+      ],
+    };
+    renderPage(<Grading />, {}, FV as never);
+    await screen.findByTestId("by-item-Cabbage");
+    const lines = screen.getAllByTestId("group-rollup");
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toHaveTextContent("Vegetable Crops");
+    expect(lines[0]).toHaveTextContent("10,000 Kg");
   });
 });
