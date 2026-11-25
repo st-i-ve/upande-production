@@ -4,7 +4,7 @@ import frappe
 from frappe.utils import getdate
 from frappe import _
 
-from upande_production.production.logic.settings import can_reschedule
+from upande_production.production.logic.settings import can_reschedule, crop_allowed
 
 
 def require_reschedule() -> None:
@@ -29,6 +29,8 @@ def _rules(vals: dict, override_reason, exclude_task=None) -> dict:
 
 def _load(plan: str, task: str):
 	doc = frappe.get_doc("Production Work Plan", plan)
+	if not crop_allowed(doc.crop):  # the @run gate only sees `crop`, and these endpoints take a plan
+		frappe.throw(_("You are not permitted to see this crop."), frappe.PermissionError)
 	row = next((r for r in doc.tasks if r.name == task), None)
 	if not row:
 		frappe.throw(_("Task {0} not found on this plan").format(task), frappe.ValidationError)
@@ -100,7 +102,6 @@ def postpone_task(plan: str, task: str, new_date: str, reason: str, override_rea
 			"supervisor_from_plan", "times_per_week", "note", "original_due_date", "postpone_count")}
 		vals.update(planned_qty=remainder, status="Open")
 		_stamp(vals, row.due_date, reason, row.postpone_count)
-		old_due, count = row.due_date, row.postpone_count
 		vals["due_date"] = new_date
 		vals.update(_rules(vals, override_reason))
 		row.status = "Partly Done"

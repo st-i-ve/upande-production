@@ -43,6 +43,7 @@ class TestPlanTaskSchedule(IntegrationTestCase):
 		cls.mgr = _user("pts.mgr@x.test", "Production Manager")
 		cls.sup = _user("pts.sup@x.test", "Production Supervisor")
 		cls.editor = _user("pts.editor@x.test", "Production Supervisor", "Production Plan Editor")
+		cls.avo = _user("pts.avo@x.test", "Avocado Production Manager", "Production Plan Editor")
 		cls.employee = _make("Employee", first_name="PTSEmp", gender="Male", date_of_birth="1990-01-01",
 			date_of_joining="2020-01-01", company=cls.company)
 		cls.year, cls.week = iso_of(today())
@@ -58,7 +59,7 @@ class TestPlanTaskSchedule(IntegrationTestCase):
 		for dt, doc in (("Employee", cls.employee), ("Production Unit", cls.u2), ("Production Unit", cls.u1),
 				("Field Operation", cls.op), ("Production Crop", cls.crop), ("Farm", cls.farm)):
 			frappe.delete_doc(dt, doc.name, force=True)
-		for u in (cls.mgr, cls.sup, cls.editor):
+		for u in (cls.mgr, cls.sup, cls.editor, cls.avo):
 			frappe.delete_doc("User", u, force=True)
 		frappe.db.commit()
 		super().tearDownClass()
@@ -219,7 +220,8 @@ class TestPlanTaskSchedule(IntegrationTestCase):
 		frappe.db.set_value("Work Plan Task", self.task, "status", "Done")
 		frappe.db.commit()
 		res = self.call("postpone_plan_task", self.mgr, new_date=add_days(self.start, 3), reason="Rain")
-		self.assertIn("error", res)
+		self.assertIn("Done task cannot be postponed", res["error"])
+		self.assertEqual(getdate(self.full().due_date), getdate(self.start))
 
 	def test_postpone_requires_reason(self):
 		res = self.call("postpone_plan_task", self.mgr, new_date=add_days(self.start, 3), reason="  ")
@@ -247,3 +249,11 @@ class TestPlanTaskSchedule(IntegrationTestCase):
 			res = self.call(fn, self.sup, **kw)
 			self.assertIn("not permitted", res["error"], fn)
 		self.assertTrue(frappe.db.exists("Work Plan Task", self.task))
+
+	def test_crop_restricted_user_refused(self):
+		d = add_days(self.start, 2)
+		for fn, kw in (("move_plan_task", {"new_date": d}),
+				("postpone_plan_task", {"new_date": d, "reason": "x"}), ("delete_plan_task", {"reason": "x"})):
+			res = self.call(fn, self.avo, **kw)
+			self.assertIn("not permitted to see this crop", res["error"], fn)
+		self.assertEqual(getdate(self.full().due_date), getdate(self.start))
