@@ -64,7 +64,7 @@ def running_cycles(crop):
 	rows = frappe.get_all(
 		"Production Crop Cycle",
 		filters=unit_filter({"crop": crop, "status": ("in", ["Active", "Harvesting"])}),
-		fields=["name", "unit", "item", "start_date", "variety", "field_crop", "current_stage", "juvenile", "status", "area_ha",
+		fields=["name", "unit", "item", "start_date", "variety", "field_crop", "sub_crop", "current_stage", "juvenile", "status", "area_ha",
 			"plant_count", "existing_cycle", "planting_date"],
 		order_by="start_date asc, creation asc",
 	)

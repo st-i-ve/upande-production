@@ -329,12 +329,13 @@ def productionRecordHarvest():
 		doc = frappe.get_doc({
 			"doctype": "Production Harvest", "unit": unit, "crop": crop,
 			"cycle": _s(data, "cycle") or None, "item": _s(data, "item") or None, "field_crop": _s(data, "field_crop") or None,
+			"sub_crop": _s(data, "sub_crop") or None,
 			"qty": float(data.get("qty")), "uom": uom, "grade": _s(data, "grade") or None,
 			"harvest_date": _s(data, "harvest_date") or today(),
 		})
 		doc.insert()
 		frappe.db.commit()
-		return {"status": "success", "name": doc.name, "value": doc.value, "field_crop": doc.field_crop, "uom": doc.uom,
+		return {"status": "success", "name": doc.name, "value": doc.value, "field_crop": doc.field_crop, "sub_crop": doc.sub_crop, "uom": doc.uom,
 			"message": "Harvest recorded."}
 
 	_run("productionRecordHarvest", go)
@@ -696,7 +697,7 @@ def productionGetPlanDetail():
 		blocks = {}
 		for t in tasks:
 			row = {k: t.get(k) for k in PLAN_TASK_FIELDS}
-			row.update({"field_crop": t.get("field_crop"), "variety": t.get("variety"), "crop_label": t.get("crop_label"),
+			row.update({"field_crop": t.get("field_crop"), "sub_crop": t.get("sub_crop"), "variety": t.get("variety"), "crop_label": t.get("crop_label"),
 				"supervisor_name": sup_names.get(t.supervisor), "is_late": _is_late(t),
 				"deviation": t.deviation or None, "entries": crew.get(t.name, []),
 				"from_protocol": bool(t.protocol_ref),

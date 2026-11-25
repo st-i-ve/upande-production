@@ -304,7 +304,7 @@ class TestHarvest(IntegrationTestCase):
 		self.assertEqual((res["team_number"], res["block"], len(res["crates_marked"])), ("HV-T2", self.unit4.name, 2))
 		state = api.get_harvesting_state(block=self.unit4.name)
 		self.assertEqual(state["totals"]["batches"], 1)
-		self.assertEqual(set(state["batches"][0]), {"batch_id", "delivery_note", "status", "team_id", "creation", "stock_entry", "crates", "estimated_kg", "field_crop", "uom"})
+		self.assertEqual(set(state["batches"][0]), {"batch_id", "delivery_note", "status", "team_id", "creation", "stock_entry", "crates", "estimated_kg", "field_crop", "sub_crop", "uom"})
 		today_ = api.get_team_harvest_today(team_id="HV-T2")
 		self.assertEqual(set(today_), {"team_id", "total", "filling", "full", "ready", "in_transit", "received"})
 		self.assertEqual((today_["total"], today_["ready"], today_["filling"]), (2, 2, 0))

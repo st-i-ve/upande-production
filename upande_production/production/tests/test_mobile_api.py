@@ -244,6 +244,35 @@ class TestMobileApi(IntegrationTestCase):
 			self.assertIn(k, blk)
 			self.assertIn(k, t)
 
+	def test_plan_detail_and_blocks_carry_sub_crop_and_its_unit(self):
+		from upande_production.mobile import harvest as mobile_harvest
+		if not frappe.db.exists("UOM", "Pieces"):
+			_make("UOM", uom_name="Pieces")
+		fc = _make("Production Field Crop", crop_name="TM Rose", crop_group="Fruit Crops", harvest_uom="Kg")
+		sub = _make("Production Sub Crop", sub_crop_name="TM Spray rose", field_crop=fc.name, harvest_uom="Pieces")
+		self.addCleanup(lambda: frappe.db.delete("Work Plan Task", {"cycle": cyc.name}))
+		self.addCleanup(lambda: [frappe.delete_doc(dt, n, force=True, ignore_permissions=True)
+			for dt, n in (("Production Crop Cycle", cyc.name), ("Production Sub Crop", sub.name), ("Production Field Crop", fc.name))])
+		cyc = frappe.get_doc({"doctype": "Production Crop Cycle", "unit": self.unit.name, "crop": self.crop.name,
+			"cycle_type": "Season", "start_date": today(), "status": "Active"})
+		cyc.flags.ignore_validate = True
+		cyc.insert(ignore_permissions=True)
+		frappe.db.set_value("Production Crop Cycle", cyc.name, {"field_crop": fc.name, "sub_crop": sub.name})
+		plan, task = self._plan_with_task(due_date=today(), supervisor=self.emp.name, cycle=cyc.name)
+		y, w = iso_of(today())
+		det = self._call(api.productionGetPlanDetail, {"crop": self.crop.name, "farm": self.farm.name, "year": y, "week": w})
+		blk = next(b for b in det["blocks"] if b["unit"] == self.unit.name)
+		t = next(t for t in blk["tasks"] if t["name"] == task)
+		self.assertEqual((t["field_crop"], t["sub_crop"], t["crop_label"]), ("TM Rose", "TM Spray rose", "TM Rose \u00b7 TM Spray rose"))
+		with patch.object(mobile_harvest, "_crate_units", return_value=[self.unit]), \
+				patch.object(mobile_harvest, "current_cycles", return_value={self.unit.name: frappe.get_doc("Production Crop Cycle", cyc.name)}):
+			b = mobile_harvest.get_blocks(farm=self.farm.name)[0]
+		self.assertEqual((b["field_crop"], b["sub_crop"], b["harvest_uom"]), ("TM Rose", "TM Spray rose", "Pieces"))
+		frappe.db.set_value("Production Sub Crop", sub.name, "harvest_uom", None)
+		with patch.object(mobile_harvest, "_crate_units", return_value=[self.unit]), \
+				patch.object(mobile_harvest, "current_cycles", return_value={self.unit.name: frappe.get_doc("Production Crop Cycle", cyc.name)}):
+			self.assertEqual(mobile_harvest.get_blocks(farm=self.farm.name)[0]["harvest_uom"], "Kg")
+
 	def test_generate_plan_without_cycles_explains(self):
 		res = self._call(api.productionGeneratePlan, {"crop": self.crop.name, "farm": self.farm.name})
 		self.assertEqual(res["status"], "success")

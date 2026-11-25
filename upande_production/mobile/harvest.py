@@ -180,8 +180,9 @@ def get_blocks(farm=None, section=None, crop=None, **kw):
 			fc = cy.field_crop if cy else None
 			out.append({"name": u.name, "label": u.unit_name, "crop": u.crop, "section": sec,
 				"item": cy.item if cy else None, "cost_center": u.cost_center,
-				"field_crop": fc, "variety": cy.variety if cy else None,
-				"harvest_uom": (units_of.get(fc) or {}).get("uom") if fc else None})
+				"field_crop": fc, "sub_crop": cy.sub_crop if cy else None, "variety": cy.variety if cy else None,
+				"harvest_uom": field_crops.harvest_uom(fc, default=(units_of.get(fc) or {}).get("uom"),
+					sub_crop=cy.sub_crop if cy else None) if fc else None})
 		return out
 	except Exception as e:
 		return _fail("get_blocks", e)
@@ -254,7 +255,7 @@ def get_harvesting_state(block=None, **kw):
 			"status": c.status, "allocated_at": str(c.allocated_at) if c.allocated_at else None}
 			for c in crates if c.status in H.OPEN_STATUSES]
 		batches = frappe.get_all("Harvest Batch", filters={"unit": block, "docstatus": 1, "creation": (">=", _today_start())},
-			fields=["name", "stock_entry", "status", "team", "creation", "crate_count", "estimated_kg", "field_crop", "uom"], order_by="creation desc")
+			fields=["name", "stock_entry", "status", "team", "creation", "crate_count", "estimated_kg", "field_crop", "sub_crop", "uom"], order_by="creation desc")
 		return {
 			"totals": {"total": len(crates), "filling": sum(c.status == "Filling" for c in crates),
 				"full": sum(c.status == "Full" for c in crates), "in_transit": 0, "batches": len(batches),
@@ -262,7 +263,7 @@ def get_harvesting_state(block=None, **kw):
 			"by_harvestor": by_harvestor,
 			"batches": [{"batch_id": b.name, "delivery_note": b.stock_entry, "status": b.status, "team_id": b.team,
 				"creation": str(b.creation), "stock_entry": b.stock_entry, "crates": b.crate_count,
-				"estimated_kg": b.estimated_kg, "field_crop": b.field_crop, "uom": b.uom or "Kg"} for b in batches],
+				"estimated_kg": b.estimated_kg, "field_crop": b.field_crop, "sub_crop": b.sub_crop, "uom": b.uom or "Kg"} for b in batches],
 			"not_collected": not_collected,
 		}
 	except Exception as e:
@@ -384,7 +385,7 @@ def mark_ready_for_collection(block=None, team_id=None, warehouse=None, **kw):
 				"crate_count": batch.crate_count, "crates_marked": [r.crate_id for r in batch.crates],
 				"batch": batch.name, "stock_entry": batch.stock_entry, "item": batch.item,
 				"estimated_kg": batch.estimated_kg, "avg_kg_per_crate": batch.avg_kg_per_crate,
-				"field_crop": batch.field_crop, "uom": batch.uom or "Kg",
+				"field_crop": batch.field_crop, "sub_crop": batch.get("sub_crop"), "uom": batch.uom or "Kg",
 				"production_harvest": batch.production_harvest, "warehouse": batch.warehouse,
 				"work": frappe.get_all("Casual Labour Work", filters={"harvest_batch": batch.name}, pluck="name"),
 			})

@@ -306,25 +306,27 @@ def link_records() -> dict:
 # -- reading ---------------------------------------------------------------------------------------
 
 
-def label(field_crop, variety=None) -> str | None:
-	"""'Cabbage (Gloria F1)': the text a cycle or a task carries on the screens."""
+def label(field_crop, variety=None, sub_crop=None) -> str | None:
+	"""'Cabbage (Gloria F1)', 'Rose · Spray rose (Avalanche)': the text a cycle or a task carries on the screens."""
 	if not field_crop:
 		return variety or None
-	return f"{field_crop} ({variety})" if variety else field_crop
+	text = f"{field_crop} · {sub_crop}" if sub_crop else field_crop
+	return f"{text} ({variety})" if variety else text
 
 
 def annotate_cycles(rows, cycle_key="cycle") -> None:
-	"""Add field_crop, variety and crop_label to rows (dicts) that point at a cycle."""
+	"""Add field_crop, sub_crop, variety and crop_label to rows (dicts) that point at a cycle."""
 	names = list({r.get(cycle_key) for r in rows if r.get(cycle_key)})
 	info = {}
 	if names:
 		info = {c.name: c for c in frappe.get_all("Production Crop Cycle", filters={"name": ("in", names)},
-			fields=["name", "field_crop", "variety"], limit_page_length=0)}
+			fields=["name", "field_crop", "sub_crop", "variety"], limit_page_length=0)}
 	for r in rows:
 		c = info.get(r.get(cycle_key))
 		r["field_crop"] = c.field_crop if c else None
+		r["sub_crop"] = c.sub_crop if c else None
 		r["variety"] = c.variety if c else None
-		r["crop_label"] = label(r["field_crop"], r["variety"])
+		r["crop_label"] = label(r["field_crop"], r["variety"], r["sub_crop"])
 
 
 def with_units(section=None) -> dict:
