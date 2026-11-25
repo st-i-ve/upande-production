@@ -52,6 +52,22 @@ class TestCropHierarchyMigration(IntegrationTestCase):
 			self.assertFalse(frappe.db.exists(dt, {"crop": section, "field_crop": ("!=", "Avocado")}), dt)
 			self.assertFalse(frappe.db.exists(dt, {"crop": section, "field_crop": ("is", "not set")}), dt)
 
+	def test_single_crop_section_fills_its_crop_silently(self):
+		"""Avocado has one crop: it is not a section 'with crops' (no crop required, no crop column) and a cycle
+		saved without field_crop ends with field_crop Avocado."""
+		section = frappe.db.get_value("Production Crop", {"crop_key": "avocado"}, "name")
+		unit = section and frappe.db.get_value("Production Unit", {"crop": section}, "name")
+		if not unit or not frappe.db.exists("Production Variety", "Hass"):
+			self.skipTest("no avocado section with units on this site")
+		self.assertFalse(field_crops.has_field_crops(section))
+		self.assertEqual(field_crops.only_crop(section), "Avocado")
+		frappe.db.set_value("Production Variety", "Hass", "field_crop", None)
+		cyc = frappe.get_doc({"doctype": "Production Crop Cycle", "unit": unit, "crop": section, "variety": "Hass", "cycle_type": "Season",
+			"start_date": frappe.utils.today(), "status": "Closed"})
+		cyc.insert()  # must not throw
+		self.assertEqual(cyc.field_crop, "Avocado")
+		self.assertEqual(frappe.db.get_value("Production Crop Cycle", cyc.name, "field_crop"), "Avocado")
+
 	def test_crop_hierarchy_patch_idempotent(self):
 		crop_hierarchy.execute()
 		before = _counts()
@@ -94,3 +110,46 @@ class TestCropHierarchyMigration(IntegrationTestCase):
 				if df.label != "Section":
 					bad.append((dt, df.fieldname, df.label))
 		self.assertEqual(bad, [])
+
+
+class TestRenameCopyPath(IntegrationTestCase):
+	"""The rename patch's copy path, with a throwaway source doctype so no real data is touched."""
+
+	SRC = "Throwaway Crop Src"
+
+	def setUp(self):
+		frappe.set_user("Administrator")
+		if frappe.db.exists("DocType", self.SRC):
+			frappe.delete_doc("DocType", self.SRC, force=True)
+		frappe.get_doc({"doctype": "DocType", "name": self.SRC, "module": "Production", "custom": 1, "autoname": "field:crop_name",
+			"fields": [
+				{"fieldname": "crop_name", "fieldtype": "Data", "label": "Crop", "unique": 1},
+				{"fieldname": "product", "fieldtype": "Data", "label": "Product"},
+				{"fieldname": "harvest_uom", "fieldtype": "Data", "label": "Harvest Unit"},
+				{"fieldname": "color", "fieldtype": "Data", "label": "Colour"},
+				{"fieldname": "enabled", "fieldtype": "Check", "label": "Enabled"},
+			], "permissions": [{"role": "System Manager", "read": 1, "write": 1, "create": 1}]}).insert()
+		for n, uom, enabled in (("TRC Alpha", "Kg", 1), ("Maize", "Pieces", 0), ("TRC Beta", "Pieces", 0)):
+			frappe.get_doc({"doctype": self.SRC, "crop_name": n, "harvest_uom": uom, "color": "#112233", "enabled": enabled}).insert()
+		self.new = "Production Field Crop"
+		self.existing = frappe.db.exists(self.new, "Maize")
+
+	def tearDown(self):
+		frappe.delete_doc("DocType", self.SRC, force=True)
+		for n in ("TRC Alpha", "TRC Beta"):
+			if frappe.db.exists(self.new, n):
+				frappe.delete_doc(self.new, n, force=True)
+		frappe.db.commit()
+
+	def test_copy_rows_keeps_every_row_and_skips_existing(self):
+		from upande_production.patches import rename_field_crop_doctype as p
+
+		before_maize = frappe.db.get_value(self.new, "Maize", ["harvest_uom", "enabled"]) if self.existing else None
+		copied = p.copy_rows(self.SRC, self.new)
+		self.assertEqual(copied, 3 if not self.existing else 2)
+		alpha = frappe.db.get_value(self.new, "TRC Alpha", ["crop_name", "harvest_uom", "color", "enabled", "crop_group"], as_dict=True)
+		self.assertEqual((alpha.harvest_uom, alpha.color, alpha.enabled, alpha.crop_group), ("Kg", "#112233", 1, None))
+		self.assertEqual(frappe.db.get_value(self.new, "TRC Beta", "enabled"), 0)
+		if self.existing:  # a name already present is left as it is
+			self.assertEqual(frappe.db.get_value(self.new, "Maize", ["harvest_uom", "enabled"]), before_maize)
+		self.assertEqual(p.copy_rows(self.SRC, self.new), 0)  # idempotent

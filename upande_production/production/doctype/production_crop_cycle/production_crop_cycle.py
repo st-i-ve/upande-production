@@ -37,6 +37,8 @@ class ProductionCropCycle(Document):
 		fc = field_crops.from_variety(self.variety) if self.variety else None
 		if not fc and not self.variety and not self.field_crop:
 			fc = field_crops.from_item(self.item, self.crop)
+		if not fc and not self.field_crop:
+			fc = field_crops.only_crop(self.crop)  # a single-crop section (Avocado) fills its crop silently
 		if fc:
 			self.field_crop = fc
 		field_crops.check_section(self.field_crop, self.crop)

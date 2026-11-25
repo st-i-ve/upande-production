@@ -15,8 +15,15 @@ DEFAULT_UOM = "Kg"
 
 
 def has_field_crops(section) -> bool:
-	"""True when the section has a variety that names an enabled crop (Task 2 replaces this with crops_of)."""
-	return bool(section) and bool(crops_of(section))
+	"""True when the section has MORE THAN ONE crop (Fruits & Vegetables). A single-crop section (Avocado) keeps its
+	pages as they are; its crop is filled in silently (see only_crop). Task 2 refines this."""
+	return bool(section) and len(crops_of(section)) > 1
+
+
+def only_crop(section):
+	"""The crop of a section that has exactly one, else None."""
+	crops = crops_of(section)
+	return crops[0] if len(crops) == 1 else None
 
 
 def crops_of(section) -> list:
@@ -99,6 +106,8 @@ def stamp(doc, *, cycle_field="cycle", with_uom=False) -> None:
 			fc = from_item(doc.item, doc.get("crop"))
 		if not fc and doc.get("unit") and has_field_crops(doc.get("crop") or frappe.db.get_value("Production Unit", doc.unit, "crop")):
 			fc = for_unit(doc.unit)
+		if not fc:
+			fc = only_crop(doc.get("crop") or (frappe.db.get_value("Production Unit", doc.unit, "crop") if doc.get("unit") else None))
 		doc.field_crop = fc
 	if doc.field_crop:
 		check_section(doc.field_crop, doc.get("crop"))

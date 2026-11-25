@@ -84,6 +84,10 @@ class TestFieldCrops(IntegrationTestCase):
 		# a section has crops through its varieties
 		self.assertFalse(field_crops.has_field_crops(self.section.name))
 		frappe.db.set_value("Production Variety", self.gloria, "field_crop", "FCX Beans")
+		self.assertFalse(field_crops.has_field_crops(self.section.name))  # one crop is not "a section with crops"
+		self.assertEqual(field_crops.only_crop(self.section.name), "FCX Beans")
+		_make("Production Field Crop", crop_name="FCX Peas2", crop_group="Vegetable Crops", harvest_uom="Kg")
+		frappe.db.set_value("Production Variety", self.shangi, "field_crop", "FCX Peas2")
 		self.assertTrue(field_crops.has_field_crops(self.section.name))
 		self.assertFalse(field_crops.has_field_crops(self.single.name))
 
@@ -146,6 +150,8 @@ class TestFieldCrops(IntegrationTestCase):
 
 	def test_cycle_needs_a_crop_when_the_section_has_crops(self):
 		add_field_crops.execute()  # the section now has crops through its varieties
+		_make("Production Field Crop", crop_name="FCX Third", crop_group="Vegetable Crops", harvest_uom="Kg")
+		_make("Production Variety", variety_name="FCX Third V", crop=self.section.name, field_crop="FCX Third", item="FCX Lone")  # a third crop: still several
 		frappe.db.set_value("Production Variety", self.gloria, "field_crop", None)
 		with self.assertRaises(frappe.ValidationError):
 			self._cycle(self.unit, self.gloria)
