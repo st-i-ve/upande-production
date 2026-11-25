@@ -35,12 +35,18 @@ class ProductionCropCycle(Document):
 	def set_field_crop(self):
 		"""The cycle's crop is its variety's; with no variety (an existing cycle given by item) it is the item's."""
 		fc = field_crops.from_variety(self.variety) if self.variety else None
+		if self.variety and not self.is_new() and self.has_value_changed("variety") and not self.has_value_changed("field_crop"):
+			# the variety was changed on a saved cycle: crop and sub-crop follow the new variety
+			self.field_crop = fc
+			self.sub_crop = frappe.db.get_value("Production Variety", self.variety, "sub_crop")
 		if not fc and not self.variety and not self.field_crop:
 			fc = field_crops.from_item(self.item, self.crop)
 		if not fc and not self.field_crop:
 			fc = field_crops.only_crop(self.crop)  # a single-crop section (Avocado) fills its crop silently
 		if fc and not self.field_crop:
 			self.field_crop = fc  # a crop given that the variety disagrees with is refused below
+		if self.variety and not self.sub_crop:
+			self.sub_crop = frappe.db.get_value("Production Variety", self.variety, "sub_crop")
 		field_crops.check_variety(self)
 		if not frappe.flags.in_demo_seed:
 			field_crops.require_on_cycle(self)

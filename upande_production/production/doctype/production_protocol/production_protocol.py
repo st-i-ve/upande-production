@@ -82,6 +82,8 @@ class ProductionProtocol(Document):
 				self.item = vitem
 		if not self.field_crop and (self.is_new() or not self.get_doc_before_save() or self.get_doc_before_save().version_status not in LOCKED):
 			self.field_crop = field_crops.from_variety(self.variety) or field_crops.from_item(self.item, self.crop)
+		if self.variety and not self.get("sub_crop"):
+			self.sub_crop = frappe.db.get_value("Production Variety", self.variety, "sub_crop")
 		field_crops.check_variety(self)
 		if not self.version:
 			self.version = 1

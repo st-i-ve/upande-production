@@ -119,8 +119,7 @@ class TestRenameCopyPath(IntegrationTestCase):
 
 	def setUp(self):
 		frappe.set_user("Administrator")
-		if frappe.db.exists("DocType", self.SRC):
-			frappe.delete_doc("DocType", self.SRC, force=True)
+		self._remove_src()
 		frappe.get_doc({"doctype": "DocType", "name": self.SRC, "module": "Production", "custom": 1, "autoname": "field:crop_name",
 			"fields": [
 				{"fieldname": "crop_name", "fieldtype": "Data", "label": "Crop", "unique": 1},
@@ -134,12 +133,22 @@ class TestRenameCopyPath(IntegrationTestCase):
 		self.new = "Production Field Crop"
 		self.existing = frappe.db.exists(self.new, "Maize")
 
-	def tearDown(self):
-		frappe.delete_doc("DocType", self.SRC, force=True)
-		for n in ("TRC Alpha", "TRC Beta"):
-			if frappe.db.exists(self.new, n):
-				frappe.delete_doc(self.new, n, force=True)
+	def _remove_src(self):
+		"""The throwaway doctype and its rows: a doctype delete leaves the table, so empty it first."""
+		if frappe.db.table_exists(self.SRC):
+			frappe.db.delete(self.SRC)
+		if frappe.db.exists("DocType", self.SRC):
+			frappe.delete_doc("DocType", self.SRC, force=True)
 		frappe.db.commit()
+
+	def tearDown(self):
+		try:
+			self._remove_src()
+		finally:
+			for n in ("TRC Alpha", "TRC Beta"):
+				if frappe.db.exists("Production Field Crop", n):
+					frappe.delete_doc("Production Field Crop", n, force=True)
+			frappe.db.commit()
 
 	def test_copy_rows_keeps_every_row_and_skips_existing(self):
 		from upande_production.patches import rename_field_crop_doctype as p

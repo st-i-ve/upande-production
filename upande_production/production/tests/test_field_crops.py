@@ -294,3 +294,51 @@ class TestFieldCrops(IntegrationTestCase):
 		self.assertEqual(field_crops.harvest_uom("FCX Eps", sub_crop="FCX Eps Sub"), "Pieces")
 		self.assertEqual(field_crops.harvest_uom("FCX Eps"), "Kg")
 		self.assertEqual(field_crops.harvest_uom(None, default="Box"), "Box")
+
+	def test_crops_of_sorted(self):
+		self._two_crops()
+		frappe.db.set_value("Production Variety", self.gloria, "field_crop", "FCX Beta")
+		frappe.db.set_value("Production Variety", self.shangi, "field_crop", "FCX Alpha")
+		self.assertEqual(field_crops.crops_of(self.section.name), ["FCX Alpha", "FCX Beta"])
+
+	def test_variety_change_restamps_crop(self):
+		self._two_crops()
+		cyc = self._cycle(self.unit, self.gloria)
+		self.assertEqual(cyc.field_crop, "FCX Alpha")
+		cyc.variety = self.shangi
+		cyc.save()
+		self.assertEqual(cyc.field_crop, "FCX Beta")
+		cyc.field_crop = "FCX Alpha"  # an explicit crop that disagrees with the variety is refused
+		with self.assertRaises(frappe.ValidationError):
+			cyc.save()
+
+	def _sub_variety(self):
+		_make("Production Field Crop", crop_name="FCX Zeta", crop_group="Fruit Crops", harvest_uom="Kg")
+		for n in ("FCX Zeta A", "FCX Zeta B"):
+			_make("Production Sub Crop", sub_crop_name=n, field_crop="FCX Zeta")
+		v = _make("Production Variety", variety_name="FCX Zeta V", crop=self.single.name, item="FCX Lone", field_crop="FCX Zeta",
+			sub_crop="FCX Zeta A")
+		return v.name
+
+	def test_cycle_and_protocol_take_sub_crop_from_variety(self):
+		v = self._sub_variety()
+		cyc = _make("Production Crop Cycle", unit=self.single_unit, crop=self.single.name, variety=v, cycle_type="Season",
+			start_date=today(), status="Active")
+		self.assertEqual((cyc.field_crop, cyc.sub_crop), ("FCX Zeta", "FCX Zeta A"))
+		cyc.sub_crop = "FCX Zeta B"
+		with self.assertRaises(frappe.ValidationError):
+			cyc.save()
+		p = _make("Production Protocol", protocol_name="FCX Proto", crop=self.single.name, variety=v)
+		self.assertEqual((p.field_crop, p.sub_crop), ("FCX Zeta", "FCX Zeta A"))
+		p.sub_crop = "FCX Zeta B"
+		with self.assertRaises(frappe.ValidationError):
+			p.save()
+
+	def test_stamp_fills_sub_crop_from_variety(self):
+		v = self._sub_variety()
+		doc = frappe.get_doc({"doctype": "Production Crop Cycle", "variety": v, "crop": self.single.name})
+		field_crops.stamp(doc, cycle_field="name")
+		self.assertEqual(doc.sub_crop, "FCX Zeta A")
+		doc.sub_crop = "FCX Zeta B"
+		with self.assertRaises(frappe.ValidationError):
+			field_crops.stamp(doc, cycle_field="name")

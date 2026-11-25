@@ -79,8 +79,7 @@
    "fieldname": "sub_crop",
    "fieldtype": "Link",
    "label": "Sub-crop",
-   "options": "Production Sub Crop",
-   "fetch_from": "variety.sub_crop"
+   "options": "Production Sub Crop"
   },
   {
    "fieldname": "item",

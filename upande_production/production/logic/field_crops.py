@@ -34,7 +34,7 @@ def crops_of(section) -> list:
 	if not section:
 		return []
 	names = frappe.get_all("Production Variety", filters={"crop": section, "field_crop": ("is", "set")}, pluck="field_crop", distinct=True)
-	return frappe.get_all(DT, filters={"name": ("in", names), "enabled": 1}, pluck="name") if names else []
+	return frappe.get_all(DT, filters={"name": ("in", names), "enabled": 1}, pluck="name", order_by="name asc") if names else []
 
 
 def list_for(section, enabled_only=False) -> list:
