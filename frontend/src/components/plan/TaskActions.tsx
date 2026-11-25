@@ -63,9 +63,11 @@ export function TaskActions({
           </button>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-56 p-1.5" role="menu">
-          <button type="button" role="menuitem" className={ITEM} onClick={() => open("move")}>
-            Change date
-          </button>
+          {!finished && (
+            <button type="button" role="menuitem" className={ITEM} onClick={() => open("move")}>
+              Change date
+            </button>
+          )}
           {!finished && (
             <button type="button" role="menuitem" className={ITEM} onClick={() => open("postpone")}>
               Postpone
@@ -194,7 +196,7 @@ export function ChangeDateDialog({ plan, task, weekStart, onClose, onDone }: Dia
     >
       <div className="flex flex-col gap-1.5">
         <Label>New date</Label>
-        <DatePicker value={date} onChange={setDate} min={min} max={max} aria-label="New date" />
+        <DatePicker value={date} onChange={(d) => { setDate(d); setRule(null); }} min={min} max={max} aria-label="New date" />
         {!inWeek && <p className="text-[12.5px] text-[var(--sd-muted)]">Pick a day in this week. To move it to another week, postpone it.</p>}
       </div>
       {rule?.status === "Block" && <BlockNotice breaches={rule.breaches} />}
@@ -232,7 +234,7 @@ export function PostponeDialog({ plan, task, onClose, onDone }: DialogProps) {
     >
       <div className="flex flex-col gap-1.5">
         <Label>New date</Label>
-        <DatePicker value={date} onChange={setDate} min={min} aria-label="New date" />
+        <DatePicker value={date} onChange={(d) => { setDate(d); setRule(null); }} min={min} aria-label="New date" />
         {!later && <p className="text-[12.5px] text-[var(--sd-muted)]">Pick a day after the current due date.</p>}
       </div>
       <div className="flex flex-col gap-1.5">

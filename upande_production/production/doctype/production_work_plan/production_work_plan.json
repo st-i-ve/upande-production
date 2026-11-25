@@ -14,7 +14,8 @@
   "week_end",
   "company",
   "tasks",
-  "notes"
+  "notes",
+  "dropped_protocol_refs"
  ],
  "fields": [
   {
@@ -71,6 +72,15 @@
    "fieldname": "notes",
    "fieldtype": "Small Text",
    "label": "Notes"
+  },
+  {
+   "fieldname": "dropped_protocol_refs",
+   "fieldtype": "Small Text",
+   "label": "Dropped Protocol Refs",
+   "hidden": 1,
+   "read_only": 1,
+   "no_copy": 1,
+   "description": "Protocol steps deleted or moved out of this plan; generate does not recreate them (one per line)."
   }
  ],
  "index_web_pages_for_search": 1,

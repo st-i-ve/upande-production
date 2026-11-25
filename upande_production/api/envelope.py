@@ -30,6 +30,7 @@ def run(fn):
 				frappe.throw(_("You are not permitted to see this crop."), frappe.PermissionError)
 			return fn(*args, **kwargs)
 		except frappe.PermissionError as e:
+			frappe.db.rollback()
 			return {"error": str(e) or _("Not permitted.")}
 		except frappe.ValidationError as e:
 			frappe.db.rollback()

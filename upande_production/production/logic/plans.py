@@ -33,6 +33,7 @@ def generate_week_detail(plan_name: str) -> dict:
 	plan = frappe.get_doc("Production Work Plan", plan_name)
 	start, end = iso_week_bounds(plan.plan_year, plan.plan_week)
 	existing = {t.protocol_ref for t in plan.tasks if t.protocol_ref}
+	existing |= {r.strip() for r in (plan.dropped_protocol_refs or "").splitlines() if r.strip()}
 	count = 0
 	skipped = []
 	if not crop_uses_cycles(plan.crop):

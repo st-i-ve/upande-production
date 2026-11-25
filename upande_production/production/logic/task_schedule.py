@@ -18,7 +18,14 @@ def has_work(task_name: str) -> bool:
 
 
 _NOT_COPIED = ("name", "parent", "parentfield", "parenttype", "idx", "creation", "modified", "owner",
-	"modified_by", "docstatus")
+	"modified_by", "docstatus", "wm_planner", "wm_assigner", "started_at", "completed_at", "done_qty",
+	"pending_qty")
+
+
+def _drop_ref(doc, ref) -> None:
+	"""Remember a protocol step that left this plan so generating the week does not bring it back."""
+	if ref:
+		doc.dropped_protocol_refs = "\n".join([*(doc.dropped_protocol_refs or "").splitlines(), ref])
 
 
 def _rules(vals: dict, override_reason, exclude_task=None) -> dict:
@@ -71,6 +78,8 @@ def move_task(plan: str, task: str, new_date: str, override_reason: str | None =
 	doc, row = _load(plan, task)
 	if iso_of(new_date) != (doc.plan_year, doc.plan_week):
 		frappe.throw(_("Pick a day in the same week; use Postpone to move it later."), frappe.ValidationError)
+	if row.status in ("Done", "Skipped"):
+		frappe.throw(_("A finished task's date can't be changed."), frappe.ValidationError)
 	vals = {"due_date": new_date}
 	vals.update(_rules({**row.as_dict(), **vals}, override_reason, exclude_task=row.name))
 	if not row.original_due_date:
@@ -101,6 +110,7 @@ def postpone_task(plan: str, task: str, new_date: str, reason: str, override_rea
 		vals = {k: row.get(k) for k in ("unit", "cycle", "operation", "operation_name", "uom", "rate", "supervisor",
 			"supervisor_from_plan", "times_per_week", "note", "original_due_date", "postpone_count")}
 		vals.update(planned_qty=remainder, status="Open")
+		row.planned_qty = (row.done_qty or 0) + (row.pending_qty or 0)
 		_stamp(vals, row.due_date, reason, row.postpone_count)
 		vals["due_date"] = new_date
 		vals.update(_rules(vals, override_reason))
@@ -110,12 +120,14 @@ def postpone_task(plan: str, task: str, new_date: str, reason: str, override_rea
 		vals = {k: row.get(k) for k in row.as_dict() if k not in _NOT_COPIED}
 		_stamp(vals, row.due_date, reason, row.postpone_count)
 		vals["due_date"] = new_date
+		vals["status"] = "Open"
 		vals.update(_rules(vals, override_reason, exclude_task=row.name))
 		if target is doc:
 			row.update(vals)
 			new = row
 		else:
 			doc.tasks = [r for r in doc.tasks if r.name != task]
+			_drop_ref(doc, row.protocol_ref)
 			new = target.append("tasks", vals)
 	_renumber(doc)
 	doc.save()
@@ -140,6 +152,7 @@ def delete_task(plan: str, task: str, reason: str) -> dict:
 	op_name = row.operation_name or frappe.db.get_value("Field Operation", row.operation, "operation_name") or row.operation
 	text = f"Deleted task {op_name} on {row.unit}, due {row.due_date}: {reason}"
 	doc.tasks = [r for r in doc.tasks if r.name != task]
+	_drop_ref(doc, row.protocol_ref)
 	_renumber(doc)
 	doc.save()
 	doc.add_comment("Comment", text)

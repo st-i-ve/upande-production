@@ -208,6 +208,7 @@ class TestPlanTaskSchedule(IntegrationTestCase):
 		new = frappe.db.get_value("Work Plan Task", data["task"],
 			["planned_qty", "status", "due_date", "postpone_count", "deviation"], as_dict=True)
 		self.assertEqual((new.planned_qty, new.status, new.postpone_count, new.deviation), (6, "Open", 1, "Late"))
+		self.assertEqual(frappe.db.get_value("Work Plan Task", self.task, "planned_qty"), 4)  # done + pending stay
 		self.assertEqual(getdate(new.due_date), getdate(d))
 		self.assertNotEqual(data["task"], self.task)
 
@@ -256,4 +257,79 @@ class TestPlanTaskSchedule(IntegrationTestCase):
 				("postpone_plan_task", {"new_date": d, "reason": "x"}), ("delete_plan_task", {"reason": "x"})):
 			res = self.call(fn, self.avo, **kw)
 			self.assertIn("not permitted to see this crop", res["error"], fn)
+		self.assertEqual(getdate(self.full().due_date), getdate(self.start))
+
+	# ---- final review fixes ----
+
+	def _direct(self, user, mutate):
+		frappe.set_user(user)
+		doc = frappe.get_doc("Production Work Plan", self.plan)
+		mutate(doc)
+		doc.save()
+
+	def test_direct_save_remove_row_refused_for_supervisor(self):
+		with self.assertRaises(frappe.PermissionError):
+			self._direct(self.sup, lambda d: d.set("tasks", []))
+		frappe.set_user("Administrator")
+		self.assertTrue(frappe.db.exists("Work Plan Task", self.task))
+
+	def test_direct_save_redate_refused_for_supervisor(self):
+		def redate(d):
+			d.tasks[0].due_date = add_days(self.start, 2)
+		with self.assertRaises(frappe.PermissionError):
+			self._direct(self.sup, redate)
+		self.assertEqual(getdate(self.row().due_date), getdate(self.start))
+
+	def test_direct_save_remove_row_with_work_refused_even_for_manager(self):
+		self.add_work(2)
+		with self.assertRaises(frappe.ValidationError):
+			self._direct(self.mgr, lambda d: d.set("tasks", []))
+		frappe.set_user("Administrator")
+		self.assertTrue(frappe.db.exists("Work Plan Task", self.task))
+
+	def test_supervisor_can_still_edit_other_fields_directly(self):
+		def edit(d):
+			d.tasks[0].note = "hello"
+		self._direct(self.sup, edit)
+
+	def _protocol_task(self, ref):
+		frappe.db.set_value("Work Plan Task", self.task, "protocol_ref", ref)
+		frappe.db.commit()
+
+	def test_delete_records_dropped_ref(self):
+		self._protocol_task("PROTO-1#1")
+		self.call("delete_plan_task", self.mgr, reason="No")
+		refs = frappe.db.get_value("Production Work Plan", self.plan, "dropped_protocol_refs")
+		self.assertIn("PROTO-1#1", refs.splitlines())
+
+	def test_postpone_next_week_records_dropped_ref(self):
+		self._protocol_task("PROTO-2#1")
+		d = add_days(self.start, 8)
+		self.call("postpone_plan_task", self.mgr, new_date=d, reason="Rain")
+		y, w = iso_of(d)
+		new_plan = frappe.db.get_value("Production Work Plan",
+			{"crop": self.crop.name, "farm": self.farm.name, "plan_year": y, "plan_week": w})
+		self.addCleanup(lambda: (frappe.set_user("Administrator"),
+			frappe.delete_doc("Production Work Plan", new_plan, force=True), frappe.db.commit()))
+		refs = frappe.db.get_value("Production Work Plan", self.plan, "dropped_protocol_refs")
+		self.assertIn("PROTO-2#1", refs.splitlines())
+
+	def test_cross_week_copy_drops_wm_and_progress(self):
+		frappe.db.set_value("Work Plan Task", self.task, {"wm_planner": "WMP-1", "wm_assigner": "WMA-1",
+			"done_qty": 0, "pending_qty": 0, "status": "Pending"})
+		frappe.db.commit()
+		d = add_days(self.start, 8)
+		res = self.call("postpone_plan_task", self.mgr, new_date=d, reason="Rain")
+		new_plan = res["plan"]
+		self.addCleanup(lambda: (frappe.set_user("Administrator"),
+			frappe.delete_doc("Production Work Plan", new_plan, force=True), frappe.db.commit()))
+		n = frappe.db.get_value("Work Plan Task", res["task"], ["wm_planner", "wm_assigner", "status"], as_dict=True)
+		self.assertEqual((n.wm_planner, n.wm_assigner, n.status), (None, None, "Open"))
+
+	def test_move_finished_task_refused(self):
+		for st in ("Done", "Skipped"):
+			frappe.db.set_value("Work Plan Task", self.task, "status", st)
+			frappe.db.commit()
+			res = self.call("move_plan_task", self.mgr, new_date=add_days(self.start, 2))
+			self.assertIn("finished task", res["error"])
 		self.assertEqual(getdate(self.full().due_date), getdate(self.start))

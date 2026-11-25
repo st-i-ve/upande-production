@@ -5,6 +5,12 @@ import type { PlanTask } from "@/lib/api";
 
 vi.mock("@/lib/api", () => ({ movePlanTask: vi.fn(), postponePlanTask: vi.fn(), deletePlanTask: vi.fn() }));
 
+vi.mock("@/components/DatePicker", () => ({
+  DatePicker: ({ value, onChange, "aria-label": label }: { value: string; onChange: (v: string) => void; "aria-label"?: string }) => (
+    <input aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} />
+  ),
+}));
+
 import * as api from "@/lib/api";
 import { TaskActions } from "@/components/plan/TaskActions";
 
@@ -88,5 +94,31 @@ describe("TaskActions", () => {
     fireEvent.click(screen.getByRole("button", { name: "Move task" }));
     await waitFor(() => expect(mocked.movePlanTask).toHaveBeenCalledWith("PLAN-1", "T-1", "2026-11-24", null));
     await waitFor(() => expect(onDone).toHaveBeenCalled());
+  });
+
+  it("change date is hidden for Done and Skipped tasks", () => {
+    const { unmount } = render(<TaskActions plan="PLAN-1" task={task({ status: "Done" })} weekStart={weekStart} onDone={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Task actions" }));
+    expect(screen.queryByRole("menuitem", { name: "Change date" })).toBeNull();
+    unmount();
+    setup(task({ status: "Skipped" }));
+    expect(screen.queryByRole("menuitem", { name: "Change date" })).toBeNull();
+  });
+
+  it("picking another date clears a Block so Move task is enabled again", async () => {
+    mocked.movePlanTask.mockResolvedValue({
+      error: "rule",
+      breaches: [{ rule: "PAR-1", rule_type: "x", enforcement: "Block", message: "Not on this day." }],
+      rule_status: "Block",
+      needs_override_reason: false,
+    } as never);
+    setup();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Change date" }));
+    fireEvent.click(screen.getByRole("button", { name: "Move task" }));
+    expect(await screen.findByText(/An activity rule stops this/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Move task" })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("New date"), { target: { value: "2026-11-26" } });
+    expect(screen.queryByText(/An activity rule stops this/)).toBeNull();
+    expect(screen.getByRole("button", { name: "Move task" })).toBeEnabled();
   });
 });

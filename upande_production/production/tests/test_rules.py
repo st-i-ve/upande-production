@@ -253,6 +253,25 @@ class TestRules(IntegrationTestCase):
 		self.assertEqual({s["operation"]: s["rule_status"] for s in block["steps"]},
 			{self.spray: "Block", self.weed: "Warn", self.prune: "OK"})
 
+	def test_generate_does_not_resurrect_deleted_or_postponed(self):
+		from upande_production.production.logic import task_schedule
+		proto = _make("Production Protocol", protocol_name="TR Proto Drop", crop=self.crop, version_status="Active",
+			key_activities=[{"operation": self.weed, "week": 5, "planned_qty": 1},
+				{"operation": self.prune, "week": 5, "planned_qty": 1}]).name
+		unit, cy = self._cycle(ago=28, protocol=proto)
+		y, w = iso_of(today())
+		plan = plans.get_or_create_plan(self.crop, self.farm.name, y, w)
+		self.assertEqual(plans.generate_week_detail(plan.name)["created"], 2)
+		plan.reload()
+		mine = [t for t in plan.tasks if t.cycle == cy]
+		task_schedule.delete_task(plan.name, mine[0].name, "Not needed")
+		nxt = add_days(today(), 8)
+		res = task_schedule.postpone_task(plan.name, mine[1].name, nxt, "Rain")
+		self.addCleanup(lambda: frappe.delete_doc("Production Work Plan", res["plan"], force=True))
+		self.assertEqual(plans.generate_week_detail(plan.name)["created"], 0)
+		plan.reload()
+		self.assertEqual([t for t in plan.tasks if t.cycle == cy], [])
+
 	def test_approvals_carry_flags(self):
 		unit, cy = self._cycle()
 		plan, t = self._task(unit, cy, self.weed)
