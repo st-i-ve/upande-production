@@ -936,8 +936,10 @@ pay records and never changes `done_qty`. Endpoints are in `upande_production/mo
 `plan_manage` or `plan_approve`. A task still awaiting a manager's forward cannot be logged on.
 `productionGetWeekPlan` and `productionGetPlanDetail` task rows carry `last_progress_on` (date or null).
 
-Crew tick-off is once a task a day: `productionUpdateTask` with `entries` on a task that already has crew for the
-same `work_date` returns `{"error": "Your progress for today has been logged. Wait for tomorrow to make another log."}`.
+Crew tick-off is once a worker a task a day: `productionUpdateTask` with `entries` where every worker already has crew
+work on the task for the same `work_date` returns `{"error": "Your progress for today has been logged. Wait for tomorrow to make another log."}`;
+if only some do, `{"error": "Already logged today on this task: {names}. Remove them and save again, or wait for tomorrow."}`
+(nothing written). New workers can still be added that day.
 A save without `entries` (status or note only) is still allowed.
 
 Uploading files first: `POST /api/method/upload_file` as multipart form (`file`, `is_private=1`; no doctype/docname),

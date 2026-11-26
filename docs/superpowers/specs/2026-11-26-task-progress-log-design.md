@@ -9,10 +9,14 @@ attachment field ... keyboard aware"; "tell the user by a phone message your pro
 for tomorrow to make another log on the current flow on mobile and go on to build it".
 
 ## Goals
-1. **Current crew tick-off: once per task per day.** A second save with crew entries on the same task and the same
-   work date is refused with exactly: "Your progress for today has been logged. Wait for tomorrow to make another
-   log." (server-enforced; the phone checks first and shows the same message without calling). A save with no crew
-   entries (status or note only) is still allowed the same day.
+1. **Current crew tick-off: once per worker per task per day** (user decision 2026-11-26). A worker already ticked
+   off on the same task and work date cannot be entered again; new people can still be added later that day (late
+   joiners, a worker who was missed, a second gang). A save where every worker is already logged is refused with
+   exactly: "Your progress for today has been logged. Wait for tomorrow to make another log." A mixed save is
+   refused whole (nothing written) with "Already logged today on this task: {names}. Remove them and save again, or
+   wait for tomorrow." The same worker twice in one save is refused ("{name} is entered twice."). Server-enforced; the
+   phone checks first and shows the same messages without calling. A save with no crew entries (status or note only)
+   is still allowed the same day.
 2. **Log today's progress** (new, any number of times a day): optional quantity done today (task unit), notes
    (multi-line, kept above the keyboard while typing), attachments (camera photo, gallery photo, or a file; several).
 3. Progress shows as a timeline per task (date, time, who, quantity, notes, attachment thumbnails/links) on the phone

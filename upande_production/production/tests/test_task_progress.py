@@ -61,6 +61,8 @@ class TestTaskProgress(IntegrationTestCase):
 		cls.asst = _user("tpl.asst@x.test", settings.ASSISTANT_ROLE)
 		cls.emp = _make("Employee", first_name="TPLEmp", gender="Male", date_of_birth="1990-01-01",
 			date_of_joining="2020-01-01", company=cls.company).name
+		cls.emp2 = _make("Employee", first_name="TPLEmpTwo", gender="Male", date_of_birth="1990-01-01",
+			date_of_joining="2020-01-01", company=cls.company).name
 		cls.year, cls.week = iso_of(today())
 		cls.start, cls.end = iso_week_bounds(cls.year, cls.week)
 		frappe.db.commit()
@@ -80,9 +82,10 @@ class TestTaskProgress(IntegrationTestCase):
 			frappe.delete_doc(dt, name, force=True)
 		for u in (cls.mgr, cls.sup, cls.asst):
 			frappe.delete_doc("User", u, force=True)
-		frappe.db.delete("Casual Labour Work", {"employee": cls.emp})
+		frappe.db.delete("Casual Labour Work", {"employee": ("in", (cls.emp, cls.emp2))})
 		frappe.db.delete("Task Progress Log", {"crop": cls.crop.name})
 		frappe.delete_doc("Employee", cls.emp, force=True)
+		frappe.delete_doc("Employee", cls.emp2, force=True)
 		frappe.db.commit()
 		super().tearDownClass()
 
@@ -95,7 +98,7 @@ class TestTaskProgress(IntegrationTestCase):
 		frappe.set_user("Administrator")
 		frappe.db.rollback()
 		set_step(False)
-		frappe.db.delete("Casual Labour Work", {"employee": self.emp})
+		frappe.db.delete("Casual Labour Work", {"employee": ("in", (self.emp, self.emp2))})
 		frappe.db.delete("Task Progress Log", {"crop": self.crop.name})
 		frappe.db.delete("File", {"file_name": ("like", "tpl-%")})
 		frappe.clear_cache(user=self.asst)  # a test may have dropped the role in an uncommitted change
@@ -118,8 +121,9 @@ class TestTaskProgress(IntegrationTestCase):
 		task = frappe.get_all("Work Plan Task", filters={"parent": res["name"]}, pluck="name")[0]
 		return res["name"], task
 
-	def crew(self, plan, task, day=None, status="In Progress"):
-		res = desk.record_task_work(plan, task, status, [{"employee": self.emp, "qty": 1}], work_date=day)
+	def crew(self, plan, task, day=None, status="In Progress", emps=None):
+		res = desk.record_task_work(plan, task, status,
+			[{"employee": e, "qty": 1} for e in (emps or [self.emp])], work_date=day)
 		frappe.db.commit()  # the desk request commits on success; a later refusal rolls back only its own work
 		return res
 
@@ -131,6 +135,29 @@ class TestTaskProgress(IntegrationTestCase):
 		res = self.crew(plan, task)
 		self.assertEqual(res.get("error"), self.MSG)
 		self.assertEqual(len(frappe.get_all("Casual Labour Work", filters={"plan_task": task, "docstatus": ("<", 2)})), 1)
+
+	def test_same_day_other_worker_allowed(self):
+		plan, task = self.add_task()
+		self.assertNotIn("error", self.crew(plan, task))
+		self.assertNotIn("error", self.crew(plan, task, emps=[self.emp2]))
+		self.assertEqual(len(frappe.get_all("Casual Labour Work", filters={"plan_task": task, "docstatus": ("<", 2)})), 2)
+
+	def test_mixed_save_refused_with_names_and_nothing_written(self):
+		plan, task = self.add_task()
+		self.assertNotIn("error", self.crew(plan, task))
+		res = self.crew(plan, task, emps=[self.emp, self.emp2])
+		name = frappe.db.get_value("Employee", self.emp, "employee_name")
+		self.assertEqual(res.get("error"),
+			f"Already logged today on this task: {name}. Remove them and save again, or wait for tomorrow.")
+		self.assertEqual(frappe.db.count("Casual Labour Work", {"plan_task": task, "employee": self.emp2}), 0)
+		self.assertEqual(len(frappe.get_all("Casual Labour Work", filters={"plan_task": task, "docstatus": ("<", 2)})), 1)
+
+	def test_same_worker_twice_in_one_save_refused(self):
+		plan, task = self.add_task()
+		res = self.crew(plan, task, emps=[self.emp, self.emp])
+		name = frappe.db.get_value("Employee", self.emp, "employee_name")
+		self.assertEqual(res.get("error"), f"{name} is entered twice.")
+		self.assertEqual(frappe.db.count("Casual Labour Work", {"plan_task": task}), 0)
 
 	def test_next_day_allowed(self):
 		plan, task = self.add_task()

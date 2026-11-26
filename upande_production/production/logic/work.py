@@ -55,6 +55,10 @@ def refresh_task_done(plan, plan_task):
 	doc.save()
 
 
+def _employee_label(emp) -> str:
+	return frappe.db.get_value("Employee", emp, "employee_name") or emp
+
+
 def record_task_work(plan, task, status, entries, note="", work_date=None, override_reason=None) -> dict:
 	if status not in STATUSES:
 		frappe.throw(_("Invalid status {0}").format(status), frappe.ValidationError)
@@ -78,13 +82,22 @@ def record_task_work(plan, task, status, entries, note="", work_date=None, overr
 		frappe.throw(_("Record who did the work before marking it {0}.").format(_(status)),
 			frappe.ValidationError)
 	work_date = work_date or today()
-	if entries and frappe.db.exists("Casual Labour Work",
-		{"plan": plan, "plan_task": row.name, "work_date": work_date, "docstatus": ("<", 2)}
-	):
-		# Crew goes in once a task a day; a status or note save (no entries) is still fine. Extra detail
-		# for the day goes in a progress log (logic/progress.py).
-		frappe.throw(_("Your progress for today has been logged. Wait for tomorrow to make another log."),
-			frappe.ValidationError)
+	if entries:
+		# Crew goes in once a worker a task a day (late joiners and a second gang can still be added); a status
+		# or note save (no entries) is always fine. Extra detail for the day goes in a progress log (logic/progress.py).
+		emps = [e.get("employee") for e in entries]
+		for emp in dict.fromkeys(emps):
+			if emps.count(emp) > 1:
+				frappe.throw(_("{0} is entered twice.").format(_employee_label(emp)), frappe.ValidationError)
+		done = set(frappe.get_all("Casual Labour Work", pluck="employee", filters={
+			"plan": plan, "plan_task": row.name, "work_date": work_date, "docstatus": ("<", 2),
+			"employee": ("in", emps)}))
+		if done:
+			if len(done) == len(emps):
+				frappe.throw(_("Your progress for today has been logged. Wait for tomorrow to make another log."),
+					frappe.ValidationError)
+			frappe.throw(_("Already logged today on this task: {0}. Remove them and save again, or wait for tomorrow.")
+				.format(", ".join(_employee_label(e) for e in emps if e in done)), frappe.ValidationError)
 	stamp = None
 	if entries or status in ("In Progress", "Done", "Partly Done"):
 		# Activity rules: Block refuses, Warn needs a reason (one given earlier on the task still stands)
