@@ -26,7 +26,7 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 export const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+>(({ className, children, onInteractOutside, onPointerDownOutside, onEscapeKeyDown, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
@@ -40,6 +40,20 @@ export const DialogContent = React.forwardRef<
       "fixed left-1/2 top-1/2 z-50 grid w-full max-w-3xl -translate-x-1/2 -translate-y-1/2 gap-4 border border-[var(--sd-line)] bg-[var(--sd-card)] p-6 shadow-[var(--sd-shadow-4)] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 sm:rounded-[var(--sd-radius-card)] max-h-[90vh] overflow-auto",
         className,
       )}
+      // A modal closes only through its own close button or Cancel/Done, so a
+      // stray click or Escape never loses typed work.
+      onInteractOutside={(e) => {
+        e.preventDefault();
+        onInteractOutside?.(e);
+      }}
+      onPointerDownOutside={(e) => {
+        e.preventDefault();
+        onPointerDownOutside?.(e);
+      }}
+      onEscapeKeyDown={(e) => {
+        e.preventDefault();
+        onEscapeKeyDown?.(e);
+      }}
       {...props}
     >
       {children}
