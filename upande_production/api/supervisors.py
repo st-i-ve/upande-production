@@ -31,3 +31,9 @@ def get_supervisor(employee, crop=None, year=None, week=None):
 def save_supervisor(data):
 	"""Create or edit a Production Supervisor (employee, active, farm, crops, notes). Managers only."""
 	return supervisor_page.save_supervisor(as_dict(data) or {})
+
+
+@frappe.whitelist()
+@run
+def assistants_without_manager():
+	return supervisor_page.assistants_without_manager()

@@ -21,6 +21,7 @@ def _user(email, *roles):
 	return email
 
 
+# The assistant_manager_step setting was dropped 2026-11-26 (the chain is always on); step-off scenarios were removed.
 def set_step(on):
 	frappe.db.set_single_value("Production Settings", "assistant_manager_step", 1 if on else 0)
 	frappe.clear_document_cache("Production Settings", "Production Settings")
@@ -112,9 +113,6 @@ class TestApprovalChain(IntegrationTestCase):
 			b = desk.get_bootstrap()
 			self.assertEqual(b["is_assistant_manager"], asst, user)
 			self.assertTrue(b["assistant_step"])
-		set_step(False)
-		frappe.set_user(self.asst)
-		self.assertFalse(desk.get_bootstrap()["assistant_step"])
 
 	def test_assigned_by_stamped_for_any_creator(self):
 		set_step(True)
@@ -127,11 +125,6 @@ class TestApprovalChain(IntegrationTestCase):
 		row = self.add_task(self.asst)
 		self.assertEqual(row.assigned_by, self.asst)
 		self.assertEqual(row.awaiting_approval, 1)
-
-	def test_assistant_task_not_awaiting_when_step_off(self):
-		row = self.add_task(self.asst)
-		self.assertEqual(row.assigned_by, self.asst)
-		self.assertEqual(row.awaiting_approval, 0)
 
 	def test_generated_tasks_stamped(self):
 		set_step(True)
@@ -283,14 +276,6 @@ class TestApprovalChain(IntegrationTestCase):
 		self.assertEqual(row.awaiting_approval, 0)
 		self.assertFalse(row.forwarded_by)
 
-	def test_step_off_ignores_awaiting(self):
-		plan = self._plan_with(self.asst, step=False)
-		frappe.db.set_value("Work Plan Task", self._task(plan), "awaiting_approval", 1)
-		frappe.db.commit()
-		self.assertEqual(len(self._get_plan_tasks(self.sup)), 1)
-		res = desk.record_task_work(plan, self._task(plan), "Skipped")
-		self.assertNotIn("error", res)
-
 	def test_manager_can_delete_awaiting(self):
 		plan = self._plan_with(self.asst)
 		frappe.set_user(self.mgr)
@@ -328,8 +313,6 @@ class TestApprovalChain(IntegrationTestCase):
 	def test_work_on_assistant_task_needs_check(self):
 		_, _, e = self._worked(self.asst)
 		self.assertTrue(approvals.needs_check(frappe.get_doc("Casual Labour Work", e)))
-		set_step(False)
-		self.assertFalse(approvals.needs_check(frappe.get_doc("Casual Labour Work", e)))
 
 	def test_manager_task_work_single_step(self):
 		_, _, e = self._worked(self.mgr)
@@ -462,16 +445,6 @@ class TestApprovalChain(IntegrationTestCase):
 		self._as(self.mgr, approvals.approve, [e])
 		self.assertEqual(self._t(task).done_qty, 5)
 
-	def test_step_off_empties_check_queue_and_refuses_check(self):
-		_, _, e = self._worked(self.asst)
-		set_step(False)
-		frappe.set_user(self.asst)
-		self.assertEqual(approvals.list_approvals(queue="check")["groups"], [])
-		self.assertEqual(approvals.approval_counts()["to_check"], 0)
-		frappe.set_user("Administrator")
-		with self.assertRaises(frappe.ValidationError):
-			self._as(self.asst, approvals.check, [e])
-
 	# -- final review fixes -------------------------------------------------------
 
 	def _task_state(self, task):
@@ -555,13 +528,6 @@ class TestApprovalChain(IntegrationTestCase):
 				patch.object(wm_bridge, "sync_plan_row") as sync:
 			self._as(self.mgr, task_approval.forward, plan)
 		self.assertEqual([c.args[1].name for c in sync.call_args_list], [task])
-
-	def test_step_off_hides_awaiting_flag_and_unblocks_supervisor(self):
-		plan = self._plan_with(self.asst, step=False)
-		frappe.db.set_value("Work Plan Task", self._task(plan), "awaiting_approval", 1)
-		frappe.db.commit()
-		self.assertEqual([t["awaiting_approval"] for t in self._get_plan_tasks(self.mgr)], [0])
-		self.assertEqual([t["awaiting_approval"] for t in self._mobile_tasks(self.mgr)], [0])
 
 	def test_manager_can_skip_awaiting_task_others_cannot(self):
 		plan = self._plan_with(self.asst)

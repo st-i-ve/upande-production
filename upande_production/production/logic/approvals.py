@@ -10,7 +10,7 @@ import frappe
 from frappe import _
 from frappe.utils import add_days, cint, now_datetime, today
 
-from upande_production.production.logic import cycle_requests as _cycle_requests, labourers, wm_bridge, work
+from upande_production.production.logic import cycle_requests as _cycle_requests, labourers, teams, wm_bridge, work
 from upande_production.production.logic.units import retired_sql
 from upande_production.production.logic.settings import (
 	assistant_step_on, can_see_pay, get_stale_days, is_assistant_manager, is_manager, is_supervisor,
@@ -100,10 +100,11 @@ def check(names) -> dict:
 	return {"checked": [d.name for d in docs]}
 
 
-def approve(names, unchecked_ok=0) -> dict:
+def approve(names, unchecked_ok=0, confirm_other_team=0) -> dict:
 	_need_manager()
 	docs = _docs(_names(names), ("Pending", "Checked"))
 	_decided_in_wm(docs)
+	teams.require_confirm([_assigner(d.plan_task) for d in docs], confirm_other_team)
 	if not cint(unchecked_ok):
 		open_ = [d.name for d in docs if d.approval_status == "Pending" and needs_check(d)]
 		if open_:
@@ -114,7 +115,7 @@ def approve(names, unchecked_ok=0) -> dict:
 	return {"approved": [d.name for d in docs]}
 
 
-def send_back(names, note) -> dict:
+def send_back(names, note, confirm_other_team=0) -> dict:
 	manager = is_manager()
 	if not manager and not is_assistant_manager():
 		frappe.throw(_("Only a Production Manager can review work."), frappe.PermissionError)
@@ -128,6 +129,8 @@ def send_back(names, note) -> dict:
 			frappe.throw(_("You can send back only work on tasks you assigned: {0}.").format(", ".join(mine[:5])),
 				frappe.PermissionError)
 	_decided_in_wm(docs)
+	if manager:
+		teams.require_confirm([_assigner(d.plan_task) for d in docs], confirm_other_team)
 	for d in docs:
 		d.approval_status = "Sent Back"
 		d.review_note = note
@@ -186,7 +189,7 @@ def _rule_status(rows) -> str:
 
 def list_approvals(
 	crop=None, status="Pending", from_date=None, to_date=None, unit=None, operation=None, supervisor=None,
-	queue=None,
+	queue=None, all_teams=0,
 ) -> dict:
 	if status not in STATUSES:
 		frappe.throw(_("Invalid status {0}").format(status), frappe.ValidationError)
@@ -246,6 +249,7 @@ def list_approvals(
 		)
 	}
 	me = frappe.session.user if assistant_step_on() and is_assistant_manager() else None
+	narrow = teams.scoped(all_teams=cint(all_teams))  # a manager's approve queue: their team plus unowned work
 	assistants = {}
 
 	def _needs(task):
@@ -277,6 +281,8 @@ def list_approvals(
 		elif queue == "approve":
 			if first.approval_status not in ("Pending", "Checked"):
 				continue
+			if narrow and not teams.is_mine(task.assigned_by if task else None):
+				continue
 		elif first.approval_status != status:
 			continue
 		gstatus = first.approval_status
@@ -288,6 +294,8 @@ def list_approvals(
 			"key": g["key"],
 			"status": gstatus,
 			"needs_check": _needs(task) and gstatus == "Pending" and not mirrored,
+			"team_manager": teams.team_manager(task.assigned_by if task else None),
+			"other_team": bool(teams.other_team_manager(task.assigned_by if task else None)),
 			"checked_by": first.checked_by,
 			"checked_by_name": users.get(first.checked_by) or first.checked_by,
 			"checked_at": first.checked_at,
@@ -341,7 +349,7 @@ def list_approvals(
 	return {"groups": out, "counts": counts, "stale_days": stale_days}
 
 
-def approval_counts() -> dict:
+def approval_counts(all_teams=0) -> dict:
 	"""Pending submissions (cards) per crop, for the desk and sidebar badges."""
 	frappe.has_permission("Casual Labour Work", "read", throw=True)
 	stale_days = get_stale_days()
@@ -358,8 +366,11 @@ def approval_counts() -> dict:
 		"Work Plan Task", filters={"name": ("in", list({r.plan_task for r in rows if r.plan_task}) or [""])},
 		fields=["name", "assigned_by"], as_list=True,
 	))
+	teams_me = frappe.session.user
 	step, is_asst, to_check = assistant_step_on(), {}, 0
 	seen, per = set(), {}
+	narrow = teams.scoped(all_teams=cint(all_teams))
+	team_total = 0
 	for r in rows:
 		key = (r.crop, r.plan_task or (r.unit, r.operation, r.work_date), r.submitted_by, r.approval_status)
 		if key in seen:
@@ -373,8 +384,11 @@ def approval_counts() -> dict:
 					is_asst[by] = is_assistant_manager(by)
 				if is_asst[by]:
 					continue  # waits for the assistant manager's check before it is the manager's to approve
-		c = per.setdefault(r.crop, {"pending": 0, "stale": 0})
+		c = per.setdefault(r.crop, {"pending": 0, "stale": 0, "team_pending": 0})
 		c["pending"] += 1
+		if teams.is_mine(by, teams_me):
+			c["team_pending"] += 1
+			team_total += 1
 		c["stale"] += 1 if _age_days(r.created) >= stale_days else 0
 	meta = {
 		c.name: c for c in frappe.get_all(
@@ -385,7 +399,7 @@ def approval_counts() -> dict:
 
 	proto = _protocols.pending_counts() if frappe.has_permission("Production Protocol", "read") else {}
 	for k in proto:
-		per.setdefault(k, {"pending": 0, "stale": 0})
+		per.setdefault(k, {"pending": 0, "stale": 0, "team_pending": 0})
 	crops = [
 		{"crop": k, "crop_key": meta[k].crop_key if k in meta else None, **per[k],
 			"protocols_pending": proto.get(k, 0)}
@@ -393,7 +407,9 @@ def approval_counts() -> dict:
 	]
 	return {
 		"crops": crops,
-		"total": sum(c["pending"] for c in crops),
+		"total": team_total if narrow else sum(c["pending"] for c in crops),  # a manager's badge follows their team
+		"all_total": sum(c["pending"] for c in crops),
+		"team_total": team_total,
 		"to_check": to_check,
 		"cycle_changes": _cycle_requests.pending_counts(),
 		"protocols_pending": sum(c["protocols_pending"] for c in crops),

@@ -72,6 +72,8 @@ def _run(name, fn):
 	except frappe.ValidationError as e:
 		frappe.db.rollback()
 		frappe.response["data"] = {"error": frappe.utils.strip_html(str(e))}
+		if getattr(e, "needs_confirm", False):
+			frappe.response["data"]["needs_confirm"] = True
 		if hasattr(e, "breaches"):  # activity rule: Block = cannot save, Warn = send override_reason
 			frappe.response["data"].update(rules.breach_payload(e))
 	except Exception as e:

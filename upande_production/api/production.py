@@ -316,6 +316,7 @@ def get_plan(crop, farm, year, week):
 		order_by="idx asc",
 	)
 	task_approval.mask_awaiting(tasks)
+	task_approval.annotate_teams(tasks)
 	by_task = {}
 	for w in frappe.get_all(
 		"Casual Labour Work",
@@ -418,9 +419,16 @@ def save_plan_tasks(crop, farm, year, week, tasks, override_reason=None):
 
 @frappe.whitelist(methods=["POST"])
 @run
-def forward_plan_tasks(plan, tasks=None):
+def forward_plan_tasks(plan, tasks=None, confirm_other_team=0):
 	_need("Production Work Plan", "write")
-	return task_approval.forward(plan, as_dict(tasks) or None)
+	return task_approval.forward(plan, as_dict(tasks) or None, confirm_other_team)
+
+
+@frappe.whitelist()
+@run
+def awaiting_tasks(crop=None, all_teams=0):
+	_need("Production Work Plan", "read")
+	return task_approval.awaiting_tasks(crop or None, all_teams)
 
 
 @frappe.whitelist(methods=["POST"])

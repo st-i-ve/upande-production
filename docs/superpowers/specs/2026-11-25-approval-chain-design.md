@@ -177,3 +177,15 @@ back from either step returns to the supervisor; WM mode keeps work approval in 
 No Claude attribution in commits. Never touch MariaDB directly. Backup before migrate; `flock .migrate.lock`;
 restart only `frappe16-mutara-web:frappe16-mutara-frappe-web`; run tests one module at a time on mutara.local;
 desk bundle rebuild in its own commit; don't commit .gitignore or Trash/.
+
+## Manager teams (2026-11-26)
+
+Decisions: some managers have assistants, some do not. Each assistant is linked to their manager; the assistant's tasks and checked work go to that manager. Other managers can still act (fallback) through "All teams", after a confirm. The global on/off setting is dropped.
+
+1. **Team link.** An assistant's manager is the User of the Employee in the assistant's `Employee.reports_to` (assistant `Employee.user_id` -> `reports_to` -> that Employee's `user_id`), and only when that user is a manager. `production/logic/teams.py`: `manager_of(user)`, `team_of(manager_user)`, cached per request. A manager's own items (or anyone who is not an assistant) have no team.
+2. **Setting dropped.** `assistant_manager_step` is removed from Production Settings (column left). `assistant_step_on()` always returns True and stays so callers remain valid. Awaiting tasks, check and approve are unchanged.
+3. **Queues.** A manager's approve queue (`list_approvals(queue="approve")`), the awaiting tasks (`awaiting_tasks`) and the counts default to their team: items whose task `assigned_by` is in `team_of(me)`, plus items with no team (assigner has no manager, is a manager, or is not an assistant), which go to every manager. `all_teams=1` returns everything. Administrator always sees everything. Each group/task carries `team_manager` and `other_team`.
+4. **Fallback with confirm.** `forward_plan_tasks`, `approve` (Checked or unchecked) and `send_back` work on any item, but refuse work in another manager's team with "This belongs to <manager>'s team. Confirm to approve it anyway." unless `confirm_other_team=1`. The refusal carries `needs_confirm: true`. `forward` returns `other_team` (task names forwarded outside the manager's team).
+5. **Counts.** `approval_counts` keeps `crops[].pending`, `cycle_changes`, and adds `team_total`, `all_total` and `crops[].team_pending`. For a manager `total` = `team_total` (the sidebar badge); `all_teams=1` makes `total` the everything figure.
+6. **Phone.** `productionListApprovals` and `productionApprovalCounts` accept `all_teams`; `productionApproveWork`, `productionSendBackWork` and `productionForwardTasks` accept `confirm_other_team`. Return shapes otherwise unchanged.
+7. **Unlinked assistants.** `assistants_without_manager()` (Supervisors page API) lists assistants whose Employee has no `reports_to` or reports to a non-manager, so the desk can flag them. Their items show in every manager's queue.

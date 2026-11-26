@@ -230,3 +230,12 @@ def save_supervisor(data) -> dict:
 	if was_active is not None and was_active != bool(doc.active):
 		supervisors.refresh_current_week(new_crops)
 	return {"employee": doc.name, "employee_name": doc.employee_name}
+
+
+def assistants_without_manager() -> list[dict]:
+	"""Assistant managers with no manager (reports_to empty or not a manager): the desk flags them. Managers only."""
+	if not supervisors.can_manage():
+		frappe.throw(_("Only a manager can see this."), frappe.PermissionError)
+	from upande_production.production.logic import teams
+
+	return teams.assistants_without_manager()

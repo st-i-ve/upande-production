@@ -46,7 +46,8 @@ def is_manager_user(user) -> bool:
 
 
 def assistant_step_on() -> bool:
-	return bool(frappe.db.get_single_value("Production Settings", "assistant_manager_step"))
+	"""Always on (the setting was dropped 2026-11-26); kept so callers stay valid."""
+	return True
 
 
 def is_assistant_manager(user=None) -> bool:

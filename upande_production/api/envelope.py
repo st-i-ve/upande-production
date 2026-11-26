@@ -35,6 +35,8 @@ def run(fn):
 		except frappe.ValidationError as e:
 			frappe.db.rollback()
 			out = {"error": str(e) or _("Operation failed.")}
+			if getattr(e, "needs_confirm", False):  # another manager's team: the caller asks, then resends with confirm_other_team
+				out["needs_confirm"] = True
 			if hasattr(e, "breaches"):  # an activity rule: the desk shows the breaches and asks for a reason
 				out.update({"breaches": e.breaches, "rule_status": e.rule_status,
 					"needs_override_reason": e.rule_status == "Warn"})

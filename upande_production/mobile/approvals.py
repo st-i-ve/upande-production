@@ -64,6 +64,7 @@ def productionListApprovals():
 			crop=_s(data, "crop") or None, queue=queue, status="Pending",
 			from_date=_s(data, "from_date") or None, to_date=_s(data, "to_date") or None,
 			unit=_s(data, "unit") or None, operation=_s(data, "operation") or None,
+			all_teams=data.get("all_teams") or 0,
 		)
 		for g in res["groups"]:
 			_strip_pay(g, "total_pay")
@@ -101,7 +102,8 @@ def productionApproveWork():
 		return _fail(err)
 
 	def go():
-		res = approvals.approve(_names(data), unchecked_ok=data.get("unchecked_ok") or 0)
+		res = approvals.approve(_names(data), unchecked_ok=data.get("unchecked_ok") or 0,
+			confirm_other_team=data.get("confirm_other_team") or 0)
 		frappe.db.commit()
 		return {"status": "success", "approved": res["approved"], "approval_status": "Approved",
 			"message": f"{len(res['approved'])} work record(s) approved."}
@@ -121,7 +123,7 @@ def productionSendBackWork():
 		return _fail(err)
 
 	def go():
-		res = approvals.send_back(_names(data), _s(data, "note"))
+		res = approvals.send_back(_names(data), _s(data, "note"), data.get("confirm_other_team") or 0)
 		frappe.db.commit()
 		return {"status": "success", "sent_back": res["sent_back"], "approval_status": "Sent Back",
 			"message": f"{len(res['sent_back'])} work record(s) sent back."}
@@ -140,7 +142,8 @@ def productionForwardTasks():
 		return _fail(err)
 
 	def go():
-		res = task_approval.forward(_s(data, "plan"), _task_names(data.get("tasks")))
+		res = task_approval.forward(_s(data, "plan"), _task_names(data.get("tasks")),
+			confirm_other_team=data.get("confirm_other_team") or 0)
 		frappe.db.commit()
 		return {"status": "success", "forwarded": res["forwarded"],
 			"message": f"{len(res['forwarded'])} task(s) forwarded to the supervisors."}
@@ -157,8 +160,10 @@ def productionApprovalCounts():
 	if _denied(("Casual Labour Work", "read")):
 		return
 
+	data = _payload()
+
 	def go():
-		c = approvals.approval_counts()
+		c = approvals.approval_counts(data.get("all_teams") or 0)
 		return {"status": "success", "to_check": c["to_check"], "to_approve": c["total"]}
 
 	_guarded("productionApprovalCounts", go)
