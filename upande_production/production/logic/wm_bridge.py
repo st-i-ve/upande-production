@@ -29,7 +29,7 @@ import frappe
 from frappe import _
 from frappe.utils import cint, flt, today
 
-from upande_production.production.logic import labour, rates
+from upande_production.production.logic import labour, rates, settings
 from upande_production.production.logic.weeks import iso_of, iso_week_bounds
 
 PLANNER = "Work Management Planner"
@@ -311,7 +311,10 @@ def on_plan_update(doc, method=None):
 		return
 	before = doc.get_doc_before_save()
 	old = {r.name: r for r in (before.tasks if before else [])}
+	step = settings.assistant_step_on()
 	for row in doc.tasks:
+		if step and row.get("awaiting_approval"):
+			continue  # waiting for the manager to forward it; the forward save syncs it
 		prev = old.get(row.name)
 		unchanged = prev and all(prev.get(k) == row.get(k) for k in ("unit", "operation")) \
 			and flt(prev.planned_qty) == flt(row.planned_qty)

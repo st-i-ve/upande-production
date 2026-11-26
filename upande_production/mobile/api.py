@@ -3,7 +3,7 @@ import frappe
 from frappe.utils import cint, getdate, today
 
 from upande_production.mobile import access
-from upande_production.production.logic import analytics, approvals, field_crops, labourers, plans, rules, supervisors, wm_bridge, work
+from upande_production.production.logic import analytics, approvals, field_crops, labourers, plans, rules, supervisors, task_approval, wm_bridge, work
 from upande_production.production.logic.settings import can_see_pay
 from upande_production.production.logic.units import unit_filter
 from upande_production.production.logic.weeks import iso_of, iso_week_bounds
@@ -191,7 +191,7 @@ def productionGetWeekPlan():
 		tasks = []
 		mine, emp, message = _scope(data)
 		if name:
-			task_filters = unit_filter({"parent": name, "parenttype": "Production Work Plan"})
+			task_filters = unit_filter({"parent": name, "parenttype": "Production Work Plan", **task_approval.visible_filter()})
 			if mine:
 				task_filters["supervisor"] = emp or "\0no-employee"
 			tasks = frappe.get_all("Work Plan Task", filters=task_filters, fields=TASK_FIELDS, order_by="due_date asc, idx asc")
@@ -626,7 +626,8 @@ def productionListWeekPlans():
 			fields=["name", "farm", "plan_year", "plan_week", "week_start", "week_end"],
 			order_by="plan_year desc, plan_week desc", limit=cint(data.get("limit")) or 26,
 		)
-		task_filters = unit_filter({"parenttype": "Production Work Plan", "parent": ("in", [r.name for r in rows] or [""])})
+		task_filters = unit_filter({"parenttype": "Production Work Plan", "parent": ("in", [r.name for r in rows] or [""]),
+			**task_approval.visible_filter()})
 		mine, emp, message = _scope(data)
 		if mine:
 			task_filters["supervisor"] = emp or "\0no-employee"
@@ -677,7 +678,7 @@ def productionGetPlanDetail():
 			"assignments": _my_blocks(crop, farm or out["farm"], year, week)})
 		if not name:
 			return out
-		filters = {"parent": name, "parenttype": "Production Work Plan"}
+		filters = {"parent": name, "parenttype": "Production Work Plan", **task_approval.visible_filter()}
 		if unit:
 			filters["unit"] = unit
 		else:

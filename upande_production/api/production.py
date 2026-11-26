@@ -8,8 +8,10 @@ from upande_production.production.logic import crop_groups, field_crops
 from upande_production.production.logic import analytics, bands, blockcost, cycle_chain, labourers, plans, rules, stages, supervisors, work
 from upande_production.production.logic import drymatter as drymatter_logic
 from upande_production.production.logic import task_schedule
-from upande_production.production.logic.settings import PAY_ROLES, avocado_only_crop_keys, can_reschedule, can_see_pay, is_manager
-from upande_production.production.logic import settings as _settings
+from upande_production.production.logic.settings import (
+	PAY_ROLES, assistant_step_on, avocado_only_crop_keys, can_reschedule, can_see_pay, is_assistant_manager, is_manager,
+)
+from upande_production.production.logic import task_approval
 from upande_production.production.logic.units import unit_filter
 from upande_production.production.logic.weeks import iso_week_bounds
 
@@ -159,8 +161,8 @@ def get_bootstrap():
 		"can_plan": admin or bool(PAY_ROLES & roles),
 		"can_manage": admin or bool(MANAGE_ROLES & roles),
 		"can_reschedule": can_reschedule(),
-		"is_assistant_manager": _settings.is_assistant_manager(),
-		"assistant_step": _settings.assistant_step_on(),
+		"is_assistant_manager": is_assistant_manager(),
+		"assistant_step": assistant_step_on(),
 	}
 
 
@@ -290,7 +292,7 @@ def get_plan(crop, farm, year, week):
 	pay = _can_see_pay()
 	tasks = frappe.get_all(
 		"Work Plan Task",
-		filters=unit_filter({"parent": name, "parenttype": "Production Work Plan"}),
+		filters=unit_filter({"parent": name, "parenttype": "Production Work Plan", **task_approval.visible_filter()}),
 		fields=[
 			"name", "unit", "cycle", "operation", "operation_name", "planned_qty", "done_qty", "pending_qty", "uom",
 			"rate", "due_date", "supervisor", "status", "deviation", "protocol_ref", "note",
@@ -345,6 +347,7 @@ def save_plan_tasks(crop, farm, year, week, tasks, override_reason=None):
 	_need("Production Work Plan", "write")
 	tasks = as_dict(tasks) or []
 	plan = plans.get_or_create_plan(crop, _farm(farm), int(year), int(week))
+	reawait = assistant_step_on() and is_assistant_manager()
 	for t in tasks:
 		name = t.get("name")
 		if t.get("_delete"):
@@ -369,7 +372,12 @@ def save_plan_tasks(crop, farm, year, week, tasks, override_reason=None):
 				vals.update(_task_rules({**row.as_dict(), **vals}, override_reason, exclude_task=row.name))
 			if "supervisor" in vals and (vals["supervisor"] or None) != row.supervisor:
 				vals["supervisor_from_plan"] = 0  # a manager's own choice, so the supervisor plan leaves it alone
+			changed = any(k in vals and (vals[k] or None) != (row.get(k) or None) for k in task_approval.REAWAIT_FIELDS)
 			row.update(vals)
+			if reawait and changed and not row.awaiting_approval:
+				row.awaiting_approval = 1  # a forwarded task an assistant changed goes back to the manager
+				row.forwarded_by = None
+				row.forwarded_on = None
 		else:
 			if vals.get("operation") and not (vals.get("uom") and vals.get("rate")):
 				op = frappe.db.get_value(
@@ -384,6 +392,13 @@ def save_plan_tasks(crop, farm, year, week, tasks, override_reason=None):
 		r.idx = i
 	plan.save()
 	return {"name": plan.name}
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def forward_plan_tasks(plan, tasks=None):
+	_need("Production Work Plan", "write")
+	return task_approval.forward(plan, as_dict(tasks) or None)
 
 
 @frappe.whitelist(methods=["POST"])
