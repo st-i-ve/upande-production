@@ -344,6 +344,10 @@ class TestTaskProgress(IntegrationTestCase):
 		viewer = _user("tpl.view@x.test", "Production Viewer")
 		res = self._phone(mp.productionLogProgress, {"plan": plan, "task": task, "notes": "n"}, viewer)
 		self.assertIn("error", res)
+		# ... but may read the logs
+		res = self._phone(mp.productionListProgress, {"plan": plan, "task": task}, viewer)
+		self.assertEqual(res["status"], "success", res)
+		self.assertEqual([l["notes"] for l in res["logs"]], ["phone note"])
 		# the phone task lists carry last_progress_on
 		frappe.set_user("Administrator")
 		pl = self._phone(mobile.productionGetPlanDetail, {"crop": self.crop.name, "farm": self.farm.name, "year": self.year, "week": self.week})

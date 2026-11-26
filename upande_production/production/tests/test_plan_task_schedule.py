@@ -212,6 +212,42 @@ class TestPlanTaskSchedule(IntegrationTestCase):
 		self.assertEqual(getdate(new.due_date), getdate(d))
 		self.assertNotEqual(data["task"], self.task)
 
+	def _log(self, notes="did some"):
+		from upande_production.production.logic import progress
+		frappe.set_user("Administrator")
+		log = progress.log_progress(self.plan, self.task, notes=notes)
+		frappe.db.commit()
+		self.addCleanup(lambda: (frappe.db.delete("Task Progress Log", {"name": log["name"]}), frappe.db.commit()))
+		return log["name"]
+
+	def test_postpone_next_week_moves_progress_logs(self):
+		log = self._log()
+		d = add_days(self.start, 8)
+		res = self.call("postpone_plan_task", self.mgr, new_date=d, reason="Rain")
+		self.assertNotIn("error", res)
+		self.addCleanup(lambda: (frappe.set_user("Administrator"),
+			frappe.delete_doc("Production Work Plan", res["plan"], force=True), frappe.db.commit()))
+		self.assertEqual(frappe.db.get_value("Task Progress Log", log, ["plan", "task"], as_dict=True),
+			{"plan": res["plan"], "task": res["task"]})
+
+	def test_postpone_split_keeps_progress_logs_on_original(self):
+		frappe.db.set_value("Work Plan Task", self.task, "planned_qty", 10)
+		self.add_work(4)
+		log = self._log()
+		res = self.call("postpone_plan_task", self.mgr, new_date=add_days(self.start, 3), reason="x")
+		self.assertTrue(res["split"])
+		self.assertEqual(frappe.db.get_value("Task Progress Log", log, ["plan", "task"], as_dict=True),
+			{"plan": self.plan, "task": self.task})
+
+	def test_delete_refused_with_progress_logs(self):
+		self._log()
+		msg = "Progress is logged on this task; mark it Skipped instead."
+		res = self.call("delete_plan_task", self.mgr, reason="x")
+		self.assertIn(msg, res["error"])
+		res = self.save([{"name": self.task, "_delete": 1}], self.mgr)
+		self.assertIn(msg, res["error"])
+		self.assertTrue(frappe.db.exists("Work Plan Task", self.task))
+
 	def _assigned(self):
 		frappe.db.set_value("Work Plan Task", self.task, {"assigned_by": self.sup, "awaiting_approval": 1,
 			"forwarded_by": self.mgr, "forwarded_on": "2026-01-01 10:00:00"})

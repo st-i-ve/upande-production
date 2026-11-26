@@ -105,3 +105,19 @@ def latest_by_task(plan) -> dict:
 	"""{task row name: date of its latest log} for a plan."""
 	return {r.task: r.last for r in frappe.db.sql(
 		"select task, max(log_date) as last from `tabTask Progress Log` where plan = %s group by task", plan, as_dict=True)}
+
+
+def has_progress(task) -> bool:
+	"""True when any progress log is recorded against the task row."""
+	return bool(frappe.db.exists(DOCTYPE, {"task": task}))
+
+
+def refuse_if_logged(task) -> None:
+	if has_progress(task):
+		frappe.throw(_("Progress is logged on this task; mark it Skipped instead."), frappe.ValidationError)
+
+
+def move_logs(task, from_plan, to_plan, to_task) -> None:
+	"""A task row that moved to another plan takes its progress logs with it."""
+	frappe.db.set_value(DOCTYPE, {"plan": from_plan, "task": task}, {"plan": to_plan, "task": to_task},
+		update_modified=False)

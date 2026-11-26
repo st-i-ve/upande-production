@@ -62,6 +62,10 @@ def record_task_work(plan, task, status, entries, note="", work_date=None, overr
 	for e in entries:
 		if float(e.get("qty") or 0) <= 0:
 			frappe.throw(_("Quantity must be greater than zero"), frappe.ValidationError)
+	if entries:
+		# serialise saves on this plan (before it is read) so a double tap cannot slip two crew sets past the
+		# same-day check below
+		frappe.db.get_value("Production Work Plan", plan, "name", for_update=True)
 	doc = frappe.get_doc("Production Work Plan", plan)
 	row = next((t for t in doc.tasks if t.name == task), None)
 	if not row:
@@ -74,9 +78,6 @@ def record_task_work(plan, task, status, entries, note="", work_date=None, overr
 		frappe.throw(_("Record who did the work before marking it {0}.").format(_(status)),
 			frappe.ValidationError)
 	work_date = work_date or today()
-	if entries:
-		# serialise saves on this plan so a double tap cannot slip two crew sets past the check below
-		frappe.db.get_value("Production Work Plan", plan, "name", for_update=True)
 	if entries and frappe.db.exists("Casual Labour Work",
 		{"plan": plan, "plan_task": row.name, "work_date": work_date, "docstatus": ("<", 2)}
 	):

@@ -4,6 +4,7 @@ import frappe
 from frappe.utils import getdate
 from frappe import _
 
+from upande_production.production.logic import progress
 from upande_production.production.logic.settings import can_reschedule, crop_allowed
 
 
@@ -138,6 +139,8 @@ def postpone_task(plan: str, task: str, new_date: str, reason: str, override_rea
 		_renumber(target)
 		target.save()
 		new = target.tasks[-1]
+		if not split:  # the row moved under a new name: its progress logs follow it
+			progress.move_logs(task, doc.name, target.name, new.name)
 	elif split:
 		new = doc.tasks[-1]
 	return {"plan": target.name, "task": new.name, "split": split}
@@ -152,6 +155,7 @@ def delete_task(plan: str, task: str, reason: str) -> dict:
 	doc, row = _load(plan, task)
 	if has_work(task):
 		frappe.throw(_("Work is recorded against this task; mark it Skipped instead."), frappe.ValidationError)
+	progress.refuse_if_logged(task)
 	op_name = row.operation_name or frappe.db.get_value("Field Operation", row.operation, "operation_name") or row.operation
 	text = f"Deleted task {op_name} on {row.unit}, due {row.due_date}: {reason}"
 	doc.tasks = [r for r in doc.tasks if r.name != task]

@@ -24,8 +24,8 @@ def _guarded(name, go):
 	_run(name, inner)
 
 
-def _allowed() -> bool:
-	if any(access.has_capability(c) for c in CAPS):
+def _allowed(caps=CAPS) -> bool:
+	if any(access.has_capability(c) for c in caps):
 		return True
 	_fail("You do not have permission to do this.")
 	return False
@@ -51,7 +51,7 @@ def productionLogProgress():
 
 @frappe.whitelist()
 def productionListProgress():
-	if not _allowed() or _denied(("Task Progress Log", "read")):
+	if not _allowed(CAPS + ("plan_view",)) or _denied(("Task Progress Log", "read")):
 		return
 	data = _payload()
 	err = _require(data, "plan", "task")

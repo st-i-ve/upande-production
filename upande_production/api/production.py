@@ -162,6 +162,7 @@ def get_bootstrap():
 		"can_plan": admin or bool(PAY_ROLES & roles),
 		"can_manage": admin or bool(MANAGE_ROLES & roles),
 		"can_reschedule": can_reschedule(),
+		"can_log_progress": bool(frappe.has_permission("Task Progress Log", "create")),
 		"is_manager": is_manager(),
 		"is_assistant_manager": is_assistant_manager(),
 		"assistant_step": assistant_step_on(),
@@ -366,6 +367,8 @@ def save_plan_tasks(crop, farm, year, week, tasks, override_reason=None):
 			task_schedule.require_reschedule()
 			if name and task_schedule.has_work(name):
 				frappe.throw(_("Work is recorded against this task; mark it Skipped instead."), frappe.ValidationError)
+			if name:
+				progress.refuse_if_logged(name)
 			for r in plan.tasks:
 				if r.name == name:
 					task_schedule._drop_ref(plan, r.protocol_ref)
