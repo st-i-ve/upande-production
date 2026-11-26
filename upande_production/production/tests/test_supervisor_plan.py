@@ -86,9 +86,8 @@ class TestSupervisorPlan(IntegrationTestCase):
 		return plan
 
 	def _add(self, plan, u, op):
-		if True:
-			plan.append("tasks", {"unit": u, "operation": op, "planned_qty": 5, "uom": "Kg", "rate": 40,
-				"due_date": today(), "status": "Open"})
+		plan.append("tasks", {"unit": u, "operation": op, "planned_qty": 5, "uom": "Kg", "rate": 40,
+			"due_date": today(), "status": "Open"})
 
 	def tasks(self, plan):
 		return {t.unit: t for t in frappe.get_doc("Production Work Plan", plan.name).tasks}
@@ -409,3 +408,57 @@ class TestSupervisorPlan(IntegrationTestCase):
 		name = next(t.name for t in plan.tasks if t.operation == self.spray.name)
 		desk.save_plan_tasks(self.crop.name, self.farm.name, self.year, self.week, [{"name": name, "supervisor": self.sup.name}])
 		self.assertEqual(self.phone_units(self.sup_user, "supervisor"), sorted([self.op.name, self.spray.name]))
+
+	def test_one_overseer_per_block_per_week(self):
+		with self.assertRaises(frappe.ValidationError):
+			self.assign([{"unit": self.u1.name, "supervisor": self.sup.name}, {"unit": self.u1.name, "supervisor": self.mgr.name}])
+		_make("Production Supervisor Assignment", crop=self.crop.name, unit=self.u1.name,
+			supervisor=self.sup.name, plan_year=self.year, plan_week=self.week)
+		with self.assertRaises(frappe.ValidationError):
+			_make("Production Supervisor Assignment", crop=self.crop.name, unit=self.u1.name,
+				supervisor=self.mgr.name, plan_year=self.year, plan_week=self.week)
+
+	def test_inactive_overseer_gets_no_tasks_and_no_visibility(self):
+		self.mk_sup(self.sup, active=0)
+		self.assign([{"unit": self.u1.name, "supervisor": self.sup.name}])
+		plan = self.plan_with_tasks([self.u1.name])
+		self.assertFalse(self.tasks(plan)[self.u1.name].supervisor)
+		self.assertEqual(self.phone_units(self.sup_user, "supervisor"), [])
+
+	def test_active_lookup_is_batched(self):
+		self.shared_setup()
+		calls = []
+		real = frappe.get_all
+		def spy(dt, *a, **k):
+			calls.append(dt)
+			return real(dt, *a, **k)
+		with patch.object(frappe, "get_all", side_effect=spy):
+			supervisors.visible_to(self.sup.name, [{"unit": self.u1.name, "operation": self.spray.name, "supervisor": None}] * 5,
+				supervisors.assignments(self.crop.name, self.year, self.week))
+		self.assertEqual(calls.count("Production Supervisor"), 1)
+
+	def test_stranger_on_another_block_sees_nothing(self):
+		self.mk_sup(self.other)
+		frappe.db.set_value("Employee", self.other.name, "user_id", _user("sp.other@x.test", "Production Supervisor"))
+		self.assign([{"unit": self.u1.name, "supervisor": self.sup.name}, {"unit": self.u2.name, "supervisor": self.other.name}])
+		self.plan_with_tasks([self.u1.name], [self.op.name, self.spray.name])
+		self.assertEqual(self.phone_units("sp.other@x.test", "supervisor"), [])
+
+	def test_legacy_null_category_row_acts_as_overseer(self):
+		a = _make("Production Supervisor Assignment", crop=self.crop.name, unit=self.u1.name,
+			supervisor=self.sup.name, plan_year=self.year, plan_week=self.week)
+		frappe.db.set_value("Production Supervisor Assignment", a.name, "category", None)
+		t = self.tasks_by_op(self.plan_with_tasks([self.u1.name], [self.spray.name]), self.u1.name)
+		self.assertEqual(t[self.spray.name].supervisor, self.sup.name)
+		self.assertEqual(self.phone_units(self.sup_user, "supervisor"), [self.spray.name])
+
+	def test_my_assignments_lists_each_block_once_with_categories(self):
+		self.shared_setup()
+		self.assign([{"unit": self.u1.name, "supervisor": self.sup.name},
+			{"unit": self.u1.name, "category": "Spraying", "supervisor": self.sup.name},
+			{"unit": self.u1.name, "category": "Weeding", "supervisor": self.sup.name}])
+		res = supervisors.my_assignments(self.sup.name, self.crop.name, self.year, self.week, self.farm.name)
+		self.assertEqual(len(res["units"]), 1)
+		self.assertEqual(res["units"][0]["unit"], self.u1.name)
+		self.assertEqual(sorted(res["units"][0]["categories"]), ["Spraying", "Weeding"])
+		self.assertTrue(res["units"][0]["overseer"])

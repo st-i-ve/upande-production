@@ -152,6 +152,8 @@ def save_week(crop, farm, year, week, rows) -> dict:
 			frappe.throw(_("{0} is not a block of this crop and farm.").format(unit), frappe.ValidationError)
 		if not frappe.db.exists("Employee", sup):
 			frappe.throw(_("Unknown employee {0}.").format(sup), frappe.ValidationError)
+		if not cat and any(k[0] == unit and not k[1] for k in seen):
+			frappe.throw(_("Block {0} already has an overseer this week.").format(unit), frappe.ValidationError)
 		seen.add((unit, cat, sup))
 		wanted.setdefault((unit, cat), []).append(sup)
 	existing = {}
@@ -192,34 +194,33 @@ def copy_week(crop, farm, year, week) -> dict:
 # -- tasks follow the mapping -------------------------------------------------
 
 
-def is_active(employee) -> bool:
-	"""An employee with a Production Supervisor record is active per its flag; one without a record (assigned
-	before records existed) counts as active."""
-	flag = frappe.db.get_value("Production Supervisor", employee, "active")
-	return True if flag is None else bool(flag)
+def active_map(rows) -> dict:
+	"""{employee: active} for the supervisors in `rows`, from one query. An employee with no Production
+	Supervisor record (assigned before records existed) counts as active."""
+	emps = list({r["supervisor"] for r in rows})
+	flags = dict(frappe.get_all("Production Supervisor", filters={"name": ("in", emps)}, fields=["name", "active"],
+		as_list=True)) if emps else {}
+	return {e: bool(flags.get(e, 1)) for e in emps}
 
 
-def by_key(rows) -> dict:
-	"""{(unit, category): [supervisors in listed order]} from assignment rows."""
+def by_key(rows, active=None) -> dict:
+	"""{(unit, category): [active supervisors in listed order]}; category "" is the block's overseer. Inactive
+	supervisors (per `active`, from active_map; computed when not given) are left out, overseer or sharer."""
+	active = active if active is not None else active_map(rows)
 	out = {}
 	for a in rows:
-		out.setdefault((a["unit"], a.get("category") or ""), []).append(a["supervisor"])
+		if active.get(a["supervisor"], True):
+			out.setdefault((a["unit"], a.get("category") or ""), []).append(a["supervisor"])
 	return out
-
-
-def category_supervisors(unit, category, keyed) -> list:
-	"""The active supervisors sharing `category` on `unit` (none for a blank category)."""
-	if not category:
-		return []
-	return [s for s in keyed.get((unit, category), []) if is_active(s)]
 
 
 def route(task, keyed) -> str | None:
 	"""Who a plan task goes to: the first listed active supervisor of its (block, activity), else the block's
-	overseer (the first blank-category row), else nobody. `task` carries `unit` and `category`."""
-	shared = category_supervisors(task["unit"], task.get("category") or "", keyed)
-	if shared:
-		return shared[0]
+	active overseer, else nobody. `task` carries `unit` and `category`; `keyed` is from by_key."""
+	cat = task.get("category") or ""
+	for key in ((task["unit"], cat),) if cat else ():
+		if keyed.get(key):
+			return keyed[key][0]
 	overseers = keyed.get((task["unit"], ""), [])
 	return overseers[0] if overseers else None
 
@@ -231,24 +232,43 @@ def operation_categories(operations) -> dict:
 	return dict(frappe.get_all("Field Operation", filters={"name": ("in", ops)}, fields=["name", "category"], as_list=True))
 
 
-def visible_to(employee, tasks, rows) -> list:
-	"""Of `tasks` (each with supervisor, unit, operation), those `employee` should see on the phone: tasks that
-	are theirs, tasks of a (block, activity) they are assigned to, and, for a block's overseer, tasks of
-	activities nobody active is assigned to on that block. `rows` are the week's assignments."""
-	if not employee:
-		return []
-	keyed = by_key(rows)
-	cats = operation_categories(t.get("operation") for t in tasks)
+def _visible(employee, tasks, keyed, cats) -> list:
 	out = []
 	for t in tasks:
 		unit, cat = t.get("unit"), cats.get(t.get("operation")) or ""
-		if t.get("supervisor") == employee:
+		sharers = keyed.get((unit, cat), []) if cat else []
+		if t.get("supervisor") == employee or employee in sharers:
 			out.append(t)
-		elif cat and employee in category_supervisors(unit, cat, keyed):
-			out.append(t)
-		elif employee in keyed.get((unit, ""), []) and not category_supervisors(unit, cat, keyed):
+		elif not sharers and employee in keyed.get((unit, ""), []):
 			out.append(t)
 	return out
+
+
+def visible_to(employee, tasks, rows) -> list:
+	"""Of `tasks` (each with supervisor, unit, operation) of one week, those `employee` should see on the
+	phone: their own, those of a (block, activity) they share, and, for a block's active overseer, those of
+	activities no active sharer covers. `rows` are the week's assignments."""
+	if not employee:
+		return []
+	return _visible(employee, tasks, by_key(rows), operation_categories(t.get("operation") for t in tasks))
+
+
+def visible_in_plans(employee, tasks, plan_weeks, crop, farm=None) -> list:
+	"""visible_to across several plans at once. `tasks` carry `parent`; `plan_weeks` is {plan: (year, week)}.
+	One query each for assignments, supervisor activity and operation categories."""
+	if not employee or not tasks:
+		return []
+	rows = frappe.get_all(
+		DOCTYPE, filters={"crop": crop, "plan_year": ("in", list({y for y, _w in plan_weeks.values()})),
+			"plan_week": ("in", list({w for _y, w in plan_weeks.values()})), **({"farm": farm} if farm else {})},
+		fields=FIELDS + ["plan_year", "plan_week"], order_by="unit asc, creation asc, name asc")
+	active = active_map(rows)
+	cats = operation_categories(t.get("operation") for t in tasks)
+	keyed = {wk: by_key([r for r in rows if (r.plan_year, r.plan_week) == wk], active) for wk in set(plan_weeks.values())}
+	by_plan = {}
+	for t in tasks:
+		by_plan.setdefault(t.parent, []).append(t)
+	return [t for plan, ts in by_plan.items() for t in _visible(employee, ts, keyed.get(plan_weeks.get(plan), {}), cats)]
 
 
 def fill_plan_tasks(plan) -> int:
@@ -290,11 +310,17 @@ def refresh_plan_tasks(crop, farm, year, week) -> int:
 
 
 def my_assignments(employee, crop, year, week, farm=None) -> dict:
-	"""The blocks an employee supervises in a week, for the top of the phone's Plan tab. One entry per
-	assignment; `category` is blank for the overseer role."""
-	units = []
+	"""The blocks an employee supervises in a week, for the top of the phone's Plan tab: each block once, with
+	`categories` (the activities they share there) and `overseer` (they hold the block's blank-category row)."""
+	units = {}
 	if employee:
-		rows = [a for a in assignments(crop, year, week, farm) if a.supervisor == employee]
 		names = {u.name: u.unit_name for u in week_units(crop, farm)}
-		units = [{"unit": a.unit, "unit_name": names.get(a.unit) or a.unit, "category": a.category or ""} for a in rows]
-	return {"employee": employee, "year": int(year), "week": int(week), "units": units}
+		for a in assignments(crop, year, week, farm):
+			if a.supervisor != employee:
+				continue
+			u = units.setdefault(a.unit, {"unit": a.unit, "unit_name": names.get(a.unit) or a.unit, "categories": [], "overseer": False})
+			if a.category:
+				u["categories"].append(a.category)
+			else:
+				u["overseer"] = True
+	return {"employee": employee, "year": int(year), "week": int(week), "units": list(units.values())}

@@ -646,8 +646,7 @@ def productionListWeekPlans():
 			fields=["parent", "status", "deviation", "due_date", "pending_qty", "unit", "operation", "supervisor"],
 		)
 		if mine:
-			by_week = {r.name: (r.plan_year, r.plan_week) for r in rows}
-			tasks = [t for p in by_week for t in _only_mine([x for x in tasks if x.parent == p], emp, crop, *by_week[p], farm)]
+			tasks = supervisors.visible_in_plans(emp, tasks, {r.name: (r.plan_year, r.plan_week) for r in rows}, crop, farm or None)
 		by_plan = {}
 		for t in tasks:
 			by_plan.setdefault(t.parent, []).append(t)

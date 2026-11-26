@@ -28,3 +28,14 @@ class ProductionSupervisorAssignment(Document):
 					self.unit, self.plan_week, self.plan_year, dup),
 				frappe.DuplicateEntryError,
 			)
+
+		self._no_second_overseer()
+
+	def _no_second_overseer(self):
+		if self.category:
+			return
+		other = frappe.db.get_value("Production Supervisor Assignment", {
+			"unit": self.unit, "plan_year": self.plan_year, "plan_week": self.plan_week, "crop": self.crop,
+			"category": ("in", ["", None]), "name": ("!=", self.name or "")})
+		if other:
+			frappe.throw(_("Block {0} already has an overseer this week.").format(self.unit), frappe.ValidationError)
