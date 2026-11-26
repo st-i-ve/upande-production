@@ -260,3 +260,114 @@ class TestClearBlock(IntegrationTestCase):
 		self.assertEqual(self.val(c, "close_reason"), "Crop failed")
 		self.assertFalse(self.val(c, "proposed_next_cycle"))
 		self.assertEqual(frappe.db.count(CYCLE, {"unit": u}), 1)
+
+	# -- review follow-ups ---------------------------------------------------------------------
+
+	def _interval_variety(self):
+		return _make("Production Variety", variety_name=f"CLB Int {frappe.generate_hash(length=4)}", crop=self.crop.name, item=self.item,
+			is_flowering=1, harvest_pattern="Interval", harvest_interval_weeks=52, lifespan_years=25, flowering_pattern="Interval",
+			flowering_interval_weeks=52, weeks_to_first_flowering=8, weeks_flowering_to_harvest=30, weeks_to_reflower_after_harvest=6,
+			harvest_window_weeks=8, stages=[{"stage": n, "start_day": s, "length_days": ln, "is_harvest": h} for n, s, ln, h in
+				(("Planting", 0, 56, 0), ("Flowering", 56, 28, 0), ("Fruit set", 84, 182, 0), ("Harvest", 266, 56, 1))]).name
+
+	def _planned_only_block(self):
+		u = self._unit()
+		c = self._cycle(unit=u, start=add_days(today(), 20), status="Planned")
+		return u, c
+
+	def test_approve_when_anchor_is_a_planned_cycle_that_gets_deleted(self):
+		u, planned = self._planned_only_block()
+		req = self.as_user(self.sup, api.clear_block, unit=u, on_date=today(), reason="Uprooted")["request"]
+		self.assertEqual(frappe.db.get_value(CCR, req, "cycle"), planned)
+		res = self.as_user(self.mgr, cr.approve, req)
+		self.assertEqual(res["cleared"]["planned_deleted"], 1)
+		self.assertFalse(frappe.db.exists(CYCLE, planned))
+		self.assertEqual(frappe.db.get_value(CCR, req, "status"), "Approved")
+		self.assertEqual(frappe.db.get_value("Production Unit", u, "status"), "Fallow")
+
+	def test_cleared_cycle_never_proposes_a_successor(self):
+		v = self._interval_variety()
+		u = self._unit()
+		c = _make(CYCLE, unit=u, crop=self.crop.name, variety=v, start_date=add_days(today(), -400), status="Active")
+		cb.clear_block(u, today(), "Uprooted")
+		doc = frappe.get_doc(CYCLE, c.name)
+		doc.notes = "after clearing"
+		doc.save()
+		self.assertFalse(doc.proposed_next_cycle)
+		self.assertEqual(frappe.db.count(CYCLE, {"unit": u}), 1)
+		self.assertEqual(frappe.db.get_value("Production Unit", u, "status"), "Fallow")
+
+	def test_resubmit_rebuilds_payload_and_reason(self):
+		req = self.clear(user=self.sup, note="x")["request"]
+		self.as_user(self.mgr, cr.send_back, req, "Use the real date")
+		d = add_days(today(), -1)
+		self.as_user(self.sup, cr.resubmit, req, {"on_date": d, "reason": "Crop failed", "note": "blight"}, "Blight")
+		r = frappe.get_doc(CCR, req)
+		p = frappe.parse_json(r.payload)
+		self.assertEqual((r.status, p["on_date"], p["reason"], p["note"]), ("Pending", str(d), "Crop failed", "blight"))
+		self.assertEqual(r.reason, "Crop failed: blight")
+
+	def test_resubmit_revalidates(self):
+		req = self.clear(user=self.sup)["request"]
+		self.as_user(self.mgr, cr.send_back, req, "no")
+		with self.assertRaises(frappe.ValidationError):
+			self.as_user(self.sup, cr.resubmit, req, {"on_date": add_days(today(), 3), "reason": "Uprooted"})
+		with self.assertRaises(frappe.ValidationError):
+			self.as_user(self.sup, cr.resubmit, req, {"on_date": today(), "reason": "Other"})
+
+	def test_resubmit_keeps_one_pending_per_block(self):
+		self._cycle(start=self.start)  # a second running cycle: another anchor on the same block
+		req = self.clear(user=self.sup)["request"]
+		self.as_user(self.mgr, cr.send_back, req, "no")
+		other = self.clear(user=self.asst)["request"]
+		with self.assertRaises(frappe.ValidationError) as e:
+			self.as_user(self.sup, cr.resubmit, req, {"on_date": today(), "reason": "Uprooted"})
+		self.assertIn("waiting for approval", str(e.exception))
+		self.assertEqual(frappe.db.get_value(CCR, other, "status"), "Pending")
+
+	def test_clearing_rejects_sent_back_clear_requests(self):
+		req = self.clear(user=self.sup)["request"]
+		self.as_user(self.mgr, cr.send_back, req, "no")
+		self.clear()
+		r = frappe.get_doc(CCR, req)
+		self.assertEqual((r.status, r.review_note), ("Rejected", "Block cleared"))
+
+	def test_request_refused_while_edit_pending_on_anchor(self):
+		self.as_user(self.sup, cr.request_edit, self.cycle, {"area_ha": 3}, "Re-measured")
+		with self.assertRaises(frappe.ValidationError) as e:
+			self.as_user(self.asst, cr.request_clear, self.unit, today(), "Uprooted")
+		self.assertIn("waiting for approval", str(e.exception))
+
+	def test_withdraw_and_send_back_clear_request(self):
+		req = self.clear(user=self.sup)["request"]
+		self.as_user(self.mgr, cr.send_back, req, "Check")
+		self.assertEqual(frappe.db.get_value(CCR, req, "status"), "Sent Back")
+		self.as_user(self.sup, cr.withdraw, req)
+		self.assertEqual(frappe.db.get_value(CCR, req, "status"), "Rejected")
+		self.assertEqual(self.val(self.cycle, "status"), "Active")
+		self.assertTrue(self.clear(user=self.sup)["pending"])  # a withdrawn request frees the block
+
+	def test_non_manager_cannot_approve_clear(self):
+		req = self.clear(user=self.sup)["request"]
+		with self.assertRaises(frappe.PermissionError):
+			self.as_user(self.sup, cr.approve, req)
+		self.assertEqual(self.val(self.cycle, "status"), "Active")
+
+	def test_planned_cycle_with_only_open_tasks_is_closed_and_tasks_skipped(self):
+		planned = self._cycle(start=add_days(today(), 20), status="Planned")
+		t = self._task(add_days(today(), 21), cycle=planned)
+		res = self.clear()
+		self.assertEqual(self.val(planned, "status"), "Closed")
+		self.assertEqual(frappe.db.get_value(TASK, t, "status"), "Skipped")
+		self.assertEqual((res["cleared"]["planned_closed"], res["cleared"]["planned_deleted"]), (1, 0))
+
+	def test_closed_cycle_does_not_reactivate_fallow_block(self):
+		self.clear()
+		self._cycle(start=self.start, status="Closed")
+		self.assertEqual(frappe.db.get_value("Production Unit", self.unit, "status"), "Fallow")
+
+	def test_replant_clears_cleared_on(self):
+		self.clear()
+		self._cycle(start=today())
+		self.assertEqual(frappe.db.get_value("Production Unit", self.unit, "status"), "Active")
+		self.assertIsNone(frappe.db.get_value("Production Unit", self.unit, "cleared_on"))

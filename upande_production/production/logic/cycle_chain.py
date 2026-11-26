@@ -350,6 +350,8 @@ def propose_next(doc) -> str | None:
 	if (doc.get("status") not in ("Active", "Harvesting", "Closed") or doc.get("proposed_next_cycle")
 			or not doc.get("variety")):
 		return None
+	if doc.get("close_reason") or doc.get("closed_on"):  # cleared with its block: the block is fallow, nothing follows
+		return None
 	if doc.get("status") != "Closed" and not doc.get("actual_flowering_date"):
 		return None
 	v = _variety(doc)

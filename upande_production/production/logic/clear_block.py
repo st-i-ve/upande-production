@@ -109,6 +109,8 @@ def _reject_pending(cycles, except_request=None) -> int:
 	if except_request:
 		filters["name"] = ("!=", except_request)
 	names = frappe.get_all(REQUEST_DT, filters=filters, pluck="name")
+	sent_back = {"cycle": ("in", cycles or [""]), "status": "Sent Back", "action": "Clear block"}
+	names += frappe.get_all(REQUEST_DT, filters=sent_back, pluck="name")
 	for n in names:
 		frappe.db.set_value(REQUEST_DT, n, {"status": "Rejected", "review_note": "Block cleared",
 			"reviewed_by": frappe.session.user, "reviewed_at": now_datetime()})

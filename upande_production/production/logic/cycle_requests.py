@@ -143,14 +143,28 @@ def request_delete(name, reason) -> dict:
 	return _new(name, "Delete", reason)
 
 
-def request_clear(unit, on_date, reason, note=None) -> dict:
-	"""A supervisor or assistant manager asks for a block to be cleared; checked now, run on approval."""
+def _clear_text(reason, note):
+	return f"{reason}: {note}" if note else reason
+
+
+def _check_clear(unit, on_date, reason, note, ignore=None):
+	"""Validate a clear request and find its anchor cycle; one pending clear per block. (date, note, anchor)."""
 	d, running, planned = clear_block.validate(unit, on_date, reason, note)
 	cycles = [c.name for c in running + planned]
-	if frappe.db.exists(DT, {"action": "Clear block", "status": "Pending", "cycle": ("in", cycles)}):
+	filters = {"action": "Clear block", "status": "Pending", "cycle": ("in", cycles)}
+	if ignore:
+		filters["name"] = ("!=", ignore)
+	if frappe.db.exists(DT, filters):
 		frappe.throw(_("A clear for this block is already waiting for approval."), frappe.ValidationError)
-	text = f"{reason}: {note.strip()}" if (note or "").strip() else reason
-	return _new(cycles[0], "Clear block", text, payload={"unit": unit, "on_date": str(d), "reason": reason, "note": (note or "").strip() or None})
+	return d, (note or "").strip() or None, cycles[0]
+
+
+def request_clear(unit, on_date, reason, note=None) -> dict:
+	"""A supervisor or assistant manager asks for a block to be cleared; checked now, run on approval."""
+	d, note, anchor = _check_clear(unit, on_date, reason, note)
+	_one_open(anchor)
+	return _new(anchor, "Clear block", _clear_text(reason, note),
+		payload={"unit": unit, "on_date": str(d), "reason": reason, "note": note})
 
 
 def _delete(cycle):
@@ -198,8 +212,9 @@ def approve(name, apply_anyway=0) -> dict:
 		return {"request": name, "deleted": r.cycle}
 	if r.action == "Clear block":
 		p = frappe.parse_json(r.payload) or {}
+		clear_block.validate(p.get("unit"), p.get("on_date"), p.get("reason"), p.get("note"))
+		_stamp(r, "Approved")  # first: the clear may delete this request's anchor cycle, which touches its requests
 		res = clear_block.clear_block(p.get("unit"), p.get("on_date"), p.get("reason"), p.get("note"), except_request=name)
-		_stamp(r, "Approved")
 		return {"request": name, "cleared": res}
 	cycle = frappe.get_doc(CYCLE_DT, r.cycle)
 	changes = frappe.parse_json(r.changes) or {}
@@ -243,7 +258,7 @@ def _mine(name, statuses):
 
 def resubmit(name, data, reason=None) -> dict:
 	r = _mine(name, ("Sent Back",))
-	if reason is not None:
+	if reason is not None and r.action != "Clear block":
 		r.reason = _reason(reason)
 	if r.action == "Edit":
 		if not frappe.db.exists(CYCLE_DT, r.cycle):
@@ -252,6 +267,13 @@ def resubmit(name, data, reason=None) -> dict:
 		if not changes:
 			frappe.throw(_("Nothing has changed."), frappe.ValidationError)
 		r.changes, r.payload = changes, {k: v["new"] for k, v in changes.items()}
+	if r.action == "Clear block":
+		p = frappe.parse_json(r.payload) or {}
+		d, note, anchor = _check_clear(p.get("unit"), data.get("on_date") or p.get("on_date"), data.get("reason") or p.get("reason"),
+			data["note"] if "note" in data else p.get("note"), ignore=name)
+		reason = data.get("reason") or p.get("reason")
+		r.cycle, r.reason = anchor, _clear_text(reason, note)
+		r.payload = {"unit": p.get("unit"), "on_date": str(d), "reason": reason, "note": note}
 	_one_open(r.cycle, ignore=name)
 	r.status, r.stale = "Pending", 0
 	r.flags.ignore_links = True  # the cycle may be gone (deleted since); the request is still decided

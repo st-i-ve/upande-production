@@ -50,8 +50,8 @@ class ProductionCropCycle(Document):
 		self.title = f"{self.unit} · {self.item or self.crop}"
 
 	def after_insert(self):
-		if self.status != "Closed" and frappe.db.get_value("Production Unit", self.unit, "status") == "Fallow":
-			frappe.db.set_value("Production Unit", self.unit, "status", "Active", update_modified=False)
+		if self.status in ("Planned", "Active", "Harvesting") and frappe.db.get_value("Production Unit", self.unit, "status") == "Fallow":
+			frappe.db.set_value("Production Unit", self.unit, {"status": "Active", "cleared_on": None}, update_modified=False)
 
 	def on_update(self):
 		if not self.proposed_next_cycle:
