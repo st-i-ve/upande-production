@@ -167,10 +167,11 @@ class TestSupervisorPlan(IntegrationTestCase):
 	def test_get_week_lists_blocks_candidates_and_last_week(self):
 		for e in (self.sup, self.mgr):
 			_make("Production Supervisor", employee=e.name)
-		_make("Production Supervisor", employee=self.other.name, active=0)  # inactive, but already assigned below
+		_make("Production Supervisor", employee=self.other.name)
 		py, pw = supervisors.previous_week(self.year, self.week)
 		self.assign([{"unit": self.u1.name, "supervisor": self.other.name}], year=py, week=pw)
 		self.assign([{"unit": self.u2.name, "supervisor": self.other.name}])
+		frappe.db.set_value("Production Supervisor", self.other.name, "active", 0)  # inactive, but already assigned
 		res = supervisors.get_week(self.crop.name, self.farm.name, self.year, self.week)
 		self.assertEqual({u.name for u in res["units"]}, {self.u1.name, self.u2.name})
 		names = {s.name for s in res["supervisors"]}
@@ -334,9 +335,10 @@ class TestSupervisorPlan(IntegrationTestCase):
 
 	def test_inactive_category_supervisor_is_ignored(self):
 		self.mk_sup(self.sup)
-		self.mk_sup(self.mgr, active=0)
+		self.mk_sup(self.mgr)
 		self.assign([{"unit": self.u1.name, "supervisor": self.sup.name},
 			{"unit": self.u1.name, "category": "Spraying", "supervisor": self.mgr.name}])
+		frappe.db.set_value("Production Supervisor", self.mgr.name, "active", 0)
 		t = self.tasks_by_op(self.plan_with_tasks([self.u1.name], [self.spray.name]), self.u1.name)
 		self.assertEqual(t[self.spray.name].supervisor, self.sup.name)
 
@@ -396,9 +398,10 @@ class TestSupervisorPlan(IntegrationTestCase):
 
 	def test_overseer_sees_the_category_when_no_active_sharer(self):
 		self.mk_sup(self.sup)
-		self.mk_sup(self.mgr, active=0)
+		self.mk_sup(self.mgr)
 		self.assign([{"unit": self.u1.name, "supervisor": self.sup.name},
 			{"unit": self.u1.name, "category": "Spraying", "supervisor": self.mgr.name}])
+		frappe.db.set_value("Production Supervisor", self.mgr.name, "active", 0)
 		self.plan_with_tasks([self.u1.name], [self.op.name, self.spray.name])
 		self.assertEqual(self.phone_units(self.sup_user, "supervisor"), sorted([self.op.name, self.spray.name]))
 
@@ -419,8 +422,9 @@ class TestSupervisorPlan(IntegrationTestCase):
 				supervisor=self.mgr.name, plan_year=self.year, plan_week=self.week)
 
 	def test_inactive_overseer_gets_no_tasks_and_no_visibility(self):
-		self.mk_sup(self.sup, active=0)
+		self.mk_sup(self.sup)
 		self.assign([{"unit": self.u1.name, "supervisor": self.sup.name}])
+		frappe.db.set_value("Production Supervisor", self.sup.name, "active", 0)
 		plan = self.plan_with_tasks([self.u1.name])
 		self.assertFalse(self.tasks(plan)[self.u1.name].supervisor)
 		self.assertEqual(self.phone_units(self.sup_user, "supervisor"), [])

@@ -764,6 +764,8 @@ def productionAddTask():
 		supervisor = _s(data, "supervisor") or None
 		if supervisor and not frappe.db.exists("Employee", supervisor):
 			frappe.throw("Unknown supervisor.", frappe.ValidationError)
+		if supervisor and not supervisors.active_map([{"supervisor": supervisor}]).get(supervisor):
+			frappe.throw("That supervisor is not active.", frappe.ValidationError)
 		cycle = None
 		from upande_production.production.logic.cycles import crop_uses_cycles
 

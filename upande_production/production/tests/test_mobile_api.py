@@ -230,6 +230,18 @@ class TestMobileApi(IntegrationTestCase):
 			"crop": self.crop.name, "unit": self.unit.name, "operation": self.op.name, "planned_qty": 0,
 		}))
 
+	def test_add_task_refuses_an_inactive_supervisor(self):
+		y, w = iso_of(add_days(today(), 21))
+		due = add_days(today(), 21)
+		frappe.get_doc({"doctype": "Production Supervisor", "employee": self.emp.name, "active": 0}).insert(ignore_permissions=True)
+		with patch.object(frappe.db, "rollback"):  # the endpoint rolls back on an error; keep the class fixtures
+			res = self._call(api.productionAddTask, {
+				"crop": self.crop.name, "farm": self.farm.name, "year": y, "week": w, "unit": self.unit.name,
+				"operation": self.op.name, "planned_qty": 5, "due_date": str(due), "supervisor": self.emp.name,
+			})
+		self.assertIn("active", res["error"])
+		frappe.delete_doc("Production Supervisor", self.emp.name, force=True, ignore_permissions=True)
+
 	def test_units_and_detail_carry_variety_and_stage_keys(self):
 		units = self._call(api.productionListUnits, {"crop": self.crop.name})
 		u = next(u for u in units if u["name"] == self.unit.name)
