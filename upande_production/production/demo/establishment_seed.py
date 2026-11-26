@@ -200,30 +200,41 @@ def _product(item):
 	return stages.product_item(item)
 
 
+def seed_block_budgets():
+	"""Capital budgets on the blocks (Per ha), from DEMO["capital"] and planting material by the block's
+	running cycle product. Blocks that already budget an operation keep their row."""
+	made = 0
+	for unit in frappe.get_all("Production Unit", filters={"is_group": 0, "status": ("!=", "Retired")},
+			fields=["name", "crop"]):
+		caps = list(DEMO["capital"].get(unit.crop, []))
+		item = frappe.db.get_value("Production Crop Cycle", {"unit": unit.name, "status": ("in", ["Active", "Harvesting", "Planned"])}, "item")
+		product = _product(item) if item else None
+		if product in DEMO["planting_material"] and unit.crop in ("Avocado", "Fruits & Vegetables"):
+			caps.append(("Planting material", DEMO["planting_material"][product]))
+		have = set(frappe.get_all("Production Unit Capital Budget", filters={"parent": unit.name}, pluck="operation"))
+		new = []
+		for opname, budget in caps:
+			op = _op(unit.crop, opname)
+			if op and op not in have and budget:
+				have.add(op)
+				new.append({"operation": op, "basis": "Per ha", "amount": budget})
+		if new:
+			doc = frappe.get_doc("Production Unit", unit.name)
+			for r in new:
+				doc.append("capital_budget", r)
+			doc.save(ignore_permissions=True)
+			made += len(new)
+	return made
+
+
 def extend_protocols():
-	"""Add the buffers, key and cultural rows and capital budgets to every Active protocol."""
+	"""Add the buffers, key and cultural rows to every Active protocol."""
 	touched = 0
 	for name in frappe.get_all("Production Protocol", filters={"version_status": "Active"}, pluck="name"):
 		doc = frappe.get_doc("Production Protocol", name)
 		product = _product(doc.item) if doc.item else None
 		crop = doc.crop
 		changed = False
-
-		have_cap = {r.operation: r for r in doc.get("capital_activities") or []}
-		caps = list(DEMO["capital"].get(crop, []))
-		if product in DEMO["planting_material"] and crop in ("Avocado", "Fruits & Vegetables"):
-			caps.append(("Planting material", DEMO["planting_material"][product]))
-		for opname, budget in caps:
-			op = _op(crop, opname)
-			if not op:
-				continue
-			row = have_cap.get(op)
-			if row is None:
-				doc.append("capital_activities", {"operation": op, "budget_per_ha": budget})
-				changed = True
-			elif budget and flt(row.budget_per_ha) != budget:
-				row.budget_per_ha = budget
-				changed = True
 
 		keys = {(r.operation, ): r for r in doc.get("key_activities") or []}
 		for opname, week, repeats, desc in DEMO["key"].get(product, []):
@@ -415,6 +426,7 @@ def run(commit=True):
 	frappe.flags.skip_activity_rules = True
 	try:
 		out = {"protocols_extended": extend_protocols()}
+		out["block_budgets_created"] = seed_block_budgets()
 		out["establishment_costs_created"] = seed_costs()
 		out["opening_balances_created"] = seed_opening_balances()
 		out["dry_matter_tests_created"] = seed_dry_matter_tests()

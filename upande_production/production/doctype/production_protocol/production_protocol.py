@@ -24,12 +24,14 @@ def _types(rows):
 
 
 def validate_tables(doc) -> None:
-	"""Check the key, cultural and capital tables (the old `steps` table is not checked)."""
+	"""Check the key and cultural tables (the old `steps` table is not checked). Capital costs are budgeted
+	on the block, so a protocol holds no capital rows."""
 	err = lambda msg: frappe.throw(msg, frappe.ValidationError)
 	key = doc.get("key_activities") or []
 	cultural = doc.get("cultural_activities") or []
-	capital = doc.get("capital_activities") or []
-	types = _types(list(key) + list(cultural) + list(capital))
+	if doc.get("capital_activities"):
+		err(_("A protocol holds no capital activities; budget capital costs on the block."))
+	types = _types(list(key) + list(cultural))
 
 	prev = None
 	for i, r in enumerate(key, 1):
@@ -60,10 +62,6 @@ def validate_tables(doc) -> None:
 		if types.get(_row(r, "operation")) == "Capital":
 			err(_("Cultural activities row {0}: {1} is a Capital activity").format(i, _row(r, "operation")))
 
-	for i, r in enumerate(capital, 1):
-		op = _row(r, "operation")
-		if op in types and types[op] != "Capital":
-			err(_("Capital activities row {0}: {1} is not a Capital activity").format(i, op))
 
 
 class ProductionProtocol(Document):

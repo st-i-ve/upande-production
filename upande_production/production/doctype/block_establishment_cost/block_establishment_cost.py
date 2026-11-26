@@ -9,3 +9,4 @@ from upande_production.production.logic import establishment
 class BlockEstablishmentCost(Document):
 	def validate(self):
 		establishment.split(self)
+		establishment.set_cycles(self)

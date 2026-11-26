@@ -22,7 +22,7 @@ class TestDoctypes(IntegrationTestCase):
 
 
 NEW_DOCTYPES = [
-	"Production Protocol Capital Activity", "Production Protocol Key Activity",
+	"Production Protocol Capital Activity", "Production Unit Capital Budget", "Production Protocol Key Activity",
 	"Production Protocol Cultural Activity", "Block Establishment Cost", "Block Establishment Cost Split",
 	"Block Opening Balance", "Dry Matter Test", "Dry Matter Sample", "Production Capital Account",
 ]
@@ -38,7 +38,7 @@ NEW_FIELDS = {
 	"Production Variety Flowering Season": ["season_name", "start_month", "weeks_flowering_to_harvest", "crop_share_pct"],
 	"Production Crop Cycle": ["flowering_season", "juvenile"],
 	"Production Protocol": [
-		"capital_activities", "key_activities", "cultural_activities", "lifespan_years", "harvest_pattern",
+		"key_activities", "cultural_activities", "lifespan_years", "harvest_pattern",
 		"harvest_interval_weeks", "is_flowering", "weeks_to_first_flowering", "weeks_flowering_to_harvest",
 		"weeks_to_reflower_after_harvest", "plants_per_m2",
 	],
@@ -48,6 +48,8 @@ NEW_FIELDS = {
 		"planned_qty", "description",
 	],
 	"Production Protocol Capital Activity": ["operation", "description", "budget_per_ha"],
+	"Production Unit Capital Budget": ["operation", "basis", "amount", "note"],
+	"Production Unit": ["capital_budget"],
 	"Production Crop Cycle": [
 		"cycle_no", "expected_flowering_date", "actual_flowering_date", "actual_harvest_start",
 		"actual_harvest_end", "protocol_flags", "flag_count", "due_for_uprooting", "proposed_next_cycle",
@@ -57,7 +59,7 @@ NEW_FIELDS = {
 		"crop", "farm", "posting_date", "operation", "amount", "supplier", "paid_to", "reference", "note",
 		"blocks", "split_method", "total_area_ha",
 	],
-	"Block Establishment Cost Split": ["unit", "area_ha", "share_pct", "amount"],
+	"Block Establishment Cost Split": ["unit", "area_ha", "share_pct", "amount", "cycle"],
 	"Block Opening Balance": [
 		"unit", "crop", "as_of_date", "setup_cost", "running_costs_to_date", "value_recovered_to_date",
 		"planted_on", "note",

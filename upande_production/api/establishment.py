@@ -44,6 +44,27 @@ def capital_activities(crop):
 
 @frappe.whitelist(methods=["POST"])
 @run
+def get_unit_capital_budget(unit):
+	frappe.has_permission("Production Unit", "read", throw=True)
+	return logic.get_unit_budget(unit)
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def save_unit_capital_budget(unit, rows):
+	_manage()
+	return logic.save_unit_budget(unit, as_dict(rows) or [])
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def cycle_capital_costs(cycle):
+	frappe.has_permission("Block Establishment Cost", "read", throw=True)
+	return logic.cycle_capital_costs(cycle)
+
+
+@frappe.whitelist(methods=["POST"])
+@run
 def list_opening_balances(crop):
 	if not can_see_pay():
 		frappe.throw(_("Opening balances include pay; ask a manager."), frappe.PermissionError)

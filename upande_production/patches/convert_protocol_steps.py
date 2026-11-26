@@ -20,7 +20,7 @@ def convert(doc) -> dict:
 	"""Add key / cultural rows to a protocol document from its steps. Returns {"key": n, "cultural": n}."""
 	if isinstance(doc, str):
 		doc = frappe.get_doc("Production Protocol", doc)
-	if doc.get("key_activities") or doc.get("cultural_activities") or doc.get("capital_activities") \
+	if doc.get("key_activities") or doc.get("cultural_activities") \
 			or not doc.get("steps"):
 		return {"key": 0, "cultural": 0, "capital": 0}
 	starts = {}
@@ -34,7 +34,7 @@ def convert(doc) -> dict:
 	for s in doc.steps:
 		off = _offset_days(s, starts)
 		if types.get(s.operation) == "Capital":
-			capital.append({"operation": s.operation, "description": s.note})
+			capital.append(s.operation)  # budgeted on the block now: counted, not written
 		elif cint(s.repeat_every_days) > 0 and cint(s.repeat_count) > 1:
 			cultural.append({"operation": s.operation, "schedule": "Interval",
 				"interval_weeks": max(1, round(cint(s.repeat_every_days) / 7)),
@@ -48,7 +48,6 @@ def convert(doc) -> dict:
 	key.sort(key=lambda r: r["week"])
 	doc.set("key_activities", key)
 	doc.set("cultural_activities", cultural)
-	doc.set("capital_activities", capital)
 	doc.flags.protocol_transition = True
 	doc.save(ignore_permissions=True)
 	return {"key": len(key), "cultural": len(cultural), "capital": len(capital)}

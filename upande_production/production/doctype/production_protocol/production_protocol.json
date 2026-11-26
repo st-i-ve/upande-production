@@ -21,8 +21,6 @@
   "weeks_flowering_to_harvest",
   "weeks_to_reflower_after_harvest",
   "plants_per_m2",
-  "capital_section",
-  "capital_activities",
   "key_section",
   "key_activities",
   "cultural_section",
@@ -220,17 +218,6 @@
    "label": "Plants per m2",
    "read_only": 1,
    "fetch_from": "variety.plants_per_m2"
-  },
-  {
-   "fieldname": "capital_section",
-   "fieldtype": "Section Break",
-   "label": "Capital Activities"
-  },
-  {
-   "fieldname": "capital_activities",
-   "fieldtype": "Table",
-   "label": "Capital Activities",
-   "options": "Production Protocol Capital Activity"
   },
   {
    "fieldname": "key_section",

@@ -18,8 +18,7 @@ STATUSES = ("Draft", "Pending Approval", "Active", "Superseded", "Rejected")
 KEY_FIELDS = ("operation", "week", "repeats", "planned_qty", "description")
 CULTURAL_FIELDS = ("operation", "schedule", "interval_weeks", "times_per_week", "establishment_period_weeks", "pre_harvest_interval_days",
 	"occurrences", "planned_qty", "description")
-CAPITAL_FIELDS = ("operation", "description", "budget_per_ha")
-TABLES = {"key_activities": KEY_FIELDS, "cultural_activities": CULTURAL_FIELDS, "capital_activities": CAPITAL_FIELDS}
+TABLES = {"key_activities": KEY_FIELDS, "cultural_activities": CULTURAL_FIELDS}
 TEMPLATE_FIELDS = ("lifespan_years", "harvest_pattern", "harvest_interval_weeks", "is_flowering",
 	"weeks_to_first_flowering", "weeks_flowering_to_harvest", "weeks_to_reflower_after_harvest", "plants_per_m2",
 	"weeks_to_maturity", "flowering_pattern", "flowering_interval_weeks")
@@ -220,7 +219,7 @@ def reject(name, note) -> dict:
 
 def diff(name) -> dict:
 	"""Differences of a version against its previous version: head fields and activity by activity. The
-	changes of all three tables are in `steps`, each with a `table` field."""
+	changes of both tables are in `steps`, each with a `table` field."""
 	doc = _doc(name)
 	prev = frappe.get_doc(DT, doc.previous_version) if doc.previous_version else None
 	op_names = dict(frappe.get_all("Field Operation", fields=["name", "operation_name"], as_list=True))
@@ -293,7 +292,7 @@ def pending_counts() -> dict:
 
 
 def save_draft(data) -> dict:
-	"""Edit a Draft's item and its key, cultural and capital tables (row names are ignored). Anything not a
+	"""Edit a Draft's item and its key and cultural tables (row names are ignored). Anything not a
 	Draft is refused."""
 	import json
 
@@ -303,6 +302,8 @@ def save_draft(data) -> dict:
 	doc = _doc(data.get("name"))
 	if doc.version_status != "Draft":
 		frappe.throw(_("Only a Draft can be edited."), frappe.ValidationError)
+	if data.get("capital_activities"):
+		frappe.throw(_("A protocol holds no capital activities; budget capital costs on the block."), frappe.ValidationError)
 	if "item" in data:
 		doc.item = data["item"] or None
 	for table, fields in TABLES.items():

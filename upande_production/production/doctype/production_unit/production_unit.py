@@ -10,6 +10,11 @@ from upande_production.production.logic.units import close_open_work, ensure_uni
 class ProductionUnit(NestedSet):
 	nsm_parent_field = "parent_production_unit"
 
+	def validate(self):
+		from upande_production.production.logic import establishment
+
+		establishment.validate_budget(self)
+
 	def after_insert(self):
 		self._ensure_cc()
 

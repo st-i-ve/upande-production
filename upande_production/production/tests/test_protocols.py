@@ -339,7 +339,7 @@ class TestProtocolTables(IntegrationTestCase):
 		cls.cap, cls.key, cls.cul = mk("TPT Excavate", "Capital"), mk("TPT Prune", "Key activity"), mk("TPT Weed", "Cultural")
 
 	def _doc(self, **kw):
-		return frappe._dict({"key_activities": [], "cultural_activities": [], "capital_activities": [], **kw})
+		return frappe._dict({"key_activities": [], "cultural_activities": [], **kw})
 
 	def test_key_activities_out_of_week_order_refused(self):
 		d = self._doc(key_activities=[{"operation": self.key, "week": 7}, {"operation": self.key, "week": 3}])
@@ -366,7 +366,8 @@ class TestProtocolTables(IntegrationTestCase):
 			validate_tables(self._doc(cultural_activities=[{"operation": self.cap, "schedule": "As needed"}]))
 		with self.assertRaises(frappe.ValidationError):
 			validate_tables(self._doc(capital_activities=[{"operation": self.cul}]))
-		validate_tables(self._doc(capital_activities=[{"operation": self.cap}]))
+		with self.assertRaises(frappe.ValidationError):  # a protocol holds no capital rows
+			validate_tables(self._doc(capital_activities=[{"operation": self.cap}]))
 
 	def test_old_steps_only_protocol_still_saves(self):
 		p = _make("Production Protocol", protocol_name="TPT Old", crop=self.crop.name, version_status="Active",
@@ -455,14 +456,14 @@ class TestConvertSteps(IntegrationTestCase):
 		doc.reload()
 		self.assertEqual(doc.cultural_activities[0].occurrences, 4)
 
-	def test_patch_converts_capital_step(self):
+	def test_patch_counts_capital_step_but_writes_none(self):
 		from upande_production.patches.convert_protocol_steps import convert
 
 		doc = _make("Production Protocol", protocol_name="TC Cap", crop=self.crop, steps=[
 			{"operation": self._cap(), "day_offset": 0, "repeat_count": 1, "note": "tractor"}])
 		self.assertEqual(convert(doc), {"key": 0, "cultural": 0, "capital": 1})
 		doc.reload()
-		self.assertEqual([(r.operation, r.description) for r in doc.capital_activities], [(self._cap(), "tractor")])
+		self.assertFalse(doc.get("key_activities") or doc.get("cultural_activities"))  # budgeted on the block now
 
 	def test_backfill_occurrences_on_converted_rows(self):
 		from upande_production.patches.convert_protocol_steps import backfill_occurrences, convert

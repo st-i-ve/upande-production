@@ -672,7 +672,6 @@ def list_protocols(crop):
 			("key_activities", "Production Protocol Key Activity", ["name", "operation", "week", "repeats", "planned_qty", "description"]),
 			("cultural_activities", "Production Protocol Cultural Activity", ["name", "operation", "schedule", "interval_weeks", "times_per_week",
 				"establishment_period_weeks", "pre_harvest_interval_days", "planned_qty", "description"]),
-			("capital_activities", "Production Protocol Capital Activity", ["name", "operation", "description", "budget_per_ha"]),
 		):
 			r[table] = frappe.get_all(doctype, filters={"parent": r.name, "parenttype": "Production Protocol", "parentfield": table},
 				fields=fields, order_by="idx asc")

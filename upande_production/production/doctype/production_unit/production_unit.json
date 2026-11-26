@@ -23,7 +23,9 @@
   "company",
   "lft",
   "rgt",
-  "old_parent"
+  "old_parent",
+  "capital_section",
+  "capital_budget"
  ],
  "fields": [
   {
@@ -143,6 +145,17 @@
    "label": "Old Parent",
    "options": "Production Unit",
    "hidden": 1
+  },
+  {
+   "fieldname": "capital_section",
+   "fieldtype": "Section Break",
+   "label": "Capital budget"
+  },
+  {
+   "fieldname": "capital_budget",
+   "fieldtype": "Table",
+   "label": "Capital budget",
+   "options": "Production Unit Capital Budget"
   }
  ],
  "index_web_pages_for_search": 1,

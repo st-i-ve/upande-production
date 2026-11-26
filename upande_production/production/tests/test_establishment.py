@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import frappe
 from frappe.tests import IntegrationTestCase
 
@@ -129,7 +131,8 @@ class TestEstablishment(IntegrationTestCase):
 			_make("User", email=email, first_name="ESTViewer", send_welcome_email=0, roles=[{"role": "Production Viewer"}])
 		frappe.set_user(email)
 		try:
-			ob = api.list_opening_balances(self.crop.name)
+			with patch.object(frappe.db, "rollback"):  # the envelope's rollback on an error would drop the class fixtures
+				ob = api.list_opening_balances(self.crop.name)
 			acts = api.capital_activities(self.crop.name)
 		finally:
 			frappe.set_user("Administrator")
