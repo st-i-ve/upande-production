@@ -7,8 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Picker } from "@/components/ui/picker";
 import { SearchPicker } from "@/components/ui/search-picker";
 import { SearchInput } from "@/components/SearchInput";
-import { isError, searchLink } from "@/lib/frappe";
-import { addLabourers, candidateEmployees, type Candidate } from "@/lib/labourers-api";
+import { isError } from "@/lib/frappe";
+import { addLabourers, candidateEmployees, getSupervisorOptions, type Candidate } from "@/lib/labourers-api";
 import { cn } from "@/lib/utils";
 
 const DEFAULT_DESIGNATION = "Casual Labourer";
@@ -45,9 +45,9 @@ export function AddLabourersDialog({
     setSupervisor("");
     setCrew("");
     let live = true;
-    void searchLink("Employee", "", 200).then(
-      (r) => live && setSups((r ?? []).map((x) => ({ value: x.value, label: x.description ? `${x.description} (${x.value})` : x.value }))),
-    );
+    void getSupervisorOptions().then((r) => {
+      if (live && Array.isArray(r)) setSups(r.map((x) => ({ value: x.name, label: `${x.employee_name} (${x.name})` })));
+    });
     return () => {
       live = false;
     };

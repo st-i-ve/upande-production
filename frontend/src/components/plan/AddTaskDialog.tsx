@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { SearchPicker } from "@/components/ui/search-picker";
 import { BlockNotice, OverrideReasonDialog } from "@/components/rules/RuleParts";
 import { ruleFailure, type RuleFailure } from "@/lib/rules";
-import { savePlanTasks, type UnitRow } from "@/lib/api";
+import { getSupervisorOptions, savePlanTasks, type UnitRow } from "@/lib/api";
 import { isError } from "@/lib/frappe";
 import { addDays } from "@/components/plan/fmt";
 import { num, ymd } from "@/lib/utils";
@@ -35,7 +35,6 @@ export function AddTaskDialog({
   unitLabel,
   units,
   operations,
-  supervisors,
   onClose,
   onAdded,
 }: {
@@ -48,7 +47,6 @@ export function AddTaskDialog({
   unitLabel: string;
   units: UnitRow[];
   operations: OperationOption[];
-  supervisors: { value: string; label: string }[];
   onClose: () => void;
   onAdded: () => void;
 }) {
@@ -59,6 +57,18 @@ export function AddTaskDialog({
   const [planned, setPlanned] = useState("");
   const [due, setDue] = useState(min);
   const [supervisor, setSupervisor] = useState("");
+  const [supervisors, setSupervisors] = useState<{ value: string; label: string }[]>([]);
+
+  useEffect(() => {
+    let live = true;
+    void getSupervisorOptions(crop).then((r) => {
+      if (!live || !Array.isArray(r)) return;
+      setSupervisors(r.map((s) => ({ value: s.name, label: s.employee_name || s.name })));
+    });
+    return () => {
+      live = false;
+    };
+  }, [crop]);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const [rule, setRule] = useState<RuleFailure | null>(null);

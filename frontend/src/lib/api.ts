@@ -437,9 +437,28 @@ export interface SupervisorCandidate {
   user: string | null;
 }
 
+/** One entry of a supervisor dropdown (get_supervisor_options). */
+export interface SupervisorOption {
+  /** Employee id. */
+  name: string;
+  employee_name: string;
+  user: string | null;
+  image?: string | null;
+  phone?: string | null;
+  farm?: string | null;
+  active?: number | boolean;
+  status?: string | null;
+}
+
+/** Active supervisors for a dropdown; `current` (an Employee id) is kept in the list even when it is an old value. */
+export const getSupervisorOptions = (crop?: string | null, current?: string | null) =>
+  rpc<SupervisorOption[]>("get_supervisor_options", { crop: crop || null, current: current || null });
+
 export interface SupervisorAssignment {
   name: string;
   unit: string;
+  /** Blank = the block's overseer; otherwise the Field Operation category the supervisor is shared under. */
+  category?: string;
   supervisor: string;
   supervisor_name: string | null;
 }
@@ -472,13 +491,13 @@ export interface SupervisorPlan {
 export const getSupervisorPlan = (crop: string, farm: string, year: number, week: number) =>
   rpc<SupervisorPlan>("get_supervisor_plan", { crop, farm, year, week });
 
-/** Replaces the week's assignments with `assignments` ([{unit, supervisor}]); the week's plan tasks follow. */
+/** Replaces the week's assignments ([{unit, supervisor, category}], blank category = overseer, row order = sharing order); the week's plan tasks follow. */
 export const saveSupervisorPlan = (
   crop: string,
   farm: string,
   year: number,
   week: number,
-  assignments: Array<{ unit: string; supervisor: string }>,
+  assignments: Array<{ unit: string; supervisor: string; category: string }>,
 ) => rpc<SupervisorPlan>("save_supervisor_plan", { crop, farm, year, week, assignments });
 
 /** Copies last week's assignments into this week when it has none. */

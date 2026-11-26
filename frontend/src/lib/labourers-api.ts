@@ -198,3 +198,7 @@ export const saveLabourer = (employee: string, patch: LabourerPatch) =>
 
 export const removeLabourer = (employee: string) =>
   rpc<{ removed: boolean; deactivated: boolean }>("remove_labourer", { employee });
+
+/** Active supervisors for the default-supervisor pickers; `current` keeps an old supervisor visible. */
+export const getSupervisorOptions = (crop?: string | null, current?: string | null) =>
+  rpc<Array<{ name: string; employee_name: string; user: string | null }>>("get_supervisor_options", { crop: crop || null, current: current || null });

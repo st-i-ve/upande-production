@@ -6,6 +6,7 @@ import type { Boot, Crop } from "@/lib/api";
 vi.mock("@/lib/api", () => ({ casualLabourerSummary: vi.fn(), listOperations: vi.fn().mockResolvedValue({ error: "x" }) }));
 
 vi.mock("@/lib/labourers-api", () => ({
+  getSupervisorOptions: vi.fn().mockResolvedValue([]),
   listLabourers: vi.fn(),
   getLabourerDetail: vi.fn().mockResolvedValue({ error: "x" }),
   candidateEmployees: vi.fn().mockResolvedValue({ people: [], departments: [], designations: [] }),

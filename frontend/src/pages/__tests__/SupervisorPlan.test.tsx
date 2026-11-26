@@ -13,6 +13,7 @@ vi.mock("@/lib/api", () => ({
   getSupervisorPlan: vi.fn(),
   saveSupervisorPlan: vi.fn(),
   copySupervisorPlan: vi.fn(),
+  getSupervisorOptions: vi.fn(),
 }));
 
 import * as api from "@/lib/api";
@@ -28,7 +29,7 @@ const boot = (over: Partial<Boot> = {}): Boot => ({
 });
 const mocked = vi.mocked(api);
 
-const asg = (unit: string, supervisor: string, name: string) => ({ name: `A-${unit}`, unit, supervisor, supervisor_name: name });
+const asg = (unit: string, supervisor: string, name: string, category = "") => ({ name: `A-${unit}-${category}-${supervisor}`, unit, supervisor, supervisor_name: name, category });
 const sp = (over: Partial<SupervisorPlan> = {}): SupervisorPlan => ({
   week_start: "2026-11-16", week_end: "2026-11-22", can_edit: true,
   units: [
@@ -57,6 +58,10 @@ beforeEach(() => {
   mocked.listUnits.mockResolvedValue({ units: [] });
   mocked.listOperations.mockResolvedValue({ rows: [] });
   mocked.listCasualLabourers.mockResolvedValue({ people: [] });
+  mocked.getSupervisorOptions.mockResolvedValue([
+    { name: "EMP-1", employee_name: "Stephene", user: "s@x" },
+    { name: "EMP-2", employee_name: "Supervisor Test", user: "t@x" },
+  ]);
   mocked.getPlan.mockResolvedValue({ plan: null, week_start: "2026-11-16", week_end: "2026-11-22", tasks: [] });
 });
 
@@ -69,7 +74,7 @@ describe("Plan supervisors view", () => {
     const table = await screen.findByRole("region", { name: "Supervisors by block" });
     expect(within(table).getByText("PH1-B1")).toBeTruthy();
     expect(within(table).getByText("PH1-B2")).toBeTruthy();
-    expect(within(table).getByRole("button", { name: "Supervisor for PH1-B1" }).textContent).toContain("Stephene");
+    expect(within(table).getByRole("button", { name: "Overseer for PH1-B1" }).textContent).toContain("Stephene");
     expect(within(table).getByText("Supervisor Test")).toBeTruthy(); // last week's column
     expect(mocked.getSupervisorPlan).toHaveBeenCalledWith("Avocado", "Mutara", expect.any(Number), expect.any(Number));
   });
@@ -78,7 +83,7 @@ describe("Plan supervisors view", () => {
     mocked.getSupervisorPlan.mockResolvedValue(sp({ can_edit: false, assignments: [asg("PH1-B1", "EMP-1", "Stephene")] }));
     await openSupervisors(boot({ can_manage: false }));
     await screen.findByRole("region", { name: "Supervisors by block" });
-    expect(screen.queryByRole("button", { name: /Supervisor for/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Overseer for|Activity/ })).toBeNull();
     expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
     expect(screen.queryByRole("button", { name: /Copy last week/ })).toBeNull();
     expect(screen.getByText("Stephene")).toBeTruthy();
@@ -92,7 +97,7 @@ describe("Plan supervisors view", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Copy last week/ }));
     await waitFor(() => expect(mocked.copySupervisorPlan).toHaveBeenCalled());
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Supervisor for PH1-B1" }).textContent).toContain("Stephene"),
+      expect(screen.getByRole("button", { name: "Overseer for PH1-B1" }).textContent).toContain("Stephene"),
     );
   });
 
@@ -115,17 +120,101 @@ describe("Plan supervisors view", () => {
     await openSupervisors();
     const save = await screen.findByRole("button", { name: "Save" });
     expect((save as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(screen.getByRole("button", { name: "Supervisor for PH1-B1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Overseer for PH1-B1" }));
     fireEvent.click(await screen.findByRole("option", { name: "Stephene" }));
     expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(false);
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() =>
       expect(mocked.saveSupervisorPlan).toHaveBeenCalledWith("Avocado", "Mutara", expect.any(Number), expect.any(Number), [
-        { unit: "PH1-B1", supervisor: "EMP-1" },
+        { unit: "PH1-B1", supervisor: "EMP-1", category: "" },
       ]),
     );
     expect(await screen.findByTestId("supervisor-warnings")).toBeTruthy();
     expect(screen.getByText(/approved leave/)).toBeTruthy();
+  });
+
+  it("takes the pickers' options from the supervisor options for the crop", async () => {
+    mocked.getSupervisorPlan.mockResolvedValue(sp());
+    await openSupervisors();
+    fireEvent.click(await screen.findByRole("button", { name: "Overseer for PH1-B1" }));
+    expect(await screen.findByRole("option", { name: "Supervisor Test" })).toBeTruthy();
+    expect(mocked.getSupervisorOptions).toHaveBeenCalledWith("Avocado");
+  });
+
+  it("builds activities with ordered supervisors and saves them with their category", async () => {
+    mocked.getSupervisorPlan.mockResolvedValue(sp());
+    mocked.saveSupervisorPlan.mockResolvedValue({ ...sp(), saved: 3, tasks_updated: 0 });
+    await openSupervisors();
+    await screen.findByRole("region", { name: "Supervisors by block" });
+    fireEvent.click(screen.getByRole("button", { name: "Overseer for PH1-B1" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Stephene" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add activity for PH1-B1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Category of activity 1 for PH1-B1" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Spraying" }));
+    fireEvent.click(screen.getByRole("button", { name: "Supervisor 1 of activity 1 for PH1-B1" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Supervisor Test" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add supervisor to activity 1 for PH1-B1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Supervisor 2 of activity 1 for PH1-B1" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Stephene" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(mocked.saveSupervisorPlan).toHaveBeenCalledWith("Avocado", "Mutara", expect.any(Number), expect.any(Number), [
+        { unit: "PH1-B1", supervisor: "EMP-1", category: "" },
+        { unit: "PH1-B1", supervisor: "EMP-2", category: "Spraying" },
+        { unit: "PH1-B1", supervisor: "EMP-1", category: "Spraying" },
+      ]),
+    );
+  });
+
+  it("shows the saved activities and their order, and removes one", async () => {
+    mocked.getSupervisorPlan.mockResolvedValue(
+      sp({ assignments: [asg("PH1-B1", "EMP-1", "Stephene"), asg("PH1-B1", "EMP-2", "Supervisor Test", "Weeding"), asg("PH1-B1", "EMP-1", "Stephene", "Weeding")] }),
+    );
+    mocked.saveSupervisorPlan.mockResolvedValue({ ...sp(), saved: 1 });
+    await openSupervisors();
+    await screen.findByRole("region", { name: "Supervisors by block" });
+    expect(screen.getByRole("button", { name: "Category of activity 1 for PH1-B1" }).textContent).toContain("Weeding");
+    expect(screen.getByRole("button", { name: "Supervisor 1 of activity 1 for PH1-B1" }).textContent).toContain("Supervisor Test");
+    expect(screen.getByRole("button", { name: "Supervisor 2 of activity 1 for PH1-B1" }).textContent).toContain("Stephene");
+    fireEvent.click(screen.getByRole("button", { name: "Remove activity 1 for PH1-B1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(mocked.saveSupervisorPlan).toHaveBeenCalledWith("Avocado", "Mutara", expect.any(Number), expect.any(Number), [
+        { unit: "PH1-B1", supervisor: "EMP-1", category: "" },
+      ]),
+    );
+  });
+
+  it("keeps an old supervisor visible when the options no longer list them", async () => {
+    mocked.getSupervisorPlan.mockResolvedValue(sp({ assignments: [asg("PH1-B2", "EMP-9", "Old Hand")] }));
+    await openSupervisors();
+    const picker = await screen.findByRole("button", { name: "Overseer for PH1-B2" });
+    expect(picker.textContent).toContain("Old Hand");
+  });
+
+  it("shows the server's refusal inline", async () => {
+    mocked.getSupervisorPlan.mockResolvedValue(sp());
+    mocked.saveSupervisorPlan.mockResolvedValue({ error: "Block PH1-B1 already has an overseer this week." });
+    await openSupervisors();
+    fireEvent.click(await screen.findByRole("button", { name: "Overseer for PH1-B1" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Stephene" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("already has an overseer");
+  });
+
+  it("offers the supervisor options in the Add task dialog", async () => {
+    mocked.getSupervisorPlan.mockResolvedValue(sp());
+    mocked.listUnits.mockResolvedValue({ units: [] });
+    render(
+      <CropProvider crop={crop} boot={boot()}>
+        <Plan />
+      </CropProvider>,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "Add task" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Supervisor" }));
+    expect(await screen.findByRole("option", { name: "Supervisor Test" })).toBeTruthy();
+    expect(mocked.getSupervisorOptions).toHaveBeenCalledWith("Avocado");
   });
 
   it("shows the supervisor of each task in the task list", async () => {

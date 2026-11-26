@@ -16,11 +16,12 @@ import { Picker } from "@/components/ui/picker";
 import { SearchPicker } from "@/components/ui/search-picker";
 import { Switch } from "@/components/ui/switch";
 import { listOperations } from "@/lib/api";
-import { isError, searchLink } from "@/lib/frappe";
+import { isError } from "@/lib/frappe";
 import { formatUoms, kes, trimQty } from "@/lib/format";
 import {
   addLabourers,
   getLabourerDetail,
+  getSupervisorOptions,
   removeLabourer,
   saveLabourer,
   type LabourerDetail,
@@ -183,13 +184,22 @@ export function LabourerDialog({
         })),
       );
     });
-    void searchLink("Employee", "", 200).then((r) =>
-      live && setPeople((r ?? []).map((x) => ({ value: x.value, label: x.description ? `${x.description} (${x.value})` : x.value }))),
-    );
     return () => {
       live = false;
     };
   }, [crop]);
+
+  // Active supervisors; the labourer's current one is kept even if no longer listed.
+  const currentSupervisor = data?.supervisor ?? "";
+  useEffect(() => {
+    let live = true;
+    void getSupervisorOptions(crop, currentSupervisor || null).then((r) => {
+      if (live && Array.isArray(r)) setPeople(r.map((x) => ({ value: x.name, label: `${x.employee_name} (${x.name})` })));
+    });
+    return () => {
+      live = false;
+    };
+  }, [crop, currentSupervisor]);
 
   const opById = useMemo(() => new Map(ops.map((o) => [o.name, o])), [ops]);
   const reload = useCallback(() => {

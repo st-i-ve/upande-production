@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PlanTask, UnitRow } from "@/lib/api";
 
-vi.mock("@/lib/api", () => ({ savePlanTasks: vi.fn(), recordTaskWork: vi.fn(), listTaskProgress: vi.fn(() => Promise.resolve([])) }));
+vi.mock("@/lib/api", () => ({ savePlanTasks: vi.fn(), getSupervisorOptions: vi.fn(() => Promise.resolve([])), recordTaskWork: vi.fn(), listTaskProgress: vi.fn(() => Promise.resolve([])) }));
 
 import * as api from "@/lib/api";
 import { AddTaskDialog } from "@/components/plan/AddTaskDialog";
@@ -29,7 +29,7 @@ const ops = [{ name: "OP-1", operation_name: "Spraying", work_uom: "Ha" }];
 
 function addTask() {
   return render(
-    <AddTaskDialog crop="Avocado" farm="Mutara" year={2026} week={44} weekStart={new Date(2026, 9, 26)} unitLabel="Block" units={units} operations={ops} supervisors={[]} onClose={() => {}} onAdded={vi.fn()} />,
+    <AddTaskDialog crop="Avocado" farm="Mutara" year={2026} week={44} weekStart={new Date(2026, 9, 26)} unitLabel="Block" units={units} operations={ops} onClose={() => {}} onAdded={vi.fn()} />,
   );
 }
 

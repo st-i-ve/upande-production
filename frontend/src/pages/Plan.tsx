@@ -200,12 +200,6 @@ export function Plan() {
     };
   }, [tasks]);
 
-  const supervisors = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const t of tasks) if (t.supervisor) m.set(t.supervisor, t.supervisor_name || t.supervisor);
-    return [...m].map(([value, label]) => ({ value, label }));
-  }, [tasks]);
-
   async function generate() {
     setGenerating(true);
     const r = await generatePlanWeek(crop.name, farm, week.year, week.week);
@@ -554,7 +548,6 @@ export function Plan() {
           unitLabel={unitLabel}
           units={units}
           operations={ops}
-          supervisors={supervisors}
           onClose={() => setAdding(false)}
           onAdded={() => {
             setAdding(false);
