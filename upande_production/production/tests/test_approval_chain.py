@@ -436,6 +436,22 @@ class TestApprovalChain(IntegrationTestCase):
 		self.assertEqual(approvals.list_approvals(status="Checked")["counts"]["Checked"], 1)
 		frappe.set_user("Administrator")
 
+	def test_queue_counts(self):
+		_, _, e1 = self._worked(self.asst)
+		_, _, e2 = self._worked(self.mgr, unit=self.u2.name)
+		frappe.set_user(self.asst)
+		c = approvals.list_approvals(queue="check")["counts"]
+		self.assertEqual(c["queue"], 1)  # not the manager's own task
+		self.assertGreater(c["Pending"], c["queue"])
+		frappe.set_user("Administrator")
+		self._as(self.asst, approvals.check, [e1])
+		frappe.set_user(self.mgr)
+		c = approvals.list_approvals(queue="approve")["counts"]
+		self.assertEqual(c["queue"], 2)  # e2 Pending plus e1 Checked
+		self.assertEqual(c["Pending"], 1)
+		self.assertNotIn("queue", approvals.list_approvals()["counts"])
+		frappe.set_user("Administrator")
+
 	def test_protocol_compliance_only_after_approve(self):
 		# compliance reads the protocol task's done_qty / status; Checked must not move them
 		_, task, e = self._worked(self.asst, qty=5)

@@ -335,6 +335,8 @@ def list_approvals(
 	labourers.annotate_work([e for g in out for e in g["entries"]])
 	out.sort(key=lambda g: (g["created"],), reverse=(queue is None and status != "Pending"))
 	counts["stale"] = stale_count
+	if queue:
+		counts["queue"] = len(out)  # cards in this queue (Checked included for "approve"), for the tab badge
 	return {"groups": out, "counts": counts, "stale_days": stale_days}
 
 

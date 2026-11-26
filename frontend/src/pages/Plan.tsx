@@ -374,7 +374,7 @@ export function Plan() {
                       <DeviationBadge deviation={t.deviation} />
                       <RuleFlag status={t.rule_status} notes={t.rule_notes} overrideReason={t.override_reason} />
                       {!!t.awaiting_approval && (
-                        <span data-testid="task-awaiting-approval"><PendingChip>Awaiting approval</PendingChip></span>
+                        <span data-testid="task-awaiting-approval"><PendingChip>Awaiting manager</PendingChip></span>
                       )}
                       {(t.pending_qty ?? 0) > 0 && <PendingChip>Awaiting approval</PendingChip>}
                       <span className="ml-auto">

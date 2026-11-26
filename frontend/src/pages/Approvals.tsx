@@ -80,6 +80,7 @@ export function Approvals() {
   const [dialog, setDialog] = useState<ApprovalGroup[] | null>(null);
   const [sending, setSending] = useState(false);
   const [unchecked, setUnchecked] = useState<ApprovalGroup[] | null>(null);
+  const [approving, setApproving] = useState(false);
   const [opts, setOpts] = useState({ units: new Map<string, string>(), ops: new Map<string, string>(), sups: new Map<string, string>() });
   const [protos, setProtos] = useState<PendingProtocol[] | null>(null);
   const [protoBusy, setProtoBusy] = useState<Set<string>>(new Set());
@@ -195,7 +196,7 @@ export function Approvals() {
   const plural = (n: number) => `${n} ${n === 1 ? "submission" : "submissions"}`;
   const names = (gs: ApprovalGroup[]) => gs.flatMap((g) => g.names);
   const approveNow = (gs: ApprovalGroup[], uncheckedOk: boolean) =>
-    act(gs, () => (uncheckedOk ? approve(names(gs), 1) : approve(names(gs))), `Approved ${plural(gs.length)}. It now counts toward done work.`);
+    act(gs, () => approve(names(gs), uncheckedOk ? 1 : 0), `Approved ${plural(gs.length)}. It now counts toward done work.`);
   const doCheck = (gs: ApprovalGroup[]) => act(gs, () => checkWork(names(gs)), `Checked ${plural(gs.length)}. It is with the manager for approval.`);
   const doApprove = (gs: ApprovalGroup[]) => {
     if (tab === "check") return doCheck(gs);
@@ -208,8 +209,10 @@ export function Approvals() {
   const doApproveUnchecked = async () => {
     if (!unchecked) return;
     const gs = unchecked;
-    setUnchecked(null);
+    setApproving(true);
     await approveNow(gs, true);
+    setApproving(false);
+    setUnchecked(null);
   };
   const doSendBack = async (note: string) => {
     if (!dialog) return;
@@ -241,8 +244,8 @@ export function Approvals() {
           <TabsList aria-label="Approval status">
             {(
               [
-                ...(assistant ? ([["check", "To check", c?.Pending]] as const) : []),
-                ...(assistant ? [] : ([["pending", queue ? "To approve" : "Pending", c?.Pending]] as const)),
+                ...(assistant ? ([["check", "To check", c?.queue ?? c?.Pending]] as const) : []),
+                ...(assistant ? [] : ([["pending", queue ? "To approve" : "Pending", c?.queue ?? c?.Pending]] as const)),
                 ...(assistant ? [] : ([["stale", "Stale", c?.stale]] as const)),
                 ["sent", "Sent back", c?.["Sent Back"]],
                 ["approved", "Approved", c?.Approved],
@@ -348,7 +351,7 @@ export function Approvals() {
         onSendBack={() => setDialog(chosen)}
         onClear={() => setSelected(new Set())}
       />
-      <UncheckedDialog open={!!unchecked} cards={unchecked?.length ?? 0} busy={false} onCancel={() => setUnchecked(null)} onConfirm={() => void doApproveUnchecked()} />
+      <UncheckedDialog open={!!unchecked} cards={unchecked?.length ?? 0} busy={approving} onCancel={() => !approving && setUnchecked(null)} onConfirm={() => void doApproveUnchecked()} />
       <SendBackDialog open={!!dialog} cards={dialog?.length ?? 0} busy={sending} onCancel={() => setDialog(null)} onConfirm={(n) => void doSendBack(n)} />
     </PageShell>
   );

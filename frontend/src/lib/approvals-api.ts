@@ -95,7 +95,7 @@ export interface ApprovalGroup {
 export interface ApprovalList {
   groups: ApprovalGroup[];
   /** Cards per status (ignoring the status filter) plus how many Pending cards are stale. */
-  counts: Record<ApprovalStatus, number> & { stale: number };
+  counts: Record<ApprovalStatus, number> & { Checked?: number; stale: number; /** Cards in the requested queue (Checked included for approve). */ queue?: number };
   stale_days: number;
 }
 

@@ -95,16 +95,18 @@ export function TaskActions({
               Postpone
             </button>
           )}
-          {canReschedule && <button
-            type="button"
-            role="menuitem"
-            className={ITEM}
-            aria-disabled={hasWork || undefined}
-            title={hasWork ? "Work is recorded; mark it Skipped instead" : undefined}
-            onClick={() => !hasWork && open("delete")}
-          >
-            Delete
-          </button>}
+          {canReschedule && (
+            <button
+              type="button"
+              role="menuitem"
+              className={ITEM}
+              aria-disabled={hasWork || undefined}
+              title={hasWork ? "Work is recorded; mark it Skipped instead" : undefined}
+              onClick={() => !hasWork && open("delete")}
+            >
+              Delete
+            </button>
+          )}
         </PopoverContent>
       </Popover>
       {mode === "move" && <ChangeDateDialog plan={plan} task={task} weekStart={weekStart} onClose={() => setMode(null)} onDone={done} />}

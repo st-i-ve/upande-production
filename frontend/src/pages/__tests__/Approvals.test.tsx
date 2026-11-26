@@ -101,7 +101,7 @@ describe("Approvals", () => {
     const card = await screen.findByTestId("approval-card-a");
     fireEvent.click(within(card).getByRole("button", { name: "Approve" }));
     await waitFor(() => expect(screen.queryByTestId("approval-card-a")).toBeNull());
-    expect(approve).toHaveBeenCalledWith(["a-1"]);
+    expect(approve).toHaveBeenCalledWith(["a-1"], 0);
     expect(await screen.findByText(/Approved 1 submission/)).toBeInTheDocument();
   });
 
@@ -128,7 +128,7 @@ describe("Approvals", () => {
     const pill = await screen.findByTestId("approval-action-pill");
     expect(pill).toHaveTextContent("2 selected");
     fireEvent.click(within(pill).getByRole("button", { name: /Approve/ }));
-    await waitFor(() => expect(approve).toHaveBeenCalledWith(["a-1", "b-1"]));
+    await waitFor(() => expect(approve).toHaveBeenCalledWith(["a-1", "b-1"], 0));
   });
 
   it("restores the card and toasts when approving fails", async () => {
@@ -254,6 +254,16 @@ describe("Approvals", () => {
       fireEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Cancel" }));
       expect(approve).not.toHaveBeenCalled();
       expect(screen.getByTestId("approval-card-n")).toBeInTheDocument();
+    });
+
+    it("tab badges count the queue, not every pending card", async () => {
+      vi.mocked(listApprovals).mockImplementation(async () => ({
+        groups: lists.Pending, counts: { ...counts, Pending: 9, queue: 2 }, stale_days: 2,
+      }));
+      renderPage(<Approvals />, assistant);
+      await screen.findByTestId("approval-card-a");
+      expect(screen.getByRole("tab", { name: /To check/ })).toHaveTextContent("2");
+      expect(screen.getByRole("tab", { name: /To check/ })).not.toHaveTextContent("9");
     });
   });
 });
