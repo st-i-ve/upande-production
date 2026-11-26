@@ -71,7 +71,7 @@ def _unit_rows(crop):
 	"""Unit rows for list_units, including current cycle/item and has_geojson."""
 	rows = frappe.db.sql(
 		"""select name, unit_type, parent_production_unit as parent, is_group, area_ha, plant_count,
-		cost_center, status, if(ifnull(geojson, '') = '', 0, 1) as has_geojson
+		cost_center, status, cleared_on, if(ifnull(geojson, '') = '', 0, 1) as has_geojson
 		from `tabProduction Unit` where crop = %s and status != 'Retired' order by lft""",
 		(crop,),
 		as_dict=True,
