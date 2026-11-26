@@ -1,0 +1,1 @@
+import{r as s,i as o}from"../production-D4PF6T_u.js";import{h as u}from"./labourpay-api-D3D8lJgj.js";function n(){const[r,a]=s.useState(null);return s.useEffect(()=>{let t=!0;return u().then(e=>{t&&a(o(e)?{mode:"Built-in only",wm_installed:!1,wm_active:!1}:e)}),()=>{t=!1}},[]),r}export{n as u};
