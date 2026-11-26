@@ -83,8 +83,9 @@ describe("Plan supervisors view", () => {
     mocked.getSupervisorPlan.mockResolvedValue(sp({ can_edit: false, assignments: [asg("PH1-B1", "EMP-1", "Stephene")] }));
     await openSupervisors(boot({ can_manage: false }));
     await screen.findByRole("region", { name: "Supervisors by block" });
-    expect(screen.queryByRole("button", { name: /Overseer for|Activity/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /overseer for|activity/i })).toBeNull();
     expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /add activity/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /Copy last week/ })).toBeNull();
     expect(screen.getByText("Stephene")).toBeTruthy();
   });
@@ -190,6 +191,21 @@ describe("Plan supervisors view", () => {
     await openSupervisors();
     const picker = await screen.findByRole("button", { name: "Overseer for PH1-B2" });
     expect(picker.textContent).toContain("Old Hand");
+  });
+
+  it("keeps an old supervisor inside an activity visible, and offers a picked one once", async () => {
+    mocked.getSupervisorPlan.mockResolvedValue(
+      sp({ assignments: [asg("PH1-B1", "EMP-9", "Old Hand", "Weeding"), asg("PH1-B1", "EMP-1", "Stephene", "Weeding")] }),
+    );
+    await openSupervisors();
+    await screen.findByRole("region", { name: "Supervisors by block" });
+    expect(screen.getByRole("button", { name: "Supervisor 1 of activity 1 for PH1-B1" }).textContent).toContain("Old Hand");
+    fireEvent.click(screen.getByRole("button", { name: "Add supervisor to activity 1 for PH1-B1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Supervisor 3 of activity 1 for PH1-B1" }));
+    expect(await screen.findByRole("option", { name: "Supervisor Test" })).toBeTruthy();
+    expect(screen.queryByRole("option", { name: "Stephene" })).toBeNull();
+    fireEvent.click(screen.getByRole("option", { name: "Remove" })); // an empty slot can be removed
+    expect(screen.queryByRole("button", { name: "Supervisor 3 of activity 1 for PH1-B1" })).toBeNull();
   });
 
   it("shows the server's refusal inline", async () => {

@@ -110,6 +110,7 @@ export function SupervisorPlanView({
     const mine = ++seq.current;
     setLoading(true);
     setError(null);
+    setSaveError(null);
     const r = await getSupervisorPlan(crop, farm, year, week);
     if (mine !== seq.current) return; // a newer week was asked for
     if (isError(r)) setError(r.error);
@@ -302,7 +303,7 @@ export function SupervisorPlanView({
                                           sups: v === NONE ? x.sups.filter((_, k) => k !== j) : x.sups.map((y, k) => (k === j ? v : y)),
                                         }))
                                       }
-                                      options={[...(sup ? [{ value: NONE, label: "Remove" }] : []), ...options]}
+                                      options={[{ value: NONE, label: "Remove" }, ...options.filter((o) => o.value === sup || !a.sups.includes(o.value))]}
                                       placeholder="Supervisor"
                                       label={`Supervisor ${j + 1} of activity ${i + 1} for ${u.name}`}
                                     />
