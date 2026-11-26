@@ -160,6 +160,9 @@ def seed_people():
 		mk(f, l, g, "Casual Labourer", "Casual", i)
 	for i, (f, l, g) in enumerate(DEMO["supervisors"]):
 		mk(f, l, g, "Production Supervisor", "Full-time", i)
+	for emp in _employees("Production Supervisor"):
+		if not frappe.db.exists("Production Supervisor", emp):
+			_insert({"doctype": "Production Supervisor", "employee": emp, "active": 1})
 	frappe.db.commit()
 
 	if not frappe.db.exists("Role", "Production Manager"):

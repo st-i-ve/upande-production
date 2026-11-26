@@ -19,4 +19,5 @@ def execute():
 	for emp in sorted(used):
 		if frappe.db.exists("Production Supervisor", emp) or not frappe.db.exists("Employee", emp):
 			continue
-		frappe.get_doc({"doctype": "Production Supervisor", "employee": emp, "active": 1}).insert(ignore_permissions=True)
+		left = frappe.db.get_value("Employee", emp, "status") == "Left"
+		frappe.get_doc({"doctype": "Production Supervisor", "employee": emp, "active": 0 if left else 1}).insert(ignore_permissions=True)

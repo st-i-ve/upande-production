@@ -3,7 +3,7 @@
 import frappe
 
 from upande_production.api.envelope import as_dict, run
-from upande_production.production.logic import labourers, supervisors
+from upande_production.production.logic import labourers
 from upande_production.production.logic.settings import can_see_pay
 
 
@@ -27,10 +27,11 @@ def labourer_detail(crop, employee, from_date=None, to_date=None):
 
 @frappe.whitelist(methods=["POST"])
 @run
-def get_supervisor_options(crop=None):
-	"""Active Production Supervisors for the labourer supervisor pickers (same shape as the production API's)."""
-	_need("Production Supervisor")
-	return supervisors.supervisor_options(crop or None)
+def get_supervisor_options(crop=None, current=None):
+	"""Same as the production API's supervisor options."""
+	from upande_production.api import production
+
+	return production.get_supervisor_options.__wrapped__(crop, current)
 
 
 @frappe.whitelist(methods=["POST"])

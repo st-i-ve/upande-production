@@ -442,11 +442,12 @@ def delete_plan_task(plan, task, reason):
 
 @frappe.whitelist(methods=["POST"])
 @run
-def get_supervisor_options(crop=None):
+def get_supervisor_options(crop=None, current=None):
 	"""Active Production Supervisors for a supervisor dropdown: [{name (Employee id), employee_name, user, image,
-	phone, farm, active, status}], narrowed to `crop` when given."""
+	phone, farm, active, status}], narrowed to `crop` when given; `current` (an Employee id) is added when
+	it is an old value the picker must still show."""
 	_need("Production Supervisor")
-	return supervisors.supervisor_options(crop or None)
+	return supervisors.supervisor_options(crop or None, [current] if current else ())
 
 
 @frappe.whitelist(methods=["POST"])

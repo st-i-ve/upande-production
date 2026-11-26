@@ -69,9 +69,21 @@ def supervisor_options(crop=None, extra=()) -> list[dict]:
 	return rows
 
 
-def candidates(extra=()) -> list[dict]:
-	"""Active Production Supervisors, plus any `extra` employees already assigned."""
-	return supervisor_options(extra=extra)
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def supervisor_query(doctype, txt, searchfield, start, page_len, filters):
+	"""Link search for Employee fields that hold a supervisor: Employees with an active Production Supervisor record."""
+	txt = f"%{txt or ''}%"
+	return frappe.db.sql(
+		"""select ps.employee, ps.employee_name from `tabProduction Supervisor` ps
+		where ps.active = 1 and (ps.employee like %(t)s or ps.employee_name like %(t)s)
+		order by ps.employee_name limit %(s)s, %(l)s""",
+		{"t": txt, "s": int(start), "l": int(page_len)})
+
+
+def candidates(crop=None, extra=()) -> list[dict]:
+	"""Active Production Supervisors for `crop`, plus any `extra` employees already assigned."""
+	return supervisor_options(crop, extra)
 
 
 def leave_warnings(rows, year, week) -> list[dict]:
@@ -109,7 +121,7 @@ def get_week(crop, farm, year, week) -> dict:
 	return {
 		"week_start": start, "week_end": end, "can_edit": can_manage(),
 		"units": week_units(crop, farm),
-		"supervisors": candidates({r["supervisor"] for r in cur}),
+		"supervisors": candidates(crop, {r["supervisor"] for r in cur}),
 		"assignments": cur, "last_week": prev, "last_week_label": {"year": prev_y, "week": prev_w},
 		"warnings": leave_warnings(cur, year, week),
 	}

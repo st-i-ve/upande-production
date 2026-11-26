@@ -4,7 +4,7 @@ from frappe.tests import IntegrationTestCase
 from upande_production.api import labourers as lab_api
 from upande_production.api import production as desk
 from upande_production.patches import create_production_supervisors
-from upande_production.production.logic import supervisors
+from upande_production.production.logic import labourers, supervisors
 
 
 def _make(doctype, **kw):
@@ -127,6 +127,34 @@ class TestSupervisorRecords(IntegrationTestCase):
 		doc.supervisor = self.a.name
 		with self.assertRaises(frappe.ValidationError):
 			doc.save()
+
+	def test_patch_registers_a_left_employee_as_inactive(self):
+		_make("Production Supervisor Assignment", crop=self.crop.name, unit=self.unit.name, supervisor=self.c.name,
+			plan_year=2031, plan_week=4)
+		frappe.db.set_value("Employee", self.c.name, "status", "Left")
+		create_production_supervisors.execute()
+		self.assertEqual(frappe.db.get_value("Production Supervisor", self.c.name, "active"), 0)
+		with self.assertRaises(frappe.ValidationError):
+			frappe.get_doc("Production Supervisor", self.c.name).update({"active": 1}).save()
+
+	def test_get_week_passes_the_crop(self):
+		_make("Production Supervisor", employee=self.a.name, crops=[{"crop": self.other_crop.name}])
+		_make("Production Supervisor", employee=self.b.name, crops=[{"crop": self.crop.name}])
+		names = {s["name"] for s in supervisors.get_week(self.crop.name, self.farm.name, 2031, 5)["supervisors"]}
+		self.assertIn(self.b.name, names)
+		self.assertNotIn(self.a.name, names)
+
+	def test_add_labourers_with_unregistered_supervisor_refused(self):
+		with self.assertRaises(frappe.ValidationError):
+			labourers.add_labourers([self.d.name], supervisor=self.c.name)
+		self.assertFalse(frappe.db.exists("Casual Labourer", self.d.name))
+
+	def test_options_current_and_link_query(self):
+		_make("Production Supervisor", employee=self.a.name)
+		res = desk.get_supervisor_options(current=self.c.name)
+		self.assertIn(self.c.name, {r["name"] for r in res})
+		hits = supervisors.supervisor_query("Employee", "SRA", "name", 0, 20, {})
+		self.assertEqual([h[0] for h in hits], [self.a.name])
 
 	def test_mulching_category_accepted(self):
 		op = _make("Field Operation", crop=self.crop.name, operation_name="SR Mulch", category="Mulching",
