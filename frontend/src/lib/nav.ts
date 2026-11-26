@@ -31,6 +31,7 @@ import {
   Table2,
   Tractor,
   UserRoundCheck,
+  UserCog,
   Users,
   Route as RouteIcon,
 } from "lucide-react";
@@ -57,6 +58,7 @@ const ICONS: Record<View, IconType> = {
   plan: CalendarCheck,
   map: MapIcon,
   "casual-labourers": Users,
+  supervisors: UserCog,
   attendance: ClipboardList,
   "pay-runs": Banknote,
   blocks: LayoutGrid,
@@ -134,7 +136,7 @@ const NOT_FOR: Partial<Record<View, string[]>> = {
 
 const GROUPS: { label: string; views: View[] }[] = [
   { label: "Overview", views: ["overview", "approvals"] },
-  { label: "Field work", views: ["plan", "map", "casual-labourers", "attendance", "pay-runs", "silage"] },
+  { label: "Field work", views: ["plan", "map", "supervisors", "casual-labourers", "attendance", "pay-runs", "silage"] },
   {
     label: "Field logs",
     views: ["hive-inspections", "honey-harvest", "pond-batches", "water-quality", "feeding", "irrigation", "grading"],

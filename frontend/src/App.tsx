@@ -66,6 +66,7 @@ const Plan = page(() => import("@/pages/Plan").then((m) => ({ default: m.Plan })
 const CasualLabourers = page(() =>
   import("@/pages/CasualLabourers").then((m) => ({ default: m.CasualLabourers })),
 );
+const Supervisors = page(() => import("@/pages/Supervisors").then((m) => ({ default: m.Supervisors })));
 const Attendance = page(() => import("@/pages/Attendance").then((m) => ({ default: m.Attendance })));
 const PayRuns = page(() => import("@/pages/PayRuns").then((m) => ({ default: m.PayRuns })));
 const Costs = page(() => import("@/pages/Costs").then((m) => ({ default: m.Costs })));
@@ -130,6 +131,7 @@ const PAGES: Record<View, React.ComponentType> = {
   cycles: Cycles,
   plan: Plan,
   "casual-labourers": CasualLabourers,
+  supervisors: Supervisors,
   attendance: Attendance,
   "pay-runs": PayRuns,
   costs: Costs,

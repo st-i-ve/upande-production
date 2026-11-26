@@ -16,6 +16,7 @@ export const VIEWS = [
   "cycles",
   "plan",
   "casual-labourers",
+  "supervisors",
   // Casual labour attendance for a day, and built-in pay runs (hidden when Work Management drives pay).
   "attendance",
   "pay-runs",

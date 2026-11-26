@@ -76,6 +76,8 @@ export function viewLabel(view: View, crop?: Pick<Crop, "unit_label"> | null): s
       return "Weekly Plan";
     case "casual-labourers":
       return "Casual Labourers";
+    case "supervisors":
+      return "Supervisors";
     case "attendance":
       return "Attendance";
     case "pay-runs":
