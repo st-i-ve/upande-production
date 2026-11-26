@@ -225,6 +225,16 @@ class TestCycleRequests(IntegrationTestCase):
 		self.assertTrue(frappe.db.exists("Work Plan Task", {"cycle": self.cycle}))
 		frappe.db.commit()  # the API envelope rolls back on an error
 
+	def test_deleting_a_cycle_rejects_its_pending_requests(self):
+		res = self.request()
+		self.assertEqual(frappe.db.get_value(CCR, res["request"], "status"), "Pending")
+		self.assertEqual(self.as_user(self.mgr, cr.pending_counts), 1)
+		self.as_user(self.mgr, api.delete_cycle, self.cycle)
+		self.assertFalse(frappe.db.exists(CYCLE, self.cycle))
+		r = frappe.db.get_value(CCR, res["request"], ["status", "review_note"], as_dict=True)
+		self.assertEqual((r.status, r.review_note), ("Rejected", "Cycle deleted"))
+		self.assertEqual(self.as_user(self.mgr, cr.pending_counts), 0)
+
 	def test_delete_refused_when_recorded(self):
 		self._record()
 		for user in (self.mgr, self.sup):
@@ -362,7 +372,16 @@ class TestCycleRequests(IntegrationTestCase):
 
 	def test_approve_request_of_deleted_cycle_gate(self):
 		name = self.request()["request"]
-		frappe.db.set_value(CCR, name, "cycle", self.cycle)  # unchanged; the cycle is removed next
 		frappe.delete_doc(CYCLE, self.cycle, force=True)
+		# deleting the cycle closes its pending request, so it can no longer be decided
+		self.assertEqual(frappe.db.get_value(CCR, name, "status"), "Rejected")
 		res = self.as_user(self.mgr, api.reject_cycle_change, name, "gone")
+		self.assertIn("error", res)
+		# a request sent back before the cycle went can still be withdrawn (the link is gone, the request is not)
+		self.cycle = cycle_setup.create_cycle({"unit": self.u1.name, "item": self.item, "existing": 1,
+			"planting_date": today(), "area_ha": 2, "protocol": self.protocol})["name"]
+		name = self.request()["request"]
+		self.as_user(self.mgr, cr.send_back, name, "again")
+		frappe.delete_doc(CYCLE, self.cycle, force=True)
+		res = self.as_user(self.sup, api.withdraw_cycle_change, name)
 		self.assertEqual(res["status"], "Rejected")

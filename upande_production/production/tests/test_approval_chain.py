@@ -214,7 +214,7 @@ class TestApprovalChain(IntegrationTestCase):
 
 	def test_record_work_on_awaiting_refused(self):
 		plan = self._plan_with(self.asst)
-		res = desk.record_task_work(plan, self._task(plan), "Skipped")
+		res = desk.record_task_work(plan, self._task(plan), "In Progress")
 		self.assertIn("error", res)
 		self.assertIn("This task is waiting for a manager's approval.", res["error"])
 
@@ -471,3 +471,137 @@ class TestApprovalChain(IntegrationTestCase):
 		frappe.set_user("Administrator")
 		with self.assertRaises(frappe.ValidationError):
 			self._as(self.asst, approvals.check, [e])
+
+	# -- final review fixes -------------------------------------------------------
+
+	def _task_state(self, task):
+		return frappe.db.get_value("Work Plan Task", task,
+			["assigned_by", "awaiting_approval", "forwarded_by", "forwarded_on"], as_dict=True)
+
+	def test_rest_save_cannot_change_existing_approval_fields(self):
+		plan = self._plan_with(self.asst)
+		task = self._task(plan)
+		for user in (self.asst, self.mgr):
+			frappe.set_user(user)
+			doc = frappe.get_doc("Production Work Plan", plan)
+			doc.tasks[0].awaiting_approval = 0
+			doc.tasks[0].assigned_by = self.mgr
+			doc.tasks[0].forwarded_by = self.mgr
+			doc.save()
+			frappe.set_user("Administrator")
+			s = self._task_state(task)
+			self.assertEqual((s.assigned_by, s.awaiting_approval, s.forwarded_by), (self.asst, 1, None), user)
+
+	def test_rest_save_new_row_is_stamped_from_session(self):
+		plan = self._plan_with(self.mgr)
+		frappe.set_user(self.asst)
+		doc = frappe.get_doc("Production Work Plan", plan)
+		doc.append("tasks", {"unit": self.u2.name, "operation": self.op.name, "planned_qty": 2, "uom": "Kg",
+			"rate": 40, "due_date": self.start, "status": "Open", "assigned_by": self.mgr, "awaiting_approval": 0,
+			"forwarded_by": self.mgr})
+		doc.save()
+		frappe.set_user("Administrator")
+		s = self._task_state(self._task(plan, self.u2.name))
+		self.assertEqual((s.assigned_by, s.awaiting_approval, s.forwarded_by), (self.asst, 1, None))
+
+	def test_forward_still_clears_awaiting(self):
+		plan = self._plan_with(self.asst)
+		self._as(self.mgr, task_approval.forward, plan)
+		s = self._task_state(self._task(plan))
+		self.assertEqual((s.awaiting_approval, s.forwarded_by), (0, self.mgr))
+
+	def test_checked_cannot_be_forged_through_save(self):
+		_, _, e = self._worked(self.asst)
+		for user in (self.sup, self.mgr, "Administrator"):
+			doc = frappe.get_doc("Casual Labour Work", e)
+			doc.approval_status = "Checked"
+			doc.checked_by = self.asst
+			frappe.set_user(user)
+			with self.assertRaises(frappe.ValidationError, msg=user):
+				doc.save()
+			frappe.set_user("Administrator")
+		self.assertEqual(self._status(e).approval_status, "Pending")
+		doc = frappe.get_doc("Casual Labour Work", e)
+		doc.checked_by = self.asst  # stamping a check on a Pending entry is dropped
+		doc.save()
+		self.assertIsNone(self._status(e).checked_by)
+
+	def test_editing_a_checked_entry_drops_the_check(self):
+		_, task, e = self._worked(self.asst)
+		self._as(self.asst, approvals.check, [e])
+		doc = frappe.get_doc("Casual Labour Work", e)
+		doc.qty = 9
+		doc.save()
+		d = frappe.db.get_value("Casual Labour Work", e, ["approval_status", "checked_by", "checked_at", "qty"], as_dict=True)
+		self.assertEqual((d.approval_status, d.checked_by, d.checked_at, d.qty), ("Pending", None, None, 9))
+		self._as(self.asst, approvals.check, [e])
+		doc = frappe.get_doc("Casual Labour Work", e)
+		doc.employee = frappe.get_doc({"doctype": "Employee", "first_name": "ACHEmp2", "gender": "Male",
+			"date_of_birth": "1990-01-01", "date_of_joining": "2020-01-01", "company": self.company}).insert().name
+		self.addCleanup(lambda: frappe.delete_doc("Employee", doc.employee, force=True))
+		doc.save()
+		self.assertEqual(self._status(e).approval_status, "Pending")
+
+	def test_forward_forces_a_wm_sync_of_the_forwarded_rows(self):
+		from unittest.mock import patch
+
+		from upande_production.production.logic import wm_bridge
+
+		plan = self._plan_with(self.asst)
+		task = self._task(plan)
+		frappe.db.set_value("Work Plan Task", task, "wm_planner", "PLN-FAKE")  # it already has a planner
+		frappe.db.commit()
+		with patch.object(wm_bridge, "active", return_value=True), \
+				patch.object(wm_bridge, "sync_plan_row") as sync:
+			self._as(self.mgr, task_approval.forward, plan)
+		self.assertEqual([c.args[1].name for c in sync.call_args_list], [task])
+
+	def test_step_off_hides_awaiting_flag_and_unblocks_supervisor(self):
+		plan = self._plan_with(self.asst, step=False)
+		frappe.db.set_value("Work Plan Task", self._task(plan), "awaiting_approval", 1)
+		frappe.db.commit()
+		self.assertEqual([t["awaiting_approval"] for t in self._get_plan_tasks(self.mgr)], [0])
+		self.assertEqual([t["awaiting_approval"] for t in self._mobile_tasks(self.mgr)], [0])
+
+	def test_manager_can_skip_awaiting_task_others_cannot(self):
+		plan = self._plan_with(self.asst)
+		task = self._task(plan)
+		for u in (self.sup, self.asst):
+			frappe.set_user(u)
+			self.assertIn("error", desk.record_task_work(plan, task, "Skipped"), u)
+		frappe.set_user(self.mgr)
+		self.assertNotIn("error", desk.record_task_work(plan, task, "Skipped"))
+		frappe.set_user("Administrator")
+
+	def test_wm_mirrored_work_needs_no_check(self):
+		_, task, e = self._worked(self.asst)
+		frappe.db.set_value("Casual Labour Work", e, "wm_actuals", "WMA-FAKE")
+		doc = frappe.get_doc("Casual Labour Work", e)
+		self.assertFalse(approvals.needs_check(doc))
+		frappe.set_user(self.asst)
+		self.assertEqual(approvals.list_approvals(queue="check")["groups"], [])
+		self.assertEqual(approvals.approval_counts()["to_check"], 0)
+		frappe.set_user(self.mgr)
+		g = [g for g in approvals.list_approvals(queue="approve")["groups"] if e in g["names"]][0]
+		self.assertFalse(g["needs_check"])
+		self.assertEqual(self._mine(), 1)  # not held back for a check
+		frappe.set_user("Administrator")
+
+	def test_approve_queue_with_step_off_keeps_checked(self):
+		_, _, e = self._worked(self.asst)
+		self._as(self.asst, approvals.check, [e])
+		set_step(False)
+		frappe.set_user(self.mgr)
+		names = [n for g in approvals.list_approvals(queue="approve")["groups"] for n in g["names"]]
+		self.assertIn(e, names)
+		frappe.set_user("Administrator")
+
+	def test_plan_check_capability_follows_assistant_manager(self):
+		from upande_production.mobile import access
+
+		both = _user("ach.both@x.test", "Production Manager", settings.ASSISTANT_ROLE)
+		self.addCleanup(lambda: (frappe.set_user("Administrator"), frappe.delete_doc("User", both, force=True)))
+		self.assertTrue(access.capabilities(self.asst)["plan_check"])
+		self.assertFalse(access.capabilities(both)["plan_check"])
+		self.assertFalse(access.capabilities("Administrator")["plan_check"])
+		self.assertTrue(access.capabilities("Administrator")["plan_approve"])

@@ -165,6 +165,7 @@ def get_bootstrap():
 		"is_manager": is_manager(),
 		"is_assistant_manager": is_assistant_manager(),
 		"assistant_step": assistant_step_on(),
+		"can_read_cycle_requests": bool(frappe.has_permission("Production Cycle Change Request", "read")),
 	}
 
 
@@ -309,6 +310,7 @@ def get_plan(crop, farm, year, week):
 		],
 		order_by="idx asc",
 	)
+	task_approval.mask_awaiting(tasks)
 	by_task = {}
 	for w in frappe.get_all(
 		"Casual Labour Work",
@@ -355,6 +357,7 @@ def save_plan_tasks(crop, farm, year, week, tasks, override_reason=None):
 	tasks = as_dict(tasks) or []
 	plan = plans.get_or_create_plan(crop, _farm(farm), int(year), int(week))
 	reawait = assistant_step_on() and is_assistant_manager()
+	plan.flags.approval_fields_ok = bool(reawait)  # only the re-await below may rewrite the approval fields
 	for t in tasks:
 		name = t.get("name")
 		if t.get("_delete"):

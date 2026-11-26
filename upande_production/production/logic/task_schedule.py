@@ -102,13 +102,16 @@ def postpone_task(plan: str, task: str, new_date: str, reason: str, override_rea
 		frappe.throw(_("Pick a day after the current due date."), frappe.ValidationError)
 
 	target = _target_plan(doc, new_date)
+	for d in (doc, target):  # a postponed task keeps who assigned and forwarded it; it needs no new approval
+		d.flags.approval_fields_ok = True
 	split = has_work(task)
 	if split:
 		remainder = (row.planned_qty or 0) - (row.done_qty or 0) - (row.pending_qty or 0)
 		if remainder <= 0:
 			frappe.throw(_("Nothing is left to do on this task."), frappe.ValidationError)
 		vals = {k: row.get(k) for k in ("unit", "cycle", "operation", "operation_name", "uom", "rate", "supervisor",
-			"supervisor_from_plan", "times_per_week", "note", "original_due_date", "postpone_count")}
+			"supervisor_from_plan", "times_per_week", "note", "original_due_date", "postpone_count",
+			"assigned_by", "awaiting_approval", "forwarded_by", "forwarded_on")}
 		vals.update(planned_qty=remainder, status="Open")
 		row.planned_qty = (row.done_qty or 0) + (row.pending_qty or 0)
 		_stamp(vals, row.due_date, reason, row.postpone_count)

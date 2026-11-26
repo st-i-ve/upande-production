@@ -212,6 +212,35 @@ class TestPlanTaskSchedule(IntegrationTestCase):
 		self.assertEqual(getdate(new.due_date), getdate(d))
 		self.assertNotEqual(data["task"], self.task)
 
+	def _assigned(self):
+		frappe.db.set_value("Work Plan Task", self.task, {"assigned_by": self.sup, "awaiting_approval": 1,
+			"forwarded_by": self.mgr, "forwarded_on": "2026-01-01 10:00:00"})
+		frappe.db.commit()
+
+	def _approval_of(self, task):
+		return frappe.db.get_value("Work Plan Task", task,
+			["assigned_by", "awaiting_approval", "forwarded_by", "forwarded_on"], as_dict=True)
+
+	def test_postpone_split_keeps_approval_fields(self):
+		frappe.db.set_value("Work Plan Task", self.task, "planned_qty", 10)
+		self._assigned()
+		self.add_work(4)
+		res = self.call("postpone_plan_task", self.editor, new_date=add_days(self.start, 3), reason="Rain")
+		self.assertNotIn("error", res)
+		a = self._approval_of(res["task"])
+		self.assertEqual((a.assigned_by, a.awaiting_approval, a.forwarded_by), (self.sup, 1, self.mgr))
+		self.assertTrue(a.forwarded_on)
+
+	def test_postpone_to_next_week_keeps_approval_fields(self):
+		self._assigned()
+		res = self.call("postpone_plan_task", self.editor, new_date=add_days(self.start, 8), reason="Rain")
+		self.assertNotIn("error", res)
+		new_plan = frappe.db.get_value("Work Plan Task", res["task"], "parent")
+		self.addCleanup(lambda: (frappe.set_user("Administrator"),
+			frappe.delete_doc("Production Work Plan", new_plan, force=True), frappe.db.commit()))
+		a = self._approval_of(res["task"])
+		self.assertEqual((a.assigned_by, a.awaiting_approval, a.forwarded_by), (self.sup, 1, self.mgr))
+
 	def test_postpone_nothing_left_refused(self):
 		self.add_work(5)
 		res = self.call("postpone_plan_task", self.mgr, new_date=add_days(self.start, 3), reason="Rain")

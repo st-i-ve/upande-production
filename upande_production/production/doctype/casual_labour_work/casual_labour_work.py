@@ -25,10 +25,29 @@ class CasualLabourWork(Document):
 		if self.is_new() and not self.submitted_by:
 			self.submitted_by = frappe.session.user
 		labour_guards.check(self)
+		self.guard_check()
 		if self.docstatus == 0:
 			if self.approval_status == "Approved":
 				frappe.throw(_("Work is approved only by submitting it."), frappe.ValidationError)
 			self.approval_status = self.approval_status or "Pending"
+
+	def guard_check(self):
+		"""Checked is stamped by approvals.check (a direct write), never by a save: a save cannot move an entry into
+		Checked or stamp a check, and editing a checked entry's quantity, worker or day drops the check."""
+		if self.docstatus != 0:
+			return
+		before = self.get_doc_before_save()
+		was_checked = bool(before) and before.approval_status == "Checked"
+		if self.approval_status == "Checked" and not was_checked:
+			frappe.throw(_("Work is checked only by the assistant manager's Check action."), frappe.ValidationError)
+		if was_checked and self.approval_status == "Checked":
+			if any(self.has_value_changed(f) for f in ("qty", "employee", "work_date")):
+				self.approval_status = "Pending"
+				self.checked_by = self.checked_at = None
+			else:
+				self.checked_by, self.checked_at = before.checked_by, before.checked_at
+		elif self.approval_status != "Checked":
+			self.checked_by = self.checked_at = None
 
 	def set_rate(self):
 		"""The rate comes from the operation's rate period for work_date (else its default rate) and

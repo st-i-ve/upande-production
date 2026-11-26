@@ -21,7 +21,8 @@ CROP = "Fruits & Vegetables"
 
 # A pivot is "utilised" by the hours it ran against all the hours in the period.
 HOURS_PER_DAY = 24.0
-READ_ROLES = {"Production Manager", "Production Supervisor", "Production Viewer", "System Manager"}
+READ_ROLES = {"Production Manager", "Production Supervisor", "Production Viewer", "System Manager",
+		"Production Assistant Manager"}
 
 
 def _need_read(doctype):

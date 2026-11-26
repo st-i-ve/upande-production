@@ -77,8 +77,8 @@ def _assigner(plan_task):
 
 def needs_check(doc) -> bool:
 	"""The step is on and the entry's task was assigned by an assistant manager (who is still one)."""
-	if not assistant_step_on() or not doc.plan_task:
-		return False
+	if not assistant_step_on() or not doc.plan_task or doc.get("wm_actuals"):
+		return False  # the two-step check is built-in labour only; Work Management has its own chain
 	by = _assigner(doc.plan_task)
 	return bool(by) and is_assistant_manager(by)
 
@@ -270,8 +270,9 @@ def list_approvals(
 		rs = g["rows"]
 		first = rs[0]
 		task = tasks.get(first.plan_task)
+		mirrored = any(r.wm_actuals for r in rs)
 		if queue == "check":
-			if first.approval_status != "Pending" or not task or not me or task.assigned_by != me:
+			if first.approval_status != "Pending" or not task or not me or task.assigned_by != me or mirrored:
 				continue
 		elif queue == "approve":
 			if first.approval_status not in ("Pending", "Checked"):
@@ -286,7 +287,7 @@ def list_approvals(
 		out.append({
 			"key": g["key"],
 			"status": gstatus,
-			"needs_check": _needs(task) and gstatus == "Pending",
+			"needs_check": _needs(task) and gstatus == "Pending" and not mirrored,
 			"checked_by": first.checked_by,
 			"checked_by_name": users.get(first.checked_by) or first.checked_by,
 			"checked_at": first.checked_at,
@@ -345,7 +346,8 @@ def approval_counts() -> dict:
 	frappe.has_permission("Casual Labour Work", "read", throw=True)
 	stale_days = get_stale_days()
 	rows = frappe.db.sql(
-		"""select crop, plan_task, unit, operation, work_date, submitted_by, approval_status, min(creation) as created
+		"""select crop, plan_task, unit, operation, work_date, submitted_by, approval_status, min(creation) as created,
+		max(ifnull(wm_actuals, '')) as wm
 		from `tabCasual Labour Work` where docstatus = 0 and approval_status in ('Pending', 'Checked')
 		and ifnull(crop, '') != '' and unit not in %(retired)s
 		group by crop, plan_task, unit, operation, work_date, submitted_by, approval_status""",
@@ -364,7 +366,7 @@ def approval_counts() -> dict:
 			continue
 		seen.add(key)
 		by = assigners.get(r.plan_task)
-		if r.approval_status == "Pending":
+		if r.approval_status == "Pending" and not r.wm:  # Work Management work has no check step
 			to_check += 1 if me and by == me else 0
 			if step and by:
 				if by not in is_asst:

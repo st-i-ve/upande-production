@@ -320,7 +320,8 @@ def on_plan_update(doc, method=None):
 			and flt(prev.planned_qty) == flt(row.planned_qty)
 		# unchanged rows are left alone: mirrored ones, and ones WM already refused (the note says why; a
 		# tick-off or an edit of the row tries again)
-		if unchanged and (row.wm_planner or TAG in (row.rule_notes or "")):
+		forced = row.name in (doc.flags.get("wm_force_sync") or ())
+		if unchanged and not forced and (row.wm_planner or TAG in (row.rule_notes or "")):
 			continue
 		sync_plan_row(doc, row)
 	current = {r.name for r in doc.tasks}

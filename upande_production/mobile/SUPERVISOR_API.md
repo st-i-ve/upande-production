@@ -925,4 +925,4 @@ cannot see pay.
 | `productionApproveWork` | `names`, `unchecked_ok` (0/1) | `plan_approve` | `{"status","approved":[names],"approval_status":"Approved","message"}`; work still needing a check is refused unless `unchecked_ok` is 1 |
 | `productionSendBackWork` | `names`, `note` (required) | `plan_check` or `plan_approve` | `{"status","sent_back":[names],"approval_status":"Sent Back","message"}` |
 | `productionForwardTasks` | `plan`, optional `tasks` (names; omit for all awaiting) | `plan_approve` | `{"status","forwarded":[task names],"message"}` |
-| `productionApprovalCounts` | none | read access | `{"status","to_check","to_approve"}` |
+| `productionApprovalCounts` | none | `plan_check` or `plan_approve` (and read access) | `{"status","to_check","to_approve"}` |

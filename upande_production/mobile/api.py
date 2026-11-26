@@ -195,6 +195,7 @@ def productionGetWeekPlan():
 			if mine:
 				task_filters["supervisor"] = emp or "\0no-employee"
 			tasks = frappe.get_all("Work Plan Task", filters=task_filters, fields=TASK_FIELDS, order_by="due_date asc, idx asc")
+			task_approval.mask_awaiting(tasks)
 			_strip_pay(tasks, "rate")
 			labourers.attach_operation_targets(tasks)
 			field_crops.annotate_cycles(tasks)
@@ -688,6 +689,7 @@ def productionGetPlanDetail():
 			filters["supervisor"] = emp or "\0no-employee"
 		tasks = frappe.get_all("Work Plan Task", filters=filters, fields=PLAN_TASK_FIELDS,
 			order_by="due_date asc, idx asc")
+		task_approval.mask_awaiting(tasks)
 		crew = _task_entries(name)
 		sup = [t.supervisor for t in tasks if t.supervisor]
 		sup_names = dict(frappe.get_all("Employee", filters={"name": ("in", sup)},

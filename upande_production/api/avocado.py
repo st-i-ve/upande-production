@@ -25,7 +25,8 @@ from upande_production.production.logic import drymatter as drymatter_logic
 from upande_production.production.logic.settings import can_see_pay
 
 READ_ROLES = {"Production Manager", "Production Supervisor", "Production Viewer",
-			  "Agriculture Manager", "Agriculture User", "System Manager", "Avocado Production Manager"}
+			  "Agriculture Manager", "Agriculture User", "System Manager", "Avocado Production Manager",
+			  "Production Assistant Manager"}
 WRITE_ROLES = {"Production Manager", "Agriculture Manager", "Agriculture User", "System Manager",
 			   "Avocado Production Manager"}
 

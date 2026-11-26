@@ -131,7 +131,7 @@ class TestMobileApprovals(IntegrationTestCase):
 		roles = {"asst": [settings.ASSISTANT_ROLE], "mgr": ["Production Manager"], "sup": ["Production Supervisor"]}
 		def caps(k):
 			with patch.multiple(frappe, get_roles=lambda user=None: roles[k]), patch.dict(
-					frappe.local.session, {"user": f"{k}@x.test"}):
+					frappe.local.session, {"user": self.asst if k == "asst" else f"{k}@x.test"}):
 				return access.capabilities()
 		a, m, s = caps("asst"), caps("mgr"), caps("sup")
 		self.assertEqual((a["plan_view"], a["plan_manage"], a["plan_check"]), (True, True, True))

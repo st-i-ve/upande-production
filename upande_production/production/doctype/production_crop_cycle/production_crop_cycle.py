@@ -57,6 +57,7 @@ class ProductionCropCycle(Document):
 		"""A cycle and the next one proposed from it point at each other, so neither could be deleted. The proposed
 		next cycle goes with this one while it is still only Planned and nothing records against it; otherwise it
 		stays, as a first cycle. A cycle that proposed this one forgets it, so it can propose again."""
+		self._close_pending_requests()
 		nxt = self.proposed_next_cycle
 		if nxt and frappe.db.exists(CYCLE_DT, nxt):
 			frappe.db.set_value(CYCLE_DT, self.name, "proposed_next_cycle", None, update_modified=False)
@@ -67,6 +68,13 @@ class ProductionCropCycle(Document):
 			frappe.db.set_value(CYCLE_DT, name, "previous_cycle", None, update_modified=False)
 		for name in frappe.get_all(CYCLE_DT, filters={"proposed_next_cycle": self.name}, pluck="name"):
 			frappe.db.set_value(CYCLE_DT, name, "proposed_next_cycle", None, update_modified=False)
+
+	def _close_pending_requests(self):
+		"""Change requests still waiting on this cycle can no longer be decided: reject them, so counts and lists agree."""
+		dt = "Production Cycle Change Request"
+		for name in frappe.get_all(dt, filters={"cycle": self.name, "status": "Pending"}, pluck="name"):
+			frappe.db.set_value(dt, name, {"status": "Rejected", "review_note": "Cycle deleted",
+				"reviewed_by": frappe.session.user, "reviewed_at": frappe.utils.now_datetime()})
 
 	def set_field_crop(self):
 		"""The cycle's crop is its variety's; with no variety (an existing cycle given by item) it is the item's."""

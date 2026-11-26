@@ -66,7 +66,7 @@ def record_task_work(plan, task, status, entries, note="", work_date=None, overr
 	row = next((t for t in doc.tasks if t.name == task), None)
 	if not row:
 		frappe.throw(_("Task not found on plan {0}").format(plan), frappe.ValidationError)
-	task_approval.refuse_if_awaiting(row)
+	task_approval.refuse_if_awaiting(row, status)
 	if status in ("Done", "Partly Done") and not entries and not frappe.db.exists(
 		"Casual Labour Work", {"plan": plan, "plan_task": row.name, "docstatus": ("<", 2)}
 	):

@@ -20,6 +20,10 @@ CAPABILITIES = {
 
 def has_capability(cap: str, user: str | None = None) -> bool:
 	user = user or frappe.session.user
+	if cap == "plan_check":  # only a real assistant manager (not a manager, not Administrator) has a check queue
+		from upande_production.production.logic.settings import is_assistant_manager
+
+		return is_assistant_manager(user)
 	if user == "Administrator":
 		return True
 	return bool(set(CAPABILITIES[cap]) & set(frappe.get_roles(user)))

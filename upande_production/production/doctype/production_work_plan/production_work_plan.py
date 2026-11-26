@@ -26,6 +26,7 @@ class ProductionWorkPlan(Document):
 				frappe.DuplicateEntryError,
 			)
 		self._guard_task_changes()
+		self._guard_approval_fields()
 		self._stamp_new_tasks()
 		supervisors.fill_plan_tasks(self)
 		tol = get_tolerance_days()
@@ -33,6 +34,21 @@ class ProductionWorkPlan(Document):
 			t.deviation = task_deviation(
 				t.status, t.due_date, t.completed_at, t.planned_qty, t.done_qty, tol
 			) or ("Late" if t.postpone_count else "")  # a postponed task stays Late
+
+	APPROVAL_FIELDS = {"assigned_by": None, "awaiting_approval": 0, "forwarded_by": None, "forwarded_on": None}
+
+	def _guard_approval_fields(self):
+		"""Frappe does not enforce read_only on save, so a REST save could rewrite who assigned or forwarded a task.
+		Existing rows keep what they had and new rows start blank (so they are stamped from the session user),
+		unless server code that owns the change (forward, re-await, postpone) says so with a flag."""
+		if self.flags.get("approval_fields_ok"):
+			return
+		before = self.get_doc_before_save()
+		old = {r.name: r for r in before.tasks} if before else {}
+		for r in self.tasks:
+			prev = old.get(r.name) if r.name else None
+			for f, blank in self.APPROVAL_FIELDS.items():
+				r.set(f, prev.get(f) if prev else blank)
 
 	def _stamp_new_tasks(self):
 		"""Rows new to this save and without an assigned_by get the session user; an assistant manager's rows await approval."""
