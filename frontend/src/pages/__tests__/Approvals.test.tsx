@@ -204,7 +204,7 @@ describe("Approvals", () => {
 
   describe("two-step work approval", () => {
     const assistant = { is_assistant_manager: true, assistant_step: true };
-    const manager = { is_assistant_manager: false, assistant_step: true };
+    const manager = { is_manager: true, is_assistant_manager: false, assistant_step: true };
 
     it("an assistant lands on To check, lists the check queue and Check calls checkWork", async () => {
       vi.mocked(checkWork).mockImplementation(async (n) => (drop(n), { checked: n }));
@@ -232,6 +232,20 @@ describe("Approvals", () => {
       expect(listApprovals).toHaveBeenCalledWith("Test Crop", expect.objectContaining({ status: "Pending", queue: "approve" }));
       expect(within(card).getByText(/Checked by Ann Assistant/)).toBeInTheDocument();
       expect(screen.queryByRole("tab", { name: /To check/ })).toBeNull();
+    });
+
+    it("a manager with the step off still works the approve queue, so Checked cards stay visible", async () => {
+      lists.Pending = [group("c", { status: "Checked", checked_by: "ann@x.com", checked_by_name: "Ann Assistant", needs_check: false })];
+      renderPage(<Approvals />, { is_manager: true, is_assistant_manager: false, assistant_step: false });
+      await screen.findByTestId("approval-card-c");
+      expect(listApprovals).toHaveBeenCalledWith("Test Crop", expect.objectContaining({ status: "Pending", queue: "approve" }));
+      expect(screen.getByRole("tab", { name: /Pending/ })).toBeInTheDocument();
+    });
+
+    it("hides the Cycle changes tab from users who cannot read change requests", async () => {
+      renderPage(<Approvals />, { can_read_cycle_requests: false });
+      await screen.findByTestId("approval-card-a");
+      expect(screen.queryByRole("tab", { name: /Cycle changes/ })).toBeNull();
     });
 
     it("approving a Not checked card confirms first, then sends unchecked_ok", async () => {

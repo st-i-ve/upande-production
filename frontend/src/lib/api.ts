@@ -79,6 +79,8 @@ export interface Boot {
   is_assistant_manager?: boolean;
   /** The two-step work approval is switched on in settings. */
   assistant_step?: boolean;
+  /** May read cycle change requests (hidden Approvals tab otherwise). */
+  can_read_cycle_requests?: boolean;
 }
 
 export const getBootstrap = () => rpc<Boot>("get_bootstrap");

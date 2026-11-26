@@ -204,7 +204,7 @@ export function App() {
   const cropCounts = approvals?.crops.find((c) => c.crop_key === crop?.crop_key);
   // An assistant manager's badge is the work waiting for their check, not the manager's approve queue.
   const checksOnly = !!boot?.is_assistant_manager && !!boot?.assistant_step;
-  const pendingApprovals = checksOnly ? (approvals?.to_check ?? 0) : (cropCounts?.pending ?? 0) + (cropCounts?.protocols_pending ?? 0);
+  const pendingApprovals = checksOnly ? (approvals?.to_check ?? 0) : (cropCounts?.pending ?? 0) + (cropCounts?.protocols_pending ?? 0) + (boot?.is_manager ? (approvals?.cycle_changes ?? 0) : 0);
 
   // No crop (or an unknown one) in the hash: land on the first crop's overview.
   useEffect(() => {

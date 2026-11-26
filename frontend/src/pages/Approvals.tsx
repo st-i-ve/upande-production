@@ -73,7 +73,8 @@ export function Approvals() {
   const showPay = crop.boot.can_see_pay;
   // Two-step approval: an assistant manager checks (a "check" queue); a manager approves (Pending + Checked).
   const assistant = !!crop.boot.is_assistant_manager && !!crop.boot.assistant_step;
-  const queue = assistant ? "check" : crop.boot.assistant_step ? "approve" : null;
+  // A manager always works the "approve" queue so Checked cards stay visible when the step is switched off.
+  const queue = assistant ? "check" : crop.boot.is_manager ? "approve" : null;
   const [tab, setTab] = useState<Tab>(assistant ? "check" : "pending");
   const [range, setRange] = useState<DateRange>(EMPTY_RANGE);
   const [unit, setUnit] = useState("");
@@ -274,12 +275,12 @@ export function Approvals() {
             {(
               [
                 ...(assistant ? ([["check", "To check", c?.queue ?? c?.Pending]] as const) : []),
-                ...(assistant ? [] : ([["pending", queue ? "To approve" : "Pending", c?.queue ?? c?.Pending]] as const)),
+                ...(assistant ? [] : ([["pending", crop.boot.assistant_step ? "To approve" : "Pending", c?.queue ?? c?.Pending]] as const)),
                 ...(assistant ? [] : ([["stale", "Stale", c?.stale]] as const)),
                 ["sent", "Sent back", c?.["Sent Back"]],
                 ["approved", "Approved", c?.Approved],
                 ...(assistant ? [] : ([["protocols", "Protocols", protos?.length]] as const)),
-                ["cycles", "Cycle changes", cycleCount ?? undefined],
+                ...(crop.boot.can_read_cycle_requests === false ? [] : ([["cycles", "Cycle changes", cycleCount ?? undefined]] as const)),
               ] as const
             ).map(([id, label, n]) => (
               <TabsTrigger key={id} value={id}>
