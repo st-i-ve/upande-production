@@ -242,6 +242,74 @@ class TestTaskProgress(IntegrationTestCase):
 		rows = desk.get_plan(self.crop.name, self.farm.name, self.year, self.week)["tasks"]
 		self.assertEqual(str(rows[0]["last_progress_on"]), add_days(today(), -1))
 
+	def _upload(self, name, content, user, private=1):
+		frappe.set_user(user)
+		try:
+			return frappe.get_doc({"doctype": "File", "file_name": name, "content": content, "is_private": private}).insert()
+		finally:
+			frappe.set_user("Administrator")
+			frappe.db.commit()  # real uploads are their own request; a later refusal must not roll them back
+
+	def _second_task(self):
+		res = desk.save_plan_tasks(self.crop.name, self.farm.name, self.year, self.week,
+			[{"unit": self.u2.name, "operation": self.op.name, "planned_qty": 5, "due_date": self.start}])
+		self.assertNotIn("error", res)
+		return frappe.get_all("Work Plan Task", filters={"parent": res["name"], "unit": self.u2.name}, pluck="name")[0]
+
+	def test_same_photo_two_users_two_tasks(self):
+		plan, t1 = self.add_task()
+		t2 = self._second_task()
+		a = self._upload("tpl-same.png", b"same-bytes", self.sup)
+		b = self._upload("tpl-same.png", b"same-bytes", "Administrator")
+		self.assertEqual(a.file_url, b.file_url)
+		frappe.set_user(self.sup)
+		self.assertNotIn("error", desk.log_task_progress(plan, t1, files=[a.file_url]))
+		frappe.set_user("Administrator")
+		self.assertNotIn("error", desk.log_task_progress(plan, t2, files=[b.file_url]))
+		a.reload()
+		b.reload()
+		self.assertEqual(a.attached_to_doctype, "Task Progress Log")
+		self.assertEqual(b.attached_to_doctype, "Task Progress Log")
+		self.assertNotEqual(a.attached_to_name, b.attached_to_name)
+
+	def test_bad_files_refused_without_orphan_log(self):
+		plan, task = self.add_task()
+		public = self._upload("tpl-pub.txt", b"pub", self.sup, private=0)
+		theirs = self._upload("tpl-theirs.txt", b"theirs", self.mgr)
+		mine = self._upload("tpl-mine.txt", b"mine", self.sup)
+		frappe.set_user(self.sup)
+		for url in (public.file_url, theirs.file_url):
+			res = desk.log_task_progress(plan, task, notes="n", files=[mine.file_url, url])
+			self.assertIn("error", res)
+		self.assertNotIn("error", desk.log_task_progress(plan, task, files=[mine.file_url]))
+		frappe.db.commit()
+		again = desk.log_task_progress(plan, task, files=[mine.file_url])  # now attached elsewhere
+		self.assertIn("error", again)
+		frappe.set_user("Administrator")
+		self.assertEqual(frappe.db.count("Task Progress Log", {"task": task}), 1)
+
+	def test_cancelled_crew_row_does_not_block(self):
+		plan, task = self.add_task()
+		self.crew(plan, task)
+		frappe.db.set_value("Casual Labour Work", {"plan_task": task}, "docstatus", 2)
+		frappe.db.commit()
+		self.assertNotIn("error", self.crew(plan, task))
+
+	def test_sent_back_same_day_row_still_blocks(self):
+		plan, task = self.add_task()
+		self.crew(plan, task)
+		frappe.db.set_value("Casual Labour Work", {"plan_task": task}, "approval_status", "Sent Back")
+		frappe.db.commit()
+		self.assertEqual(self.crew(plan, task).get("error"), self.MSG)
+
+	def test_other_crop_refused(self):
+		plan, task = self.add_task()
+		with patch.object(settings, "crop_allowed", return_value=False):
+			with self.assertRaises(frappe.PermissionError):
+				progress.log_progress(plan, task, notes="x")
+			with self.assertRaises(frappe.PermissionError):
+				progress.list_progress(plan, task)
+
 	def _phone(self, fn, payload, user="Administrator"):
 		frappe.set_user(user)
 		frappe.response.pop("data", None)

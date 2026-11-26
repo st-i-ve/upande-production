@@ -17,6 +17,7 @@ IMAGE_EXT = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".heic", ".bmp")
 def _task_row(plan, task, logging=False):
 	"""The task row, once the user may see it: crop allowed. Logging refuses an awaiting task like recording work
 	does; reading refuses it only for users who may not see awaiting tasks."""
+	frappe.has_permission("Production Work Plan", "read", doc=plan, throw=True)
 	doc = frappe.get_doc("Production Work Plan", plan)
 	row = next((t for t in doc.tasks if t.name == task), None)
 	if not row:
@@ -30,16 +31,20 @@ def _task_row(plan, task, logging=False):
 	return doc, row
 
 
-def _claim_file(url, log_name):
-	"""A private file this user uploaded and nobody has attached yet becomes the log's attachment."""
-	f = frappe.db.get_value("File", {"file_url": url, "is_folder": 0},
-		["name", "file_name", "is_private", "owner", "attached_to_doctype"], as_dict=True)
-	if not f:
-		frappe.throw(_("File {0} was not found. Upload it again.").format(url), frappe.ValidationError)
-	if not f.is_private:
-		frappe.throw(_("Files must be uploaded as private."), frappe.ValidationError)
-	if f.attached_to_doctype or (f.owner != frappe.session.user and frappe.session.user != "Administrator"):
-		frappe.throw(_("File {0} cannot be attached here.").format(f.file_name or url), frappe.PermissionError)
+def _find_file(url):
+	"""The File doc this user may attach for `url`. Uploads of the same content share a URL across several File
+	docs, so pick the caller's own private, unattached one."""
+	filters = {"file_url": url, "is_folder": 0, "is_private": 1, "attached_to_doctype": ("is", "not set")}
+	if frappe.session.user != "Administrator":
+		filters["owner"] = frappe.session.user
+	found = frappe.get_all("File", filters=filters, fields=["name", "file_name"], order_by="creation asc", limit=1)
+	if not found:
+		frappe.throw(_("File {0} cannot be attached here. Upload it again as a private file.").format(url),
+			frappe.ValidationError)
+	return found[0]
+
+
+def _attach(f, url, log_name):
 	frappe.db.set_value("File", f.name, {"attached_to_doctype": DOCTYPE, "attached_to_name": log_name,
 		"attached_to_field": "attachments"}, update_modified=False)
 	return {"file_url": url, "file_name": f.file_name, "is_image": 1 if (f.file_name or url).lower().endswith(IMAGE_EXT) else 0}
@@ -71,14 +76,16 @@ def log_progress(plan, task, notes=None, qty=None, log_date=None, files=None) ->
 	if log_date > getdate(today()):
 		frappe.throw(_("The log date cannot be in the future."), frappe.ValidationError)
 	plan_doc, row = _task_row(plan, task, logging=True)
+	# check every file before anything is written, so a bad one leaves no log behind
+	found = [(url, _find_file(url)) for url in dict.fromkeys(files)]
 	doc = frappe.get_doc({
 		"doctype": DOCTYPE, "plan": plan, "task": task, "unit": row.unit, "operation": row.operation,
 		"crop": plan_doc.crop, "log_date": log_date, "logged_at": now_datetime(), "logged_by": frappe.session.user,
 		"qty": qty or 0, "uom": row.uom if qty else None, "notes": notes,
 	})
 	doc.insert()
-	for url in files:
-		doc.append("attachments", _claim_file(url, doc.name))
+	for url, f in found:
+		doc.append("attachments", _attach(f, url, doc.name))
 	if files:
 		doc.flags.ignore_permissions = True
 		doc.save()
