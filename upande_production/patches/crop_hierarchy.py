@@ -11,7 +11,8 @@ LINKED = ("Production Variety", "Production Protocol", "Production Crop Cycle", 
 def _avocado_crop(section):
 	"""Make the crop for a single-crop section (Avocado) and put it on that section's records that lack one."""
 	name = frappe.db.get_value("Production Crop", section, "crop_name") or section
-	products = frappe.get_all("Production Variety", filters={"crop": section, "product": ("is", "set")}, pluck="product", distinct=True)
+	products = (frappe.get_all("Production Variety", filters={"crop": section, "product": ("is", "set")}, pluck="product", distinct=True)
+		if frappe.db.has_column("Production Variety", "product") else [])
 	if not frappe.db.exists(CROP, name):
 		frappe.get_doc({"doctype": CROP, "crop_name": name, "crop_group": group_of(name) or "Fruit Crops",
 			"product": products[0] if len(products) == 1 else None,

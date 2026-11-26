@@ -42,6 +42,10 @@ def derive(doc) -> None:
 	if _get(doc, "harvest_pattern") in (None, "", "Once"):
 		_set(doc, "harvest_interval_weeks", 0)
 		_set(doc, "weeks_to_reflower_after_harvest", 0)
+	continuous = _get(doc, "harvest_pattern") == "Continuous"
+	if continuous:  # one cycle until removal: no window, no interval
+		for f in ("harvest_window_weeks", "harvest_window_days", "harvest_interval_weeks"):
+			_set(doc, f, 0)
 	if seasonal:
 		_set(doc, "weeks_to_first_harvest",
 			(_get(doc, "weeks_to_maturity") or 0) + (_get(doc, "weeks_flowering_to_harvest") or 0))
@@ -50,7 +54,7 @@ def derive(doc) -> None:
 			(_get(doc, "weeks_to_first_flowering") or 0) + (_get(doc, "weeks_flowering_to_harvest") or 0))
 	if _get(doc, "weeks_to_first_harvest"):
 		_set(doc, "days_to_first_harvest", cint(_get(doc, "weeks_to_first_harvest")) * 7)
-	if _get(doc, "harvest_window_weeks"):
+	if not continuous and _get(doc, "harvest_window_weeks"):
 		_set(doc, "harvest_window_days", cint(_get(doc, "harvest_window_weeks")) * 7)
 	if _get(doc, "plants_per_m2"):
 		_set(doc, "plants_per_ha", round(flt(_get(doc, "plants_per_m2")) * 10000, 4))
@@ -98,8 +102,6 @@ def validate_yield_model(doc) -> None:
 
 class ProductionVariety(Document):
 	def validate(self):
-		if not self.field_crop and self.product and self.crop:
-			self.field_crop = frappe.db.get_value("Production Field Crop", {"product": self.product}, "name")
 		field_crops.check_variety(self)
 		derive(self)
 		validate_flowering(self)

@@ -3,7 +3,7 @@
 bench --site marginpar.local execute upande_production.production.setup.marginpar.setup_marginpar
 
 Follows the model the F&V demo uses (see production/demo/varieties_seed.py: Potatoes -> Shangi):
-Production Crop -> Production Variety.product (an Item) -> Production Variety (the varieties themselves are real data, not
+Production Crop -> Production Variety (the product is on its Field Crop / Sub Crop; the varieties themselves are real data, not
 created here). Flowers are sold by
 the stem, so the yield UOM is Nos, the units are Greenhouse -> Bed, and nothing is packed in crates.
 Their launcher tiles open the Crop Production desk pages (desk_launcher), not the Production app.

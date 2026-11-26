@@ -67,7 +67,7 @@ export function VarietyDialog({
   /** Null to create. */
   variety: Variety | null;
   /** The crops a variety can belong to (with their group and sub-crops). */
-  fieldCrops?: { name: string; crop_name: string; crop_group?: string | null; sub_crops?: { name: string; harvest_uom: string }[] }[];
+  fieldCrops?: { name: string; crop_name: string; crop_group?: string | null; product?: string | null; sub_crops?: { name: string; harvest_uom: string; product?: string | null }[] }[];
   /** Sections to choose from; when given, the dialog asks for the section as well. A variety keeps its section. */
   sections?: string[];
   onClose: () => void;
@@ -80,7 +80,6 @@ export function VarietyDialog({
   const [fieldCrop, setFieldCrop] = useState(variety?.field_crop ?? "");
   const [subCrop, setSubCrop] = useState(variety?.sub_crop ?? "");
   const cropSubs = subCropsOf(fieldCrops, fieldCrop);
-  const [product, setProduct] = useState(variety?.product ?? "");
   const [days, setDays] = useState(text(variety?.weeks_to_first_harvest));
   const [window, setWindow] = useState(text(variety?.harvest_window_weeks));
   const [lifespan, setLifespan] = useState(text(variety?.lifespan_years));
@@ -111,7 +110,10 @@ export function VarietyDialog({
 
   useEffect(() => setFailure(null), [name, item, rows]);
 
-  const repeats = pattern !== "Once";
+  const repeats = pattern === "Interval";
+  const continuous = pattern === "Continuous"; // one cycle until removal: no window, no interval
+  const cropRow = fieldCrops?.find((c) => c.name === fieldCrop);
+  const product = (subCrop && cropRow?.sub_crops?.find((x) => x.name === subCrop)?.product) || cropRow?.product || null;
   const computedFirst = firstHarvestWeeks(numOrNull(toFlower), numOrNull(toHarvest));
   const perHa = perM2.trim() === "" ? null : Number(perM2) * 10000;
   const seasonal = flowering && floweringPattern === "Seasonal";
@@ -122,7 +124,7 @@ export function VarietyDialog({
   const problem =
     (cropSubs.length && !subCrop ? "Choose the sub-crop: this crop is grown in more than one kind." : null) ??
     varietyProblem(
-      { variety_name: name, item, days: flowering ? "" : days, window, pattern: flowering ? (floweringPattern as FloweringPattern) : null, seasons, intervalWeeks: floweringInterval },
+      { variety_name: name, item, days: flowering ? "" : days, window: continuous ? "" : window, pattern: flowering ? (floweringPattern as FloweringPattern) : null, seasons, intervalWeeks: floweringInterval },
       rows,
     ) ?? (flowering ? yieldModelProblem(yieldModel) : null) ?? (shareOff ? `Season shares total ${shareTotal}%; they must total 100%.` : null);
 
@@ -134,7 +136,6 @@ export function VarietyDialog({
       item: item.trim(),
       field_crop: fieldCrop || null,
       sub_crop: cropSubs.length ? subCrop || null : null,
-      product: product.trim() || null,
       lifespan_years: numOrNull(lifespan),
       harvest_pattern: pattern as HarvestPattern,
       harvest_interval_weeks: repeats ? numOrNull(interval) : null,
@@ -148,7 +149,7 @@ export function VarietyDialog({
       weeks_to_first_flowering: interval_ ? numOrNull(toFlower) : null,
       weeks_flowering_to_harvest: interval_ ? numOrNull(toHarvest) : null,
       weeks_to_first_harvest: interval_ ? computedFirst : seasonal ? null : numOrNull(days),
-      harvest_window_weeks: numOrNull(window),
+      harvest_window_weeks: continuous ? null : numOrNull(window),
       plants_per_m2: numOrNull(perM2),
       dry_matter_target_pct: numOrNull(dryMatter),
       dry_matter_testing: dmTesting as "" | "Yes" | "No",
@@ -200,13 +201,13 @@ export function VarietyDialog({
           {!!fieldCrops?.length && (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="v-crop">Crop</Label>
-              <Picker id="v-crop" label="Crop" value={fieldCrop} onChange={(c) => { setFieldCrop(c); setSubCrop(""); }} options={cropPickerOptions(fieldCrops, { includeDisabled: true })} clearable clearLabel="From the product" placeholder="From the product" />
+              <Picker id="v-crop" label="Crop" value={fieldCrop} onChange={(c) => { setFieldCrop(c); setSubCrop(""); }} options={cropPickerOptions(fieldCrops, { includeDisabled: true })} clearable clearLabel="No crop" placeholder="No crop" />
             </div>
           )}
           <SubCropField id="v-subcrop" subCrops={cropSubs} value={subCrop} onChange={setSubCrop} />
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="v-product">Product (optional)</Label>
-            <ItemField id="v-product" value={product} onChange={setProduct} />
+            <Label htmlFor="v-product">Product</Label>
+            <Input id="v-product" value={product ?? ""} readOnly disabled placeholder="Set on the crop" />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="v-lifespan">Lifespan (years)</Label>
@@ -293,10 +294,12 @@ export function VarietyDialog({
             {flowering && <span className="text-[11.5px] text-[var(--sd-quiet)]">Flowering weeks plus weeks from flowering to harvest.</span>}
           </div>
           )}
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="v-window">Harvest window (weeks)</Label>
-            <Input id="v-window" inputMode="numeric" className="tabular-nums" value={window} onChange={(e) => setWindow(e.target.value)} />
-          </div>
+          {!continuous && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="v-window">Harvest window (weeks)</Label>
+              <Input id="v-window" inputMode="numeric" className="tabular-nums" value={window} onChange={(e) => setWindow(e.target.value)} />
+            </div>
+          )}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="v-yha">Expected yield (kg/ha/year)</Label>
             <Input id="v-yha" inputMode="decimal" className="tabular-nums" value={yieldHa} onChange={(e) => setYieldHa(e.target.value)} />

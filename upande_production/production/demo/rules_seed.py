@@ -66,7 +66,10 @@ def _ensure_operations():
 def _varieties(crop, product):
 	if not frappe.db.exists("DocType", "Production Variety"):
 		return []
-	return frappe.get_all("Production Variety", filters={"crop": crop, "product": product}, pluck="name") \
+	from upande_production.production.logic.field_crops import product_of_variety
+
+	return [n for n in frappe.get_all("Production Variety", filters={"crop": crop}, pluck="name")
+		if product_of_variety(n) == product] \
 		or frappe.get_all("Production Variety", filters={"crop": crop, "variety_name": ("like", f"{product}%")}, pluck="name")
 
 

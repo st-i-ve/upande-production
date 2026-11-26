@@ -1,3 +1,5 @@
+import unittest
+
 import frappe
 from frappe.tests import IntegrationTestCase
 
@@ -74,6 +76,7 @@ class TestCropHierarchyMigration(IntegrationTestCase):
 		crop_hierarchy.execute()
 		self.assertEqual(_counts(), before)
 
+	@unittest.skipUnless(frappe.db.has_column("Production Variety", "product"), "Production Variety.product is gone on this site")
 	def test_fresh_site_patch_order(self):
 		"""A section whose varieties grow different products and has no crops yet: create_from_varieties then
 		crop_hierarchy give Production Field Crops that have a group."""
@@ -87,8 +90,9 @@ class TestCropHierarchyMigration(IntegrationTestCase):
 		for code, name in (("CHM Beetroot", "CHM Beetroot"), ("CHM Coffee", "Coffee")):
 			frappe.get_doc({"doctype": "Item", "item_code": code, "item_name": name, "item_group": "All Item Groups", "stock_uom": "Kg",
 				"is_stock_item": 1}).insert()
-			frappe.get_doc({"doctype": "Production Variety", "variety_name": f"{name} V", "crop": section.name, "product": code,
+			frappe.get_doc({"doctype": "Production Variety", "variety_name": f"{name} V", "crop": section.name,
 				"item": code}).insert()
+			frappe.db.set_value("Production Variety", f"{name} V", "product", code)  # the old column, set directly
 		made = field_crops.create_from_varieties()
 		crop_hierarchy.execute()
 		field_crops.link_records()

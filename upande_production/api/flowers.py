@@ -15,6 +15,8 @@ import re
 
 import frappe
 
+from upande_production.production.logic.field_crops import product_of_variety
+
 CYCLE_BASE = ["name", "farm", "greenhouse", "variety", "status", "planting_date", "qty_planted", "plants_standing", "planted_area",
 	"bed_range"]
 CYCLE_CUSTOM = ["custom_block", "custom_greenhouse", "custom_sf_variety", "custom_live_plant_count", "custom_area_planted_sqm",
@@ -51,7 +53,7 @@ def _label(name, farm):
 
 def _crop_items(crop):
 	"""The item codes of this crop's varieties, and those claimed by any other crop."""
-	rows = frappe.get_all("Production Variety", fields=["name", "crop", "item", "product", "variety_name"])
+	rows = frappe.get_all("Production Variety", fields=["name", "crop", "item", "variety_name"])
 	mine = {r.item: r for r in rows if r.crop == crop}
 	other = {r.item for r in rows if r.crop != crop}
 	return mine, other
@@ -110,7 +112,7 @@ def flower_data(crop):
 		c = {
 			"name": r["name"], "unit": unit, "unit_kind": kind, "farm": farm, "variety": item,
 			"variety_name": (nm.item_name if nm else None) or (pv.variety_name if pv else None) or item,
-			"product": (pv.product if pv else None) or (nm.item_group if nm else None),
+			"product": (product_of_variety(pv.name) if pv else None) or (nm.item_group if nm else None),
 			"status": r.get("status"), "planting_date": str(r.get("custom_planting_date") or r.get("planting_date") or "") or None,
 			"plants": plants, "area": area, "beds": beds,
 		}

@@ -50,7 +50,7 @@ class TestCropTreeApi(IntegrationTestCase):
 			code = "CTA " + n
 			if not frappe.db.exists("Item", code):
 				_make("Item", item_code=code, item_name=code, item_group="All Item Groups", stock_uom="Kg", is_stock_item=1)
-			v = _make("Production Variety", variety_name="CTA V " + n, crop=section, product=code, item=code)
+			v = _make("Production Variety", variety_name="CTA V " + n, crop=section, item=code)
 			frappe.db.set_value("Production Variety", v.name, "field_crop", fc)
 
 	def test_tree_shape(self):

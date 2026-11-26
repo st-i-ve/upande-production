@@ -87,8 +87,19 @@ def from_variety(variety):
 	return frappe.db.get_value("Production Variety", variety, "field_crop") if variety else None
 
 
+def product_of_variety(variety) -> str | None:
+	"""The product item of a variety: its sub-crop's product, else its field crop's. None when neither has one."""
+	if not variety:
+		return None
+	field_crop, sub_crop = frappe.db.get_value("Production Variety", variety, ["field_crop", "sub_crop"]) or (None, None)
+	product = frappe.db.get_value(SUB, sub_crop, "product") if sub_crop else None
+	if not product and field_crop:
+		product = frappe.db.get_value(DT, field_crop, "product")
+	return product or None
+
+
 def from_item(item, section=None):
-	"""The Field Crop an item belongs to: a variety's own item, a field crop's product item, or a variety's product."""
+	"""The Field Crop an item belongs to: a variety's own item, else a field crop's or sub-crop's product item."""
 	if not item:
 		return None
 	row = frappe.db.get_value("Production Variety", {"item": item}, "field_crop")
@@ -97,7 +108,7 @@ def from_item(item, section=None):
 	row = frappe.db.get_value(DT, {"product": item}, "name")
 	if row:
 		return row
-	return frappe.db.get_value("Production Variety", {"product": item, "field_crop": ("is", "set")}, "field_crop")
+	return frappe.db.get_value(SUB, {"product": item}, "field_crop")
 
 
 def check_variety(doc) -> None:
@@ -243,6 +254,8 @@ def create_from_varieties(min_products=2) -> list:
 	(a mixed section such as Fruits & Vegetables). Crops are matched by name, not by section. A new crop gets its
 	group from the standard map when the name is known (else the crop_hierarchy patch lists it). Returns the names
 	of the crops made now."""
+	if not frappe.db.has_column("Production Variety", "product"):
+		return []  # a variety no longer has a product: crops carry it (see patches/move_variety_product_to_field_crop)
 	crop_groups.ensure_groups()
 	made = []
 	for section in frappe.get_all("Production Crop", pluck="name"):
@@ -278,11 +291,12 @@ def link_records() -> dict:
 
 	if not frappe.db.count(DT):
 		return counts
-	for v in frappe.get_all("Production Variety", filters={"field_crop": ("is", "not set"), "product": ("is", "set")},
-			fields=["name", "product"]):
-		fc = crop_for_product(v.product)
-		if fc:
-			setv("Production Variety", v.name, fc)
+	if frappe.db.has_column("Production Variety", "product"):  # old sites only: the column is gone on a fresh install
+		for v in frappe.get_all("Production Variety", filters={"field_crop": ("is", "not set"), "product": ("is", "set")},
+				fields=["name", "product"]):
+			fc = crop_for_product(v.product)
+			if fc:
+				setv("Production Variety", v.name, fc)
 	sections = list(set(frappe.get_all("Production Variety", filters={"field_crop": ("is", "set")}, pluck="crop")))
 	if not sections:
 		return counts

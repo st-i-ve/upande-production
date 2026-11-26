@@ -40,10 +40,12 @@ class TestVarieties(IntegrationTestCase):
 		for n in ("TV Product", "TV Product - Alpha", "TV Product - Beta"):
 			cls.items[n] = _make("Item", item_code=n, item_name=n, item_group="All Item Groups", stock_uom="Kg",
 				is_stock_item=1).name
-		cls.alpha = _make("Production Variety", variety_name="TV Alpha", crop=cls.crop.name, product="TV Product",
+		cls.fcrop = _make("Production Field Crop", crop_name="TV Product Crop", crop_group="Vegetable Crops", harvest_uom="Kg",
+			product="TV Product").name
+		cls.alpha = _make("Production Variety", variety_name="TV Alpha", crop=cls.crop.name, field_crop=cls.fcrop,
 			item="TV Product - Alpha", days_to_first_harvest=100, harvest_window_days=15,
 			stages=_stages(("Planting", 0, 7, 0), ("Vegetative", 7, 33, 0), ("Bulking", 40, 60, 0), ("Harvest", 100, 15, 1)))
-		cls.beta = _make("Production Variety", variety_name="TV Beta", crop=cls.crop.name, product="TV Product",
+		cls.beta = _make("Production Variety", variety_name="TV Beta", crop=cls.crop.name, field_crop=cls.fcrop,
 			item="TV Product - Beta", days_to_first_harvest=80, harvest_window_days=10,
 			stages=_stages(("Planting", 0, 7, 0), ("Harvest", 80, 10, 1)))
 		cls.flower = _make("Production Variety", variety_name="TV Flower", crop=cls.crop.name, item="TV Product",
@@ -171,6 +173,17 @@ class TestVarieties(IntegrationTestCase):
 		rows = api.list_varieties(self.crop.name)["varieties"]
 		self.assertEqual(next(v for v in rows if v["name"] == "TV Alpha")["active_protocol"], p.name)
 		self.assertNotIn("default_protocol", rows[0])
+
+	def test_list_varieties_product_comes_from_the_crop(self):
+		from upande_production.api import varieties as api
+		rows = api.list_varieties(self.crop.name)["varieties"]
+		self.assertEqual(next(v for v in rows if v["name"] == "TV Alpha")["product"], "TV Product")
+		self.assertIsNone(next(v for v in rows if v["name"] == "TV Flower")["product"])
+
+	def test_continuous_variety_has_no_window_or_interval(self):
+		v = _make("Production Variety", variety_name="TV Cont", crop=self.crop.name, item="TV Product - Alpha",
+			harvest_pattern="Continuous", harvest_interval_weeks=2, harvest_window_weeks=6, harvest_window_days=42)
+		self.assertEqual((v.harvest_window_weeks, v.harvest_window_days, v.harvest_interval_weeks), (0, 0, 0))
 
 	def test_protocol_falls_back_to_product(self):
 		prod = self._protocol("TV Proto Product")

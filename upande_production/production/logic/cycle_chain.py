@@ -194,7 +194,7 @@ def cycle_number(doc) -> int:
 	if not doc.get("previous_cycle"):
 		return 1
 	v = _variety(doc)
-	if not v or (v.harvest_pattern or "Once") == "Once":
+	if not v or (v.harvest_pattern or "Once") in ("Once", "Continuous"):
 		return 1
 	prev = frappe.db.get_value(CYCLE_DT, doc.get("previous_cycle"), "cycle_no")
 	return cint(prev or 1) + 1
@@ -295,8 +295,9 @@ def _sync_expected_harvest(doc, v, patterned=False):
 	if not go or not f:
 		return
 	doc.expected_harvest_start = add_days(getdate(f), weeks * 7)
-	if cint(v.harvest_window_days):
-		doc.expected_harvest_end = add_days(doc.expected_harvest_start, cint(v.harvest_window_days))
+	end = stages.expected_harvest_end(v, doc.expected_harvest_start, doc.get("start_date"))
+	if end or (v.harvest_pattern or "Once") == "Continuous":
+		doc.expected_harvest_end = end
 
 
 def _expected_harvest(doc):
@@ -352,7 +353,15 @@ def propose_next(doc) -> str | None:
 	if doc.get("status") != "Closed" and not doc.get("actual_flowering_date"):
 		return None
 	v = _variety(doc)
-	if not v or (v.harvest_pattern or "Once") == "Once":
+	pattern = (v.harvest_pattern or "Once") if v else "Once"
+	if pattern == "Once":
+		return None
+	if pattern == "Continuous":  # one cycle until removal: nothing to propose, only the lifespan check
+		first = _root_start(doc)
+		if (doc.get("status") == "Closed" and v.lifespan_years and first
+				and add_days(first, int(v.lifespan_years * 365)) <= getdate(doc.get("actual_harvest_end") or today())):
+			doc.due_for_uprooting = 1
+			frappe.db.set_value(CYCLE_DT, doc.name, "due_for_uprooting", 1, update_modified=False)
 		return None
 	existing = frappe.db.get_value(CYCLE_DT, {"previous_cycle": doc.name}, "name")
 	if existing:
@@ -383,8 +392,9 @@ def propose_next(doc) -> str | None:
 			ef = add_days(nxt, cint(v.weeks_to_reflower_after_harvest) * 7)
 		vals["expected_flowering_date"] = ef
 		vals["expected_harvest_start"] = add_days(ef, weeks * 7)
-		if cint(v.harvest_window_days):
-			vals["expected_harvest_end"] = add_days(vals["expected_harvest_start"], cint(v.harvest_window_days))
+		end = stages.expected_harvest_end(v, vals["expected_harvest_start"], nxt)
+		if end:
+			vals["expected_harvest_end"] = end
 	new = frappe.get_doc(vals)
 	new.insert(ignore_permissions=True)
 	doc.proposed_next_cycle = new.name

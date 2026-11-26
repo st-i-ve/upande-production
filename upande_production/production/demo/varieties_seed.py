@@ -202,10 +202,28 @@ def _inherit_item_figures(v):
 
 # ------------------------------------------------------------------ varieties
 
+def _field_crop(v):
+	"""The field crop that carries the variety's product (made when missing, with the product on it); None without one."""
+	from upande_production.production.logic import crop_groups, field_crops
+
+	product = v["product"]
+	if not product:
+		return None
+	name = field_crops.crop_for_product(product)
+	if name:
+		return name
+	item_name = frappe.db.get_value("Item", product, "item_name") or product
+	doc = frappe.get_doc({"doctype": field_crops.DT, "crop_name": field_crops.singular(item_name),
+		"crop_group": crop_groups.group_of(field_crops.singular(item_name)), "product": product, "harvest_uom": "Kg", "enabled": 1})
+	doc.flags.ignore_mandatory = True
+	doc.insert(ignore_permissions=True)
+	return doc.name
+
+
 def _ensure_variety(v):
 	rows = [{"stage": s[0], "start_day": s[1], "length_days": s[2], "is_harvest": 1 if len(s) > 3 and s[3] else 0}
 		for s in v["stages"]]
-	vals = {"crop": v["crop"], "product": v["product"], "item": v["item"], "enabled": 1, "stage_anchor": v["anchor"],
+	vals = {"crop": v["crop"], "field_crop": _field_crop(v), "item": v["item"], "enabled": 1, "stage_anchor": v["anchor"],
 		"days_to_first_harvest": v["first_harvest"], "harvest_window_days": v["window"],
 		"expected_yield_per_ha": v["yield_ha"], "expected_yield_per_plant": v["yield_plant"],
 		"plants_per_ha": v["plants_ha"], "notes": v.get("notes")}

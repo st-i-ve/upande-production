@@ -161,6 +161,59 @@ class TestCycleChain(IntegrationTestCase):
 		self.assertFalse(c.proposed_next_cycle)
 		self.assertEqual(frappe.db.count("Production Crop Cycle", {"previous_cycle": c.name}), 0)
 
+	# ---------------------------------------------------------------- Continuous: one cycle until removal
+
+	def _continuous(self, name, **kw):
+		return _make("Production Variety", variety_name=name, crop=self.crop.name, item=self.item, is_flowering=1,
+			harvest_pattern="Continuous", harvest_interval_weeks=1, harvest_window_weeks=8, flowering_pattern="Interval",
+			flowering_interval_weeks=4, weeks_to_first_flowering=20, weeks_flowering_to_harvest=10,
+			stages=_stages(("Planting", 0, 140, 0), ("Flowering", 140, 70, 0), ("Harvest", 210, 60, 1)), **kw).name
+
+	def test_continuous_clears_window_and_interval(self):
+		v = frappe.get_doc("Production Variety", self._continuous("CC Cont Clear"))
+		self.assertEqual((v.harvest_window_weeks, v.harvest_window_days, v.harvest_interval_weeks), (0, 0, 0))
+
+	def test_continuous_cycle_has_open_end(self):
+		v = self._continuous("CC Cont Open")
+		c = self._cycle(variety=v, start=add_days(today(), -100), actual_flowering_date=add_days(today(), -10))
+		self.assertEqual(getdate(c.expected_harvest_start), getdate(add_days(c.actual_flowering_date, 70)))
+		self.assertFalse(c.expected_harvest_end)
+
+	def test_continuous_lifespan_sets_end(self):
+		v = self._continuous("CC Cont Life", lifespan_years=2)
+		c = self._cycle(variety=v, start=add_days(today(), -100), actual_flowering_date=add_days(today(), -10))
+		self.assertEqual(getdate(c.expected_harvest_end), getdate(add_days(c.start_date, 2 * 365)))
+
+	def test_continuous_variety_defaults_have_no_window(self):
+		v = self._continuous("CC Cont Def", days_to_first_harvest=70)
+		u = self._unit("CC Block Cont Def")
+		c = _make("Production Crop Cycle", unit=u.name, crop=self.crop.name, variety=v, start_date=today(), status="Planned")
+		self.assertTrue(c.expected_harvest_start)
+		self.assertFalse(c.expected_harvest_end)
+
+	def test_continuous_proposes_no_next_but_marks_uprooting(self):
+		v = self._continuous("CC Cont Close")
+		c = self._close(self._cycle(variety=v, start=add_days(today(), -400), actual_flowering_date=add_days(today(), -300)))
+		self.assertFalse(c.proposed_next_cycle)
+		self.assertEqual(frappe.db.count("Production Crop Cycle", {"previous_cycle": c.name}), 0)
+		self.assertEqual(cycle_chain.cycle_number(c), 1)
+		short = self._continuous("CC Cont Short", lifespan_years=1)
+		c2 = self._close(self._cycle(variety=short, start=add_days(today(), -400), actual_flowering_date=add_days(today(), -300)))
+		self.assertFalse(c2.proposed_next_cycle)
+		self.assertEqual(c2.due_for_uprooting, 1)
+
+	def test_continuous_picks_every_week(self):
+		from upande_production.production.logic import schedule
+
+		v = self._continuous("CC Cont Weekly")
+		c = self._cycle(variety=v, start=add_days(today(), -100), actual_flowering_date=add_days(today(), -30))
+		_make("Production Harvest", unit=c.unit, crop=self.crop.name, cycle=c.name, item=self.item, qty=5, uom="Kg",
+			harvest_date=add_days(today(), -20))
+		ctx = schedule.harvest_context(c.name)
+		self.assertEqual(ctx["harvest_interval_weeks"], 1)
+		on = add_days(today(), 30)
+		self.assertIsNotNone(schedule.next_pick(on, ctx["harvest_start"], ctx["picks"], ctx["harvest_interval_weeks"]))
+
 	def test_lifespan_marks_uprooting(self):
 		c = self._close(self._cycle(variety=self.short, start=add_days(today(), -400)))
 		self.assertFalse(c.proposed_next_cycle)
@@ -368,7 +421,7 @@ class TestCycleChain(IntegrationTestCase):
 
 	def test_interval_next_flowering(self):
 		v = _make("Production Variety", variety_name="CC Passion", crop=self.crop.name, item=self.item, is_flowering=1,
-			harvest_pattern="Continuous", harvest_interval_weeks=1, weeks_to_maturity=30, flowering_pattern="Interval",
+			harvest_pattern="Interval", harvest_interval_weeks=1, weeks_to_maturity=30, flowering_pattern="Interval",
 			flowering_interval_weeks=4, weeks_to_first_flowering=20, weeks_flowering_to_harvest=10, lifespan_years=3,
 			harvest_window_weeks=6, stages=_stages(("Planting", 0, 140, 0), ("Flowering", 140, 70, 0), ("Harvest", 210, 60, 1))).name
 		u = self._unit("CC Block Int")

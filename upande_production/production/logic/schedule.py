@@ -127,7 +127,10 @@ def harvest_context(cycle) -> dict:
 	variety = frappe.db.get_value("Production Crop Cycle", name, "variety")
 	interval = None
 	if variety:
-		interval = cint(frappe.db.get_value("Production Variety", variety, "harvest_interval_weeks")) or None
+		interval, pattern = frappe.db.get_value("Production Variety", variety, ["harvest_interval_weeks", "harvest_pattern"])
+		interval = cint(interval) or None
+		if pattern == "Continuous":  # one cycle until removal: it is picked every week
+			interval = 1
 	return {"harvest_start": hs, "picks": picks, "harvest_interval_weeks": interval}
 
 

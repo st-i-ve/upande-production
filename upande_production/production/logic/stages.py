@@ -13,7 +13,7 @@ begin; `last_day` is the inclusive last day.
 """
 
 import frappe
-from frappe.utils import add_days, cint, getdate, today
+from frappe.utils import add_days, cint, flt, getdate, today
 
 from upande_production.production.logic.units import unit_filter
 
@@ -230,12 +230,15 @@ def active_protocol_for_variety(variety, crop=None, field_crop=None):
 		order_by="modified desc")
 	if name:
 		return name
-	v = frappe.db.get_value("Production Variety", variety, ["crop", "field_crop", "product"], as_dict=True) or {}
+	from upande_production.production.logic.field_crops import product_of_variety
+
+	v = frappe.db.get_value("Production Variety", variety, ["crop", "field_crop"], as_dict=True) or {}
 	crop = crop or v.get("crop")
 	field_crop = field_crop or v.get("field_crop")
+	product = product_of_variety(variety)
 	base = {"version_status": "Active", "variety": ("in", ["", None])}
-	if crop and v.get("product"):
-		name = frappe.db.get_value("Production Protocol", {**base, "crop": crop, "item": v["product"]}, "name",
+	if crop and product:
+		name = frappe.db.get_value("Production Protocol", {**base, "crop": crop, "item": product}, "name",
 			order_by="modified desc")
 		if name:
 			return name
@@ -250,6 +253,18 @@ def variety_protocol(variety):
 	return active_protocol_for_variety(variety)
 
 
+def expected_harvest_end(v, harvest_start, cycle_start=None):
+	"""Where a cycle's harvest ends. Continuous harvest is one cycle until removal: no end unless the variety has a
+	lifespan (cycle start + lifespan). Otherwise the harvest window after `harvest_start`, or None without one."""
+	if (v.get("harvest_pattern") or "Once") == "Continuous":
+		if flt(v.get("lifespan_years")) and cycle_start:
+			return add_days(getdate(cycle_start), int(flt(v.get("lifespan_years")) * 365))
+		return None
+	if cint(v.get("harvest_window_days")) and harvest_start:
+		return add_days(harvest_start, cint(v.get("harvest_window_days")))
+	return None
+
+
 def apply_variety_defaults(cycle):
 	"""Called from Production Crop Cycle.validate: item and protocol follow the variety, a protocol of
 	another variety is refused, expected harvest dates default from the variety, current stage is set."""
@@ -261,7 +276,8 @@ def apply_variety_defaults(cycle):
 			cycle.variety = pv
 	if cycle.variety:
 		v = frappe.db.get_value("Production Variety", cycle.variety,
-			["crop", "item", "days_to_first_harvest", "harvest_window_days"], as_dict=True)
+			["crop", "item", "days_to_first_harvest", "harvest_window_days", "harvest_pattern", "lifespan_years"],
+			as_dict=True)
 		if not v:
 			frappe.throw(_("Variety {0} not found").format(cycle.variety), frappe.ValidationError)
 		if cycle.crop and v.crop != cycle.crop:
@@ -278,8 +294,8 @@ def apply_variety_defaults(cycle):
 					cycle.protocol, pv, cycle.variety), frappe.ValidationError)
 		if cycle.start_date and cint(v.days_to_first_harvest) and not cycle.expected_harvest_start:
 			cycle.expected_harvest_start = add_days(anchor_date(cycle) or cycle.start_date, cint(v.days_to_first_harvest))
-			if cint(v.harvest_window_days) and not cycle.expected_harvest_end:
-				cycle.expected_harvest_end = add_days(cycle.expected_harvest_start, cint(v.harvest_window_days))
+			if not cycle.expected_harvest_end:
+				cycle.expected_harvest_end = expected_harvest_end(v, cycle.expected_harvest_start, cycle.start_date)
 	cycle.current_stage = current_stage_name(cycle)
 
 
@@ -288,4 +304,7 @@ def product_item(item):
 	returned as it is (avocado variety items have no separate product)."""
 	if not item:
 		return item
-	return frappe.db.get_value("Production Variety", {"item": item}, "product") or item
+	from upande_production.production.logic.field_crops import product_of_variety
+
+	variety = frappe.db.get_value("Production Variety", {"item": item}, "name")
+	return product_of_variety(variety) or item

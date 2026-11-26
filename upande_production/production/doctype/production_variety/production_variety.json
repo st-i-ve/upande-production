@@ -10,7 +10,6 @@
   "crop",
   "field_crop",
   "sub_crop",
-  "product",
   "item",
   "enabled",
   "stage_anchor",
@@ -87,12 +86,6 @@
    "in_standard_filter": 1
   },
   {
-   "fieldname": "product",
-   "fieldtype": "Link",
-   "label": "Product",
-   "options": "Item"
-  },
-  {
    "fieldname": "item",
    "fieldtype": "Link",
    "label": "Item",
@@ -127,6 +120,7 @@
    "fieldname": "harvest_window_days",
    "fieldtype": "Int",
    "label": "Harvest Window (days)",
+   "depends_on": "eval:doc.harvest_pattern!='Continuous'",
    "read_only": 1
   },
   {
@@ -188,7 +182,7 @@
    "fieldname": "harvest_interval_weeks",
    "fieldtype": "Int",
    "label": "Harvest Interval (weeks)",
-   "depends_on": "eval:doc.harvest_pattern!='Once'"
+   "depends_on": "eval:doc.harvest_pattern=='Interval'"
   },
   {
    "fieldname": "plants_per_m2",
@@ -266,7 +260,8 @@
   {
    "fieldname": "harvest_window_weeks",
    "fieldtype": "Int",
-   "label": "Harvest Window (weeks)"
+   "label": "Harvest Window (weeks)",
+   "depends_on": "eval:doc.harvest_pattern!='Continuous'"
   },
   {
    "fieldname": "water_section",

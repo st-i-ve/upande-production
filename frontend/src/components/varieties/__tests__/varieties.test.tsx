@@ -140,6 +140,35 @@ describe("variety form", () => {
   });
 });
 
+describe("variety harvest pattern and product", () => {
+  it("a Continuous variety hides the window and interval and sends no window", async () => {
+    mocked.saveVariety.mockResolvedValue({ name: "Shangi" });
+    wrap(<VarietyDialog crop="Potatoes" accent="#2a7" variety={{ ...potato, harvest_pattern: "Continuous", harvest_window_weeks: 6, harvest_interval_weeks: 2 }} onClose={() => {}} onSaved={() => {}} />);
+    expect(screen.queryByLabelText("Harvest window (weeks)")).toBeNull();
+    expect(screen.queryByLabelText("Harvest interval (weeks)")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Save variety" }));
+    await waitFor(() => expect(mocked.saveVariety).toHaveBeenCalled());
+    expect(mocked.saveVariety.mock.calls[0][0]).toMatchObject({ harvest_pattern: "Continuous", harvest_window_weeks: null, harvest_interval_weeks: null });
+  });
+
+  it("an Interval variety shows the window and the interval", () => {
+    wrap(<VarietyDialog crop="Potatoes" accent="#2a7" variety={{ ...potato, harvest_pattern: "Interval" }} onClose={() => {}} onSaved={() => {}} />);
+    expect(screen.getByLabelText("Harvest window (weeks)")).toBeInTheDocument();
+    expect(screen.getByLabelText("Harvest interval (weeks)")).toBeInTheDocument();
+  });
+
+  it("shows the crop's product read-only and never sends a product", async () => {
+    mocked.saveVariety.mockResolvedValue({ name: "Shangi" });
+    const crops = [{ name: "Potato", crop_name: "Potato", product: "Potatoes", sub_crops: [] }];
+    wrap(<VarietyDialog crop="Potatoes" accent="#2a7" variety={{ ...potato, field_crop: "Potato", product: null }} fieldCrops={crops} onClose={() => {}} onSaved={() => {}} />);
+    expect(screen.getByLabelText("Product")).toHaveValue("Potatoes");
+    expect(screen.getByLabelText("Product")).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Save variety" }));
+    await waitFor(() => expect(mocked.saveVariety).toHaveBeenCalled());
+    expect(mocked.saveVariety.mock.calls[0][0]).not.toHaveProperty("product");
+  });
+});
+
 describe("variety yield model", () => {
   const hass: Variety = {
     ...potato, name: "Hass", variety_name: "Hass", crop: "Avocado", item: "Hass Avocado", is_flowering: 1, flowering_pattern: "Interval",
