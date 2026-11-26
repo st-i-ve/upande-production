@@ -3,7 +3,7 @@ import frappe
 from frappe.utils import cint, getdate, today
 
 from upande_production.mobile import access
-from upande_production.production.logic import analytics, approvals, field_crops, labourers, plans, rules, supervisors, task_approval, wm_bridge, work
+from upande_production.production.logic import analytics, approvals, field_crops, labourers, plans, progress, rules, supervisors, task_approval, wm_bridge, work
 from upande_production.production.logic.settings import can_see_pay
 from upande_production.production.logic.units import unit_filter
 from upande_production.production.logic.weeks import iso_of, iso_week_bounds
@@ -199,6 +199,9 @@ def productionGetWeekPlan():
 			_strip_pay(tasks, "rate")
 			labourers.attach_operation_targets(tasks)
 			field_crops.annotate_cycles(tasks)
+			last_log = progress.latest_by_task(name)
+			for t in tasks:
+				t["last_progress_on"] = last_log.get(t.name)
 		return {
 			"plan": name, "farm": farm or None, "crop": crop, "year": year, "week": week,
 			"week_start": str(start), "week_end": str(end), "tasks": tasks,
@@ -691,6 +694,7 @@ def productionGetPlanDetail():
 			order_by="due_date asc, idx asc")
 		task_approval.mask_awaiting(tasks)
 		crew = _task_entries(name)
+		last_log = progress.latest_by_task(name)
 		sup = [t.supervisor for t in tasks if t.supervisor]
 		sup_names = dict(frappe.get_all("Employee", filters={"name": ("in", sup)},
 			fields=["name", "employee_name"], as_list=True)) if sup else {}
@@ -704,7 +708,7 @@ def productionGetPlanDetail():
 			row.update({"field_crop": t.get("field_crop"), "sub_crop": t.get("sub_crop"), "variety": t.get("variety"), "crop_label": t.get("crop_label"),
 				"supervisor_name": sup_names.get(t.supervisor), "is_late": _is_late(t),
 				"deviation": t.deviation or None, "entries": crew.get(t.name, []),
-				"from_protocol": bool(t.protocol_ref),
+				"from_protocol": bool(t.protocol_ref), "last_progress_on": last_log.get(t.name),
 			})
 			_strip_pay(row, "rate")
 			labourers.attach_operation_targets([row])

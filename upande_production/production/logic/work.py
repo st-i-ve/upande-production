@@ -55,6 +55,9 @@ def refresh_task_done(plan, plan_task):
 	doc.save()
 
 
+SAME_DAY_MESSAGE = "Your progress for today has been logged. Wait for tomorrow to make another log."
+
+
 def record_task_work(plan, task, status, entries, note="", work_date=None, override_reason=None) -> dict:
 	if status not in STATUSES:
 		frappe.throw(_("Invalid status {0}").format(status), frappe.ValidationError)
@@ -74,6 +77,12 @@ def record_task_work(plan, task, status, entries, note="", work_date=None, overr
 		frappe.throw(_("Record who did the work before marking it {0}.").format(_(status)),
 			frappe.ValidationError)
 	work_date = work_date or today()
+	if entries and frappe.db.exists("Casual Labour Work",
+		{"plan": plan, "plan_task": row.name, "work_date": work_date, "docstatus": ("<", 2)}
+	):
+		# Crew goes in once a task a day; a status or note save (no entries) is still fine. Extra detail
+		# for the day goes in a progress log (logic/progress.py).
+		frappe.throw(_(SAME_DAY_MESSAGE), frappe.ValidationError)
 	stamp = None
 	if entries or status in ("In Progress", "Done", "Partly Done"):
 		# Activity rules: Block refuses, Warn needs a reason (one given earlier on the task still stands)

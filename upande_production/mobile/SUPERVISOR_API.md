@@ -29,6 +29,7 @@ Aquaculture) have no protocol steps; plans, tasks and tick-off work the same.
 | Planning: week list | `productionListWeekPlans` |
 | Planning: week detail (all blocks, or one) | `productionGetPlanDetail` |
 | Task sheet: tick-off with crew | `productionUpdateTask`, pickers below |
+| Task sheet: progress log and timeline | `productionLogProgress`, `productionListProgress` (section "Task progress log") |
 | Assign work | `productionAddTask`, `productionGeneratePlan`, `productionRecordUnplannedWork` |
 | Sent back | `productionListSentBack`, `productionResubmitWork` |
 | Approvals (assistant manager: check; manager: approve, forward) | `productionListApprovals`, `productionCheckWork`, `productionApproveWork`, `productionSendBackWork`, `productionForwardTasks`, `productionApprovalCounts` |
@@ -926,3 +927,24 @@ cannot see pay.
 | `productionSendBackWork` | `names`, `note` (required) | `plan_check` or `plan_approve` | `{"status","sent_back":[names],"approval_status":"Sent Back","message"}` |
 | `productionForwardTasks` | `plan`, optional `tasks` (names; omit for all awaiting) | `plan_approve` | `{"status","forwarded":[task names],"message"}` |
 | `productionApprovalCounts` | none | `plan_check` or `plan_approve` (and read access) | `{"status","to_check","to_approve"}` |
+
+## Task progress log
+
+Notes, a quantity done today and files on a plan task, any number of times a day. A log never creates labour or
+pay records and never changes `done_qty`. Endpoints are in `upande_production/mobile/progress.py`
+(`POST /api/method/upande_production.mobile.progress.<function>`), same envelope as above. Needs `plan_tick_off`,
+`plan_manage` or `plan_approve`. A task still awaiting a manager's forward cannot be logged on.
+`productionGetWeekPlan` and `productionGetPlanDetail` task rows carry `last_progress_on` (date or null).
+
+Crew tick-off is once a task a day: `productionUpdateTask` with `entries` on a task that already has crew for the
+same `work_date` returns `{"error": "Your progress for today has been logged. Wait for tomorrow to make another log."}`.
+A save without `entries` (status or note only) is still allowed.
+
+Uploading files first: `POST /api/method/upload_file` as multipart form (`file`, `is_private=1`; no doctype/docname),
+logged-in session. The response `message.file_url` (for example `/private/files/photo.jpg`) goes in `files`. The
+server attaches each file to the log (private, uploaded by the caller, not attached elsewhere).
+
+| Call | Body | Success |
+|---|---|---|
+| `productionLogProgress` | `plan`, `task` (row name), `notes`, `qty` (>= 0), `log_date` (default today, not future), `files` (list of file URLs); at least one of notes, qty, files | `{"status":"success","message","log":{name, plan, task, unit, operation, crop, log_date, logged_at, logged_by, logged_by_name, qty, uom, notes, attachments:[{file_url, file_name, is_image}]}}` |
+| `productionListProgress` | `plan`, `task` | `{"status":"success","logs":[log, ...]}` newest first |

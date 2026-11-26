@@ -12,7 +12,7 @@ from upande_production.production.logic import task_schedule
 from upande_production.production.logic.settings import (
 	PAY_ROLES, assistant_step_on, avocado_only_crop_keys, can_reschedule, can_see_pay, is_assistant_manager, is_manager,
 )
-from upande_production.production.logic import task_approval
+from upande_production.production.logic import progress, task_approval
 from upande_production.production.logic.units import unit_filter
 from upande_production.production.logic.weeks import iso_week_bounds
 
@@ -331,7 +331,9 @@ def get_plan(crop, farm, year, week):
 	colors = dict(frappe.get_all("Field Operation", fields=["name", "color"], as_list=True))
 	labourers.attach_operation_targets(tasks)
 	field_crops.annotate_cycles(tasks)
+	last_log = progress.latest_by_task(name)
 	for t in tasks:
+		t["last_progress_on"] = last_log.get(t.name)
 		t["color"] = colors.get(t.operation) or None
 		t["rate"] = _pay(t["rate"], pay)
 		t["deviation"] = t.deviation or None
@@ -468,6 +470,20 @@ def generate_plan_week(crop, farm, year, week):
 	plan = plans.get_or_create_plan(crop, _farm(farm), int(year), int(week))
 	res = plans.generate_week_detail(plan.name)
 	return {"name": plan.name, "created": res["created"], "skipped": res["skipped"]}
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def log_task_progress(plan, task, notes=None, qty=None, log_date=None, files=None):
+	"""A progress log (notes, quantity done today, uploaded file URLs) on a task. Any number a day."""
+	return progress.log_progress(plan, task, notes=notes, qty=qty, log_date=log_date or None, files=as_dict(files))
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def list_task_progress(plan, task):
+	"""A task's progress logs, newest first."""
+	return progress.list_progress(plan, task)
 
 
 @frappe.whitelist(methods=["POST"])
