@@ -5,6 +5,7 @@ import { renderPage } from "./helpers";
 vi.mock("@/lib/approvals-api", () => ({
   listApprovals: vi.fn(),
   approve: vi.fn(),
+  checkWork: vi.fn(),
   sendBack: vi.fn(),
   resubmit: vi.fn(),
   approvalCounts: vi.fn(),
@@ -15,7 +16,7 @@ vi.mock("@/lib/protocols-api", () => ({
   sendBackProtocol: vi.fn(),
 }));
 import { approveProtocol, pendingProtocols, sendBackProtocol, type PendingProtocol } from "@/lib/protocols-api";
-import { approve, listApprovals, resubmit, sendBack, type ApprovalGroup } from "@/lib/approvals-api";
+import { approve, checkWork, listApprovals, resubmit, sendBack, type ApprovalGroup } from "@/lib/approvals-api";
 import { Approvals } from "@/pages/Approvals";
 
 const entry = (n: string, who: string) => ({
@@ -199,5 +200,60 @@ describe("Approvals", () => {
     fireEvent.change(screen.getByLabelText("Note for the supervisor"), { target: { value: "Rate too high" } });
     fireEvent.click(send);
     await waitFor(() => expect(sendBackProtocol).toHaveBeenCalledWith("Season v2", "Rate too high"));
+  });
+
+  describe("two-step work approval", () => {
+    const assistant = { is_assistant_manager: true, assistant_step: true };
+    const manager = { is_assistant_manager: false, assistant_step: true };
+
+    it("an assistant lands on To check, lists the check queue and Check calls checkWork", async () => {
+      vi.mocked(checkWork).mockImplementation(async (n) => (drop(n), { checked: n }));
+      renderPage(<Approvals />, assistant);
+      const card = await screen.findByTestId("approval-card-a");
+      expect(screen.getByRole("tab", { name: /To check/ })).toHaveAttribute("data-state", "active");
+      expect(listApprovals).toHaveBeenCalledWith("Test Crop", expect.objectContaining({ status: "Pending", queue: "check" }));
+      fireEvent.click(within(card).getByRole("button", { name: "Check" }));
+      await waitFor(() => expect(checkWork).toHaveBeenCalledWith(["a-1"]));
+      expect(approve).not.toHaveBeenCalled();
+      await waitFor(() => expect(screen.queryByTestId("approval-card-a")).toBeNull());
+    });
+
+    it("an assistant can send a card back from the check queue", async () => {
+      renderPage(<Approvals />, assistant);
+      const card = await screen.findByTestId("approval-card-a");
+      expect(within(card).queryByRole("button", { name: "Approve" })).toBeNull();
+      expect(within(card).getByRole("button", { name: "Send back" })).toBeInTheDocument();
+    });
+
+    it("a manager asks for the approve queue and sees Checked by on a checked card", async () => {
+      lists.Pending = [group("c", { status: "Checked", checked_by: "ann@x.com", checked_by_name: "Ann Assistant", checked_at: "2026-10-26 12:00:00", needs_check: false })];
+      renderPage(<Approvals />, manager);
+      const card = await screen.findByTestId("approval-card-c");
+      expect(listApprovals).toHaveBeenCalledWith("Test Crop", expect.objectContaining({ status: "Pending", queue: "approve" }));
+      expect(within(card).getByText(/Checked by Ann Assistant/)).toBeInTheDocument();
+      expect(screen.queryByRole("tab", { name: /To check/ })).toBeNull();
+    });
+
+    it("approving a Not checked card confirms first, then sends unchecked_ok", async () => {
+      lists.Pending = [group("n", { needs_check: true })];
+      renderPage(<Approvals />, manager);
+      const card = await screen.findByTestId("approval-card-n");
+      expect(within(card).getByText("Not checked")).toBeInTheDocument();
+      fireEvent.click(within(card).getByRole("button", { name: "Approve" }));
+      expect(approve).not.toHaveBeenCalled();
+      const dialog = await screen.findByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("button", { name: "Approve anyway" }));
+      await waitFor(() => expect(approve).toHaveBeenCalledWith(["n-1"], 1));
+    });
+
+    it("cancelling the confirm approves nothing", async () => {
+      lists.Pending = [group("n", { needs_check: true })];
+      renderPage(<Approvals />, manager);
+      const card = await screen.findByTestId("approval-card-n");
+      fireEvent.click(within(card).getByRole("button", { name: "Approve" }));
+      fireEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Cancel" }));
+      expect(approve).not.toHaveBeenCalled();
+      expect(screen.getByTestId("approval-card-n")).toBeInTheDocument();
+    });
   });
 });

@@ -12,9 +12,11 @@ import { ActionPill } from "@/components/approvals/ActionPill";
 import { ApprovalCard } from "@/components/approvals/ApprovalCard";
 import { ProtocolReview } from "@/components/approvals/ProtocolReview";
 import { SendBackDialog } from "@/components/approvals/SendBackDialog";
+import { UncheckedDialog } from "@/components/approvals/UncheckedDialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   approve,
+  checkWork,
   listApprovals,
   resubmit,
   sendBack,
@@ -33,8 +35,9 @@ import { useCurrentCrop } from "@/lib/crops";
 import { isError, type Envelope } from "@/lib/frappe";
 import { formatUoms, kes, qty } from "@/lib/format";
 
-type Tab = "pending" | "stale" | "sent" | "approved" | "protocols";
+type Tab = "check" | "pending" | "stale" | "sent" | "approved" | "protocols";
 const STATUS: Record<Tab, ApprovalStatus> = {
+  check: "Pending",
   pending: "Pending",
   stale: "Pending",
   sent: "Sent Back",
@@ -48,6 +51,7 @@ export const APPROVALS_CHANGED = "production:approvals-changed";
 const announce = () => window.dispatchEvent(new Event(APPROVALS_CHANGED));
 
 const EMPTY: Record<Tab, { title: string; hint: string }> = {
+  check: { title: "Nothing to check", hint: "Work keyed against the tasks you assigned lands here for you to check." },
   pending: { title: "Nothing waiting for approval", hint: "When supervisors key in work, it lands here for you to approve." },
   stale: { title: "Nothing is stale", hint: "Every submission has been looked at recently." },
   sent: { title: "Nothing sent back", hint: "Submissions you send back for fixing will wait here for the supervisor." },
@@ -60,7 +64,10 @@ export function Approvals() {
   const crop = useCurrentCrop();
   const toast = useToast();
   const showPay = crop.boot.can_see_pay;
-  const [tab, setTab] = useState<Tab>("pending");
+  // Two-step approval: an assistant manager checks (a "check" queue); a manager approves (Pending + Checked).
+  const assistant = !!crop.boot.is_assistant_manager && !!crop.boot.assistant_step;
+  const queue = assistant ? "check" : crop.boot.assistant_step ? "approve" : null;
+  const [tab, setTab] = useState<Tab>(assistant ? "check" : "pending");
   const [range, setRange] = useState<DateRange>(EMPTY_RANGE);
   const [unit, setUnit] = useState("");
   const [operation, setOperation] = useState("");
@@ -72,6 +79,7 @@ export function Approvals() {
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [dialog, setDialog] = useState<ApprovalGroup[] | null>(null);
   const [sending, setSending] = useState(false);
+  const [unchecked, setUnchecked] = useState<ApprovalGroup[] | null>(null);
   const [opts, setOpts] = useState({ units: new Map<string, string>(), ops: new Map<string, string>(), sups: new Map<string, string>() });
   const [protos, setProtos] = useState<PendingProtocol[] | null>(null);
   const [protoBusy, setProtoBusy] = useState<Set<string>>(new Set());
@@ -88,7 +96,7 @@ export function Approvals() {
     const mine = ++seq.current;
     setLoading(true);
     const [p, o, pr] = await Promise.all([
-      listApprovals(crop.name, { ...filters, status: "Pending" }),
+      listApprovals(crop.name, { ...filters, status: "Pending", ...(queue ? { queue } : {}) }),
       needsOther ? listApprovals(crop.name, { ...filters, status: STATUS[tab] }) : Promise.resolve(null),
       pendingProtocols(crop.name),
     ]);
@@ -112,7 +120,7 @@ export function Approvals() {
         }
       return next;
     });
-  }, [crop.name, filters, tab, needsOther, toast]);
+  }, [crop.name, filters, tab, needsOther, queue, toast]);
 
   useEffect(() => {
     void load();
@@ -186,7 +194,23 @@ export function Approvals() {
 
   const plural = (n: number) => `${n} ${n === 1 ? "submission" : "submissions"}`;
   const names = (gs: ApprovalGroup[]) => gs.flatMap((g) => g.names);
-  const doApprove = (gs: ApprovalGroup[]) => act(gs, () => approve(names(gs)), `Approved ${plural(gs.length)}. It now counts toward done work.`);
+  const approveNow = (gs: ApprovalGroup[], uncheckedOk: boolean) =>
+    act(gs, () => (uncheckedOk ? approve(names(gs), 1) : approve(names(gs))), `Approved ${plural(gs.length)}. It now counts toward done work.`);
+  const doCheck = (gs: ApprovalGroup[]) => act(gs, () => checkWork(names(gs)), `Checked ${plural(gs.length)}. It is with the manager for approval.`);
+  const doApprove = (gs: ApprovalGroup[]) => {
+    if (tab === "check") return doCheck(gs);
+    if (!assistant && gs.some((g) => g.needs_check)) {
+      setUnchecked(gs); // not checked by the assistant manager: confirm before skipping the check
+      return;
+    }
+    return approveNow(gs, false);
+  };
+  const doApproveUnchecked = async () => {
+    if (!unchecked) return;
+    const gs = unchecked;
+    setUnchecked(null);
+    await approveNow(gs, true);
+  };
   const doSendBack = async (note: string) => {
     if (!dialog) return;
     setSending(true);
@@ -198,7 +222,7 @@ export function Approvals() {
     act([g], () => resubmit(g.names, edits.length ? edits : undefined), "Resubmitted. It is back with the manager for approval.");
 
   const chosen = groups.filter((g) => selected.has(g.key));
-  const selectable = tab === "pending" || tab === "stale";
+  const selectable = tab === "check" || tab === "pending" || tab === "stale";
   const clear = () => {
     setRange(EMPTY_RANGE);
     setUnit("");
@@ -217,11 +241,12 @@ export function Approvals() {
           <TabsList aria-label="Approval status">
             {(
               [
-                ["pending", "Pending", c?.Pending],
-                ["stale", "Stale", c?.stale],
+                ...(assistant ? ([["check", "To check", c?.Pending]] as const) : []),
+                ...(assistant ? [] : ([["pending", queue ? "To approve" : "Pending", c?.Pending]] as const)),
+                ...(assistant ? [] : ([["stale", "Stale", c?.stale]] as const)),
                 ["sent", "Sent back", c?.["Sent Back"]],
                 ["approved", "Approved", c?.Approved],
-                ["protocols", "Protocols", protos?.length],
+                ...(assistant ? [] : ([["protocols", "Protocols", protos?.length]] as const)),
               ] as const
             ).map(([id, label, n]) => (
               <TabsTrigger key={id} value={id}>
@@ -305,6 +330,7 @@ export function Approvals() {
                   return n;
                 })
               }
+              checkQueue={tab === "check"}
               onApprove={() => void doApprove([g])}
               onSendBack={() => setDialog([g])}
               onResubmit={(e) => void doResubmit(g, e)}
@@ -317,10 +343,12 @@ export function Approvals() {
       <ActionPill
         count={chosen.length}
         busy={sending || chosen.some((g) => busy.has(g.key))}
+        approveLabel={tab === "check" ? "Check" : "Approve"}
         onApprove={() => void doApprove(chosen)}
         onSendBack={() => setDialog(chosen)}
         onClear={() => setSelected(new Set())}
       />
+      <UncheckedDialog open={!!unchecked} cards={unchecked?.length ?? 0} busy={false} onCancel={() => setUnchecked(null)} onConfirm={() => void doApproveUnchecked()} />
       <SendBackDialog open={!!dialog} cards={dialog?.length ?? 0} busy={sending} onCancel={() => setDialog(null)} onConfirm={(n) => void doSendBack(n)} />
     </PageShell>
   );

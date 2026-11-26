@@ -13,6 +13,7 @@ vi.mock("@/lib/api", () => ({
   getSupervisorPlan: vi.fn(),
   saveSupervisorPlan: vi.fn(),
   copySupervisorPlan: vi.fn(),
+  forwardPlanTasks: vi.fn(),
 }));
 
 import * as api from "@/lib/api";
@@ -236,5 +237,39 @@ describe("Plan for a crop without cycles", () => {
     );
     expect(await screen.findByText(/Nothing planned for/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Generate from protocols/ })).toBeNull();
+  });
+
+  describe("plan approval", () => {
+    const week = { plan: "PLAN-1", week_start: "2026-10-26", week_end: "2026-11-01" };
+    const awaiting = [
+      task({ name: "T1", awaiting_approval: 1, assigned_by: "ann@x.com" }),
+      task({ name: "T2", operation_name: "Spraying", awaiting_approval: 1, assigned_by: "ann@x.com" }),
+      task({ name: "T3", operation_name: "Weeding" }),
+    ];
+
+    it("marks awaiting rows with a badge", async () => {
+      mocked.getPlan.mockResolvedValue({ ...week, tasks: awaiting });
+      renderPlan(boot({ is_manager: false }));
+      expect((await screen.findAllByTestId("task-awaiting-approval")).length).toBe(2);
+      expect(screen.queryByTestId("awaiting-approval-bar")).toBeNull();
+    });
+
+    it("a manager sees the bar and Approve & forward sends the plan", async () => {
+      mocked.getPlan.mockResolvedValue({ ...week, tasks: awaiting });
+      mocked.forwardPlanTasks.mockResolvedValue({ forwarded: ["T1", "T2"] });
+      renderPlan(boot({ is_manager: true }));
+      const bar = await screen.findByTestId("awaiting-approval-bar");
+      expect(bar.textContent).toMatch(/2 awaiting approval/);
+      fireEvent.click(within(bar).getByRole("button", { name: "Approve & forward" }));
+      await waitFor(() => expect(mocked.forwardPlanTasks).toHaveBeenCalledWith("PLAN-1"));
+    });
+
+    it("shows the error when forwarding fails", async () => {
+      mocked.getPlan.mockResolvedValue({ ...week, tasks: awaiting });
+      mocked.forwardPlanTasks.mockResolvedValue({ error: "Managers only" });
+      renderPlan(boot({ is_manager: true }));
+      fireEvent.click(within(await screen.findByTestId("awaiting-approval-bar")).getByRole("button", { name: "Approve & forward" }));
+      expect(await screen.findByText("Managers only")).toBeTruthy();
+    });
   });
 });

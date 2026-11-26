@@ -9,12 +9,14 @@ export function ActionPill({
   onApprove,
   onSendBack,
   onClear,
+  approveLabel = "Approve",
 }: {
   count: number;
   busy: boolean;
   onApprove: () => void;
   onSendBack: () => void;
   onClear: () => void;
+  approveLabel?: string;
 }) {
   const want = count > 0;
   const [mounted, setMounted] = useState(want);
@@ -61,7 +63,7 @@ export function ActionPill({
           onClick={onApprove}
           className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[var(--sd-ink)] px-4 text-[12.5px] font-medium text-[var(--sd-card)] transition-colors hover:opacity-90 disabled:opacity-50"
         >
-          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />} Approve
+          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />} {approveLabel}
         </button>
       </div>
     </div>

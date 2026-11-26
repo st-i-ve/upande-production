@@ -15,7 +15,8 @@ import { DatePicker } from "@/components/DatePicker";
 import { BlockNotice, OverrideReasonDialog } from "@/components/rules/RuleParts";
 import { addDays, rowDate } from "@/components/plan/fmt";
 import { ruleFailure, type RuleFailure } from "@/lib/rules";
-import { deletePlanTask, movePlanTask, postponePlanTask, type PlanTask } from "@/lib/api";
+import { useToast } from "@/components/Toast";
+import { deletePlanTask, forwardPlanTasks, movePlanTask, postponePlanTask, type PlanTask } from "@/lib/api";
 import { isError, type Envelope } from "@/lib/frappe";
 import { parseYmd, ymd } from "@/lib/utils";
 
@@ -30,12 +31,19 @@ export function TaskActions({
   task,
   weekStart,
   onDone,
+  canReschedule = true,
+  canApprove = false,
 }: {
   plan: string;
   task: PlanTask;
   weekStart: Date;
   onDone: () => void;
+  /** Change date, postpone and delete (Production Plan Editor). */
+  canReschedule?: boolean;
+  /** A manager may approve and forward a task that awaits approval. */
+  canApprove?: boolean;
 }) {
+  const toast = useToast();
   const [menu, setMenu] = useState(false);
   const [mode, setMode] = useState<Mode | null>(null);
   const finished = task.status === "Done" || task.status === "Skipped";
@@ -44,6 +52,15 @@ export function TaskActions({
   function open(m: Mode) {
     setMenu(false);
     setMode(m);
+  }
+  async function approveForward() {
+    setMenu(false);
+    const r = await forwardPlanTasks(plan, task.name ? [task.name] : undefined);
+    if (isError(r)) toast(r.error, "error");
+    else {
+      toast("Approved and forwarded to the supervisor.");
+      onDone();
+    }
   }
   function done() {
     setMode(null);
@@ -63,17 +80,22 @@ export function TaskActions({
           </button>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-56 p-1.5" role="menu">
-          {!finished && (
+          {canApprove && !!task.awaiting_approval && (
+            <button type="button" role="menuitem" className={ITEM} onClick={() => void approveForward()}>
+              Approve &amp; forward
+            </button>
+          )}
+          {canReschedule && !finished && (
             <button type="button" role="menuitem" className={ITEM} onClick={() => open("move")}>
               Change date
             </button>
           )}
-          {!finished && (
+          {canReschedule && !finished && (
             <button type="button" role="menuitem" className={ITEM} onClick={() => open("postpone")}>
               Postpone
             </button>
           )}
-          <button
+          {canReschedule && <button
             type="button"
             role="menuitem"
             className={ITEM}
@@ -82,7 +104,7 @@ export function TaskActions({
             onClick={() => !hasWork && open("delete")}
           >
             Delete
-          </button>
+          </button>}
         </PopoverContent>
       </Popover>
       {mode === "move" && <ChangeDateDialog plan={plan} task={task} weekStart={weekStart} onClose={() => setMode(null)} onDone={done} />}

@@ -162,6 +162,7 @@ def get_bootstrap():
 		"can_plan": admin or bool(PAY_ROLES & roles),
 		"can_manage": admin or bool(MANAGE_ROLES & roles),
 		"can_reschedule": can_reschedule(),
+		"is_manager": is_manager(),
 		"is_assistant_manager": is_assistant_manager(),
 		"assistant_step": assistant_step_on(),
 	}

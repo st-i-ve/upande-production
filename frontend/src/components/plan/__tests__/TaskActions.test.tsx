@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PlanTask } from "@/lib/api";
 
-vi.mock("@/lib/api", () => ({ movePlanTask: vi.fn(), postponePlanTask: vi.fn(), deletePlanTask: vi.fn() }));
+vi.mock("@/lib/api", () => ({ movePlanTask: vi.fn(), postponePlanTask: vi.fn(), deletePlanTask: vi.fn(), forwardPlanTasks: vi.fn() }));
 
 vi.mock("@/components/DatePicker", () => ({
   DatePicker: ({ value, onChange, "aria-label": label }: { value: string; onChange: (v: string) => void; "aria-label"?: string }) => (
@@ -27,8 +27,8 @@ const warn = {
   needs_override_reason: true,
 };
 
-function setup(t: PlanTask = task(), onDone = vi.fn()) {
-  render(<TaskActions plan="PLAN-1" task={t} weekStart={weekStart} onDone={onDone} />);
+function setup(t: PlanTask = task(), onDone = vi.fn(), canApprove = false) {
+  render(<TaskActions plan="PLAN-1" task={t} weekStart={weekStart} onDone={onDone} canApprove={canApprove} />);
   fireEvent.click(screen.getByRole("button", { name: "Task actions" }));
   return onDone;
 }
@@ -120,5 +120,18 @@ describe("TaskActions", () => {
     fireEvent.change(screen.getByLabelText("New date"), { target: { value: "2026-11-26" } });
     expect(screen.queryByText(/An activity rule stops this/)).toBeNull();
     expect(screen.getByRole("button", { name: "Move task" })).toBeEnabled();
+  });
+
+  it("a manager approves and forwards one awaiting task", async () => {
+    mocked.forwardPlanTasks.mockResolvedValue({ forwarded: ["T-1"] });
+    const onDone = setup(task({ awaiting_approval: 1 } as Partial<PlanTask>), vi.fn(), true);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Approve & forward" }));
+    await waitFor(() => expect(mocked.forwardPlanTasks).toHaveBeenCalledWith("PLAN-1", ["T-1"]));
+    await waitFor(() => expect(onDone).toHaveBeenCalled());
+  });
+
+  it("offers no approve item unless the task awaits and the user is a manager", () => {
+    setup(task({ awaiting_approval: 1 } as Partial<PlanTask>), vi.fn(), false);
+    expect(screen.queryByRole("menuitem", { name: "Approve & forward" })).toBeNull();
   });
 });

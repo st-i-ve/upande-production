@@ -41,7 +41,8 @@ export interface ApprovalEntry {
 export interface ApprovalGroup {
   /** Stable id for the card. */
   key: string;
-  status: ApprovalStatus;
+  /** `Checked` only in the manager's approve queue (the assistant has checked it). */
+  status: ApprovalStatus | "Checked";
   crop: string;
   unit: string;
   unit_name: string;
@@ -81,6 +82,11 @@ export interface ApprovalGroup {
   review_note: string | null;
   reviewed_by: string | null;
   reviewed_at: string | null;
+  /** Pending work whose task an assistant manager assigned: it wants a check before approval. */
+  needs_check?: boolean;
+  checked_by?: string | null;
+  checked_by_name?: string | null;
+  checked_at?: string | null;
   /** Casual Labour Work names in this card: pass these to approve / sendBack / resubmit. */
   names: string[];
   entries: ApprovalEntry[];
@@ -101,6 +107,8 @@ export interface ApprovalFilters {
   operation?: string | null;
   /** User id of the keying supervisor. */
   supervisor?: string | null;
+  /** `check`: an assistant's queue. `approve`: a manager's (Pending and Checked). */
+  queue?: "check" | "approve" | null;
 }
 
 /** Pending is unbounded; with no `fromDate`, Approved history is limited to the last 60 days. */
@@ -113,10 +121,15 @@ export const listApprovals = (crop: string | null, f: ApprovalFilters = {}) =>
     unit: f.unit ?? null,
     operation: f.operation ?? null,
     supervisor: f.supervisor ?? null,
+    queue: f.queue ?? null,
   });
 
 /** Managers only. Submits the drafts, so they count. All-or-nothing. */
-export const approve = (names: string[]) => rpc<{ approved: string[] }>("approve", { names });
+export const approve = (names: string[], uncheckedOk: 0 | 1 = 0) =>
+  rpc<{ approved: string[] }>("approve", { names, unchecked_ok: uncheckedOk });
+
+/** Assistant managers. Marks Pending work Checked so a manager can approve it. */
+export const checkWork = (names: string[]) => rpc<{ checked: string[] }>("check", { names });
 
 /** Managers only. `note` is required. */
 export const sendBack = (names: string[], note: string) =>
@@ -145,6 +158,8 @@ export interface ApprovalCropCount {
 export interface ApprovalCounts {
   crops: ApprovalCropCount[];
   total: number;
+  /** Work waiting for this assistant manager's check. */
+  to_check?: number;
   /** All crops. */
   protocols_pending?: number;
   stale: number;

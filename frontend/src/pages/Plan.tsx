@@ -23,6 +23,7 @@ import { TaskActions } from "@/components/plan/TaskActions";
 import { TickOffDialog } from "@/components/plan/TickOffDialog";
 import {
   generatePlanWeek,
+  forwardPlanTasks,
   getPlan,
   listOperations,
   listUnits,
@@ -66,6 +67,8 @@ export function Plan() {
   const [adding, setAdding] = useState(false);
   const [check, setCheck] = useState<ProtocolCheck | null>(null);
   const [skipped, setSkipped] = useState<SkippedStep[]>([]);
+  const [forwarding, setForwarding] = useState(false);
+  const [forwardError, setForwardError] = useState<string | null>(null);
   const seq = useRef(0);
 
   const load = useCallback(
@@ -150,6 +153,19 @@ export function Plan() {
     });
   }, [allTasks, crop.field_crops]);
   const opOptions = useMemo(() => [...new Set(allTasks.map((t) => t.operation_name))].sort(), [allTasks]);
+  const awaitingPlan = allTasks.filter((t) => !!t.awaiting_approval).length;
+  const approveAll = async () => {
+    if (!plan?.plan) return;
+    setForwarding(true);
+    setForwardError(null);
+    const r = await forwardPlanTasks(plan.plan);
+    setForwarding(false);
+    if (isError(r)) setForwardError(r.error);
+    else {
+      toast(`Approved and forwarded ${r.forwarded.length} ${r.forwarded.length === 1 ? "task" : "tasks"}.`);
+      void load(true);
+    }
+  };
   const hasPending = allTasks.some((t) => (t.pending_qty ?? 0) > 0);
   const statusOptions = hasPending ? [...STATUSES, "Awaiting approval"] : [...STATUSES];
   const dirty = !!opFilter || !!statusFilter || !!cropFilter;
@@ -357,6 +373,9 @@ export function Plan() {
                       <StatusPill status={t.status} />
                       <DeviationBadge deviation={t.deviation} />
                       <RuleFlag status={t.rule_status} notes={t.rule_notes} overrideReason={t.override_reason} />
+                      {!!t.awaiting_approval && (
+                        <span data-testid="task-awaiting-approval"><PendingChip>Awaiting approval</PendingChip></span>
+                      )}
                       {(t.pending_qty ?? 0) > 0 && <PendingChip>Awaiting approval</PendingChip>}
                       <span className="ml-auto">
                         <AvatarStack names={t.work.map((w) => w.employee_name || w.employee)} />
@@ -371,8 +390,15 @@ export function Plan() {
                         </span>
                       )}
                     </button>
-                    {boot.can_reschedule && plan?.plan && t.name && (
-                      <TaskActions plan={plan.plan} task={t} weekStart={weekStart(week)} onDone={() => void load(true)} />
+                    {plan?.plan && t.name && (boot.can_reschedule || (boot.is_manager && !!t.awaiting_approval)) && (
+                      <TaskActions
+                        plan={plan.plan}
+                        task={t}
+                        weekStart={weekStart(week)}
+                        canReschedule={!!boot.can_reschedule}
+                        canApprove={!!boot.is_manager}
+                        onDone={() => void load(true)}
+                      />
                     )}
                   </li>
                 ))}
@@ -426,6 +452,22 @@ export function Plan() {
       )}. Tap a task to record the work.`}
     >
       {viewTabs}
+      {view === "tasks" && boot.is_manager && awaitingPlan > 0 && (
+        <div
+          data-testid="awaiting-approval-bar"
+          className={cn(CARD, "mb-4 flex flex-wrap items-center gap-3 px-4 py-3")}
+        >
+          <span className="text-[13px] text-[var(--sd-ink)]">
+            <b className="font-semibold tabular-nums">{awaitingPlan}</b> awaiting approval
+          </span>
+          {forwardError && (
+            <span role="alert" className="text-[12.5px] text-[var(--sd-data-red)]">{forwardError}</span>
+          )}
+          <Button className="ml-auto" disabled={forwarding} onClick={() => void approveAll()}>
+            {forwarding ? "Forwarding…" : "Approve & forward"}
+          </Button>
+        </div>
+      )}
       {view === "supervisors" ? (
         farm ? (
           <SupervisorPlanView

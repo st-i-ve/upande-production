@@ -24,6 +24,7 @@ export function ApprovalCard({
   onApprove,
   onSendBack,
   onResubmit,
+  checkQueue = false,
 }: {
   group: ApprovalGroup;
   showPay: boolean;
@@ -34,6 +35,8 @@ export function ApprovalCard({
   onApprove: () => void;
   onSendBack: () => void;
   onResubmit: (edits: ResubmitEdit[]) => void;
+  /** The assistant manager's queue: the main action is Check, not Approve. */
+  checkQueue?: boolean;
 }) {
   const [draft, setDraft] = useState<Record<string, { qty: string }>>({});
   const sentBack = g.status === "Sent Back";
@@ -72,6 +75,16 @@ export function ApprovalCard({
           <h3 className="text-[15px] font-semibold tracking-tight text-[var(--sd-ink)]">
             {g.unit_name} <span className="font-normal text-[var(--sd-muted)]">·</span> <ActivityDot color={g.color} label={g.operation_name} />{g.operation_name}{" "}
             <EnforcementPill status={g.rule_status} className="align-middle" />
+            {!checkQueue && g.needs_check && g.status === "Pending" && (
+              <span className="ml-1 inline-flex items-center rounded-full bg-[var(--sd-amber-bg)] px-2 py-0.5 align-middle text-[11px] font-medium text-[var(--sd-amber)]">
+                Not checked
+              </span>
+            )}
+            {g.status === "Checked" && (
+              <span className="ml-1 inline-flex items-center rounded-full bg-[rgba(10,10,10,0.05)] px-2 py-0.5 align-middle text-[11px] font-medium text-[var(--sd-muted)]">
+                Checked by {g.checked_by_name || g.checked_by}
+              </span>
+            )}
           </h3>
           <p className="mt-0.5 text-[12px] text-[var(--sd-quiet)]">
             {[plan, shortDate(g.work_date)].filter(Boolean).join(" · ")}
@@ -159,7 +172,7 @@ export function ApprovalCard({
       {g.note && <p className="mx-5 mt-2 text-[12px] italic text-[var(--sd-muted)]">Plan note: {g.note}</p>}
 
       <footer className="flex items-center justify-end gap-2 px-5 pb-4 pt-3">
-        {g.status === "Pending" && (
+        {(g.status === "Pending" || g.status === "Checked") && (
           <>
             <button
               type="button"
@@ -175,7 +188,7 @@ export function ApprovalCard({
               onClick={onApprove}
               className={cn(PILL, "bg-[var(--sd-ink)] text-[var(--sd-card)] hover:opacity-90")}
             >
-              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />} Approve
+              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />} {checkQueue ? "Check" : "Approve"}
             </button>
           </>
         )}

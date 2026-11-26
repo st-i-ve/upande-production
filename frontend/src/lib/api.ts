@@ -73,6 +73,12 @@ export interface Boot {
   can_manage: boolean;
   /** May change a task's date, postpone or delete it (Production Plan Editor). */
   can_reschedule?: boolean;
+  /** Approves plan tasks and work (Production Manager); false for assistants and plain supervisors. */
+  is_manager?: boolean;
+  /** Assistant manager: plans tasks that wait for a manager, and checks work before it is approved. */
+  is_assistant_manager?: boolean;
+  /** The two-step work approval is switched on in settings. */
+  assistant_step?: boolean;
 }
 
 export const getBootstrap = () => rpc<Boot>("get_bootstrap");
@@ -318,9 +324,18 @@ export interface PlanTask {
   postpone_reason?: string | null;
   postponed_by?: string | null;
   postponed_on?: string | null;
+  /** 1 while an assistant manager's task waits for a manager to approve and forward it. */
+  awaiting_approval?: 0 | 1;
+  assigned_by?: string | null;
+  forwarded_by?: string | null;
+  forwarded_on?: string | null;
   /** Set to 1 on a row passed to `savePlanTasks` to delete it. */
   _delete?: 1;
 }
+
+/** Managers only. Approves awaiting tasks (all of the plan's when `tasks` is omitted) and hands them to the supervisors. */
+export const forwardPlanTasks = (plan: string, tasks?: string[]) =>
+  rpc<{ forwarded: string[] }>("forward_plan_tasks", { plan, tasks: tasks ?? null });
 
 export interface Plan {
   plan: string | null;
