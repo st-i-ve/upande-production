@@ -3,7 +3,7 @@ from frappe.tests import IntegrationTestCase
 from frappe.utils import today
 
 from upande_production.api import production as desk
-from upande_production.production.logic import cycle_setup, plans, settings
+from upande_production.production.logic import approvals, cycle_setup, plans, settings, task_approval, work
 from upande_production.production.logic.weeks import iso_of, iso_week_bounds
 from upande_production.production.tests.labour_mode import use_builtin_labour
 
@@ -48,9 +48,13 @@ class TestApprovalChain(IntegrationTestCase):
 			version_status="Active", key_activities=[{"operation": cls.op.name, "week": w, "planned_qty": 1} for w in (1, 2, 3)]).name
 		cls.u1 = _make("Production Unit", unit_name="ACH B1", crop=cls.crop.name, farm=cls.farm.name,
 			unit_type="Orchard Block", company=cls.company, area_ha=1, plant_count=0)
+		cls.u2 = _make("Production Unit", unit_name="ACH B2", crop=cls.crop.name, farm=cls.farm.name,
+			unit_type="Orchard Block", company=cls.company, area_ha=1, plant_count=0)
 		cls.mgr = _user("ach.mgr@x.test", "Production Manager")
 		cls.sup = _user("ach.sup@x.test", "Production Supervisor")
 		cls.asst = _user("ach.asst@x.test", settings.ASSISTANT_ROLE)
+		cls.emp = _make("Employee", first_name="ACHEmp", gender="Male", date_of_birth="1990-01-01",
+			date_of_joining="2020-01-01", company=cls.company).name
 		cls.year, cls.week = iso_of(today())
 		cls.start, cls.end = iso_week_bounds(cls.year, cls.week)
 		frappe.db.commit()
@@ -64,12 +68,14 @@ class TestApprovalChain(IntegrationTestCase):
 			frappe.delete_doc("Production Work Plan", p, force=True)
 		for c in frappe.get_all("Production Crop Cycle", filters={"unit": cls.u1.name}, pluck="name"):
 			frappe.delete_doc("Production Crop Cycle", c, force=True)
-		for dt, name in (("Production Unit", cls.u1.name), ("Production Protocol", cls.protocol),
+		for dt, name in (("Production Unit", cls.u1.name), ("Production Unit", cls.u2.name), ("Production Protocol", cls.protocol),
 				("Field Operation", cls.op.name), ("Item", cls.item), ("Production Crop", cls.crop.name),
 				("Farm", cls.farm.name)):
 			frappe.delete_doc(dt, name, force=True)
 		for u in (cls.mgr, cls.sup, cls.asst):
 			frappe.delete_doc("User", u, force=True)
+		frappe.db.delete("Casual Labour Work", {"employee": cls.emp})
+		frappe.delete_doc("Employee", cls.emp, force=True)
 		frappe.db.commit()
 		super().tearDownClass()
 
@@ -82,19 +88,21 @@ class TestApprovalChain(IntegrationTestCase):
 		frappe.set_user("Administrator")
 		frappe.db.rollback()
 		set_step(False)
+		frappe.db.delete("Casual Labour Work", {"employee": self.emp})
+		frappe.clear_cache(user=self.asst)  # a test may have dropped the role in an uncommitted change
 		for p in frappe.get_all("Production Work Plan", filters={"crop": self.crop.name}, pluck="name"):
 			frappe.delete_doc("Production Work Plan", p, force=True)
 		for c in frappe.get_all("Production Crop Cycle", filters={"unit": self.u1.name}, pluck="name"):
 			frappe.delete_doc("Production Crop Cycle", c, force=True)
 		frappe.db.commit()
 
-	def add_task(self, user):
+	def add_task(self, user, unit=None):
 		frappe.set_user(user)
 		res = desk.save_plan_tasks(self.crop.name, self.farm.name, self.year, self.week,
-			[{"unit": self.u1.name, "operation": self.op.name, "planned_qty": 5, "due_date": self.start}])
+			[{"unit": unit or self.u1.name, "operation": self.op.name, "planned_qty": 5, "due_date": self.start}])
 		self.assertNotIn("error", res)
 		frappe.set_user("Administrator")
-		return frappe.get_all("Work Plan Task", filters={"parent": res["name"]},
+		return frappe.get_all("Work Plan Task", filters={"parent": res["name"], "unit": unit or self.u1.name},
 			fields=["assigned_by", "awaiting_approval"])[0]
 
 	def test_bootstrap_flags(self):
@@ -156,16 +164,16 @@ class TestApprovalChain(IntegrationTestCase):
 
 	# -- Task 2: awaiting tasks ---------------------------------------------------
 
-	def _plan_with(self, user, step=True):
+	def _plan_with(self, user, step=True, unit=None):
 		set_step(step)
-		self.add_task(user)
+		self.add_task(user, unit)
 		frappe.set_user("Administrator")
 		frappe.db.commit()
 		return frappe.db.get_value("Production Work Plan",
 			{"crop": self.crop.name, "plan_year": self.year, "plan_week": self.week})
 
-	def _task(self, plan):
-		return frappe.get_all("Work Plan Task", filters={"parent": plan}, pluck="name")[0]
+	def _task(self, plan, unit=None):
+		return frappe.get_all("Work Plan Task", filters={"parent": plan, "unit": unit or self.u1.name}, pluck="name")[0]
 
 	def _get_plan_tasks(self, user):
 		frappe.set_user(user)
@@ -290,3 +298,148 @@ class TestApprovalChain(IntegrationTestCase):
 		frappe.set_user("Administrator")
 		self.assertNotIn("error", res)
 		self.assertEqual(frappe.get_all("Work Plan Task", filters={"parent": plan}), [])
+
+	# -- Task 3: two-step work approval --------------------------------------------
+
+	def _worked(self, assigner, step=True, qty=4, unit=None):
+		"""A forwarded task assigned by `assigner` with one supervisor-keyed entry; (plan, task, entry)."""
+		plan = self._plan_with(assigner, step=step, unit=unit)
+		task_approval.forward(plan)
+		frappe.db.commit()
+		task = self._task(plan, unit)
+		frappe.set_user(self.sup)
+		res = work.record_task_work(plan, task, "In Progress", [{"employee": self.emp, "qty": qty}])
+		frappe.set_user("Administrator")
+		return plan, task, res["work"][0]
+
+	def _t(self, task):
+		return frappe.db.get_value("Work Plan Task", task, ["done_qty", "pending_qty", "status"], as_dict=True)
+
+	def _as(self, user, fn, *a, **kw):
+		frappe.set_user(user)
+		try:
+			return fn(*a, **kw)
+		finally:
+			frappe.set_user("Administrator")
+
+	def _status(self, name):
+		return frappe.db.get_value("Casual Labour Work", name, ["docstatus", "approval_status", "checked_by"], as_dict=True)
+
+	def test_work_on_assistant_task_needs_check(self):
+		_, _, e = self._worked(self.asst)
+		self.assertTrue(approvals.needs_check(frappe.get_doc("Casual Labour Work", e)))
+		set_step(False)
+		self.assertFalse(approvals.needs_check(frappe.get_doc("Casual Labour Work", e)))
+
+	def test_manager_task_work_single_step(self):
+		_, _, e = self._worked(self.mgr)
+		self.assertFalse(approvals.needs_check(frappe.get_doc("Casual Labour Work", e)))
+		self.assertEqual(self._as(self.mgr, approvals.approve, [e]), {"approved": [e]})
+
+	def test_only_assigner_checks(self):
+		_, _, e = self._worked(self.asst)
+		other = _user("ach.asst2@x.test", settings.ASSISTANT_ROLE)
+		for u in (other, self.sup, self.mgr):
+			with self.assertRaises(frappe.PermissionError, msg=u):
+				self._as(u, approvals.check, [e])
+		self.assertEqual(self._status(e).approval_status, "Pending")
+		res = self._as(self.asst, approvals.check, [e])
+		self.assertEqual(res, {"checked": [e]})
+		s = self._status(e)
+		self.assertEqual((s.approval_status, s.checked_by, s.docstatus), ("Checked", self.asst, 0))
+		self.assertTrue(frappe.db.get_value("Casual Labour Work", e, "checked_at"))
+		with self.assertRaises(frappe.ValidationError):  # already Checked
+			self._as(self.asst, approvals.check, [e])
+
+	def test_manager_cannot_approve_unchecked_without_flag(self):
+		_, _, e = self._worked(self.asst)
+		with self.assertRaises(frappe.ValidationError):
+			self._as(self.mgr, approvals.approve, [e])
+		self.assertEqual(self._status(e).docstatus, 0)
+
+	def test_unchecked_ok_flag(self):
+		_, _, e = self._worked(self.asst)
+		self.assertEqual(self._as(self.mgr, approvals.approve, [e], 1), {"approved": [e]})
+		s = self._status(e)
+		self.assertEqual((s.docstatus, s.approval_status, s.checked_by), (1, "Approved", None))
+
+	def test_manager_approves_checked(self):
+		plan, task, e = self._worked(self.asst, qty=4)
+		self._as(self.asst, approvals.check, [e])
+		self._as(self.mgr, approvals.approve, [e])
+		s = self._status(e)
+		self.assertEqual((s.docstatus, s.approval_status, s.checked_by), (1, "Approved", self.asst))
+		t = self._t(task)
+		self.assertEqual((t.done_qty, t.pending_qty), (4, 0))
+
+	def test_checked_counts_as_pending(self):
+		plan, task, e = self._worked(self.asst, qty=4)
+		self._as(self.asst, approvals.check, [e])
+		t = self._t(task)
+		self.assertEqual((t.done_qty, t.pending_qty), (0, 4))
+
+	def test_manager_approves_unchecked_when_assistant_gone(self):
+		_, _, e = self._worked(self.asst)
+		u = frappe.get_doc("User", self.asst)
+		u.remove_roles(settings.ASSISTANT_ROLE)
+		frappe.clear_cache(user=self.asst)
+		self.assertFalse(approvals.needs_check(frappe.get_doc("Casual Labour Work", e)))
+		self.assertEqual(self._as(self.mgr, approvals.approve, [e]), {"approved": [e]})
+
+	def test_step_off_checked_approvable(self):
+		_, _, e = self._worked(self.asst)
+		self._as(self.asst, approvals.check, [e])
+		set_step(False)
+		self.assertEqual(self._as(self.mgr, approvals.approve, [e]), {"approved": [e]})
+
+	def test_send_back_from_checked_and_resubmit_clears_check(self):
+		_, task, e = self._worked(self.asst)
+		self._as(self.asst, approvals.check, [e])
+		with self.assertRaises(frappe.ValidationError):  # assistant: Pending only
+			self._as(self.asst, approvals.send_back, [e], "no")
+		self._as(self.mgr, approvals.send_back, [e], "recount")
+		self.assertEqual(self._status(e).approval_status, "Sent Back")
+		self.assertEqual(self._t(task).pending_qty, 0)
+		self._as(self.sup, approvals.resubmit, [e])
+		doc = frappe.get_doc("Casual Labour Work", e)
+		self.assertEqual((doc.approval_status, doc.checked_by, doc.checked_at), ("Pending", None, None))
+
+	def test_assistant_sends_back_own_pending_only(self):
+		_, _, e = self._worked(self.asst)
+		_, _, e2 = self._worked(self.mgr, unit=self.u2.name)
+		with self.assertRaises(frappe.PermissionError):  # not their task
+			self._as(self.asst, approvals.send_back, [e2], "no")
+		self.assertEqual(self._as(self.asst, approvals.send_back, [e], "redo"), {"sent_back": [e]})
+
+	def _mine(self):
+		return sum(c["pending"] for c in approvals.approval_counts()["crops"] if c["crop"] == self.crop.name)
+
+	def test_queues_and_counts(self):
+		_, _, e1 = self._worked(self.asst)
+		_, _, e2 = self._worked(self.mgr, unit=self.u2.name)
+		frappe.set_user(self.asst)
+		q = approvals.list_approvals(queue="check")
+		self.assertEqual([n for g in q["groups"] for n in g["names"]], [e1])
+		self.assertEqual(approvals.approval_counts()["to_check"], 1)
+		frappe.set_user(self.mgr)
+		self.assertEqual(approvals.approval_counts()["to_check"], 0)
+		self.assertEqual(self._mine(), 1)  # e2 only; e1 waits for the check
+		q = approvals.list_approvals(queue="approve")
+		flags = {n: g["needs_check"] for g in q["groups"] for n in g["names"] if n in (e1, e2)}
+		self.assertEqual(flags, {e1: True, e2: False})
+		frappe.set_user("Administrator")
+		self._as(self.asst, approvals.check, [e1])
+		frappe.set_user(self.mgr)
+		self.assertEqual(self._mine(), 2)
+		g = [g for g in approvals.list_approvals(queue="approve")["groups"] if e1 in g["names"]][0]
+		self.assertEqual((g["status"], g["checked_by"], g["needs_check"]), ("Checked", self.asst, False))
+		self.assertEqual(approvals.list_approvals(status="Checked")["counts"]["Checked"], 1)
+		frappe.set_user("Administrator")
+
+	def test_protocol_compliance_only_after_approve(self):
+		# compliance reads the protocol task's done_qty / status; Checked must not move them
+		_, task, e = self._worked(self.asst, qty=5)
+		self._as(self.asst, approvals.check, [e])
+		self.assertEqual(self._t(task).done_qty, 0)
+		self._as(self.mgr, approvals.approve, [e])
+		self.assertEqual(self._t(task).done_qty, 5)

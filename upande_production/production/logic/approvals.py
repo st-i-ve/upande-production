@@ -13,10 +13,10 @@ from frappe.utils import add_days, cint, now_datetime, today
 from upande_production.production.logic import labourers, wm_bridge, work
 from upande_production.production.logic.units import retired_sql
 from upande_production.production.logic.settings import (
-	can_see_pay, get_stale_days, is_manager, is_supervisor,
+	assistant_step_on, can_see_pay, get_stale_days, is_assistant_manager, is_manager, is_supervisor,
 )
 
-STATUSES = ("Pending", "Approved", "Sent Back")
+STATUSES = ("Pending", "Checked", "Approved", "Sent Back")
 DEFAULT_HISTORY_DAYS = 60
 
 
@@ -38,13 +38,15 @@ def _need_manager():
 
 
 def _docs(names, status):
+	"""The named drafts, each in one of the allowed status (a name or a tuple of them)."""
+	allowed = (status,) if isinstance(status, str) else tuple(status)
 	docs = []
 	for n in names:
 		doc = frappe.get_doc("Casual Labour Work", n)
-		if doc.docstatus != 0 or doc.approval_status != status:
+		if doc.docstatus != 0 or doc.approval_status not in allowed:
 			frappe.throw(
 				_("{0} is {1}, not {2}.").format(
-					n, "approved" if doc.docstatus == 1 else doc.approval_status, status
+					n, "approved" if doc.docstatus == 1 else doc.approval_status, _(" or ").join(allowed)
 				),
 				frappe.ValidationError,
 			)
@@ -69,21 +71,59 @@ def _refresh(docs):
 		work.refresh_task_done(plan, task)
 
 
-def approve(names) -> dict:
-	_need_manager()
+def _assigner(plan_task):
+	return frappe.db.get_value("Work Plan Task", plan_task, "assigned_by") if plan_task else None
+
+
+def needs_check(doc) -> bool:
+	"""The step is on and the entry's task was assigned by an assistant manager (who is still one)."""
+	if not assistant_step_on() or not doc.plan_task:
+		return False
+	by = _assigner(doc.plan_task)
+	return bool(by) and is_assistant_manager(by)
+
+
+def check(names) -> dict:
+	"""The assistant manager who assigned the task vouches for the entries; a manager approves them next."""
 	docs = _docs(_names(names), "Pending")
+	for d in docs:
+		if not d.plan_task or _assigner(d.plan_task) != frappe.session.user or not is_assistant_manager():
+			frappe.throw(_("Only the assistant manager who assigned the task can check {0}.").format(d.name),
+				frappe.PermissionError)
+	for d in docs:
+		d.db_set({"approval_status": "Checked", "checked_by": frappe.session.user,
+			"checked_at": now_datetime()})
+	_refresh(docs)
+	return {"checked": [d.name for d in docs]}
+
+
+def approve(names, unchecked_ok=0) -> dict:
+	_need_manager()
+	docs = _docs(_names(names), ("Pending", "Checked"))
 	_decided_in_wm(docs)
+	if not cint(unchecked_ok):
+		open_ = [d.name for d in docs if d.approval_status == "Pending" and needs_check(d)]
+		if open_:
+			frappe.throw(_("{0} still needs the assistant manager's check. Approve as not checked to override.")
+				.format(", ".join(open_[:5])), frappe.ValidationError)
 	for d in docs:
 		d.submit()  # before_submit stamps Approved/reviewed_by/at; on_submit recounts the task
 	return {"approved": [d.name for d in docs]}
 
 
 def send_back(names, note) -> dict:
-	_need_manager()
+	manager = is_manager()
+	if not manager and not is_assistant_manager():
+		frappe.throw(_("Only a Production Manager can review work."), frappe.PermissionError)
 	note = (note or "").strip()
 	if not note:
 		frappe.throw(_("A note is required when sending work back."), frappe.ValidationError)
-	docs = _docs(_names(names), "Pending")
+	docs = _docs(_names(names), ("Pending", "Checked") if manager else "Pending")
+	if not manager:
+		mine = [d.name for d in docs if _assigner(d.plan_task) != frappe.session.user]
+		if mine:
+			frappe.throw(_("You can send back only work on tasks you assigned: {0}.").format(", ".join(mine[:5])),
+				frappe.PermissionError)
 	_decided_in_wm(docs)
 	for d in docs:
 		d.approval_status = "Sent Back"
@@ -118,6 +158,8 @@ def resubmit(names, entries=None, override_reason=None) -> dict:
 		if e.get("employee"):
 			d.employee = e["employee"]
 		d.approval_status = "Pending"
+		d.checked_by = None
+		d.checked_at = None
 		d.save()
 	wm = []
 	if wm_bridge.active():
@@ -140,7 +182,8 @@ def _rule_status(rows) -> str:
 
 
 def list_approvals(
-	crop=None, status="Pending", from_date=None, to_date=None, unit=None, operation=None, supervisor=None
+	crop=None, status="Pending", from_date=None, to_date=None, unit=None, operation=None, supervisor=None,
+	queue=None,
 ) -> dict:
 	if status not in STATUSES:
 		frappe.throw(_("Invalid status {0}").format(status), frappe.ValidationError)
@@ -166,7 +209,7 @@ def list_approvals(
 	rows = frappe.db.sql(
 		f"""select name, work_date, employee, employee_name, plan, plan_task, unit, crop, operation, qty, uom,
 		rate, pay_value, approval_status, rule_status, rule_notes, override_reason, review_note, reviewed_by, reviewed_at, submitted_by, creation,
-		wm_actuals
+		wm_actuals, checked_by, checked_at
 		from `tabCasual Labour Work` where {' and '.join(cond)} order by creation asc""",
 		args, as_dict=True,
 	)
@@ -189,7 +232,7 @@ def list_approvals(
 		t.name: t for t in frappe.get_all(
 			"Work Plan Task",
 			filters={"name": ("in", list({r.plan_task for r in rows if r.plan_task}) or [""])},
-			fields=["name", "planned_qty", "done_qty", "pending_qty", "note", "status", "supervisor"],
+			fields=["name", "planned_qty", "done_qty", "pending_qty", "note", "status", "supervisor", "assigned_by"],
 		)
 	}
 	plans = {
@@ -199,9 +242,19 @@ def list_approvals(
 			fields=["name", "plan_year", "plan_week"],
 		)
 	}
+	me = frappe.session.user if is_assistant_manager() else None
+	assistants = {}
+
+	def _needs(task):
+		if not assistant_step_on() or not task or not task.assigned_by:
+			return False
+		if task.assigned_by not in assistants:
+			assistants[task.assigned_by] = is_assistant_manager(task.assigned_by)
+		return assistants[task.assigned_by]
+
 	users = {
 		u.name: u.full_name for u in frappe.get_all(
-			"User", filters={"name": ("in", list({r.submitted_by for r in rows if r.submitted_by}) or [""])},
+			"User", filters={"name": ("in", list({u for r in rows for u in (r.submitted_by, r.checked_by) if u}) or [""])},
 			fields=["name", "full_name"],
 		)
 	}
@@ -213,16 +266,27 @@ def list_approvals(
 	for g in groups.values():
 		rs = g["rows"]
 		first = rs[0]
-		if first.approval_status != status:
-			continue
-		age = _age_days(first.creation)
-		is_stale = status == "Pending" and age >= stale_days
 		task = tasks.get(first.plan_task)
+		if queue == "check":
+			if first.approval_status != "Pending" or not task or not me or task.assigned_by != me:
+				continue
+		elif queue == "approve":
+			if first.approval_status not in ("Pending", "Checked"):
+				continue
+		elif first.approval_status != status:
+			continue
+		gstatus = first.approval_status
+		age = _age_days(first.creation)
+		is_stale = gstatus == "Pending" and age >= stale_days
 		plan = plans.get(first.plan)
 		review = next((r for r in reversed(rs) if r.review_note or r.reviewed_by), first)
 		out.append({
 			"key": g["key"],
-			"status": status,
+			"status": gstatus,
+			"needs_check": _needs(task) and gstatus == "Pending",
+			"checked_by": first.checked_by,
+			"checked_by_name": users.get(first.checked_by) or first.checked_by,
+			"checked_at": first.checked_at,
 			"crop": first.crop,
 			"unit": first.unit,
 			"unit_name": unit_names.get(first.unit) or first.unit,
@@ -266,7 +330,7 @@ def list_approvals(
 			} for r in rs],
 		})
 	labourers.annotate_work([e for g in out for e in g["entries"]])
-	out.sort(key=lambda g: (g["created"],), reverse=status != "Pending")
+	out.sort(key=lambda g: (g["created"],), reverse=(queue is None and status != "Pending"))
 	counts["stale"] = stale_count
 	return {"groups": out, "counts": counts, "stale_days": stale_days}
 
@@ -276,18 +340,32 @@ def approval_counts() -> dict:
 	frappe.has_permission("Casual Labour Work", "read", throw=True)
 	stale_days = get_stale_days()
 	rows = frappe.db.sql(
-		"""select crop, plan_task, unit, operation, work_date, submitted_by, min(creation) as created
-		from `tabCasual Labour Work` where docstatus = 0 and approval_status = 'Pending' and ifnull(crop, '') != ''
-		and unit not in %(retired)s
-		group by crop, plan_task, unit, operation, work_date, submitted_by""",
+		"""select crop, plan_task, unit, operation, work_date, submitted_by, approval_status, min(creation) as created
+		from `tabCasual Labour Work` where docstatus = 0 and approval_status in ('Pending', 'Checked')
+		and ifnull(crop, '') != '' and unit not in %(retired)s
+		group by crop, plan_task, unit, operation, work_date, submitted_by, approval_status""",
 		{"retired": retired_sql()}, as_dict=True,
 	)
+	me = frappe.session.user if is_assistant_manager() else None  # only assistants have a check queue
+	assigners = dict(frappe.get_all(
+		"Work Plan Task", filters={"name": ("in", list({r.plan_task for r in rows if r.plan_task}) or [""])},
+		fields=["name", "assigned_by"], as_list=True,
+	))
+	step, is_asst, to_check = assistant_step_on(), {}, 0
 	seen, per = set(), {}
 	for r in rows:
-		key = (r.crop, r.plan_task or (r.unit, r.operation, r.work_date), r.submitted_by)
+		key = (r.crop, r.plan_task or (r.unit, r.operation, r.work_date), r.submitted_by, r.approval_status)
 		if key in seen:
 			continue
 		seen.add(key)
+		by = assigners.get(r.plan_task)
+		if r.approval_status == "Pending":
+			to_check += 1 if me and by == me else 0
+			if step and by:
+				if by not in is_asst:
+					is_asst[by] = is_assistant_manager(by)
+				if is_asst[by]:
+					continue  # waits for the assistant manager's check before it is the manager's to approve
 		c = per.setdefault(r.crop, {"pending": 0, "stale": 0})
 		c["pending"] += 1
 		c["stale"] += 1 if _age_days(r.created) >= stale_days else 0
@@ -309,6 +387,7 @@ def approval_counts() -> dict:
 	return {
 		"crops": crops,
 		"total": sum(c["pending"] for c in crops),
+		"to_check": to_check,
 		"protocols_pending": sum(c["protocols_pending"] for c in crops),
 		"stale": sum(c["stale"] for c in crops),
 		"stale_days": stale_days,

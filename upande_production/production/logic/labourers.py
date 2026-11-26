@@ -283,7 +283,7 @@ def labourer_detail(crop, employee, from_date, to_date, pay):
 		},
 		"by_operation": by_operation, "daily": daily, "recent": recent,
 		"pending_entries": frappe.db.count("Casual Labour Work",
-			{"crop": crop, "employee": employee, "docstatus": 0, "approval_status": "Pending"}),
+			{"crop": crop, "employee": employee, "docstatus": 0, "approval_status": ("in", ("Pending", "Checked"))}),
 		"targets": [
 			{"operation": op, "operation_name": (operation_defaults([op]).get(op) or {}).get("name") or op, **v}
 			for op, v in (person_overrides([employee]).get(employee) or {}).items()

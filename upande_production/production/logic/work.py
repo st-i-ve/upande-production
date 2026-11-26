@@ -34,7 +34,7 @@ def pending_qty(plan, plan_task) -> float:
 	return sum(
 		frappe.get_all(
 			"Casual Labour Work",
-			filters={"plan": plan, "plan_task": plan_task, "docstatus": 0, "approval_status": "Pending"},
+			filters={"plan": plan, "plan_task": plan_task, "docstatus": 0, "approval_status": ("in", ("Pending", "Checked"))},
 			pluck="qty",
 		)
 	)

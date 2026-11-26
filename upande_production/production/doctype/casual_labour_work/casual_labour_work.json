@@ -32,6 +32,8 @@
   "review_note",
   "reviewed_by",
   "reviewed_at",
+  "checked_by",
+  "checked_at",
   "submitted_by",
   "amended_from",
   "rule_status",
@@ -176,7 +178,7 @@
    "fieldname": "approval_status",
    "fieldtype": "Select",
    "label": "Approval Status",
-   "options": "Pending\nApproved\nSent Back",
+   "options": "Pending\nChecked\nApproved\nSent Back",
    "default": "Pending",
    "in_list_view": 1,
    "in_standard_filter": 1,
@@ -201,6 +203,21 @@
    "fieldname": "reviewed_at",
    "fieldtype": "Datetime",
    "label": "Reviewed At",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "checked_by",
+   "fieldtype": "Link",
+   "label": "Checked By",
+   "options": "User",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "checked_at",
+   "fieldtype": "Datetime",
+   "label": "Checked At",
    "read_only": 1,
    "no_copy": 1
   },

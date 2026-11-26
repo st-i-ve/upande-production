@@ -9,15 +9,21 @@ import frappe
 @frappe.whitelist(methods=["POST"])
 @run
 def list_approvals(crop=None, status="Pending", from_date=None, to_date=None, unit=None, operation=None,
-		supervisor=None):
+		supervisor=None, queue=None):
 	return logic.list_approvals(crop or None, status or "Pending", from_date or None, to_date or None,
-		unit or None, operation or None, supervisor or None)
+		unit or None, operation or None, supervisor or None, queue or None)
 
 
 @frappe.whitelist(methods=["POST"])
 @run
-def approve(names):
-	return logic.approve(names)
+def check(names):
+	return logic.check(names)
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def approve(names, unchecked_ok=0):
+	return logic.approve(names, unchecked_ok)
 
 
 @frappe.whitelist(methods=["POST"])

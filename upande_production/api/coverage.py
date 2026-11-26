@@ -37,7 +37,7 @@ def _work_rows(crop, start, end, farm):
 	return frappe.db.sql(
 		"""select w.unit, w.operation, o.operation_name, o.color from `tabCasual Labour Work` w
 		join `tabField Operation` o on o.name = w.operation
-		where w.crop = %(crop)s and w.docstatus < 2 and w.approval_status in ('Approved', 'Pending')
+		where w.crop = %(crop)s and w.docstatus < 2 and w.approval_status in ('Approved', 'Pending', 'Checked')
 		and w.work_date between %(s)s and %(e)s and w.unit not in %(retired)s
 		order by w.work_date desc, w.creation desc""",
 		{"crop": crop, "s": start, "e": end, "retired": retired_sql()},

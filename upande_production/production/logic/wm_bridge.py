@@ -437,7 +437,7 @@ def push_actuals(assignment, names=(), submit=False, override_reason=None) -> di
 		fields=["name", "workflow_state", "docstatus"], limit=1)
 	if open_:
 		names |= set(frappe.get_all(CLW, filters={"wm_actuals": open_[0].name, "docstatus": 0,
-			"approval_status": "Pending"}, pluck="name"))
+			"approval_status": ("in", ("Pending", "Checked"))}, pluck="name"))
 	if not names:
 		return {}
 	if open_ and open_[0].workflow_state == "Rejected" and open_[0].docstatus == 0:
@@ -550,7 +550,7 @@ def sync_actuals(name) -> dict:
 				doc.cancel()
 				doc.add_comment("Info", _("Cancelled: Work Management reversed {0}.").format(name))
 				done["cancelled"].append(r.name)
-			elif r.docstatus == 0 and r.approval_status == "Pending":
+			elif r.docstatus == 0 and r.approval_status in ("Pending", "Checked"):
 				doc.db_set({"approval_status": "Sent Back", "review_note": _return_note(name)}, update_modified=False)
 				done["sent_back"].append(r.name)
 		_refresh_tasks(rows)
@@ -562,7 +562,7 @@ def sync_actuals(name) -> dict:
 			_approve(frappe.get_doc(CLW, r.name), wm, wrows.get((r.employee, str(r.work_date))))
 			done["approved"].append(r.name)
 	elif wm.workflow_state == "Rejected":
-		pending = [r for r in drafts if r.approval_status == "Pending"]
+		pending = [r for r in drafts if r.approval_status in ("Pending", "Checked")]
 		note = _return_note(name) if pending else None
 		for r in pending:
 			frappe.db.set_value(CLW, r.name, {"approval_status": "Sent Back", "review_note": note,

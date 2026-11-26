@@ -223,7 +223,7 @@ def get_casual_labourer_detail_data(crop, employee, from_date, to_date, pay):
 		"by_unit": _breakdown(crop, employee, frm, to, "unit", pay),
 		"by_operation": _breakdown(crop, employee, frm, to, "operation", pay),
 		"recent": recent,
-		"pending_entries": frappe.db.count("Casual Labour Work", {**base, "docstatus": 0, "approval_status": "Pending"}),
+		"pending_entries": frappe.db.count("Casual Labour Work", {**base, "docstatus": 0, "approval_status": ("in", ("Pending", "Checked"))}),
 	}
 
 
