@@ -81,3 +81,14 @@ export const getSupervisor = (employee: string, crop: string, year: number, week
 
 export const saveSupervisor = (data: SupervisorInput) =>
   rpc<{ employee: string; employee_name: string }>("save_supervisor", { data });
+
+export interface AssistantWithoutManager {
+  user: string;
+  full_name: string;
+  employee: string | null;
+  reports_to: string | null;
+  reason: "no_employee" | "no_reports_to" | "reports_to_not_manager";
+}
+
+/** Managers only: assistant managers whose employee reports to nobody (or to someone who is not a manager). */
+export const assistantsWithoutManager = () => rpc<AssistantWithoutManager[]>("assistants_without_manager");

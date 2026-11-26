@@ -4,7 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ToastProvider } from "@/components/Toast";
 import type { Boot, Crop } from "@/lib/api";
 
-vi.mock("@/lib/supervisors-api", () => ({ listSupervisors: vi.fn(), getSupervisor: vi.fn(), saveSupervisor: vi.fn() }));
+vi.mock("@/lib/supervisors-api", () => ({ listSupervisors: vi.fn(), getSupervisor: vi.fn(), saveSupervisor: vi.fn(), assistantsWithoutManager: vi.fn() }));
 vi.mock("@/lib/frappe", async (orig) => ({
   ...(await orig<typeof import("@/lib/frappe")>()),
   searchLink: vi.fn().mockResolvedValue([{ value: "E9", description: "Newbie Hand", label: "Newbie Hand" }]),
@@ -38,6 +38,7 @@ const renderIt = (manage = true) =>
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(searchLink).mockResolvedValue([{ value: "E9", description: "Newbie Hand", label: "Newbie Hand" }]);
+  vi.mocked(api.assistantsWithoutManager).mockReset().mockResolvedValue([]);
   vi.mocked(api.listSupervisors).mockResolvedValue([
     card({ employee: "E1", employee_name: "Grace Wambui" }),
     card({ employee: "E2", employee_name: "Peter Otieno", active: false, phone: null }),
@@ -53,6 +54,22 @@ beforeEach(() => {
 });
 
 describe("Supervisors page", () => {
+  it("warns about assistant managers with no manager", async () => {
+    vi.mocked(api.assistantsWithoutManager).mockResolvedValue([
+      { user: "ann@x.com", full_name: "Ann Assistant", employee: "E7", reports_to: null, reason: "no_reports_to" },
+    ]);
+    renderIt();
+    const box = await screen.findByTestId("assistants-without-manager");
+    expect(box.textContent).toContain("Ann Assistant");
+    expect(box.textContent).toContain("Set Reports To on their employee record");
+  });
+
+  it("shows no warning when every assistant has a manager", async () => {
+    renderIt();
+    await screen.findByText("Grace Wambui");
+    expect(screen.queryByTestId("assistants-without-manager")).toBeNull();
+  });
+
   it("shows a card per active supervisor with initials, phone and KPI chips; inactive hidden by default", async () => {
     renderIt();
     expect(await screen.findByText("Grace Wambui")).toBeTruthy();

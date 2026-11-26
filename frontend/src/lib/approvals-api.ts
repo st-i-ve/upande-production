@@ -87,6 +87,10 @@ export interface ApprovalGroup {
   checked_by?: string | null;
   checked_by_name?: string | null;
   checked_at?: string | null;
+  /** User of the manager whose team assigned the task; null when it has no team. */
+  team_manager?: string | null;
+  /** The task belongs to another manager's team: acting on it needs a confirm. */
+  other_team?: boolean;
   /** Casual Labour Work names in this card: pass these to approve / sendBack / resubmit. */
   names: string[];
   entries: ApprovalEntry[];
@@ -109,6 +113,8 @@ export interface ApprovalFilters {
   supervisor?: string | null;
   /** `check`: an assistant's queue. `approve`: a manager's (Pending and Checked). */
   queue?: "check" | "approve" | null;
+  /** A manager sees every team's work, not just their own (default: their team's and work with no team). */
+  allTeams?: boolean;
 }
 
 /** Pending is unbounded; with no `fromDate`, Approved history is limited to the last 60 days. */
@@ -122,18 +128,20 @@ export const listApprovals = (crop: string | null, f: ApprovalFilters = {}) =>
     operation: f.operation ?? null,
     supervisor: f.supervisor ?? null,
     queue: f.queue ?? null,
+    all_teams: f.allTeams ? 1 : 0,
   });
 
 /** Managers only. Submits the drafts, so they count. All-or-nothing. */
-export const approve = (names: string[], uncheckedOk: 0 | 1 = 0) =>
-  rpc<{ approved: string[] }>("approve", { names, unchecked_ok: uncheckedOk });
+export const approve = (names: string[], uncheckedOk: 0 | 1 = 0, confirmOtherTeam: 0 | 1 = 0) =>
+  rpc<{ approved: string[] }>("approve", { names, unchecked_ok: uncheckedOk, ...(confirmOtherTeam ? { confirm_other_team: 1 } : {}) });
+
 
 /** Assistant managers. Marks Pending work Checked so a manager can approve it. */
 export const checkWork = (names: string[]) => rpc<{ checked: string[] }>("check", { names });
 
 /** Managers only. `note` is required. */
-export const sendBack = (names: string[], note: string) =>
-  rpc<{ sent_back: string[] }>("send_back", { names, note });
+export const sendBack = (names: string[], note: string, confirmOtherTeam: 0 | 1 = 0) =>
+  rpc<{ sent_back: string[] }>("send_back", { names, note, ...(confirmOtherTeam ? { confirm_other_team: 1 } : {}) });
 
 export interface ResubmitEdit {
   name: string;
@@ -151,13 +159,19 @@ export interface ApprovalCropCount {
   /** Pending cards. */
   pending: number;
   stale: number;
+  team_pending?: number;
   /** Protocol versions awaiting approval for this crop. */
   protocols_pending?: number;
 }
 
 export interface ApprovalCounts {
   crops: ApprovalCropCount[];
+  /** Pending cards the badge shows: a manager's own team (and unowned work) unless `all_teams`. */
   total: number;
+  /** Pending cards of every team. */
+  all_total?: number;
+  /** Pending cards in this manager's team (and unowned work). */
+  team_total?: number;
   /** Work waiting for this assistant manager's check. */
   to_check?: number;
   /** All crops. */
@@ -168,4 +182,4 @@ export interface ApprovalCounts {
   stale_days: number;
 }
 
-export const approvalCounts = () => rpc<ApprovalCounts>("approval_counts");
+export const approvalCounts = (allTeams = false) => rpc<ApprovalCounts>("approval_counts", allTeams ? { all_teams: 1 } : {});

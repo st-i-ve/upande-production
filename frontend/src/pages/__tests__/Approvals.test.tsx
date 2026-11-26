@@ -46,7 +46,7 @@ const pv: PendingProtocol = {
   name: "Season v2", protocol_name: "Season v2", crop: "Test Crop", item: null, version: 2,
   version_status: "Pending Approval", protocol_family: "Season", previous_version: "Season",
   submitted_by: "sup@x.com", submitted_at: "2026-10-27 09:00:00", approved_by: null, approved_at: null,
-  review_note: null, key_activities: [], cultural_activities: [], capital_activities: [], submitted_by_name: "Sam Supervisor",
+  review_note: null, key_activities: [], cultural_activities: [], submitted_by_name: "Sam Supervisor",
   diff: {
     name: "Season v2", previous: "Season", fields: [],
     steps: [{
@@ -70,6 +70,35 @@ beforeEach(() => {
 });
 
 describe("Approvals", () => {
+  it("All teams toggle asks the server for every team", async () => {
+    renderPage(<Approvals />, { is_manager: true });
+    await screen.findByTestId("approval-card-a");
+    expect(vi.mocked(listApprovals).mock.calls.at(-1)?.[1]).not.toHaveProperty("allTeams");
+    fireEvent.click(screen.getByRole("button", { name: "All teams" }));
+    await waitFor(() => expect(vi.mocked(listApprovals).mock.calls.at(-1)?.[1]).toMatchObject({ allTeams: true }));
+  });
+
+  it("no All teams toggle for someone who is not a manager", async () => {
+    renderPage(<Approvals />);
+    await screen.findByTestId("approval-card-a");
+    expect(screen.queryByRole("button", { name: "All teams" })).toBeNull();
+  });
+
+  it("another team's work asks to confirm, then resends with the confirm", async () => {
+    vi.mocked(approve).mockReset()
+      .mockResolvedValueOnce({ error: "This belongs to Mary's team. Confirm to approve it anyway.", needs_confirm: true } as never)
+      .mockImplementation(async (n) => (drop(n), { approved: n }));
+    renderPage(<Approvals />, { is_manager: true });
+    const card = await screen.findByTestId("approval-card-a");
+    fireEvent.click(within(card).getByRole("button", { name: "Approve" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.textContent).toContain("This belongs to another manager's team. Act on it anyway?");
+    expect(screen.getByTestId("approval-card-a")).toBeInTheDocument(); // came back after the refusal
+    fireEvent.click(within(dialog).getByRole("button", { name: "Act anyway" }));
+    await waitFor(() => expect(approve).toHaveBeenLastCalledWith(["a-1"], 0, 1));
+    await waitFor(() => expect(screen.queryByTestId("approval-card-a")).toBeNull());
+  });
+
   it("formats entries, total and step line with one precision", async () => {
     const e = (n: string) => ({ ...entry(n, "Alice"), qty: 2.1 });
     lists.Pending = [

@@ -14,6 +14,7 @@ import { CycleChanges } from "@/components/approvals/CycleChanges";
 import { EditCycleDialog } from "@/components/cycles/EditCycleDialog";
 import { ProtocolReview } from "@/components/approvals/ProtocolReview";
 import { SendBackDialog } from "@/components/approvals/SendBackDialog";
+import { OtherTeamDialog } from "@/components/approvals/OtherTeamDialog";
 import { UncheckedDialog } from "@/components/approvals/UncheckedDialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -37,8 +38,12 @@ import {
 import { listUnits, type Cycle, type UnitRow } from "@/lib/api";
 import type { CycleChangeRequest } from "@/lib/cycle-setup-api";
 import { useCurrentCrop } from "@/lib/crops";
+import { TogglePill } from "@/components/TogglePill";
 import { isError, type Envelope } from "@/lib/frappe";
 import { formatUoms, kes, qty } from "@/lib/format";
+
+/** The server refused because the work belongs to another manager's team (see api/envelope.py). */
+const needsTeamConfirm = (r: unknown): boolean => !!r && (r as { needs_confirm?: unknown }).needs_confirm === true;
 
 type Tab = "check" | "pending" | "stale" | "sent" | "approved" | "protocols" | "cycles";
 const STATUS: Record<Tab, ApprovalStatus> = {
@@ -93,15 +98,23 @@ export function Approvals() {
   const [protos, setProtos] = useState<PendingProtocol[] | null>(null);
   const [protoBusy, setProtoBusy] = useState<Set<string>>(new Set());
   const [cycleCount, setCycleCount] = useState<number | null>(null);
+  const [allTeams, setAllTeams] = useState(false);
+  const [teamCounts, setTeamCounts] = useState<{ team: number; all: number } | null>(null);
+  const [otherTeam, setOtherTeam] = useState<{ gs: ApprovalGroup[]; run: (confirm: 0 | 1) => Promise<Envelope<unknown>>; done: string } | null>(null);
+  const [confirming, setConfirming] = useState(false);
   const [resubmitting, setResubmitting] = useState<CycleChangeRequest | null>(null);
   const [cycleRev, setCycleRev] = useState(0);
   const [units, setUnits] = useState<UnitRow[]>([]);
   const seq = useRef(0);
   const isManager = !!crop.boot.is_manager;
 
+  const canAllTeams = isManager && !assistant;
   const filters = useMemo(
-    () => ({ fromDate: range.from || null, toDate: range.to || null, unit: unit || null, operation: operation || null, supervisor: supervisor || null }),
-    [range, unit, operation, supervisor],
+    () => ({
+      fromDate: range.from || null, toDate: range.to || null, unit: unit || null, operation: operation || null, supervisor: supervisor || null,
+      ...(canAllTeams && allTeams ? { allTeams: true } : {}),
+    }),
+    [range, unit, operation, supervisor, canAllTeams, allTeams],
   );
   const dirty = !!(range.from || range.to || unit || operation || supervisor);
   const needsOther = tab === "sent" || tab === "approved";
@@ -145,7 +158,11 @@ export function Approvals() {
   const loadCycleCount = useCallback(async () => {
     if (!isManager) return;
     const r = await approvalCounts();
-    if (r && !isError(r)) setCycleCount((r as { cycle_changes?: number }).cycle_changes ?? null);
+    if (r && !isError(r)) {
+      const k = r as { cycle_changes?: number; team_total?: number; all_total?: number };
+      setCycleCount(k.cycle_changes ?? null);
+      setTeamCounts(k.team_total != null && k.all_total != null ? { team: k.team_total, all: k.all_total } : null);
+    }
   }, [isManager]);
   useEffect(() => {
     void loadCycleCount();
@@ -183,18 +200,19 @@ export function Approvals() {
   };
 
   /** Optimistic: cards leave at once; on failure they come back and the error is toasted. */
-  const act = async (gs: ApprovalGroup[], run: () => Promise<Envelope<unknown>>, done: string) => {
+  const act = async (gs: ApprovalGroup[], run: (confirm: 0 | 1) => Promise<Envelope<unknown>>, done: string, confirm: 0 | 1 = 0) => {
     const keys = new Set(gs.map((g) => g.key));
     const snap = { pending, other, selected };
     setBusy((b) => new Set([...b, ...keys]));
     removeFromView(keys);
-    const r = await run();
+    const r = await run(confirm);
     setBusy((b) => new Set([...b].filter((k) => !keys.has(k))));
     if (isError(r)) {
       setPending(snap.pending);
       setOther(snap.other);
       setSelected(snap.selected);
-      toast(r.error, "error");
+      if (needsTeamConfirm(r) && !confirm) setOtherTeam({ gs, run, done }); // another manager's team: ask, then resend
+      else toast(r.error, "error");
       return false;
     }
     toast(done);
@@ -226,7 +244,7 @@ export function Approvals() {
   const plural = (n: number) => `${n} ${n === 1 ? "submission" : "submissions"}`;
   const names = (gs: ApprovalGroup[]) => gs.flatMap((g) => g.names);
   const approveNow = (gs: ApprovalGroup[], uncheckedOk: boolean) =>
-    act(gs, () => approve(names(gs), uncheckedOk ? 1 : 0), `Approved ${plural(gs.length)}. It now counts toward done work.`);
+    act(gs, (c) => (c ? approve(names(gs), uncheckedOk ? 1 : 0, 1) : approve(names(gs), uncheckedOk ? 1 : 0)), `Approved ${plural(gs.length)}. It now counts toward done work.`);
   const doCheck = (gs: ApprovalGroup[]) => act(gs, () => checkWork(names(gs)), `Checked ${plural(gs.length)}. It is with the manager for approval.`);
   const doApprove = (gs: ApprovalGroup[]) => {
     if (tab === "check") return doCheck(gs);
@@ -248,8 +266,15 @@ export function Approvals() {
     if (!dialog) return;
     setSending(true);
     setDialog(null);
-    await act(dialog, () => sendBack(names(dialog), note), `Sent back ${plural(dialog.length)}.`);
+    await act(dialog, (c) => (c ? sendBack(names(dialog), note, 1) : sendBack(names(dialog), note)), `Sent back ${plural(dialog.length)}.`);
     setSending(false);
+  };
+  const doConfirmOtherTeam = async () => {
+    if (!otherTeam) return;
+    setConfirming(true);
+    await act(otherTeam.gs, otherTeam.run, otherTeam.done, 1);
+    setConfirming(false);
+    setOtherTeam(null);
   };
   const doResubmit = (g: ApprovalGroup, edits: ResubmitEdit[]) =>
     act([g], () => resubmit(g.names, edits.length ? edits : undefined), "Resubmitted. It is back with the manager for approval.");
@@ -304,13 +329,23 @@ export function Approvals() {
           <FilterSelect label="Block" allLabel="All blocks" value={unit} onChange={setUnit} options={sorted(opts.units)} />
           <FilterSelect label="Operation" allLabel="All operations" value={operation} onChange={setOperation} options={sorted(opts.ops)} />
           <FilterSelect label="Supervisor" allLabel="All supervisors" value={supervisor} onChange={setSupervisor} options={sorted(opts.sups)} />
+          {canAllTeams && (
+            <TogglePill pressed={allTeams} onPressedChange={setAllTeams} aria-label="All teams">
+              All teams
+            </TogglePill>
+          )}
           <ClearFiltersPill active={dirty} onClear={clear} />
           <RefreshButton label="approvals" loading={loading} onClick={() => void load()} />
         </>
       }
     >
       <KpiGrid cols={showPay ? 4 : 3}>
-        <KpiCard label="Awaiting approval" value={c?.Pending ?? 0} hint="submissions" loading={!pending} />
+        <KpiCard
+          label="Awaiting approval"
+          value={c?.Pending ?? 0}
+          hint={canAllTeams && allTeams && teamCounts ? `submissions, ${teamCounts.team} of ${teamCounts.all} in your team` : "submissions"}
+          loading={!pending}
+        />
         <KpiCard
           label="Stale"
           value={c?.stale ?? 0}
@@ -406,6 +441,7 @@ export function Approvals() {
           }}
         />
       )}
+      <OtherTeamDialog open={!!otherTeam} busy={confirming} onCancel={() => setOtherTeam(null)} onConfirm={() => void doConfirmOtherTeam()} />
       <UncheckedDialog open={!!unchecked} cards={unchecked?.length ?? 0} busy={approving} onCancel={() => !approving && setUnchecked(null)} onConfirm={() => void doApproveUnchecked()} />
       <SendBackDialog open={!!dialog} cards={dialog?.length ?? 0} busy={sending} onCancel={() => setDialog(null)} onConfirm={(n) => void doSendBack(n)} />
     </PageShell>

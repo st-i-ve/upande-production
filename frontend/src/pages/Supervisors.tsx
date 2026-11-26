@@ -14,7 +14,7 @@ import { SupervisorForm } from "@/components/supervisors/SupervisorForm";
 import { WeekPicker } from "@/components/WeekPicker";
 import { useCurrentCrop } from "@/lib/crops";
 import { isError } from "@/lib/frappe";
-import { listSupervisors, type SupervisorCard as Card, type SupervisorDetail } from "@/lib/supervisors-api";
+import { assistantsWithoutManager, listSupervisors, type AssistantWithoutManager, type SupervisorCard as Card, type SupervisorDetail } from "@/lib/supervisors-api";
 import { matchesQuery } from "@/lib/utils";
 import { currentIsoWeek, type IsoWeek } from "@/lib/weeks";
 
@@ -30,6 +30,7 @@ export function Supervisors() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
+  const [orphans, setOrphans] = useState<AssistantWithoutManager[]>([]);
   const [open, setOpen] = useState<Card | null>(null);
   const [form, setForm] = useState<{ existing: SupervisorDetail["supervisor"] | null } | null>(null);
 
@@ -47,6 +48,18 @@ export function Supervisors() {
       live = false;
     };
   }, [crop.name, week.year, week.week, tick]);
+
+  // Managers see which assistant managers have no manager: their work goes to every manager until it is set.
+  useEffect(() => {
+    if (!canManage) return;
+    let live = true;
+    void assistantsWithoutManager().then((r) => {
+      if (live && !isError(r)) setOrphans(r);
+    });
+    return () => {
+      live = false;
+    };
+  }, [canManage, tick]);
 
   const shown = useMemo(
     () =>
@@ -97,6 +110,17 @@ export function Supervisors() {
       actions={actions}
       description="Who supervises what this week: blocks, task progress, crew size and entries waiting for approval."
     >
+      {orphans.length > 0 && (
+        <div role="status" data-testid="assistants-without-manager" className="rounded-[var(--sd-radius-toast)] bg-[var(--sd-alert-warn)] px-4 py-3 text-[13px] text-[var(--sd-ink)]">
+          <p className="font-medium">Assistant managers with no manager</p>
+          <p className="mt-0.5 text-[var(--sd-muted)]">Set Reports To on their employee record so their work reaches a manager's team.</p>
+          <ul className="mt-1.5 list-disc pl-5">
+            {orphans.map((a) => (
+              <li key={a.user}>{a.full_name}{a.employee ? ` (${a.employee})` : ""}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       {error ? (
         <div className="flex flex-col items-start gap-3 text-[13px] text-[var(--sd-muted)]">
           {error}
