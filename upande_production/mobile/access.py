@@ -4,12 +4,15 @@ import frappe
 MANAGERS = ("Production Manager", "Avocado Production Manager", "System Manager")
 SUPERVISORS = ("Production Supervisor",)
 VIEWERS = ("Production Viewer",)
+ASSISTANTS = ("Production Assistant Manager",)  # settings.ASSISTANT_ROLE
 
 CAPABILITIES = {
 	"farm_report": MANAGERS,
-	"plan_view": MANAGERS + SUPERVISORS + VIEWERS,
+	"plan_view": MANAGERS + ASSISTANTS + SUPERVISORS + VIEWERS,
 	"plan_tick_off": MANAGERS + SUPERVISORS,
-	"plan_manage": MANAGERS,
+	"plan_manage": MANAGERS + ASSISTANTS,
+	"plan_check": ASSISTANTS,  # vouch for work on tasks they assigned
+	"plan_approve": MANAGERS,  # approve work, forward awaiting tasks
 	"harvest": MANAGERS + SUPERVISORS,
 	"crate_admin": MANAGERS + SUPERVISORS,
 }

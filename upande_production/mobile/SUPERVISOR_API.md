@@ -31,6 +31,7 @@ Aquaculture) have no protocol steps; plans, tasks and tick-off work the same.
 | Task sheet: tick-off with crew | `productionUpdateTask`, pickers below |
 | Assign work | `productionAddTask`, `productionGeneratePlan`, `productionRecordUnplannedWork` |
 | Sent back | `productionListSentBack`, `productionResubmitWork` |
+| Approvals (assistant manager: check; manager: approve, forward) | `productionListApprovals`, `productionCheckWork`, `productionApproveWork`, `productionSendBackWork`, `productionForwardTasks`, `productionApprovalCounts` |
 | Protocol check | `productionProtocolCheck` |
 | Avocado fruit dry matter | `productionFruitTags`, `productionTagFruit`, `productionRecordFruitReading`, `productionUpdateFruitTag` |
 | Pickers | `productionListUnits`, `productionListOperations`, `productionListCasualLabourers` |
@@ -907,3 +908,21 @@ Machines with `open_allocation` and last position; the start sheet's `employees`
 Employee), `allocated_to`, `references` (`{"Production Unit": [...], "Silage Cycle": [...]}`),
 `cost_centers`, `settings` (`fuel_warehouse`, `feedlot_cost_center`) and rights (`can_allocate`,
 `can_submit`).
+
+## Approval chain (new)
+
+Module `upande_production.mobile.approvals`. Capabilities from `get_session_info`: `plan_check`
+(Production Assistant Manager), `plan_approve` (managers). Assistant managers also get `plan_view` and
+`plan_manage`. Task rows (`productionGetWeekPlan`, `productionGetPlanDetail`) carry `awaiting_approval`
+(0/1): 1 means the task waits for a manager to forward it. Errors are `{"error": "..."}`; successes
+carry `"status": "success"`. Pay fields (`total_pay`, entry `rate`, `pay_value`) are null for users who
+cannot see pay.
+
+| Call | Body | Needs | Success |
+|---|---|---|---|
+| `productionListApprovals` | `crop`, `queue` ("check" or "approve"), optional `from_date`, `to_date`, `unit`, `operation` | `plan_check` for check, `plan_approve` for approve | `{"status","groups","counts","stale_days"}`; `counts.queue` is the card count; groups are the desk approval cards (`names`, `entries`, `needs_check`, `status` Pending/Checked ...) |
+| `productionCheckWork` | `names` | `plan_check` (and the assigner of the tasks) | `{"status","checked":[names],"approval_status":"Checked","message"}` |
+| `productionApproveWork` | `names`, `unchecked_ok` (0/1) | `plan_approve` | `{"status","approved":[names],"approval_status":"Approved","message"}`; work still needing a check is refused unless `unchecked_ok` is 1 |
+| `productionSendBackWork` | `names`, `note` (required) | `plan_check` or `plan_approve` | `{"status","sent_back":[names],"approval_status":"Sent Back","message"}` |
+| `productionForwardTasks` | `plan`, optional `tasks` (names; omit for all awaiting) | `plan_approve` | `{"status","forwarded":[task names],"message"}` |
+| `productionApprovalCounts` | none | read access | `{"status","to_check","to_approve"}` |
