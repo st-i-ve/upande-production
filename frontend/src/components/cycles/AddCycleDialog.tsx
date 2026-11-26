@@ -182,7 +182,7 @@ export function AddCycleDialog({
   useEffect(() => {
     setProtocol((cur) => {
       if (cur && protoOptions.some((p) => p.value === cur)) return cur;
-      const own = v?.default_protocol && protoOptions.find((p) => p.value === v.default_protocol);
+      const own = v?.active_protocol && protoOptions.find((p) => p.value === v.active_protocol);
       return own ? own.value : (protoOptions.find((p) => p.variety === variety)?.value ?? "");
     });
     setStage((cur) => (cur && stages.includes(cur) ? cur : ""));

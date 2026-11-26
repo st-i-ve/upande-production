@@ -57,7 +57,6 @@ export function VarietyDialog({
   crop,
   accent,
   variety,
-  protocols,
   fieldCrops,
   sections,
   onClose,
@@ -67,7 +66,6 @@ export function VarietyDialog({
   accent: string;
   /** Null to create. */
   variety: Variety | null;
-  protocols: { value: string; label: string }[];
   /** The crops a variety can belong to (with their group and sub-crops). */
   fieldCrops?: { name: string; crop_name: string; crop_group?: string | null; sub_crops?: { name: string; harvest_uom: string }[] }[];
   /** Sections to choose from; when given, the dialog asks for the section as well. A variety keeps its section. */
@@ -102,7 +100,6 @@ export function VarietyDialog({
   const [dmFrom, setDmFrom] = useState<string>(variety?.dry_matter_from_stage ?? "");
   const [yieldHa, setYieldHa] = useState(text(variety?.expected_yield_per_ha));
   const [yieldPlant, setYieldPlant] = useState(text(variety?.expected_yield_per_plant));
-  const [protocol, setProtocol] = useState(variety?.default_protocol ?? "");
   const [anchor, setAnchor] = useState<string>(variety?.stage_anchor ?? "Planting");
   const [enabled, setEnabled] = useState(variety ? !!Number(variety.enabled) : true);
   const [rows, setRows] = useState<StageDraft[]>(() => toStageDrafts(variety?.stages));
@@ -159,7 +156,6 @@ export function VarietyDialog({
       dry_matter_from_stage: dmFrom,
       expected_yield_per_ha: numOrNull(yieldHa),
       expected_yield_per_plant: numOrNull(yieldPlant),
-      default_protocol: protocol || null,
       stage_anchor: anchor as StageAnchor,
       enabled: enabled ? 1 : 0,
       irrigation_mm_week: numOrNull(irrigation),
@@ -211,10 +207,6 @@ export function VarietyDialog({
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="v-product">Product (optional)</Label>
             <ItemField id="v-product" value={product} onChange={setProduct} />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="v-protocol">Default protocol</Label>
-            <Picker id="v-protocol" label="Default protocol" value={protocol} onChange={setProtocol} options={protocols} clearable clearLabel="No default" placeholder="No default" />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="v-lifespan">Lifespan (years)</Label>

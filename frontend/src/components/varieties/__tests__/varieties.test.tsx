@@ -32,7 +32,7 @@ const potato: Variety = {
   item: "Potatoes - Shangi",
   enabled: 1,
   stage_anchor: "Planting",
-  default_protocol: null,
+  active_protocol: null,
   days_to_first_harvest: 90,
   harvest_window_days: 14,
   expected_yield_per_ha: 20000,
@@ -89,7 +89,7 @@ describe("variety form", () => {
   it("saves a new variety with its stages", async () => {
     mocked.saveVariety.mockResolvedValue({ name: "Markies" });
     const onSaved = vi.fn();
-    wrap(<VarietyDialog crop="Potatoes" accent="#2a7" variety={null} protocols={[]} onClose={() => {}} onSaved={onSaved} />);
+    wrap(<VarietyDialog crop="Potatoes" accent="#2a7" variety={null} onClose={() => {}} onSaved={onSaved} />);
     const save = screen.getByRole("button", { name: "Save variety" });
     expect(save).toBeDisabled();
     fireEvent.change(screen.getByLabelText("Variety name"), { target: { value: "Markies" } });
@@ -108,7 +108,7 @@ describe("variety form", () => {
 
   it("edits an existing variety by name and shows a server refusal", async () => {
     mocked.saveVariety.mockResolvedValue({ error: "Stage Harvest is listed twice" });
-    wrap(<VarietyDialog crop="Potatoes" accent="#2a7" variety={potato} protocols={[]} onClose={() => {}} onSaved={() => {}} />);
+    wrap(<VarietyDialog crop="Potatoes" accent="#2a7" variety={potato} onClose={() => {}} onSaved={() => {}} />);
     expect(screen.getByLabelText("Variety name")).toBeDisabled();
     fireEvent.change(screen.getByLabelText("Weeks to first harvest"), { target: { value: "95" } });
     fireEvent.click(screen.getByRole("button", { name: "Save variety" }));
@@ -119,7 +119,7 @@ describe("variety form", () => {
   it("carries the dry matter settings: test or not, on what part, from which stage", async () => {
     mocked.saveVariety.mockResolvedValue({ name: "Shangi" });
     const tested: Variety = { ...potato, dry_matter_testing: "Yes", dry_matter_on: "Tuber", dry_matter_from_stage: "Tuber initiation", dry_matter_target_pct: 20 };
-    wrap(<VarietyDialog crop="Potatoes" accent="#2a7" variety={tested} protocols={[]} onClose={() => {}} onSaved={() => {}} />);
+    wrap(<VarietyDialog crop="Potatoes" accent="#2a7" variety={tested} onClose={() => {}} onSaved={() => {}} />);
     expect(screen.getByLabelText("Test dry matter")).toHaveTextContent("Yes");
     expect(screen.getByLabelText("Dry matter on what part")).toHaveTextContent("Tuber");
     expect(screen.getByLabelText("Sample from stage")).toHaveTextContent("Tuber initiation");
@@ -132,7 +132,7 @@ describe("variety form", () => {
 
   it("a variety that says nothing follows the crop (blank is sent, not Yes or No)", async () => {
     mocked.saveVariety.mockResolvedValue({ name: "Shangi" });
-    wrap(<VarietyDialog crop="Potatoes" accent="#2a7" variety={potato} protocols={[]} onClose={() => {}} onSaved={() => {}} />);
+    wrap(<VarietyDialog crop="Potatoes" accent="#2a7" variety={potato} onClose={() => {}} onSaved={() => {}} />);
     expect(screen.getByLabelText("Test dry matter")).toHaveTextContent("Crop default");
     fireEvent.click(screen.getByRole("button", { name: "Save variety" }));
     await waitFor(() => expect(mocked.saveVariety).toHaveBeenCalled());
@@ -149,10 +149,10 @@ describe("variety yield model", () => {
   };
 
   it("only a flowering variety shows it, with the saved rows", () => {
-    wrap(<VarietyDialog crop="Potatoes" accent="#2a7" variety={potato} protocols={[]} onClose={() => {}} onSaved={() => {}} />);
+    wrap(<VarietyDialog crop="Potatoes" accent="#2a7" variety={potato} onClose={() => {}} onSaved={() => {}} />);
     expect(screen.queryByTestId("yield-model-editor")).toBeNull();
     cleanup();
-    wrap(<VarietyDialog crop="Avocado" accent="#2a7" variety={hass} protocols={[]} onClose={() => {}} onSaved={() => {}} />);
+    wrap(<VarietyDialog crop="Avocado" accent="#2a7" variety={hass} onClose={() => {}} onSaved={() => {}} />);
     expect(screen.getByTestId("yield-model-editor")).toBeInTheDocument();
     expect(screen.getByLabelText("Yield row 2 kg per plant")).toHaveValue("12");
     expect(screen.getByLabelText("Off-year factor")).toHaveValue("0.58");
@@ -161,7 +161,7 @@ describe("variety yield model", () => {
 
   it("saves edited rows, the off-year factor and the late share", async () => {
     mocked.saveVariety.mockResolvedValue({ name: "Hass" });
-    wrap(<VarietyDialog crop="Avocado" accent="#2a7" variety={hass} protocols={[]} onClose={() => {}} onSaved={() => {}} />);
+    wrap(<VarietyDialog crop="Avocado" accent="#2a7" variety={hass} onClose={() => {}} onSaved={() => {}} />);
     fireEvent.change(screen.getByLabelText("Yield row 2 kg per plant"), { target: { value: "20" } });
     fireEvent.click(screen.getByRole("button", { name: /Add age/ }));
     fireEvent.change(screen.getByLabelText("Yield row 3 from age (years)"), { target: { value: "5" } });

@@ -20,7 +20,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 const n = (v: number | null | undefined, unit = "") => (v == null || v === 0 ? "—" : `${qty(v)}${unit}`);
 
-/** The crop's varieties: key numbers, default protocol and the stage timeline of each. */
+/** The crop's varieties: key numbers, active protocol and the stage timeline of each. */
 export function VarietiesPanel({
   crop,
   accent,
@@ -87,7 +87,7 @@ export function VarietiesPanel({
               <Stat label="Yield (kg/tree/year)" value={n(v.expected_yield_per_plant)} />
               <Stat label="Density / ha" value={n(v.plants_per_ha)} />
               {v.harvest_pattern && v.harvest_pattern !== "Once" && <Stat label="Harvest" value={`${v.harvest_pattern}${v.harvest_interval_weeks ? `, ${v.harvest_interval_weeks} wk` : ""}`} />}
-              <Stat label="Default protocol" value={protoLabel(v.default_protocol)} />
+              <Stat label="Active protocol" value={protoLabel(v.active_protocol)} />
             </div>
             {canEdit && (
               <Button variant="outline" size="sm" aria-label={`Edit ${v.variety_name}`} onClick={() => setEditing(v)}>
@@ -109,7 +109,6 @@ export function VarietiesPanel({
           crop={crop}
           accent={accent}
           variety={editing}
-          protocols={protocols}
           fieldCrops={dialogCrops ?? fieldCrops}
           sections={sections}
           onClose={() => setEditing(undefined)}

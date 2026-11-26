@@ -72,7 +72,8 @@ export interface Variety {
   item: string;
   enabled: 0 | 1 | boolean;
   stage_anchor: StageAnchor | null;
-  default_protocol: string | null;
+  /** Server-provided: the Active protocol whose variety this is (read-only). */
+  active_protocol: string | null;
   days_to_first_harvest: number | null;
   harvest_window_days: number | null;
   expected_yield_per_ha: number | null;

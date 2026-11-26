@@ -203,7 +203,7 @@ describe("Settings", () => {
 
   const hass: Variety = {
     name: "Hass", variety_name: "Hass", crop: "Test Crop", product: null, item: "Avocado - Hass", enabled: 1,
-    stage_anchor: "Planting", default_protocol: null, days_to_first_harvest: null, harvest_window_days: null,
+    stage_anchor: "Planting", active_protocol: null, days_to_first_harvest: null, harvest_window_days: null,
     expected_yield_per_ha: null, expected_yield_per_plant: null, plants_per_ha: null, stages: [],
   };
   const openVariety = async (over: Partial<Variety> = {}) => {

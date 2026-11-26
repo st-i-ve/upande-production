@@ -68,7 +68,7 @@ describe("AddCycleDialog", () => {
   beforeEach(() => {
     vi.mocked(api.listProtocols).mockReset().mockResolvedValue({ rows: [{ name: "P1", protocol_name: "Hass season", version: 2, variety: "Hass" }] });
     vi.mocked(varieties.listVarieties).mockReset().mockResolvedValue({
-      varieties: [{ name: "Hass", variety_name: "Hass", enabled: 1, default_protocol: "P1", plants_per_ha: 156, expected_yield_per_plant: 75, stages: [{ stage: "Flowering" }, { stage: "Fruit set" }] }],
+      varieties: [{ name: "Hass", variety_name: "Hass", enabled: 1, active_protocol: "P1", plants_per_ha: 156, expected_yield_per_plant: 75, stages: [{ stage: "Flowering" }, { stage: "Fruit set" }] }],
     } as never);
     vi.mocked(setup.addCycle).mockReset().mockResolvedValue({ name: "CYC-1", warnings: [] });
   });
