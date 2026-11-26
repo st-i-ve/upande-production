@@ -1,0 +1,42 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:employee",
+ "creation": "2026-11-26 09:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": ["employee", "employee_name", "active", "column_break_1", "user", "phone", "image", "section_scope", "farm", "crops", "notes"],
+ "fields": [
+  {"fieldname": "employee", "fieldtype": "Link", "label": "Employee", "options": "Employee", "reqd": 1, "unique": 1, "in_list_view": 1, "ignore_user_permissions": 1},
+  {"fieldname": "employee_name", "fieldtype": "Data", "label": "Name", "fetch_from": "employee.employee_name", "read_only": 1, "in_list_view": 1},
+  {"fieldname": "active", "fieldtype": "Check", "label": "Active", "default": "1", "in_list_view": 1, "in_standard_filter": 1},
+  {"fieldname": "column_break_1", "fieldtype": "Column Break"},
+  {"fieldname": "user", "fieldtype": "Link", "label": "User", "options": "User", "fetch_from": "employee.user_id", "read_only": 1},
+  {"fieldname": "phone", "fieldtype": "Data", "label": "Phone", "fetch_from": "employee.cell_number", "read_only": 1},
+  {"fieldname": "image", "fieldtype": "Attach Image", "label": "Photo", "fetch_from": "employee.image", "read_only": 1},
+  {"fieldname": "section_scope", "fieldtype": "Section Break", "label": "Scope"},
+  {"fieldname": "farm", "fieldtype": "Link", "label": "Farm", "options": "Farm", "ignore_user_permissions": 1},
+  {"fieldname": "crops", "fieldtype": "Table MultiSelect", "label": "Sections", "options": "Production Supervisor Crop", "description": "Leave empty for all sections."},
+  {"fieldname": "notes", "fieldtype": "Small Text", "label": "Notes"}
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-11-26 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Production Supervisor",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {"role": "System Manager", "read": 1, "report": 1, "create": 1, "write": 1, "delete": 1, "export": 1},
+  {"role": "Production Manager", "read": 1, "report": 1, "create": 1, "write": 1, "delete": 1, "export": 1},
+  {"role": "Avocado Production Manager", "read": 1, "report": 1, "create": 1, "write": 1, "delete": 1, "export": 1},
+  {"role": "Production Supervisor", "read": 1, "report": 1},
+  {"role": "Production Assistant Manager", "read": 1, "report": 1},
+  {"role": "Production Viewer", "read": 1, "report": 1}
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "employee_name"
+}

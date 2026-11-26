@@ -147,6 +147,9 @@ class TestSupervisorPlan(IntegrationTestCase):
 			supervisors.copy_week(self.crop.name, self.farm.name, self.year, self.week)
 
 	def test_get_week_lists_blocks_candidates_and_last_week(self):
+		for e in (self.sup, self.mgr):
+			_make("Production Supervisor", employee=e.name)
+		_make("Production Supervisor", employee=self.other.name, active=0)  # inactive, but already assigned below
 		py, pw = supervisors.previous_week(self.year, self.week)
 		self.assign([{"unit": self.u1.name, "supervisor": self.other.name}], year=py, week=pw)
 		self.assign([{"unit": self.u2.name, "supervisor": self.other.name}])

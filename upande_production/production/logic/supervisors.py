@@ -39,17 +39,39 @@ def assignments(crop, year, week, farm=None, units=None) -> list[dict]:
 	return frappe.get_all(DOCTYPE, filters=filters, fields=FIELDS, order_by="unit asc")
 
 
+SUPERVISOR_FIELDS = ["name", "employee_name", "user", "image", "phone", "farm", "active"]
+
+
+def supervisor_options(crop=None, extra=()) -> list[dict]:
+	"""The supervisor dropdown: active Production Supervisors (for `crop` when given; a supervisor with no
+	sections listed serves every crop), plus any `extra` employees already assigned so old records still show.
+	Every row's `name` is the Employee id, which is what gets stored."""
+	filters = {"active": 1}
+	rows = frappe.get_all("Production Supervisor", filters=filters, fields=SUPERVISOR_FIELDS, order_by="employee_name asc")
+	if crop:
+		scoped = {}
+		for r in frappe.get_all("Production Supervisor Crop", filters={"parenttype": "Production Supervisor"},
+				fields=["parent", "crop"]):
+			scoped.setdefault(r.parent, set()).add(r.crop)
+		rows = [r for r in rows if not scoped.get(r.name) or crop in scoped[r.name]]
+	have = {r.name for r in rows}
+	missing = [e for e in dict.fromkeys(extra or []) if e and e not in have]
+	if missing:
+		rows += frappe.get_all("Production Supervisor", filters={"name": ("in", missing)},
+			fields=SUPERVISOR_FIELDS, order_by="employee_name asc")
+		have = {r.name for r in rows}
+		rows += frappe.get_all("Employee", filters={"name": ("in", [e for e in missing if e not in have])},
+			fields=["name", "employee_name", "user_id as user", "image", "cell_number as phone"])
+		for r in rows:
+			r.setdefault("active", 0)
+	for r in rows:
+		r["status"] = "Active" if r.get("active") else "Inactive"
+	return rows
+
+
 def candidates(extra=()) -> list[dict]:
-	"""Active Employees whose user holds a supervisor or manager role, plus any `extra` employees."""
-	users = frappe.get_all("Has Role", filters={"parenttype": "User", "role": ("in", SUPERVISOR_ROLES)}, pluck="parent")
-	names = set(extra)
-	rows = frappe.get_all(
-		"Employee", filters={"status": "Active", "user_id": ("in", list(set(users)) or [""])}, pluck="name")
-	names.update(rows)
-	if not names:
-		return []
-	return frappe.get_all("Employee", filters={"name": ("in", list(names))},
-		fields=["name", "employee_name", "user_id as user", "status"], order_by="employee_name asc")
+	"""Active Production Supervisors, plus any `extra` employees already assigned."""
+	return supervisor_options(extra=extra)
 
 
 def leave_warnings(rows, year, week) -> list[dict]:

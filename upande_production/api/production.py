@@ -442,6 +442,15 @@ def delete_plan_task(plan, task, reason):
 
 @frappe.whitelist(methods=["POST"])
 @run
+def get_supervisor_options(crop=None):
+	"""Active Production Supervisors for a supervisor dropdown: [{name (Employee id), employee_name, user, image,
+	phone, farm, active, status}], narrowed to `crop` when given."""
+	_need("Production Supervisor")
+	return supervisors.supervisor_options(crop or None)
+
+
+@frappe.whitelist(methods=["POST"])
+@run
 def get_supervisor_plan(crop, farm, year, week):
 	"""The week's supervisor <-> block assignment: blocks, candidate supervisors, this and last week's rows."""
 	_need("Production Supervisor Assignment")

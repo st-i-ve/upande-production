@@ -22,3 +22,6 @@ class CasualLabourer(Document):
 					frappe.ValidationError)
 		if self.supervisor and self.supervisor == self.employee:
 			frappe.throw(_("A labourer cannot supervise themselves."), frappe.ValidationError)
+		if self.supervisor and (self.is_new() or self.supervisor != self.get_doc_before_save().supervisor):
+			if not frappe.db.get_value("Production Supervisor", {"name": self.supervisor, "active": 1}):
+				frappe.throw(_("Choose a Production Supervisor."), frappe.ValidationError)

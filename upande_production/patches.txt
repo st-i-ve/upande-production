@@ -36,3 +36,4 @@ upande_production.patches.seed_silage_settings
 upande_production.patches.add_field_crops
 upande_production.patches.crop_hierarchy
 upande_production.patches.add_assistant_manager_perms
+upande_production.patches.create_production_supervisors
