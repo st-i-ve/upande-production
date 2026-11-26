@@ -33,7 +33,7 @@
    "fieldname": "action",
    "fieldtype": "Select",
    "label": "Action",
-   "options": "Edit\nDelete",
+   "options": "Edit\nDelete\nClear block",
    "reqd": 1,
    "in_list_view": 1
   },

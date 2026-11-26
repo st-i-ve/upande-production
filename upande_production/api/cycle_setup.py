@@ -4,7 +4,7 @@ import frappe
 from frappe import _
 
 from upande_production.api.envelope import as_dict, run
-from upande_production.production.logic import cycle_requests, cycle_setup
+from upande_production.production.logic import clear_block as clearing, cycle_requests, cycle_setup
 from upande_production.production.logic.settings import crop_allowed, is_manager
 
 
@@ -141,3 +141,30 @@ def get_cycle_for_edit(name):
 	"""The editable fields of one cycle and `has_tasks` (the block cannot change once it has tasks)."""
 	frappe.has_permission("Production Crop Cycle", "read", doc=name, throw=True)
 	return cycle_setup.edit_info(name)
+
+
+def _gate_unit(unit, perm):
+	frappe.has_permission("Production Crop Cycle", perm, throw=True)
+	crop = frappe.db.get_value("Production Unit", unit, "crop")
+	if crop and not crop_allowed(crop):
+		frappe.throw(_("You are not permitted to see this crop."), frappe.PermissionError)
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def clear_block_preview(unit, on_date=None):
+	"""What clearing the block would do: {running, planned_deleted, planned_closed, tasks_skipped, cycles, planned}."""
+	_gate_unit(unit, "read")
+	return clearing.preview(unit, on_date)
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def clear_block(unit, on_date, reason, note=None):
+	"""Clear a block (reason: Uprooted / Crop failed / Replanting / Other; a note is required for Other). A manager
+	clears it at once and gets {cleared: {running_closed, planned_deleted, planned_closed, tasks_skipped,
+	requests_rejected}}; anyone else sends a request and gets {request, pending: True}."""
+	_gate_unit(unit, "write")
+	if is_manager():
+		return {"cleared": clearing.clear_block(unit, on_date, reason, note)}
+	return cycle_requests.request_clear(unit, on_date, reason, note)

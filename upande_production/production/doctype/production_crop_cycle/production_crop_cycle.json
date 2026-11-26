@@ -38,6 +38,9 @@
   "flag_count",
   "due_for_uprooting",
   "proposed_next_cycle",
+  "closed_on",
+  "close_reason",
+  "close_note",
   "existing_section",
   "existing_cycle",
   "planting_date",
@@ -238,6 +241,25 @@
    "fieldtype": "Link",
    "label": "Proposed Next Cycle",
    "options": "Production Crop Cycle",
+   "read_only": 1
+  },
+  {
+   "fieldname": "closed_on",
+   "fieldtype": "Date",
+   "label": "Closed On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "close_reason",
+   "fieldtype": "Select",
+   "label": "Close Reason",
+   "options": "\nUprooted\nCrop failed\nReplanting\nOther",
+   "read_only": 1
+  },
+  {
+   "fieldname": "close_note",
+   "fieldtype": "Small Text",
+   "label": "Close Note",
    "read_only": 1
   },
   {

@@ -11,7 +11,7 @@ import frappe
 from frappe import _
 from frappe.utils import cint, flt, getdate, now_datetime
 
-from upande_production.production.logic import cycle_setup
+from upande_production.production.logic import clear_block, cycle_setup
 from upande_production.production.logic.settings import is_manager
 
 CYCLE_DT = "Production Crop Cycle"
@@ -143,6 +143,16 @@ def request_delete(name, reason) -> dict:
 	return _new(name, "Delete", reason)
 
 
+def request_clear(unit, on_date, reason, note=None) -> dict:
+	"""A supervisor or assistant manager asks for a block to be cleared; checked now, run on approval."""
+	d, running, planned = clear_block.validate(unit, on_date, reason, note)
+	cycles = [c.name for c in running + planned]
+	if frappe.db.exists(DT, {"action": "Clear block", "status": "Pending", "cycle": ("in", cycles)}):
+		frappe.throw(_("A clear for this block is already waiting for approval."), frappe.ValidationError)
+	text = f"{reason}: {note.strip()}" if (note or "").strip() else reason
+	return _new(cycles[0], "Clear block", text, payload={"unit": unit, "on_date": str(d), "reason": reason, "note": (note or "").strip() or None})
+
+
 def _delete(cycle):
 	frappe.delete_doc(CYCLE_DT, cycle)  # change requests link the cycle (hooks: ignore_links_on_delete); nothing else records against it
 
@@ -186,6 +196,11 @@ def approve(name, apply_anyway=0) -> dict:
 		_stamp(r, "Approved")
 		_delete(r.cycle)
 		return {"request": name, "deleted": r.cycle}
+	if r.action == "Clear block":
+		p = frappe.parse_json(r.payload) or {}
+		res = clear_block.clear_block(p.get("unit"), p.get("on_date"), p.get("reason"), p.get("note"), except_request=name)
+		_stamp(r, "Approved")
+		return {"request": name, "cleared": res}
 	cycle = frappe.get_doc(CYCLE_DT, r.cycle)
 	changes = frappe.parse_json(r.changes) or {}
 	stale = [k for k, c in changes.items() if norm(k, cycle.get(k)) != norm(k, c.get("old"))]
@@ -262,9 +277,10 @@ def list_requests(status=None, crop=None) -> list:
 		filters["cycle"] = ("in", frappe.get_all(CYCLE_DT, filters={"crop": crop}, pluck="name") or [""])
 	rows = frappe.get_all(DT, filters=filters, order_by="creation desc", fields=[
 		"name", "cycle", "action", "status", "reason", "changes", "requested_by", "reviewed_by", "reviewed_at",
-		"review_note", "stale", "creation"])
+		"review_note", "stale", "creation", "payload"])
 	for r in rows:
 		r["changes"] = frappe.parse_json(r["changes"]) or {}
+		r["payload"] = frappe.parse_json(r["payload"]) or {}
 		c = frappe.db.get_value(CYCLE_DT, r["cycle"], ["crop", "unit", "title"], as_dict=True) or {}
 		r.update({"crop": c.get("crop"), "unit": c.get("unit"), "cycle_title": c.get("title")})
 	return rows

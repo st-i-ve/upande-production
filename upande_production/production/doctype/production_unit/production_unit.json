@@ -19,6 +19,7 @@
   "warehouse",
   "avocado_block_code",
   "status",
+  "cleared_on",
   "company",
   "lft",
   "rgt",
@@ -107,6 +108,12 @@
    "label": "Status",
    "options": "Active\nFallow\nRetired",
    "default": "Active"
+  },
+  {
+   "fieldname": "cleared_on",
+   "fieldtype": "Date",
+   "label": "Cleared On",
+   "read_only": 1
   },
   {
    "fieldname": "company",
