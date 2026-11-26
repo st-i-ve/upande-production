@@ -1,6 +1,6 @@
 import frappe
 from frappe.tests import IntegrationTestCase
-from frappe.utils import getdate, today
+from frappe.utils import add_days, getdate, today
 
 from upande_production.api import cycle_setup as api
 from upande_production.api import production as desk
@@ -138,18 +138,19 @@ class TestCycleRequests(IntegrationTestCase):
 
 	def test_one_pending_per_cycle(self):
 		self.request()
-		for fn in (lambda: self.request(self.asst, area_ha=4),):
-			with self.assertRaises(frappe.ValidationError) as e:
-				fn()
-			self.assertEqual(str(e.exception), PENDING_MSG)
+		with self.assertRaises(frappe.ValidationError) as e:
+			self.request(self.asst, area_ha=4)
+		self.assertEqual(str(e.exception), PENDING_MSG)
 		with self.assertRaises(frappe.ValidationError) as e:
 			self.as_user(self.sup, cr.request_delete, self.cycle, "x")
 		self.assertEqual(str(e.exception), PENDING_MSG)
 
 	def test_approve_applies_payload(self):
-		name = self.request(area_ha=4)["request"]
+		new_start = str(add_days(today(), 3))
+		name = self.request(area_ha=4, plant_count=12, start_date=new_start, notes="n")["request"]
 		res = self.as_user(self.mgr, cr.approve, name)
-		self.assertEqual(self.val("area_ha"), 4)
+		self.assertEqual((self.val("area_ha"), self.val("plant_count"), self.val("notes")), (4, 12, "n"))
+		self.assertEqual(str(self.val("start_date")), new_start)
 		r = frappe.get_doc(CCR, name)
 		self.assertEqual((r.status, r.reviewed_by, r.stale), ("Approved", self.mgr, 0))
 		self.assertTrue(r.reviewed_at)
@@ -307,3 +308,60 @@ class TestCycleRequests(IntegrationTestCase):
 		rows = self.as_user(self.sup, desk.list_cycles, self.crop.name)["cycles"]
 		row = [r for r in rows if r["name"] == self.cycle][0]
 		self.assertEqual(row["pending_request"]["name"], name)
+
+	def test_approve_closing_request(self):
+		name = self.as_user(self.asst, api.update_cycle, self.cycle, {"status": "Closed", "reason": "Season over"})["request"]
+		self.assertNotEqual(self.val("status"), "Closed")
+		self.as_user(self.mgr, cr.approve, name)
+		self.assertEqual(self.val("status"), "Closed")
+
+	def test_assistant_manager_raises_edit_and_delete_requests(self):
+		res = self.as_user(self.asst, api.update_cycle, self.cycle, {"plant_count": 9, "reason": "Recount"})
+		self.assertTrue(res["pending"])
+		self.assertEqual(frappe.db.get_value(CCR, res["request"], "requested_by"), self.asst)
+		self.assertEqual(self.val("plant_count"), 0)
+		self.as_user(self.mgr, cr.reject, res["request"], "no")
+		res = self.as_user(self.asst, api.delete_cycle, self.cycle, "Wrong block")
+		self.assertTrue(res["pending"])
+		self.assertEqual(frappe.db.get_value(CCR, res["request"], "action"), "Delete")
+
+	def test_area_back_door_is_inert(self):
+		frappe.set_user(self.sup)
+		doc = frappe.get_doc(CYCLE, self.cycle)
+		doc.area_ha = 9
+		doc.save()  # not refused, but the block's area is fetched back on every save
+		frappe.set_user("Administrator")
+		self.assertNotEqual(self.val("area_ha"), 9)
+
+	def test_request_written_only_through_logic(self):
+		name = self.request()["request"]
+		frappe.set_user(self.sup)
+		doc = frappe.get_doc(CCR, name)
+		doc.status, doc.reviewed_by = "Approved", self.sup
+		with self.assertRaises(frappe.PermissionError):
+			doc.save()
+		with self.assertRaises(frappe.PermissionError):
+			frappe.delete_doc(CCR, name)
+		with self.assertRaises(frappe.PermissionError):
+			frappe.get_doc({"doctype": CCR, "cycle": self.cycle, "action": "Edit", "reason": "x", "status": "Approved",
+				"requested_by": self.sup}).insert()
+		frappe.set_user("Administrator")
+		self.assertEqual(frappe.db.get_value(CCR, name, "status"), "Pending")
+		self.assertIsNone(frappe.flags.get(cr.LOGIC_FLAG) or None)
+		# the logic paths still work for the requester
+		self.as_user(self.mgr, cr.send_back, name, "again")
+		self.as_user(self.sup, cr.resubmit, name, {"area_ha": 6})
+		self.as_user(self.sup, cr.withdraw, name)
+		self.assertEqual(frappe.db.get_value(CCR, name, "status"), "Rejected")
+		n2 = self.as_user(self.sup, api.update_cycle, self.cycle, {"area_ha": 8, "reason": "x"})["request"]
+		self.as_user(self.mgr, cr.send_back, n2, "again")
+		res = self.as_user(self.sup, api.resubmit_cycle_change, n2, {"area_ha": 7})
+		self.assertTrue(res["pending"])
+		self.assertEqual(self.as_user(self.sup, api.withdraw_cycle_change, n2)["status"], "Rejected")
+
+	def test_approve_request_of_deleted_cycle_gate(self):
+		name = self.request()["request"]
+		frappe.db.set_value(CCR, name, "cycle", self.cycle)  # unchanged; the cycle is removed next
+		frappe.delete_doc(CYCLE, self.cycle, force=True)
+		res = self.as_user(self.mgr, api.reject_cycle_change, name, "gone")
+		self.assertEqual(res["status"], "Rejected")

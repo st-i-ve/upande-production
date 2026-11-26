@@ -133,14 +133,12 @@
    "role": "Production Supervisor",
    "create": 1,
    "read": 1,
-   "write": 1,
    "if_owner": 1
   },
   {
    "role": "Production Assistant Manager",
    "create": 1,
    "read": 1,
-   "write": 1,
    "if_owner": 1
   }
  ],

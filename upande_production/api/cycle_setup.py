@@ -77,7 +77,9 @@ def _gate_cycle(name):
 
 
 def _gate_request(name):
-	_gate_cycle(frappe.db.get_value(cycle_requests.DT, name, "cycle"))
+	cycle = frappe.db.get_value(cycle_requests.DT, name, "cycle")
+	if cycle and frappe.db.exists("Production Crop Cycle", cycle):  # a request about a deleted cycle has no crop to gate on
+		_gate_cycle(cycle)
 
 
 @frappe.whitelist(methods=["POST"])

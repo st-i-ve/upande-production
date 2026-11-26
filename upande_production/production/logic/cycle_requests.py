@@ -5,6 +5,8 @@ Unapproved values are never live on the cycle: a request holds only the fields t
 through `cycle_setup.update_cycle` on approval) and what they were (`changes`, for display and the stale check).
 """
 
+import contextlib
+
 import frappe
 from frappe import _
 from frappe.utils import cint, flt, getdate, now_datetime
@@ -21,7 +23,17 @@ PROTECTED = ("unit", "crop", "field_crop", "sub_crop", "variety", "item", "proto
 EDITABLE = PROTECTED + ("status", "notes")
 DATES = ("start_date", "planting_date", "expected_harvest_start", "expected_harvest_end")
 CLOSING = ("Closed", "Cancelled")
+LOGIC_FLAG = "cycle_request_logic"  # set while this module writes a request; the doctype refuses other writes
 GUARD_FLAGS = ("cycle_change_request", "in_demo_seed", "in_migrate", "in_install", "in_patch")
+
+
+@contextlib.contextmanager
+def _logic():
+	frappe.flags[LOGIC_FLAG] = True
+	try:
+		yield
+	finally:
+		frappe.flags[LOGIC_FLAG] = False
 
 
 def norm(field, value):
@@ -109,7 +121,8 @@ def _one_open(cycle, ignore=None):
 def _new(cycle, action, reason, changes=None, payload=None):
 	doc = frappe.get_doc({"doctype": DT, "cycle": cycle, "action": action, "reason": reason, "status": "Pending",
 		"changes": changes or {}, "payload": payload or {}, "requested_by": frappe.session.user})
-	doc.insert()
+	with _logic():
+		doc.insert()
 	return {"request": doc.name, "pending": True}
 
 
@@ -158,7 +171,9 @@ def _stamp(r, status, note=None):
 	r.status, r.reviewed_by, r.reviewed_at = status, frappe.session.user, now_datetime()
 	if note is not None:
 		r.review_note = note
-	r.save()
+	r.flags.ignore_links = True  # the cycle may be gone (deleted since); the request is still decided
+	with _logic():
+		r.save(ignore_permissions=True)
 
 
 def approve(name, apply_anyway=0) -> dict:
@@ -224,7 +239,9 @@ def resubmit(name, data, reason=None) -> dict:
 		r.changes, r.payload = changes, {k: v["new"] for k, v in changes.items()}
 	_one_open(r.cycle, ignore=name)
 	r.status, r.stale = "Pending", 0
-	r.save()
+	r.flags.ignore_links = True  # the cycle may be gone (deleted since); the request is still decided
+	with _logic():
+		r.save(ignore_permissions=True)
 	return {"request": name, "pending": True}
 
 
