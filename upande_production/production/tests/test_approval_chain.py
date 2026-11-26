@@ -446,9 +446,11 @@ class TestApprovalChain(IntegrationTestCase):
 		frappe.set_user("Administrator")
 		self._as(self.asst, approvals.check, [e1])
 		frappe.set_user(self.mgr)
-		c = approvals.list_approvals(queue="approve")["counts"]
-		self.assertEqual(c["queue"], 2)  # e2 Pending plus e1 Checked
-		self.assertEqual(c["Pending"], 1)
+		r = approvals.list_approvals(queue="approve")
+		c = r["counts"]
+		self.assertEqual(c["queue"], len(r["groups"]))  # the DB holds other work; the count is the queue's cards
+		self.assertIn(e1, [n for g in r["groups"] if g["status"] == "Checked" for n in g["names"]])
+		self.assertGreater(c["queue"], c["Pending"])  # Checked cards are in the queue but not in Pending
 		self.assertNotIn("queue", approvals.list_approvals()["counts"])
 		frappe.set_user("Administrator")
 
