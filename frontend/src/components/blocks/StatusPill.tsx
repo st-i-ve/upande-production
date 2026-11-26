@@ -10,7 +10,7 @@ const TONES: Record<string, string> = {
   Retired: "bg-[var(--sd-bg-soft)] text-[var(--sd-quiet)]",
 };
 
-export function StatusPill({ status }: { status: string | null | undefined }) {
+export function StatusPill({ status, clearedOn }: { status: string | null | undefined; clearedOn?: string | null }) {
   if (!status) return <span className="text-[var(--sd-quiet)]">—</span>;
   return (
     <span
@@ -19,7 +19,7 @@ export function StatusPill({ status }: { status: string | null | undefined }) {
         TONES[status] ?? "bg-[var(--sd-bg-soft)] text-[var(--sd-muted)]",
       )}
     >
-      {status}
+      {status === "Fallow" && clearedOn ? `Fallow · cleared ${clearedOn}` : status}
     </span>
   );
 }

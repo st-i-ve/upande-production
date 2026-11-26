@@ -115,4 +115,19 @@ describe("CycleChanges", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Resubmit" }));
     await waitFor(() => expect(setup.resubmitCycleChange).toHaveBeenCalledWith("CCR-4", {}, "Planted twice, confirmed"));
   });
+
+  it("shows a Clear block request readably", async () => {
+    vi.mocked(setup.listCycleChanges).mockResolvedValue({
+      rows: [row("CCR-5", { action: "Clear block", cycle: "", reason: null, changes: {}, payload: { unit: "PH1-B1", on_date: "2026-11-20", reason: "Other", note: "Flooded" } })],
+    });
+    show(true);
+    const card = await screen.findByTestId("cycle-change-CCR-5");
+    expect(card).toHaveTextContent("Clear block PH1-B1");
+    expect(card).toHaveTextContent("2026-11-20");
+    expect(card).toHaveTextContent("Other");
+    expect(card).toHaveTextContent("Flooded");
+    expect(within(card).getByRole("button", { name: "Approve" })).toBeInTheDocument();
+    expect(within(card).getByRole("button", { name: "Send back" })).toBeInTheDocument();
+    expect(within(card).getByRole("button", { name: "Reject" })).toBeInTheDocument();
+  });
 });

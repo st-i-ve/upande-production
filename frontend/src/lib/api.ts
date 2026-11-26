@@ -137,6 +137,8 @@ export interface UnitRow {
   plant_count: number;
   cost_center: string | null;
   status: string;
+  /** Set when the block was cleared (get_unit sends it; list_units does not yet). */
+  cleared_on?: string | null;
   current_cycle: string | null;
   item: string | null;
   has_geojson: 0 | 1 | boolean;

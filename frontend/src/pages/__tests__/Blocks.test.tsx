@@ -120,3 +120,11 @@ describe("Blocks", () => {
     expect(screen.queryByTestId("link-warning-C")).toBeNull();
   });
 });
+
+describe("Blocks fallow", () => {
+  it("shows Fallow for a fallow block", async () => {
+    listUnits.mockResolvedValue({ units: [unit({ name: "Block F", status: "Fallow" })] });
+    renderPage(<Blocks />);
+    expect(await screen.findAllByText("Fallow")).not.toHaveLength(0);
+  });
+});

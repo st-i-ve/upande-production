@@ -116,7 +116,7 @@ export function CycleChanges({
   }
 
   const approve = (row: CycleChangeRequest) =>
-    act(row, () => approveCycleChange(row.name, stale[row.name] && anyway[row.name] ? 1 : 0), row.action === "Delete" ? `Cycle ${row.cycle} deleted.` : `Change to ${row.cycle} applied.`);
+    act(row, () => approveCycleChange(row.name, stale[row.name] && anyway[row.name] ? 1 : 0), row.action === "Delete" ? `Cycle ${row.cycle} deleted.` : row.action === "Clear block" ? `${row.payload?.unit ?? "Block"} cleared.` : `Change to ${row.cycle} applied.`);
 
   async function confirmNote(text: string) {
     if (!note) return;
@@ -164,14 +164,27 @@ export function CycleChanges({
             <header className="flex flex-wrap items-baseline justify-between gap-2">
               <div>
                 <h3 className="text-[15px] font-semibold text-[var(--sd-ink)]">
-                  {r.action === "Delete" ? "Delete" : "Change"} {r.cycle}
-                  <span className="text-[var(--sd-muted)]"> · {r.unit ?? "cycle removed"}{r.cycle_title ? ` · ${r.cycle_title}` : ""}</span>
+                  {r.action === "Clear block" ? (
+                    <>Clear block {r.payload?.unit ?? r.unit}</>
+                  ) : (
+                    <>
+                      {r.action === "Delete" ? "Delete" : "Change"} {r.cycle}
+                      <span className="text-[var(--sd-muted)]"> · {r.unit ?? "cycle removed"}{r.cycle_title ? ` · ${r.cycle_title}` : ""}</span>
+                    </>
+                  )}
                 </h3>
                 <p className="text-[12px] text-[var(--sd-muted)]">Asked by {r.requested_by}</p>
               </div>
               <span className="rounded-full bg-[var(--sd-chip)] px-2 py-0.5 text-[11.5px] text-[var(--sd-muted)]">{r.status}</span>
             </header>
-            {r.action === "Delete" ? (
+            {r.action === "Clear block" ? (
+              <ul className="text-[13px] text-[var(--sd-ink)]">
+                <li><span className="text-[var(--sd-muted)]">Block:</span> {r.payload?.unit}</li>
+                <li><span className="text-[var(--sd-muted)]">Cleared on:</span> {r.payload?.on_date}</li>
+                <li><span className="text-[var(--sd-muted)]">Reason:</span> {r.payload?.reason}</li>
+                {r.payload?.note && <li><span className="text-[var(--sd-muted)]">Note:</span> {r.payload.note}</li>}
+              </ul>
+            ) : r.action === "Delete" ? (
               <p className="text-[13px] text-[var(--sd-ink)]">Delete this cycle.</p>
             ) : (
               <ul className="text-[13px] text-[var(--sd-ink)]">
@@ -182,7 +195,7 @@ export function CycleChanges({
                 ))}
               </ul>
             )}
-            {r.reason && <p className="text-[13px] text-[var(--sd-muted)]">Reason: {r.reason}</p>}
+            {r.action !== "Clear block" && r.reason && <p className="text-[13px] text-[var(--sd-muted)]">Reason: {r.reason}</p>}
             {r.review_note && <p className="text-[13px] text-[var(--sd-muted)]">Note: {r.review_note}</p>}
             {!!Number(r.stale) && <p className="text-[12px] text-[var(--sd-muted)]">Applied over a newer value.</p>}
 

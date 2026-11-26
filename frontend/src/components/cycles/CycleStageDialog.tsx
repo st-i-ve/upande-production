@@ -25,6 +25,7 @@ export function CycleStageDialog({
   onRecordDates,
   onEdit,
   onDelete,
+  onClear,
 }: {
   cycle: Cycle;
   accent: string;
@@ -37,6 +38,8 @@ export function CycleStageDialog({
   onEdit?: () => void;
   /** Opens the delete dialog (a manager deletes, anyone else sends a request). */
   onDelete?: () => void;
+  /** Opens the Clear block dialog for the cycle's block. */
+  onClear?: () => void;
 }) {
   const toast = useToast();
   const [stages, setStages] = useState<CycleStage[] | null>(null);
@@ -117,6 +120,11 @@ export function CycleStageDialog({
           </div>
         )}
         <div className="flex justify-end gap-2">
+          {onClear && (
+            <Button variant="outline" onClick={onClear}>
+              Clear block
+            </Button>
+          )}
           {onDelete && (
             <Button variant="outline" onClick={onDelete}>
               Delete

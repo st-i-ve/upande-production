@@ -14,12 +14,13 @@ import { TogglePill } from "@/components/TogglePill";
 import { ToolbarButton } from "@/components/ToolbarButton";
 import { useToast } from "@/components/Toast";
 import { StatusPill } from "@/components/blocks/StatusPill";
+import { ClearBlockDialog } from "@/components/cycles/ClearBlockDialog";
 import { AddCycleDialog } from "@/components/cycles/AddCycleDialog";
 import { UnitDrawer } from "@/components/blocks/UnitDrawer";
 import { BODY_ROW, TD, TDR, TH, THEAD_ROW, THR } from "@/components/blocks/tableStyles";
 import { EmptyNote, Panel } from "@/components/overview/Panel";
 import { cycleFlags, getOverview, listUnits, type OverviewBlock, type UnitRow } from "@/lib/api";
-import { canAddCycle, hasNewCycleTab } from "@/lib/cycle-setup-api";
+import { canAddCycle, canManageCycles, hasNewCycleTab } from "@/lib/cycle-setup-api";
 import { blockLinks } from "@/lib/blockcost-api";
 import { cropUsesCycles, pluralise, useCurrentCrop, viewLabel } from "@/lib/crops";
 import { isError } from "@/lib/frappe";
@@ -83,6 +84,7 @@ export function Blocks() {
   const [status, setStatus] = useState("");
   const [type, setType] = useState("");
   const [cycleOnly, setCycleOnly] = useState(false);
+  const [clearing, setClearing] = useState<string | null>(null);
   const [adding, setAdding] = useState<{ unit?: string } | null>(null);
 
   const load = useCallback(async () => {
@@ -345,7 +347,7 @@ export function Blocks() {
                         </td>
                         )}
                         <td className={TD}>
-                          <StatusPill status={u.status} />
+                          <StatusPill status={u.status} clearedOn={u.cleared_on} />
                         </td>
                         <td className={cn(TDR, s?.tasks_open ? "text-[var(--sd-ink)]" : "text-[var(--sd-quiet)]")}>
                           {s ? qty(s.tasks_open) : "—"}
@@ -393,10 +395,13 @@ export function Blocks() {
           accent={accent}
           cropName={crop.name}
           withCrops={hasFieldCrops(crop)}
+          onClear={usesCycles && canManageCycles(crop) && !(units ?? []).find((x) => x.name === open)?.is_group ? () => { setClearing(open); setOpen(null); } : undefined}
           onAddCycle={addable ? () => { setAdding({ unit: open }); setOpen(null); } : undefined}
           onClose={() => setOpen(null)}
         />
       )}
+
+      {clearing && <ClearBlockDialog unit={clearing} isManager={!!crop.boot.is_manager} onClose={() => setClearing(null)} onDone={() => void load()} />}
 
       {addable && (
         <AddCycleDialog crop={crop} units={units ?? []} defaultUnit={adding?.unit} open={!!adding} onOpenChange={(o) => !o && setAdding(null)} onSaved={() => void load()} />

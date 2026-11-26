@@ -28,6 +28,7 @@ export function UnitDrawer({
   cropName,
   withCrops = false,
   onAddCycle,
+  onClear,
   onClose,
 }: {
   name: string;
@@ -44,6 +45,8 @@ export function UnitDrawer({
   withCrops?: boolean;
   /** Shows an Add crop cycle button (avocado blocks). */
   onAddCycle?: () => void;
+  /** Opens the Clear block dialog. */
+  onClear?: () => void;
   onClose: () => void;
 }) {
   const toast = useToast();
@@ -94,7 +97,12 @@ export function UnitDrawer({
             {u ? (
               <>
                 <span>{u.parent ? `${u.unit_type} in ${u.parent}` : u.unit_type}</span>
-                <StatusPill status={u.status} />
+                <StatusPill status={u.status} clearedOn={u.cleared_on as string | null | undefined} />
+                {onClear && (
+                  <Button size="sm" variant="outline" onClick={onClear}>
+                    Clear block
+                  </Button>
+                )}
               </>
             ) : (
               <span>{unitLabel}</span>

@@ -19,6 +19,7 @@ import { StageChip } from "@/components/varieties/StageChip";
 import { listRules, listVarieties, type ActivityRule, type Variety } from "@/lib/varieties-api";
 import { CycleGantt } from "@/components/cycles/CycleGantt";
 import { AddCycleDialog } from "@/components/cycles/AddCycleDialog";
+import { ClearBlockDialog } from "@/components/cycles/ClearBlockDialog";
 import { DeleteCycleDialog } from "@/components/cycles/DeleteCycleDialog";
 import { EditCycleDialog } from "@/components/cycles/EditCycleDialog";
 import { CYCLE_STATUSES, NewCycleDialog } from "@/components/cycles/NewCycleDialog";
@@ -82,6 +83,7 @@ export function Cycles() {
   const [addingExisting, setAddingExisting] = useState(false);
   const [editing, setEditing] = useState<Cycle | null>(null);
   const [deleting, setDeleting] = useState<Cycle | null>(null);
+  const [clearing, setClearing] = useState<string | null>(null);
   const [variety, setVariety] = useState(ALL);
   const [fieldCrop, setFieldCrop] = useState(ALL);
   const [varieties, setVarieties] = useState<Variety[]>([]);
@@ -274,12 +276,14 @@ export function Cycles() {
         </TabsContent>
 
         {picked && (
-          <CycleStageDialog cycle={picked} accent={accent} canRecord={crop.boot.can_plan} onRecordDates={crop.boot.can_plan ? () => { setRecording(picked); setPicked(null); } : undefined} onEdit={canEdit ? () => { setEditing(picked); setPicked(null); } : undefined} onDelete={canEdit ? () => { setDeleting(picked); setPicked(null); } : undefined} onClose={() => setPicked(null)} onChanged={() => void load()} />
+          <CycleStageDialog cycle={picked} accent={accent} canRecord={crop.boot.can_plan} onRecordDates={crop.boot.can_plan ? () => { setRecording(picked); setPicked(null); } : undefined} onEdit={canEdit ? () => { setEditing(picked); setPicked(null); } : undefined} onDelete={canEdit ? () => { setDeleting(picked); setPicked(null); } : undefined} onClear={canEdit ? () => { setClearing(picked.unit); setPicked(null); } : undefined} onClose={() => setPicked(null)} onChanged={() => void load()} />
         )}
 
         {recording && <CycleActualsDialog cycle={recording} onClose={() => setRecording(null)} onSaved={() => void load()} />}
 
         {editing && <EditCycleDialog cycle={editing} crop={crop} units={units} onClose={() => setEditing(null)} onSaved={() => void load()} />}
+
+        {clearing && <ClearBlockDialog unit={clearing} isManager={!!crop.boot.is_manager} onClose={() => setClearing(null)} onDone={() => void load()} />}
 
         {deleting && <DeleteCycleDialog cycle={deleting} isManager={!!crop.boot.is_manager} onClose={() => setDeleting(null)} onDone={() => void load()} />}
 

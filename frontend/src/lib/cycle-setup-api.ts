@@ -94,7 +94,7 @@ export interface CycleEdit {
   pending_request?: PendingRequest | null;
 }
 
-export type ChangeAction = "Edit" | "Delete";
+export type ChangeAction = "Edit" | "Delete" | "Clear block";
 export type ChangeStatus = "Pending" | "Approved" | "Rejected" | "Sent Back";
 
 /** The fields of a request that changed: what they were and what they would become. */
@@ -125,7 +125,56 @@ export interface CycleChangeRequest {
   crop: string | null;
   unit: string | null;
   cycle_title: string | null;
+  /** A Clear block request carries the block, date, reason and note. */
+  payload?: ClearBlockPayload | null;
 }
+
+export const CLEAR_REASONS = ["Uprooted", "Crop failed", "Replanting", "Other"] as const;
+export type ClearReason = (typeof CLEAR_REASONS)[number];
+
+export interface ClearBlockPayload {
+  unit: string;
+  on_date: string;
+  reason: string;
+  note?: string | null;
+}
+
+export interface ClearPreviewCycle {
+  name: string;
+  title?: string | null;
+  variety?: string | null;
+  status?: string | null;
+  start_date?: string | null;
+}
+
+export interface ClearPreview {
+  unit: string;
+  running: number;
+  planned_deleted: number;
+  planned_closed: number;
+  tasks_skipped: number;
+  on_date: string;
+  earliest_start: string | null;
+  cycles: ClearPreviewCycle[];
+  planned: ClearPreviewCycle[];
+}
+
+export interface ClearedSummary {
+  unit: string;
+  on_date: string;
+  running_closed: number;
+  planned_deleted: number;
+  planned_closed: number;
+  tasks_skipped: number;
+  requests_rejected: number;
+}
+
+export const clearBlockPreview = (unit: string, onDate?: string | null) =>
+  rpc<ClearPreview>("clear_block_preview", { unit, ...(onDate ? { on_date: onDate } : {}) });
+
+/** A manager clears at once ({cleared}); anyone else sends a request ({request, pending}). */
+export const clearBlock = (unit: string, onDate: string, reason: string, note?: string | null) =>
+  rpc<{ cleared: ClearedSummary } | { request: string; pending: true }>("clear_block", { unit, on_date: onDate, reason, ...(note ? { note } : {}) });
 
 export const getCycleForEdit = (name: string) => rpc<CycleEdit>("get_cycle_for_edit", { name });
 
