@@ -105,6 +105,20 @@ describe("ProgressTimeline", () => {
     expect(screen.getByRole("link", { name: /b\.pdf/ })).toHaveAttribute("href", "/private/files/b.pdf");
   });
 
+  it("sorts by log date, then time, and shows the time", async () => {
+    mocked.listTaskProgress.mockResolvedValue([
+      log({ name: "A", log_date: "2026-11-24", logged_at: "2026-11-26 10:00:00", notes: "back-dated" }),
+      log({ name: "B", log_date: "2026-11-25", logged_at: "2026-11-25 07:30:00", notes: "early today" }),
+      log({ name: "C", log_date: "2026-11-25", logged_at: "2026-11-25 15:45:00", notes: "late today" }),
+    ]);
+    render(<ProgressTimeline plan="P" task="T-1" />);
+    const items = await screen.findAllByRole("listitem");
+    expect(items.map((i) => /(late today|early today|back-dated)/.exec(i.textContent || "")?.[0])).toEqual([
+      "late today", "early today", "back-dated",
+    ]);
+    expect(items[0]).toHaveTextContent("15:45");
+  });
+
   it("says when nothing is logged", async () => {
     mocked.listTaskProgress.mockResolvedValue([]);
     render(<ProgressTimeline plan="P" task="T-1" />);

@@ -73,6 +73,8 @@ export interface Boot {
   can_manage: boolean;
   /** May change a task's date, postpone or delete it (Production Plan Editor). */
   can_reschedule?: boolean;
+  /** May add a progress log (create on Task Progress Log); false for viewers. */
+  can_log_progress?: boolean;
   /** Approves plan tasks and work (Production Manager); false for assistants and plain supervisors. */
   is_manager?: boolean;
   /** Assistant manager: plans tasks that wait for a manager, and checks work before it is approved. */

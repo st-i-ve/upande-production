@@ -43,6 +43,7 @@ export function TickOffDialog({
   onClose,
   onSaved,
   onLogged,
+  canLog = true,
 }: {
   plan: string;
   task: PlanTask;
@@ -52,6 +53,8 @@ export function TickOffDialog({
   onSaved: (task: PlanTask) => void;
   /** A progress log was added; the page refreshes the row's "Last log". */
   onLogged?: () => void;
+  /** False for viewers and for a task awaiting a manager while the assistant step is on. */
+  canLog?: boolean;
 }) {
   const [status, setStatus] = useState(task.status || "Open");
   const [rows, setRows] = useState<EntryRow[]>([]);
@@ -233,7 +236,7 @@ export function TickOffDialog({
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between gap-3">
               <Label>Progress log</Label>
-              <Button type="button" variant="outline" size="sm" onClick={() => setLogging(true)}>
+              <Button type="button" variant="outline" size="sm" disabled={!canLog} onClick={() => setLogging(true)}>
                 Log progress
               </Button>
             </div>

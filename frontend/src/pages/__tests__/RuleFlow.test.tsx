@@ -99,6 +99,13 @@ describe("tick-off", () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
     expect(mocked.recordTaskWork.mock.calls[1][6]).toBe("Urgent");
   });
+
+  it("disables Log progress when the user cannot log", () => {
+    const { rerender } = render(<TickOffDialog plan="WP-1" task={task} people={[]} canSeePay onClose={() => {}} onSaved={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "Log progress" })).toBeEnabled();
+    rerender(<TickOffDialog plan="WP-1" task={task} people={[]} canSeePay canLog={false} onClose={() => {}} onSaved={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "Log progress" })).toBeDisabled();
+  });
 });
 
 describe("rule flags", () => {

@@ -540,6 +540,7 @@ export function Plan() {
           onClose={() => setPicked(null)}
           onSaved={applySaved}
           onLogged={() => void load(true)}
+          canLog={boot.can_log_progress !== false && !(boot.assistant_step && !!selected.awaiting_approval)}
         />
       )}
       {adding && (

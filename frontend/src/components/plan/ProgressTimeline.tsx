@@ -4,6 +4,9 @@ import { q, rowDate } from "@/components/plan/fmt";
 import { listTaskProgress, type ProgressLog } from "@/lib/api";
 import { isError } from "@/lib/frappe";
 
+/** "08:15" from "2026-11-25 08:15:30(.123)". */
+const timeOf = (s: string | null | undefined) => /\d{2}:\d{2}/.exec(s || "")?.[0] ?? "";
+
 /** A task's progress logs, newest first. Re-reads when `refreshKey` changes. */
 export function ProgressTimeline({ plan, task, refreshKey = 0 }: { plan: string; task: string; refreshKey?: number }) {
   const [logs, setLogs] = useState<ProgressLog[] | null>(null);
@@ -18,7 +21,9 @@ export function ProgressTimeline({ plan, task, refreshKey = 0 }: { plan: string;
         setLogs([]);
       } else {
         setFailure(null);
-        setLogs([...(r as ProgressLog[])].sort((a, b) => (a.logged_at < b.logged_at ? 1 : a.logged_at > b.logged_at ? -1 : 0)));
+        // newest first, matching the server: log date, then when it was logged
+        const key = (l: ProgressLog) => `${l.log_date} ${l.logged_at}`;
+        setLogs([...(r as ProgressLog[])].sort((a, b) => (key(a) < key(b) ? 1 : key(a) > key(b) ? -1 : 0)));
       }
     });
     return () => {
@@ -39,7 +44,7 @@ export function ProgressTimeline({ plan, task, refreshKey = 0 }: { plan: string;
           <li key={l.name} className="flex flex-col gap-1.5 py-2.5 text-[13px]">
             <div className="flex items-center gap-2 text-[12.5px] text-[var(--sd-muted)]">
               <span className="font-medium text-[var(--sd-ink)]">{l.logged_by_name || l.logged_by}</span>
-              <span className="tabular-nums">{rowDate(l.log_date)}</span>
+              <span className="tabular-nums">{rowDate(l.log_date)}{timeOf(l.logged_at) ? ` · ${timeOf(l.logged_at)}` : ""}</span>
               {l.qty > 0 && (
                 <span className="ml-auto tabular-nums text-[var(--sd-ink)]">
                   {q(l.qty)}
