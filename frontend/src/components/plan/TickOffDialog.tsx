@@ -14,6 +14,8 @@ import { SearchPicker } from "@/components/ui/search-picker";
 import { Textarea } from "@/components/ui/textarea";
 import { BlockNotice, OverrideReasonDialog, RuleFlag } from "@/components/rules/RuleParts";
 import { ruleFailure, type RuleFailure } from "@/lib/rules";
+import { LogProgressDialog } from "@/components/plan/LogProgressDialog";
+import { ProgressTimeline } from "@/components/plan/ProgressTimeline";
 import { TargetBadge } from "@/components/casuallabourers/TargetBadge";
 import { STATUSES, StatusPill } from "@/components/plan/badges";
 import { recordTaskWork, type PlanTask, type CasualLabourer } from "@/lib/api";
@@ -55,6 +57,8 @@ export function TickOffDialog({
   const [failure, setFailure] = useState<string | null>(null);
   const [rule, setRule] = useState<RuleFailure | null>(null);
   const seq = useRef(0);
+  const [logging, setLogging] = useState(false);
+  const [logsKey, setLogsKey] = useState(0);
 
   const options = useMemo(
     () => people.map((p) => ({ value: p.name, label: p.employee_name || p.name })),
@@ -222,6 +226,18 @@ export function TickOffDialog({
           <Textarea id="tick-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Anything the next shift should know" />
         </div>
 
+        {task.name && (
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between gap-3">
+              <Label>Progress log</Label>
+              <Button type="button" variant="outline" size="sm" onClick={() => setLogging(true)}>
+                Log progress
+              </Button>
+            </div>
+            <ProgressTimeline plan={plan} task={task.name} refreshKey={logsKey} />
+          </div>
+        )}
+
         {rule?.status === "Block" && <BlockNotice breaches={rule.breaches} />}
         {failure && (
           <p role="alert" className="rounded-[var(--sd-radius)] bg-[var(--sd-alert-error)] px-3 py-2 text-[13px] text-[var(--sd-ink)]">
@@ -241,6 +257,17 @@ export function TickOffDialog({
           </div>
         </div>
       </DialogContent>
+      {logging && task.name && (
+        <LogProgressDialog
+          plan={plan}
+          task={task}
+          onClose={() => setLogging(false)}
+          onLogged={() => {
+            setLogging(false);
+            setLogsKey((k) => k + 1);
+          }}
+        />
+      )}
       {rule?.status === "Warn" && (
         <OverrideReasonDialog breaches={rule.breaches} busy={busy} onCancel={() => setRule(null)} onConfirm={(reason) => void save(reason)} />
       )}

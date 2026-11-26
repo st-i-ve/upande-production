@@ -333,6 +333,8 @@ export interface PlanTask {
   assigned_by?: string | null;
   forwarded_by?: string | null;
   forwarded_on?: string | null;
+  /** Date of the newest progress log on this task. */
+  last_progress_on?: string | null;
   /** Set to 1 on a row passed to `savePlanTasks` to delete it. */
   _delete?: 1;
 }
@@ -340,6 +342,27 @@ export interface PlanTask {
 /** Managers only. Approves awaiting tasks (all of the plan's when `tasks` is omitted) and hands them to the supervisors. */
 export const forwardPlanTasks = (plan: string, tasks?: string[]) =>
   rpc<{ forwarded: string[] }>("forward_plan_tasks", { plan, tasks: tasks ?? null });
+
+export interface ProgressLog {
+  name: string;
+  plan: string;
+  task: string;
+  log_date: string;
+  logged_at: string;
+  logged_by: string;
+  logged_by_name: string | null;
+  qty: number;
+  uom: string | null;
+  notes: string | null;
+  attachments: Array<{ file_url: string; file_name: string; is_image: 0 | 1 | boolean }>;
+}
+
+/** A progress log on a task: notes, quantity done, and private file URLs (upload them first). Any number a day. */
+export const logTaskProgress = (plan: string, task: string, notes: string, qty: number | null, files: string[]) =>
+  rpc<ProgressLog>("log_task_progress", { plan, task, notes, qty, files });
+
+/** A task's progress logs, newest first. */
+export const listTaskProgress = (plan: string, task: string) => rpc<ProgressLog[]>("list_task_progress", { plan, task });
 
 export interface Plan {
   plan: string | null;

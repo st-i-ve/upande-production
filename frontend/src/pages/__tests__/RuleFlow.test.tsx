@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PlanTask, UnitRow } from "@/lib/api";
 
-vi.mock("@/lib/api", () => ({ savePlanTasks: vi.fn(), recordTaskWork: vi.fn() }));
+vi.mock("@/lib/api", () => ({ savePlanTasks: vi.fn(), recordTaskWork: vi.fn(), listTaskProgress: vi.fn(() => Promise.resolve([])) }));
 
 import * as api from "@/lib/api";
 import { AddTaskDialog } from "@/components/plan/AddTaskDialog";

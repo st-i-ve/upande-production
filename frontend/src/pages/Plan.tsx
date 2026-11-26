@@ -366,7 +366,12 @@ export function Plan() {
                         </span>
                         <QtyBar planned={t.planned_qty} done={t.done_qty} pending={t.pending_qty ?? 0} color={accent} className="h-1.5" />
                       </span>
-                      <span className="w-24 text-[12.5px] tabular-nums text-[var(--sd-muted)]">{rowDate(t.due_date)}</span>
+                      <span className="w-24 text-[12.5px] tabular-nums text-[var(--sd-muted)]">
+                        {rowDate(t.due_date)}
+                        {t.last_progress_on && (
+                          <span data-testid="last-progress" className="block text-[11.5px]">Last log {rowDate(t.last_progress_on)}</span>
+                        )}
+                      </span>
                       <span className="w-32 truncate text-[12.5px] text-[var(--sd-muted)]" title={t.supervisor_name ? `Supervisor: ${t.supervisor_name}` : "No supervisor"}>
                         {t.supervisor_name || "No supervisor"}
                       </span>

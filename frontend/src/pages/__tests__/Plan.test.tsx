@@ -14,6 +14,8 @@ vi.mock("@/lib/api", () => ({
   saveSupervisorPlan: vi.fn(),
   copySupervisorPlan: vi.fn(),
   forwardPlanTasks: vi.fn(),
+  listTaskProgress: vi.fn(),
+  logTaskProgress: vi.fn(),
 }));
 
 import * as api from "@/lib/api";
@@ -71,6 +73,7 @@ const mocked = vi.mocked(api);
 
 beforeEach(() => {
   vi.resetAllMocks();
+  mocked.listTaskProgress.mockResolvedValue([]);
   mocked.listUnits.mockResolvedValue({ units: [] });
   mocked.listOperations.mockResolvedValue({ rows: [] });
   mocked.listCasualLabourers.mockResolvedValue({ people: [{ name: "EMP-1", employee_name: "Jane Wanjiru", image: null }] });
@@ -102,6 +105,19 @@ describe("Plan", () => {
     expect(within(a).getByText("Late")).toBeTruthy();
     expect(within(a).getByText("1/2 done")).toBeTruthy();
     expect(within(screen.getByRole("region", { name: "Block B" })).getByText("Weeding")).toBeTruthy();
+  });
+
+  it("shows the last progress log date on a task row", async () => {
+    mocked.getPlan.mockResolvedValue({
+      plan: "PLAN-1",
+      week_start: "2026-10-26",
+      week_end: "2026-11-01",
+      tasks: [task({ name: "T1", last_progress_on: "2026-10-28" }), task({ name: "T2", operation_name: "Weeding" })],
+    });
+    renderPlan();
+    const a = await screen.findByRole("region", { name: "Block A" });
+    expect(within(a).getAllByTestId("last-progress")).toHaveLength(1);
+    expect(within(a).getByTestId("last-progress").textContent).toMatch(/Last log/);
   });
 
   it("labels each task with its crop and variety and filters by crop in a section with crops", async () => {
