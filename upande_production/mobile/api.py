@@ -192,9 +192,9 @@ def productionGetWeekPlan():
 		mine, emp, message = _scope(data)
 		if name:
 			task_filters = unit_filter({"parent": name, "parenttype": "Production Work Plan", **task_approval.visible_filter()})
-			if mine:
-				task_filters["supervisor"] = emp or "\0no-employee"
 			tasks = frappe.get_all("Work Plan Task", filters=task_filters, fields=TASK_FIELDS, order_by="due_date asc, idx asc")
+			if mine:
+				tasks = _only_mine(tasks, emp, crop, year, week, farm)
 			task_approval.mask_awaiting(tasks)
 			_strip_pay(tasks, "rate")
 			labourers.attach_operation_targets(tasks)
@@ -567,6 +567,14 @@ def _scope(data) -> tuple[bool, str | None, str | None]:
 	return mine, emp, (NO_EMPLOYEE_MESSAGE if mine and not emp else None)
 
 
+def _only_mine(tasks, emp, crop, year, week, farm=None) -> list:
+	"""Keep the tasks `emp` should see: their own, those of an activity they share on a block, and, for a
+	block's overseer, those nobody else is assigned to."""
+	if not emp:
+		return []
+	return supervisors.visible_to(emp, tasks, supervisors.assignments(crop, year, week, farm or None))
+
+
 def _my_blocks(crop, farm, year, week) -> dict:
 	"""The logged-in user's supervisor assignment for the week (blocks they supervise)."""
 	return supervisors.my_assignments(_my_employee(), crop, year, week, farm or None)
@@ -633,12 +641,13 @@ def productionListWeekPlans():
 		task_filters = unit_filter({"parenttype": "Production Work Plan", "parent": ("in", [r.name for r in rows] or [""]),
 			**task_approval.visible_filter()})
 		mine, emp, message = _scope(data)
-		if mine:
-			task_filters["supervisor"] = emp or "\0no-employee"
 		tasks = frappe.get_all(
 			"Work Plan Task", filters=task_filters,
-			fields=["parent", "status", "deviation", "due_date", "pending_qty"],
+			fields=["parent", "status", "deviation", "due_date", "pending_qty", "unit", "operation", "supervisor"],
 		)
+		if mine:
+			by_week = {r.name: (r.plan_year, r.plan_week) for r in rows}
+			tasks = [t for p in by_week for t in _only_mine([x for x in tasks if x.parent == p], emp, crop, *by_week[p], farm)]
 		by_plan = {}
 		for t in tasks:
 			by_plan.setdefault(t.parent, []).append(t)
@@ -687,11 +696,10 @@ def productionGetPlanDetail():
 			filters["unit"] = unit
 		else:
 			filters = unit_filter(filters)
-		if mine:
-			# only the logged-in supervisor's own tasks (nothing when the user has no Employee link)
-			filters["supervisor"] = emp or "\0no-employee"
 		tasks = frappe.get_all("Work Plan Task", filters=filters, fields=PLAN_TASK_FIELDS,
 			order_by="due_date asc, idx asc")
+		if mine:  # the logged-in supervisor's own and shared tasks (nothing when the user has no Employee link)
+			tasks = _only_mine(tasks, emp, crop, year, week, farm or out["farm"])
 		task_approval.mask_awaiting(tasks)
 		crew = _task_entries(name)
 		last_log = progress.latest_by_task(name)

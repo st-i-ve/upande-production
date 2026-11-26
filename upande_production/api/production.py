@@ -461,7 +461,7 @@ def get_supervisor_plan(crop, farm, year, week):
 @frappe.whitelist(methods=["POST"])
 @run
 def save_supervisor_plan(crop, farm, year, week, assignments=None):
-	"""Replace the week's assignments ([{unit, supervisor}]); plan tasks of those blocks follow. Managers only."""
+	"""Replace the week's assignments ([{unit, supervisor, category}], category blank = overseer, order = sharing order); plan tasks of those blocks follow. Managers only."""
 	_need("Production Supervisor Assignment", "write")
 	res = supervisors.save_week(crop, _farm(farm), int(year), int(week), as_dict(assignments) or [])
 	return {**supervisors.get_week(crop, _farm(farm), int(year), int(week)), **res}

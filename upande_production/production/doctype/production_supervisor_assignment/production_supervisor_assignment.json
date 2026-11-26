@@ -12,6 +12,7 @@
   "farm",
   "crop",
   "unit",
+  "category",
   "supervisor",
   "supervisor_name",
   "user",
@@ -62,6 +63,14 @@
    "in_list_view": 1
   },
   {
+   "fieldname": "category",
+   "fieldtype": "Select",
+   "label": "Activity",
+   "options": "\nSpraying\nWeeding\nFertilising\nIrrigation\nHarvesting\nPruning\nFeeding\nMulching\nOther",
+   "description": "Blank = the overseer of the block, who takes every activity nobody else is assigned to.",
+   "in_list_view": 1
+  },
+  {
    "fieldname": "supervisor",
    "ignore_user_permissions": 1,
    "fieldtype": "Link",
@@ -93,7 +102,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-25 10:00:00.000000",
+ "modified": "2026-11-26 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production Supervisor Assignment",

@@ -20,11 +20,11 @@ class ProductionSupervisorAssignment(Document):
 		self.farm = self.farm or unit.farm
 		dup = frappe.db.get_value("Production Supervisor Assignment", {
 			"unit": self.unit, "plan_year": self.plan_year, "plan_week": self.plan_week, "crop": self.crop,
-			"name": ("!=", self.name or ""),
+			"category": self.category or "", "supervisor": self.supervisor, "name": ("!=", self.name or ""),
 		})
 		if dup:
 			frappe.throw(
-				_("{0} already has a supervisor for week {1} of {2}: {3}").format(
+				_("{0} already lists this supervisor for that activity in week {1} of {2}: {3}").format(
 					self.unit, self.plan_week, self.plan_year, dup),
 				frappe.DuplicateEntryError,
 			)
