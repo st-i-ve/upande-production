@@ -58,7 +58,7 @@ export function SupervisorCard({ card, onOpen }: { card: Card; onOpen: () => voi
         <Chip>{t.open} open</Chip>
         {t.late > 0 && <Chip tone="bad">{t.late} late</Chip>}
         <Chip>{kpis.crew} in crew</Chip>
-        {kpis.pending > 0 && <Chip tone="warn">{kpis.pending} to approve</Chip>}
+        {!!kpis.pending && <Chip tone="warn">{kpis.pending} to approve</Chip>}
       </span>
     </button>
   );

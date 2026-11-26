@@ -1,11 +1,9 @@
-from unittest.mock import patch
-
 import frappe
 from frappe.tests import IntegrationTestCase
 from frappe.utils import add_days, today
 
 from upande_production.api import supervisors as api
-from upande_production.production.logic import plans, supervisors
+from upande_production.production.logic import plans, supervisor_page, supervisors
 from upande_production.production.logic.weeks import iso_of
 from upande_production.production.tests.labour_mode import use_builtin_labour
 
@@ -46,6 +44,8 @@ class TestSupervisorsPage(IntegrationTestCase):
 		cls.u2 = _make("Production Unit", unit_name="SPG B2", crop=cls.crop.name, farm=cls.farm.name, unit_type="Orchard Block", company=cls.company)
 		cls.mgr_user = _user("spg.mgr@x.test", "Production Manager")
 		cls.sup_user = _user("spg.sup@x.test", "Production Supervisor")
+		cls.asst_user = _user("spg.asst@x.test", "Production Assistant Manager")
+		cls.view_user = _user("spg.view@x.test", "Production Viewer")
 		cls.year, cls.week = iso_of(today())
 
 	@classmethod
@@ -56,16 +56,14 @@ class TestSupervisorsPage(IntegrationTestCase):
 
 	def setUp(self):
 		frappe.db.savepoint("spg_test")
-		self.addCleanup(lambda: frappe.db.sql("rollback to savepoint spg_test"))
+		self.addCleanup(frappe.db.rollback, save_point="spg_test")
 		self.addCleanup(frappe.set_user, "Administrator")
-		# endpoints roll back on error, which would also drop the class fixtures and this savepoint
-		patcher = patch.object(frappe.db, "rollback")
-		patcher.start()
-		self.addCleanup(patcher.stop)
 		self.a = _employee("SPGA", self.company, cell_number="0700111222")
 		self.b = _employee("SPGB", self.company)
 		self.psa = _make("Production Supervisor", employee=self.a.name)
 		self.psb = _make("Production Supervisor", employee=self.b.name)
+		self.me = _employee("SPGMe", self.company, user_id=self.sup_user)
+		self.psme = _make("Production Supervisor", employee=self.me.name)
 
 	def _plan(self):
 		supervisors.save_week(self.crop.name, self.farm.name, self.year, self.week, [
@@ -84,7 +82,7 @@ class TestSupervisorsPage(IntegrationTestCase):
 		return _make("Casual Labourer", employee=emp.name, active=active, supervisor=sup.name)
 
 	def _row(self, emp, **kw):
-		rows = api.list_supervisors(crop=self.crop.name, year=self.year, week=self.week, **kw)
+		rows = supervisor_page.list_supervisors(crop=self.crop.name, year=self.year, week=self.week, **kw)
 		return next((r for r in rows if r["employee"] == emp.name), None)
 
 	def test_list_card_fields_and_blocks(self):
@@ -129,11 +127,90 @@ class TestSupervisorsPage(IntegrationTestCase):
 		self.psb.save()
 		self.assertFalse(self._row(self.b)["active"])
 
+	def test_tasks_follow_the_sharing_rule_not_the_stored_supervisor(self):
+		plan = self._plan()
+		frappe.db.sql("update `tabWork Plan Task` set supervisor = NULL where parent = %s", plan.name)
+		k = self._row(self.a)["kpis"]["tasks"]
+		self.assertEqual((k["done"], k["late"], k["open"]), (1, 1, 1))
+		self.assertEqual(self._row(self.b)["kpis"]["tasks"]["total"], 1)  # u2's weeding; spraying is a's
+		d = supervisor_page.get_supervisor(self.a.name, crop=self.crop.name, year=self.year, week=self.week)
+		self.assertEqual(d["tasks"]["total"], 3)
+
+	def test_inactive_supervisor_holds_no_blocks(self):
+		self._plan()
+		self.psa.active = 0
+		self.psa.save()
+		row = self._row(self.a)
+		self.assertEqual(row["kpis"]["blocks"], 0)
+		self.assertEqual(row["kpis"]["tasks"]["total"], 0)
+		d = supervisor_page.get_supervisor(self.a.name, crop=self.crop.name, year=self.year, week=self.week)
+		self.assertEqual(d["blocks"], [])
+
+	def _crew_with_pending(self, sup):
+		x = _employee("SPGX", self.company, image="/files/x.png")
+		self._labourer(x, sup)
+		frappe.db.sql("""insert into `tabCasual Labour Work` (name, employee, crop, docstatus, approval_status, creation, modified, owner, modified_by)
+			values ('SPGW-9', %s, %s, 0, 'Pending', now(), now(), 'Administrator', 'Administrator')""", (x.name, self.crop.name))
+		return x
+
+	def _as(self, user, fn, *a, **kw):
+		frappe.set_user(user)
+		try:
+			return fn(*a, **kw)
+		finally:
+			frappe.set_user("Administrator")
+
+	def test_managers_and_assistants_see_every_crew_and_pending(self):
+		x = self._crew_with_pending(self.a)
+		for user in (self.mgr_user, self.asst_user):
+			rows = self._as(user, api.list_supervisors, crop=self.crop.name, year=self.year, week=self.week)
+			self.assertEqual(next(r for r in rows if r["employee"] == self.a.name)["kpis"]["pending"], 1, user)
+			d = self._as(user, api.get_supervisor, self.a.name, crop=self.crop.name)
+			self.assertEqual([l["employee"] for l in d["labourers"]], [x.name], user)
+			self.assertFalse(d["crew_hidden"])
+
+	def test_plain_supervisor_sees_own_crew_but_not_others(self):
+		self._crew_with_pending(self.a)
+		mine = self._crew_with_pending_for_me()
+		rows = self._as(self.sup_user, api.list_supervisors, crop=self.crop.name, year=self.year, week=self.week)
+		by = {r["employee"]: r for r in rows}
+		self.assertIsNone(by[self.a.name]["kpis"]["pending"])
+		self.assertEqual(by[self.a.name]["kpis"]["crew"], 1)  # the count stays
+		self.assertEqual(by[self.me.name]["kpis"]["pending"], 1)
+		other = self._as(self.sup_user, api.get_supervisor, self.a.name, crop=self.crop.name)
+		self.assertEqual(other["labourers"], [])
+		self.assertTrue(other["crew_hidden"])
+		self.assertIsNone(other["pending"])
+		own = self._as(self.sup_user, api.get_supervisor, self.me.name, crop=self.crop.name)
+		self.assertEqual([l["employee"] for l in own["labourers"]], [mine.name])
+		self.assertFalse(own["crew_hidden"])
+
+	def _crew_with_pending_for_me(self):
+		y = _employee("SPGY", self.company)
+		self._labourer(y, self.me)
+		frappe.db.sql("""insert into `tabCasual Labour Work` (name, employee, crop, docstatus, approval_status, creation, modified, owner, modified_by)
+			values ('SPGW-8', %s, %s, 0, 'Checked', now(), now(), 'Administrator', 'Administrator')""", (y.name, self.crop.name))
+		return y
+
+	def test_viewer_gets_cards_without_crew_or_pending(self):
+		self._crew_with_pending(self.a)
+		rows = self._as(self.view_user, api.list_supervisors, crop=self.crop.name, year=self.year, week=self.week)
+		self.assertIsNone(next(r for r in rows if r["employee"] == self.a.name)["kpis"]["pending"])
+		d = self._as(self.view_user, api.get_supervisor, self.a.name, crop=self.crop.name)
+		self.assertEqual(d["labourers"], [])
+		self.assertFalse(d["can_edit"])
+
+	def test_crop_is_required(self):
+		with self.assertRaises(frappe.ValidationError):
+			supervisor_page.list_supervisors(None)
+		with self.assertRaises(frappe.ValidationError):
+			supervisor_page.get_supervisor(self.a.name, None)
+
 	def test_get_supervisor_detail(self):
 		self._plan()
 		x = _employee("SPGX", self.company, image="/files/x.png")
 		self._labourer(x, self.a)
-		d = api.get_supervisor(self.a.name, crop=self.crop.name, year=self.year, week=self.week)
+		d = supervisor_page.get_supervisor(self.a.name, crop=self.crop.name, year=self.year, week=self.week)
 		blocks = {b["unit"]: b for b in d["blocks"]}
 		self.assertTrue(blocks[self.u1.name]["overseer"])
 		self.assertEqual(blocks[self.u2.name]["categories"], ["Spraying"])
@@ -142,10 +219,11 @@ class TestSupervisorsPage(IntegrationTestCase):
 		lab = d["labourers"][0]
 		self.assertEqual((lab["employee"], lab["image"], lab["active"]), (x.name, "/files/x.png", 1))
 		self.assertEqual(d["supervisor"]["employee"], self.a.name)
-		self.assertIn("can_edit", d)
+		self.assertTrue(d["can_edit"])
 
 	def test_get_supervisor_unknown(self):
-		self.assertIn("error", api.get_supervisor("NOPE-1"))
+		with self.assertRaises(frappe.ValidationError):
+			supervisor_page.get_supervisor("NOPE-1", self.crop.name)
 
 	def test_save_supervisor_create_defaults_and_edit(self):
 		e = _employee("SPGN", self.company, cell_number="0711", image="/files/n.png")
@@ -154,21 +232,25 @@ class TestSupervisorsPage(IntegrationTestCase):
 		doc = frappe.get_doc("Production Supervisor", e.name)
 		self.assertEqual((doc.phone, doc.image, doc.notes), ("0711", "/files/n.png", "hi"))
 		self.assertEqual([c.crop for c in doc.crops], [self.crop.name])
-		res = api.save_supervisor({"employee": e.name, "active": 0, "crops": []})
+		api.save_supervisor({"employee": e.name, "active": 0, "crops": []})
 		doc.reload()
 		self.assertEqual((doc.active, len(doc.crops), doc.notes), (0, 0, "hi"))
 
 	def test_save_supervisor_manager_only(self):
 		e = _employee("SPGM", self.company)
 		frappe.set_user(self.sup_user)
-		res = api.save_supervisor({"employee": e.name})
-		self.assertIn("error", res)
+		with self.assertRaises(frappe.PermissionError):
+			supervisor_page.save_supervisor({"employee": e.name})
 		self.assertFalse(frappe.db.exists("Production Supervisor", e.name))
 		frappe.set_user(self.mgr_user)
 		self.assertNotIn("error", api.save_supervisor({"employee": e.name}))
 		self.assertTrue(frappe.db.exists("Production Supervisor", e.name))
 
-	def test_list_visible_to_supervisor_role(self):
-		frappe.set_user(self.sup_user)
-		rows = api.list_supervisors(crop=self.crop.name)
-		self.assertIsInstance(rows, list)
+	def test_save_supervisor_validates_crops_and_left_employee(self):
+		e = _employee("SPGL", self.company)
+		with self.assertRaises(frappe.ValidationError):
+			supervisor_page.save_supervisor({"employee": e.name, "crops": "avocado"})
+		frappe.db.set_value("Employee", e.name, "status", "Left")
+		with self.assertRaises(frappe.ValidationError):
+			supervisor_page.save_supervisor({"employee": e.name})
+		self.assertNotIn("error", {"x": 1} | supervisor_page.save_supervisor({"employee": e.name, "active": 0}))

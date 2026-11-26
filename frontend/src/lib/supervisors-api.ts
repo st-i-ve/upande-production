@@ -20,7 +20,8 @@ export interface SupervisorCard {
   user: string | null;
   farm: string | null;
   active: boolean;
-  kpis: { blocks: number; tasks: TaskCounts; crew: number; pending: number };
+  /** `pending` is null when the viewer may not see this supervisor's crew approvals. */
+  kpis: { blocks: number; tasks: TaskCounts; crew: number; pending: number | null };
 }
 
 export interface SupervisorBlockRow {
@@ -56,7 +57,11 @@ export interface SupervisorDetail {
   can_edit: boolean;
   blocks: SupervisorBlockRow[];
   tasks: TaskCounts;
-  pending: number;
+  /** null when hidden from the viewer. */
+  pending: number | null;
+  crew_count: number;
+  /** The crew list is withheld (a plain supervisor viewing another, or a viewer). */
+  crew_hidden: boolean;
   labourers: SupervisorLabourer[];
 }
 
@@ -68,10 +73,10 @@ export interface SupervisorInput {
   notes?: string | null;
 }
 
-export const listSupervisors = (crop: string | null, year: number, week: number) =>
+export const listSupervisors = (crop: string, year: number, week: number) =>
   rpc<SupervisorCard[]>("list_supervisors", { crop, year, week });
 
-export const getSupervisor = (employee: string, crop: string | null, year: number, week: number) =>
+export const getSupervisor = (employee: string, crop: string, year: number, week: number) =>
   rpc<SupervisorDetail>("get_supervisor", { employee, crop, year, week });
 
 export const saveSupervisor = (data: SupervisorInput) =>

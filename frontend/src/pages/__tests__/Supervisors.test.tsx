@@ -46,7 +46,7 @@ beforeEach(() => {
     supervisor: { employee: "E1", employee_name: "Grace Wambui", image: null, phone: "0700111222", user: null, farm: null, active: true, notes: null, crops: [] },
     year: 2026, week: 48, can_edit: true,
     blocks: [{ unit: "B1", unit_name: "Block 1", crop: "Avocado", categories: ["Spraying"], overseer: true }],
-    tasks: { done: 3, open: 4, late: 1, skipped: 0, total: 8 }, pending: 2,
+    tasks: { done: 3, open: 4, late: 1, skipped: 0, total: 8 }, pending: 2, crew_count: 1, crew_hidden: false,
     labourers: [{ employee: "L1", employee_name: "Jane Crew", image: null, active: 1, crew: "A" }],
   });
   vi.mocked(api.saveSupervisor).mockResolvedValue({ employee: "E9", employee_name: "Newbie Hand" });
@@ -88,6 +88,17 @@ describe("Supervisors page", () => {
     fireEvent.click(await screen.findByText("Newbie Hand"));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(api.saveSupervisor).toHaveBeenCalledWith(expect.objectContaining({ employee: "E9", active: true })));
+  });
+
+  it("shows no crew list or approvals when the server withholds them", async () => {
+    vi.mocked(api.getSupervisor).mockResolvedValue({
+      ...(await api.getSupervisor("E1", "Avocado", 1, 1)) as api.SupervisorDetail,
+      pending: null, crew_hidden: true, labourers: [], crew_count: 3,
+    });
+    renderIt();
+    fireEvent.click(await screen.findByText("Grace Wambui"));
+    expect(await screen.findByText(/only shown to managers/)).toBeTruthy();
+    expect(screen.queryByText("Jane Crew")).toBeNull();
   });
 
   it("hides Add supervisor for a non-manager", async () => {

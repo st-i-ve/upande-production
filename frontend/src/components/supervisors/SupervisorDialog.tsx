@@ -22,7 +22,7 @@ export function SupervisorDialog({
 }: {
   employee: string;
   name: string;
-  crop: string | null;
+  crop: string;
   year: number;
   week: number;
   onClose: () => void;
@@ -77,7 +77,7 @@ export function SupervisorDialog({
               <KpiCard label="Blocks" value={data.blocks.length} hint={`week ${data.week}, ${data.year}`} />
               <KpiCard label="Done" value={data.tasks.done} hint={`of ${data.tasks.total} tasks`} tone="good" />
               <KpiCard label="Open" value={data.tasks.open} hint={data.tasks.late ? `${data.tasks.late} late` : "none late"} tone={data.tasks.late ? "warning" : "default"} />
-              <KpiCard label="To approve" value={data.pending} hint="crew entries pending" tone={data.pending ? "warning" : "default"} />
+              <KpiCard label="To approve" value={data.pending ?? "—"} hint={data.pending == null ? "not shown to you" : "crew entries pending"} tone={data.pending ? "warning" : "default"} />
             </KpiGrid>
 
             <section>
@@ -102,8 +102,10 @@ export function SupervisorDialog({
             </section>
 
             <section>
-              <h3 className="mb-2 text-[13px] font-semibold text-[var(--sd-ink)]">Casual labourers ({data.labourers.length})</h3>
-              {data.labourers.length === 0 ? (
+              <h3 className="mb-2 text-[13px] font-semibold text-[var(--sd-ink)]">Casual labourers ({data.crew_hidden ? data.crew_count : data.labourers.length})</h3>
+              {data.crew_hidden ? (
+                <p className="text-[13px] text-[var(--sd-muted)]">The crew list is only shown to managers and to the supervisor themself.</p>
+              ) : data.labourers.length === 0 ? (
                 <p className="text-[13px] text-[var(--sd-muted)]">No casual labourers are assigned to this supervisor.</p>
               ) : (
                 <ul className="grid gap-2 sm:grid-cols-2">
