@@ -21,4 +21,7 @@ def employee_updated(doc, method=None):
 	crops = frappe.get_all("Production Supervisor Crop", filters={"parent": doc.name, "parenttype": "Production Supervisor"}, pluck="crop")
 	from upande_production.production.logic import supervisors
 
-	supervisors.refresh_current_week(crops)
+	try:
+		supervisors.refresh_current_week(crops)
+	except Exception:  # re-routing is a courtesy: it must never block an HR Employee save
+		frappe.log_error(title="Supervisor re-route after Employee left failed")

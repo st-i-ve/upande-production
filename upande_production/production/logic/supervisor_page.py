@@ -200,15 +200,16 @@ def save_supervisor(data) -> dict:
 		frappe.throw(_("Choose an employee."), frappe.ValidationError)
 	if "crops" in data and not isinstance(data["crops"], (list, tuple)):
 		frappe.throw(_("Sections must be a list."), frappe.ValidationError)
-	if frappe.db.exists("Production Supervisor", employee):
+	is_new = not frappe.db.exists("Production Supervisor", employee)
+	if not is_new:
 		doc = frappe.get_doc("Production Supervisor", employee)
 	else:
 		doc = frappe.get_doc({"doctype": "Production Supervisor", "employee": employee})
-	was_active = bool(doc.active) if not doc.is_new() else None
+	was_active = None if is_new else bool(doc.active)
 	old_crops = [c.crop for c in doc.crops]
-	# a manager limited to some crops may only touch records whose crops are all theirs (no crops = every crop)
+	# a manager limited to some crops may only touch records whose crops are all theirs (no crops = every crop; a new record has no old crops to check)
 	new_crops = [c for c in dict.fromkeys(data["crops"]) if c] if "crops" in data else old_crops
-	for crops in (old_crops, new_crops):
+	for crops in ((new_crops,) if is_new else (old_crops, new_crops)):
 		if (not crops and avocado_only_crop_keys()) or not all(crop_allowed(c) for c in crops):
 			frappe.throw(_("You are not permitted to edit a supervisor for these crops."), frappe.PermissionError)
 	if "active" in data:

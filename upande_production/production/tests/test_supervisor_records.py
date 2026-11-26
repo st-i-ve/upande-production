@@ -150,6 +150,16 @@ class TestSupervisorRecords(IntegrationTestCase):
 		emp.save()
 		self.assertEqual(frappe.db.get_value("Production Supervisor", self.b.name, "active"), 0)
 
+	def test_a_failing_reroute_does_not_block_the_employee_save(self):
+		from unittest.mock import patch
+		_make("Production Supervisor", employee=self.b.name, active=1)
+		emp = frappe.get_doc("Employee", self.b.name)
+		emp.status = "Inactive"
+		with patch.object(supervisors, "refresh_current_week", side_effect=RuntimeError("boom")):
+			emp.save()
+		self.assertEqual(frappe.db.get_value("Employee", self.b.name, "status"), "Inactive")
+		self.assertEqual(frappe.db.get_value("Production Supervisor", self.b.name, "active"), 0)
+
 	def test_patch_registers_an_inactive_employee_as_inactive(self):
 		_make("Production Supervisor Assignment", crop=self.crop.name, unit=self.unit.name, supervisor=self.d.name,
 			plan_year=2031, plan_week=5)

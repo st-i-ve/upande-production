@@ -276,3 +276,22 @@ class TestSupervisorsPage(IntegrationTestCase):
 		with patch.object(supervisor_page.task_approval, "visible_filter", return_value={"awaiting_approval": 0}):
 			wk = supervisor_page._Week(self.crop.name, self.year, self.week)
 		self.assertEqual(wk.tasks, [])
+
+	def test_avocado_only_manager_can_create_for_avocado_not_for_all_or_others(self):
+		avo = frappe.db.get_value("Production Crop", {"crop_key": "avocado"}) or _make(
+			"Production Crop", crop_name="SPG Avocado", crop_key="avocado", unit_label="Block", yield_uom="Kg").name
+		e = _employee("SPGAv", self.company)
+		with patch.multiple(frappe, get_roles=lambda u=None: ["Avocado Production Manager"]), \
+				patch.dict(frappe.local.session, {"user": "spg.avo@x.test"}):
+			with self.assertRaises(frappe.PermissionError):
+				supervisor_page.save_supervisor({"employee": e.name, "crops": []})
+			with self.assertRaises(frappe.PermissionError):
+				supervisor_page.save_supervisor({"employee": e.name, "crops": [self.crop.name]})
+			supervisor_page.save_supervisor({"employee": e.name, "crops": [avo]})
+			self.assertTrue(frappe.db.exists("Production Supervisor", e.name))
+			# a record that also serves another crop is not theirs to edit
+			doc = frappe.get_doc("Production Supervisor", e.name)
+			doc.set("crops", [{"crop": avo}, {"crop": self.crop.name}])
+			doc.save(ignore_permissions=True)
+			with self.assertRaises(frappe.PermissionError):
+				supervisor_page.save_supervisor({"employee": e.name, "notes": "x"})
