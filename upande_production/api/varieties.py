@@ -19,7 +19,7 @@ WATER_BAND_FIELDS = ["parameter", "min", "max", "unit"]
 YIELD_AGE_FIELDS = ["age_years", "kg_per_plant"]
 SEASON_FIELDS = ["season_name", "start_month", "weeks_flowering_to_harvest", "crop_share_pct"]
 VARIETY_FIELDS = [
-	"name", "variety_name", "crop", "field_crop", "product", "item", "enabled", "stage_anchor", "default_protocol",
+	"name", "variety_name", "crop", "field_crop", "product", "item", "enabled", "stage_anchor",
 	"days_to_first_harvest", "harvest_window_days", "expected_yield_per_ha", "expected_yield_per_plant",
 	"plants_per_ha", "notes", "irrigation_mm_week", "biennial_off_factor", "on_years", "late_crop_share_pct",
 	*TEMPLATE_FIELDS,
@@ -38,7 +38,9 @@ def list_varieties(crop):
 	_need("Production Variety")
 	rows = frappe.get_all("Production Variety", filters={"crop": crop}, fields=VARIETY_FIELDS,
 		order_by="variety_name asc")
+	from upande_production.production.logic.stages import active_protocol_for_variety
 	for r in rows:
+		r["active_protocol"] = active_protocol_for_variety(r.name, r.crop, r.field_crop)
 		r["stages"] = frappe.get_all("Production Variety Stage", filters={"parent": r.name, "parenttype": "Production Variety"},
 			fields=STAGE_FIELDS, order_by="idx asc")
 		r["flowering_seasons"] = frappe.get_all("Production Variety Flowering Season",

@@ -138,6 +138,10 @@ def save_week(crop, farm, year, week, rows) -> dict:
 	iso_week_bounds(year, week)
 	allowed = {u.name for u in week_units(crop, farm)}
 	categories = set(CATEGORIES)
+	# serialise saves for the crop (the week may have no rows yet to lock), so two saves cannot both add an overseer
+	if not frappe.db.get_value("Production Crop", crop, "name", for_update=True):
+		frappe.throw(_("Unknown crop {0}.").format(crop), frappe.ValidationError)
+	current = {a.supervisor for a in assignments(crop, year, week, units=allowed)}
 	wanted, seen = {}, set()
 	for r in rows or []:
 		unit, sup = (r.get("unit") or "").strip(), (r.get("supervisor") or "").strip()
@@ -152,6 +156,8 @@ def save_week(crop, farm, year, week, rows) -> dict:
 			frappe.throw(_("{0} is not a block of this crop and farm.").format(unit), frappe.ValidationError)
 		if not frappe.db.exists("Employee", sup):
 			frappe.throw(_("Unknown employee {0}.").format(sup), frappe.ValidationError)
+		if sup not in current and not active_map([{"supervisor": sup}]).get(sup):
+			frappe.throw(_("{0} is not an active supervisor.").format(sup), frappe.ValidationError)
 		if not cat and any(k[0] == unit and not k[1] for k in seen):
 			frappe.throw(_("Block {0} already has an overseer this week.").format(unit), frappe.ValidationError)
 		seen.add((unit, cat, sup))
@@ -195,12 +201,15 @@ def copy_week(crop, farm, year, week) -> dict:
 
 
 def active_map(rows) -> dict:
-	"""{employee: active} for the supervisors in `rows`, from one query. An employee with no Production
-	Supervisor record (assigned before records existed) counts as active."""
+	"""{employee: active} for the supervisors in `rows`: a Production Supervisor record that is active, or an
+	employee with no record (assigned before records existed); either way only while the Employee is Active."""
 	emps = list({r["supervisor"] for r in rows})
+	if not emps:
+		return {}
 	flags = dict(frappe.get_all("Production Supervisor", filters={"name": ("in", emps)}, fields=["name", "active"],
-		as_list=True)) if emps else {}
-	return {e: bool(flags.get(e, 1)) for e in emps}
+		as_list=True))
+	status = dict(frappe.get_all("Employee", filters={"name": ("in", emps)}, fields=["name", "status"], as_list=True))
+	return {e: bool(flags.get(e, 1)) and status.get(e) == "Active" for e in emps}
 
 
 def by_key(rows, active=None) -> dict:
@@ -271,15 +280,30 @@ def visible_in_plans(employee, tasks, plan_weeks, crop, farm=None) -> list:
 	return [t for plan, ts in by_plan.items() for t in _visible(employee, ts, keyed.get(plan_weeks.get(plan), {}), cats)]
 
 
+FINISHED = ("Done", "Partly Done", "Skipped")
+
+
+def worked_tasks(names) -> set:
+	"""Of the plan task rows `names`, those with labour work recorded against them (not cancelled)."""
+	names = [n for n in names if n]
+	if not names:
+		return set()
+	return set(frappe.get_all("Casual Labour Work", filters={"plan_task": ("in", names), "docstatus": ("<", 2)}, pluck="plan_task"))
+
+
 def fill_plan_tasks(plan) -> int:
 	"""Fill `supervisor` on the plan's tasks by routing through the week's assignments. A task with no
 	supervisor, or one the mapping set earlier (supervisor_from_plan), follows the mapping; a supervisor a
-	manager set by hand stays. Returns the number of tasks changed."""
+	manager set by hand stays. Finished tasks (Done, Partly Done, Skipped) and those with labour work keep
+	whoever had them. Returns the number of tasks changed."""
 	keyed = by_key(assignments(plan.crop, plan.plan_year, plan.plan_week))
 	cats = operation_categories(t.operation for t in plan.tasks)
+	worked = worked_tasks(t.name for t in plan.tasks)
 	changed = 0
 	for t in plan.tasks:
 		if t.supervisor and not t.supervisor_from_plan:
+			continue
+		if t.status in FINISHED or t.name in worked:
 			continue
 		want = route({"unit": t.unit, "category": cats.get(t.operation)}, keyed)
 		if want:
@@ -313,7 +337,7 @@ def my_assignments(employee, crop, year, week, farm=None) -> dict:
 	"""The blocks an employee supervises in a week, for the top of the phone's Plan tab: each block once, with
 	`categories` (the activities they share there) and `overseer` (they hold the block's blank-category row)."""
 	units = {}
-	if employee:
+	if employee and active_map([{"supervisor": employee}]).get(employee):
 		names = {u.name: u.unit_name for u in week_units(crop, farm)}
 		for a in assignments(crop, year, week, farm):
 			if a.supervisor != employee:
@@ -324,3 +348,15 @@ def my_assignments(employee, crop, year, week, farm=None) -> dict:
 			else:
 				u["overseer"] = True
 	return {"employee": employee, "year": int(year), "week": int(week), "units": list(units.values())}
+
+
+def refresh_current_week(crops=()) -> int:
+	"""A supervisor was (de)activated: re-route the current ISO week's open tasks for `crops` (every crop when empty)."""
+	year, week = iso_of(getdate())
+	filters = {"plan_year": year, "plan_week": week}
+	if crops:
+		filters["crop"] = ("in", list(crops))
+	total = 0
+	for p in frappe.get_all("Production Work Plan", filters=filters, fields=["crop", "farm"]):
+		total += refresh_plan_tasks(p.crop, p.farm, year, week)
+	return total

@@ -1,4 +1,5 @@
 [pre_model_sync]
+upande_production.patches.clear_variety_default_protocol
 upande_production.patches.rename_production_operation_to_field_activity
 upande_production.patches.rename_field_activity_to_field_operation
 upande_production.patches.rename_forecast_and_plan_task_doctypes

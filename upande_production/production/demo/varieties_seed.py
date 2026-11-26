@@ -396,8 +396,7 @@ def run():
 		crops[v["crop"]] = crops.get(v["crop"], 0) + 1
 	frappe.db.commit()
 	for v in DEMO["varieties"]:
-		proto = _protocol_for(v)
-		frappe.db.set_value("Production Variety", v["name"], "default_protocol", proto)
+		_protocol_for(v)  # the protocol carries the variety; the variety holds no link back
 	frappe.db.commit()
 	_set_crop_dry_matter()
 	made["avocado_model"] = _seed_avocado_model()

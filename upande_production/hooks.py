@@ -157,6 +157,8 @@ after_migrate = [
 
 doc_events = {
 	# the Field Crop of records that only carry it for reports (a sample, forecast, commitment or grading log)
+	# an Employee who leaves stops being an active supervisor
+	"Employee": {"on_update": "upande_production.production.doctype.production_supervisor.production_supervisor.employee_updated"},
 	"Yield Sample": {"validate": "upande_production.production.logic.field_crops.stamp_doc_event"},
 	"Crop Forecast": {"validate": "upande_production.production.logic.field_crops.stamp_doc_event"},
 	"Buyer Commitment": {"validate": "upande_production.production.logic.field_crops.stamp_doc_event"},

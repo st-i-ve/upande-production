@@ -3,8 +3,9 @@ import frappe
 from frappe import _
 from frappe.utils import getdate, today
 
-from upande_production.production.logic import supervisors
-from upande_production.production.logic.settings import crop_allowed, is_assistant_manager
+from upande_production.production.logic import supervisors, task_approval
+from upande_production.production.logic.settings import avocado_only_crop_keys, crop_allowed, is_assistant_manager
+from upande_production.production.logic.units import unit_filter
 from upande_production.production.logic.weeks import iso_of
 
 PENDING = ("Pending", "Checked")
@@ -77,7 +78,8 @@ class _Week:
 		self.active = supervisors.active_map(self.rows)
 		self.keyed = supervisors.by_key(self.rows, self.active)
 		plans = frappe.get_all("Production Work Plan", filters={"crop": crop, "plan_year": year, "plan_week": week}, pluck="name")
-		self.tasks = frappe.get_all("Work Plan Task", filters={"parent": ("in", plans), "parenttype": "Production Work Plan"},
+		task_filters = unit_filter({"parent": ("in", plans), "parenttype": "Production Work Plan", **task_approval.visible_filter()})
+		self.tasks = frappe.get_all("Work Plan Task", filters=task_filters,
 			fields=["parent", "supervisor", "status", "deviation", "due_date", "unit", "operation"],
 			parent_doctype="Production Work Plan") if plans else []
 		self.cats = supervisors.operation_categories(t.operation for t in self.tasks)
@@ -202,10 +204,17 @@ def save_supervisor(data) -> dict:
 		doc = frappe.get_doc("Production Supervisor", employee)
 	else:
 		doc = frappe.get_doc({"doctype": "Production Supervisor", "employee": employee})
+	was_active = bool(doc.active) if not doc.is_new() else None
+	old_crops = [c.crop for c in doc.crops]
+	# a manager limited to some crops may only touch records whose crops are all theirs (no crops = every crop)
+	new_crops = [c for c in dict.fromkeys(data["crops"]) if c] if "crops" in data else old_crops
+	for crops in (old_crops, new_crops):
+		if (not crops and avocado_only_crop_keys()) or not all(crop_allowed(c) for c in crops):
+			frappe.throw(_("You are not permitted to edit a supervisor for these crops."), frappe.PermissionError)
 	if "active" in data:
 		doc.active = 1 if data["active"] in (1, True, "1", "true") else 0
-	if doc.active and frappe.db.get_value("Employee", employee, "status") == "Left":
-		frappe.throw(_("{0} has left; mark the record inactive.").format(employee), frappe.ValidationError)
+	if doc.active and frappe.db.get_value("Employee", employee, "status") != "Active":
+		frappe.throw(_("{0} is not an active employee; mark the record inactive.").format(employee), frappe.ValidationError)
 	for f in ("farm", "notes"):
 		if f in data:
 			doc.set(f, data[f] or None)
@@ -217,4 +226,6 @@ def save_supervisor(data) -> dict:
 			doc.set(f, v)
 	doc.flags.ignore_permissions = True
 	doc.insert() if doc.is_new() else doc.save()
+	if was_active is not None and was_active != bool(doc.active):
+		supervisors.refresh_current_week(new_crops)
 	return {"employee": doc.name, "employee_name": doc.employee_name}

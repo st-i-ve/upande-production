@@ -220,35 +220,34 @@ def stocking_stage(stocking, on_date=None) -> dict:
 
 # ------------------------------------------------------------------ cycle defaults
 
-def active_protocol_of_family(protocol):
-	"""The Active version of a protocol's family (the protocol itself when already Active)."""
-	if not protocol:
+def active_protocol_for_variety(variety, crop=None, field_crop=None):
+	"""The Active Production Protocol of a variety (the protocol points at the variety, never the reverse):
+	the newest Active one whose `variety` is this variety, else the Active protocol of the variety's product,
+	crop or field crop that has no variety. None when there is none."""
+	if not variety:
 		return None
-	fam = frappe.db.get_value("Production Protocol", protocol, "protocol_family") or protocol
-	return frappe.db.get_value("Production Protocol", {"protocol_family": fam, "version_status": "Active"}, "name",
-		order_by="version desc")
+	name = frappe.db.get_value("Production Protocol", {"variety": variety, "version_status": "Active"}, "name",
+		order_by="modified desc")
+	if name:
+		return name
+	v = frappe.db.get_value("Production Variety", variety, ["crop", "field_crop", "product"], as_dict=True) or {}
+	crop = crop or v.get("crop")
+	field_crop = field_crop or v.get("field_crop")
+	base = {"version_status": "Active", "variety": ("in", ["", None])}
+	if crop and v.get("product"):
+		name = frappe.db.get_value("Production Protocol", {**base, "crop": crop, "item": v["product"]}, "name",
+			order_by="modified desc")
+		if name:
+			return name
+	if field_crop and frappe.get_meta("Production Protocol").has_field("field_crop"):
+		return frappe.db.get_value("Production Protocol", {**base, "field_crop": field_crop}, "name",
+			order_by="modified desc")
+	return None
 
 
 def variety_protocol(variety):
-	"""The protocol a new cycle of the variety should use: default_protocol family's Active version, else
-	any Active protocol of the variety, else the Active product-level protocol (no variety)."""
-	if not variety:
-		return None
-	v = frappe.db.get_value("Production Variety", variety, ["default_protocol", "crop", "product"], as_dict=True)
-	if not v:
-		return None
-	name = active_protocol_of_family(v.default_protocol)
-	if name:
-		return name
-	name = frappe.db.get_value("Production Protocol", {"variety": variety, "version_status": "Active"}, "name",
-		order_by="version desc")
-	if name:
-		return name
-	if v.product:
-		return frappe.db.get_value("Production Protocol",
-			{"crop": v.crop, "item": v.product, "version_status": "Active", "variety": ("in", ["", None])}, "name",
-			order_by="version desc")
-	return None
+	"""Kept for callers: the variety's Active protocol."""
+	return active_protocol_for_variety(variety)
 
 
 def apply_variety_defaults(cycle):

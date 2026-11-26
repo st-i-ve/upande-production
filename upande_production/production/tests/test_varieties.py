@@ -140,7 +140,6 @@ class TestVarieties(IntegrationTestCase):
 
 	def test_protocol_defaults_to_varietys_active(self):
 		p = self._protocol("TV Proto Alpha", variety="TV Alpha")
-		frappe.db.set_value("Production Variety", "TV Alpha", "default_protocol", p.name)
 		self.assertEqual(self._cycle("TV Alpha").protocol, p.name)
 		# a newer Active version of the family wins
 		v2 = P.new_version(p.name)["name"]
@@ -149,6 +148,29 @@ class TestVarieties(IntegrationTestCase):
 		frappe.set_user("Administrator")
 		P.approve(v2)
 		self.assertEqual(self._cycle("TV Alpha").protocol, v2)
+
+	def test_variety_has_no_default_protocol_field(self):
+		self.assertFalse(frappe.get_meta("Production Variety").has_field("default_protocol"))
+
+	def test_active_protocol_for_variety_newest_wins_and_none(self):
+		self.assertIsNone(stages.active_protocol_for_variety(None))
+		self.assertIsNone(stages.active_protocol_for_variety("TV Beta", crop=self.crop.name, field_crop="No Such Crop"))
+		a = self._protocol("TV Proto Beta 1", variety="TV Beta")
+		b = self._protocol("TV Proto Beta 2", variety="TV Beta")
+		self.addCleanup(lambda: [frappe.delete_doc("Production Protocol", n, force=True) for n in (a.name, b.name)])
+		frappe.db.set_value("Production Protocol", a.name, "modified", add_days(today(), -2), update_modified=False)
+		self.assertEqual(stages.active_protocol_for_variety("TV Beta"), b.name)
+		self.assertEqual(stages.active_protocol_for_variety("TV Beta", crop=self.crop.name), b.name)
+
+	def test_list_varieties_carries_active_protocol(self):
+		from unittest import mock
+
+		from upande_production.api import varieties as api
+		p = self._protocol("TV Proto Alpha L", variety="TV Alpha")
+		self.addCleanup(frappe.delete_doc, "Production Protocol", p.name, force=True)
+		rows = api.list_varieties(self.crop.name)["varieties"]
+		self.assertEqual(next(v for v in rows if v["name"] == "TV Alpha")["active_protocol"], p.name)
+		self.assertNotIn("default_protocol", rows[0])
 
 	def test_protocol_falls_back_to_product(self):
 		prod = self._protocol("TV Proto Product")
@@ -215,8 +237,7 @@ class TestVarieties(IntegrationTestCase):
 			v = frappe.get_doc("Production Variety", n)
 			self.assertTrue(frappe.db.exists("Item", v.item), n)
 			self.assertEqual(sum(1 for s in v.stages if s.is_harvest), 1, n)
-			self.assertEqual(frappe.db.get_value("Production Protocol", v.default_protocol, "variety"), n)
-			self.assertIsNotNone(stages.variety_protocol(n), n)
+			self.assertEqual(frappe.db.get_value("Production Protocol", stages.active_protocol_for_variety(n), "variety"), n)
 		for c in frappe.get_all("Production Crop Cycle", filters={"crop": ("in", ["Avocado", "Fruits & Vegetables"]),
 				"variety": ("is", "not set")}, pluck="name"):
 			self.fail(f"cycle {c} has no variety")

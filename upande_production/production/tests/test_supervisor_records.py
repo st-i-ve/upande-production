@@ -137,6 +137,26 @@ class TestSupervisorRecords(IntegrationTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			frappe.get_doc("Production Supervisor", self.c.name).update({"active": 1}).save()
 
+	def test_a_non_active_employee_cannot_have_an_active_record(self):
+		for status in ("Inactive", "Suspended", "Left"):
+			frappe.db.set_value("Employee", self.d.name, "status", status)
+			with self.assertRaises(frappe.ValidationError):
+				_make("Production Supervisor", employee=self.d.name, active=1)
+
+	def test_employee_leaving_deactivates_the_supervisor(self):
+		_make("Production Supervisor", employee=self.b.name, active=1)
+		emp = frappe.get_doc("Employee", self.b.name)
+		emp.status = "Inactive"
+		emp.save()
+		self.assertEqual(frappe.db.get_value("Production Supervisor", self.b.name, "active"), 0)
+
+	def test_patch_registers_an_inactive_employee_as_inactive(self):
+		_make("Production Supervisor Assignment", crop=self.crop.name, unit=self.unit.name, supervisor=self.d.name,
+			plan_year=2031, plan_week=5)
+		frappe.db.set_value("Employee", self.d.name, "status", "Suspended")
+		create_production_supervisors.execute()
+		self.assertEqual(frappe.db.get_value("Production Supervisor", self.d.name, "active"), 0)
+
 	def test_get_week_passes_the_crop(self):
 		_make("Production Supervisor", employee=self.a.name, crops=[{"crop": self.other_crop.name}])
 		_make("Production Supervisor", employee=self.b.name, crops=[{"crop": self.crop.name}])

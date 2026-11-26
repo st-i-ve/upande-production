@@ -14,7 +14,6 @@
   "item",
   "enabled",
   "stage_anchor",
-  "default_protocol",
   "col_yield",
   "days_to_first_harvest",
   "harvest_window_days",
@@ -112,12 +111,6 @@
    "label": "Stage Anchor",
    "options": "Planting\nFlowering\nStocking",
    "default": "Planting"
-  },
-  {
-   "fieldname": "default_protocol",
-   "fieldtype": "Link",
-   "label": "Default Protocol",
-   "options": "Production Protocol"
   },
   {
    "fieldname": "col_yield",

@@ -462,3 +462,62 @@ class TestSupervisorPlan(IntegrationTestCase):
 		self.assertEqual(res["units"][0]["unit"], self.u1.name)
 		self.assertEqual(sorted(res["units"][0]["categories"]), ["Spraying", "Weeding"])
 		self.assertTrue(res["units"][0]["overseer"])
+
+	# -- final review fixes ------------------------------------------------------
+
+	def test_a_supervisor_whose_employee_left_is_inactive(self):
+		self.mk_sup(self.sup)
+		self.assign([{"unit": self.u1.name, "supervisor": self.sup.name}, {"unit": self.u2.name, "supervisor": self.other.name}])
+		rows = supervisors.assignments(self.crop.name, self.year, self.week)
+		self.assertEqual(supervisors.active_map(rows), {self.sup.name: True, self.other.name: True})
+		frappe.db.set_value("Employee", self.sup.name, "status", "Left")
+		frappe.db.set_value("Employee", self.other.name, "status", "Inactive")  # no supervisor record, not Active
+		self.assertEqual(supervisors.active_map(rows), {self.sup.name: False, self.other.name: False})
+
+	def test_deactivating_a_supervisor_reroutes_the_current_weeks_open_tasks(self):
+		from upande_production.production.logic import supervisor_page
+		self.mk_sup(self.sup)
+		self.mk_sup(self.mgr)
+		self.assign([{"unit": self.u1.name, "supervisor": self.sup.name}, {"unit": self.u1.name, "supervisor": self.mgr.name, "category": "Other"}])
+		plan = self.plan_with_tasks([self.u1.name])
+		self.assertEqual(self.tasks(plan)[self.u1.name].supervisor, self.mgr.name)
+		supervisor_page.save_supervisor({"employee": self.mgr.name, "active": 0})
+		self.assertEqual(self.tasks(plan)[self.u1.name].supervisor, self.sup.name)
+
+	def test_finished_tasks_keep_their_supervisor(self):
+		self.mk_sup(self.sup)
+		self.mk_sup(self.mgr)
+		self.assign([{"unit": self.u1.name, "supervisor": self.sup.name}])
+		plan = self.plan_with_tasks([self.u1.name], [self.op.name, self.spray.name])
+		for t in frappe.get_doc("Production Work Plan", plan.name).tasks:
+			frappe.db.set_value("Work Plan Task", t.name, "status", "Done" if t.operation == self.op.name else "Open")
+		self.assign([{"unit": self.u1.name, "supervisor": self.mgr.name}])
+		by = self.tasks_by_op(plan, self.u1.name)
+		self.assertEqual(by[self.op.name].supervisor, self.sup.name)
+		self.assertEqual(by[self.spray.name].supervisor, self.mgr.name)
+
+	def test_a_task_with_labour_work_keeps_its_supervisor(self):
+		self.mk_sup(self.sup)
+		self.mk_sup(self.mgr)
+		self.assign([{"unit": self.u1.name, "supervisor": self.sup.name}])
+		plan = self.plan_with_tasks([self.u1.name])
+		task = frappe.get_doc("Production Work Plan", plan.name).tasks[0]
+		with patch.object(supervisors, "worked_tasks", return_value={task.name}):
+			self.assign([{"unit": self.u1.name, "supervisor": self.mgr.name}])
+		self.assertEqual(self.tasks(plan)[self.u1.name].supervisor, self.sup.name)
+
+	def test_save_week_takes_only_active_supervisors_but_keeps_existing(self):
+		self.mk_sup(self.sup, active=0)
+		with self.assertRaises(frappe.ValidationError):
+			self.assign([{"unit": self.u1.name, "supervisor": self.sup.name}])
+		self.mk_sup(self.mgr)
+		self.assign([{"unit": self.u1.name, "supervisor": self.mgr.name}])
+		frappe.db.set_value("Production Supervisor", self.mgr.name, "active", 0)
+		self.assign([{"unit": self.u1.name, "supervisor": self.mgr.name}])  # unchanged on re-save
+
+	def test_my_assignments_drops_an_inactive_supervisor(self):
+		self.mk_sup(self.sup)
+		self.assign([{"unit": self.u1.name, "supervisor": self.sup.name}])
+		frappe.db.set_value("Production Supervisor", self.sup.name, "active", 0)
+		res = supervisors.my_assignments(self.sup.name, self.crop.name, self.year, self.week, self.farm.name)
+		self.assertEqual(res["units"], [])

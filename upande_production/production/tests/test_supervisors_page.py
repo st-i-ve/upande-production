@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import frappe
 from frappe.tests import IntegrationTestCase
 from frappe.utils import add_days, today
@@ -254,3 +256,23 @@ class TestSupervisorsPage(IntegrationTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			supervisor_page.save_supervisor({"employee": e.name})
 		self.assertNotIn("error", {"x": 1} | supervisor_page.save_supervisor({"employee": e.name, "active": 0}))
+
+	def test_manager_limited_to_a_crop_cannot_edit_all_crop_supervisors(self):
+		e = _employee("SPGX", self.company)
+		with patch.object(supervisor_page, "crop_allowed", side_effect=lambda c: False), \
+				patch.object(supervisor_page, "avocado_only_crop_keys", return_value={"avocado"}):
+			with self.assertRaises(frappe.PermissionError):
+				supervisor_page.save_supervisor({"employee": e.name})  # empty crops = every crop
+			with self.assertRaises(frappe.PermissionError):
+				supervisor_page.save_supervisor({"employee": e.name, "crops": [self.crop.name]})
+		with patch.object(supervisor_page, "crop_allowed", side_effect=lambda c: True):
+			supervisor_page.save_supervisor({"employee": e.name, "crops": [self.crop.name]})
+
+	def test_counts_hide_awaiting_tasks_from_supervisors(self):
+		self._plan()
+		plan = frappe.get_all("Production Work Plan", filters={"crop": self.crop.name}, pluck="name")[0]
+		for n in frappe.get_all("Work Plan Task", filters={"parent": plan}, pluck="name"):
+			frappe.db.set_value("Work Plan Task", n, "awaiting_approval", 1)
+		with patch.object(supervisor_page.task_approval, "visible_filter", return_value={"awaiting_approval": 0}):
+			wk = supervisor_page._Week(self.crop.name, self.year, self.week)
+		self.assertEqual(wk.tasks, [])
