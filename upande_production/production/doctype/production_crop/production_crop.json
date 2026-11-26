@@ -65,6 +65,7 @@
    "fieldname": "crop_key",
    "fieldtype": "Data",
    "label": "Crop Key",
+   "description": "Short code the system uses for this crop. Filled in from the crop name; lowercase, no spaces.",
    "reqd": 1,
    "unique": 1
   },
@@ -75,24 +76,32 @@
   },
   {
    "fieldname": "icon_key",
-   "fieldtype": "Data",
-   "label": "Icon Key"
+   "fieldtype": "Select",
+   "label": "Icon",
+   "options": "\navocado\nfruit\nvegetables\nfish\nhive",
+   "description": "Picture on this crop's tile. Empty shows a sprout."
   },
   {
    "fieldname": "parent_unit_label",
-   "fieldtype": "Data",
-   "label": "Parent Unit Label"
+   "fieldtype": "Link",
+   "options": "Production Unit Type",
+   "label": "Group Called",
+   "description": "What this crop's groups of blocks are called on screen, e.g. Pivot or Farm. Leave empty if blocks are not grouped."
   },
   {
    "fieldname": "unit_label",
-   "fieldtype": "Data",
-   "label": "Unit Label",
+   "fieldtype": "Link",
+   "options": "Production Unit Type",
+   "label": "Block Called",
+   "description": "What one block of this crop is called on screen, e.g. Block, Greenhouse, Pond.",
    "reqd": 1
   },
   {
    "fieldname": "sub_unit_label",
-   "fieldtype": "Data",
-   "label": "Sub Unit Label"
+   "fieldtype": "Link",
+   "options": "Production Unit Type",
+   "label": "Part of a Block Called",
+   "description": "What a part of a block is called, e.g. Bed or Row. Leave empty if not used."
   },
   {
    "fieldname": "yield_uom",

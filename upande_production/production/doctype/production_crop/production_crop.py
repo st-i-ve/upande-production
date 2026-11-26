@@ -1,6 +1,8 @@
 # Copyright (c) 2026, Upande and contributors
 # For license information, please see license.txt
 
+import re
+
 import frappe
 from frappe import _
 from frappe.model.document import Document
@@ -8,8 +10,14 @@ from frappe.model.document import Document
 from upande_production.production.logic import count_sizes
 
 
+def slugify(text) -> str:
+	"""Lowercase, anything but letters and digits becomes '-', no leading or trailing '-'."""
+	return re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
+
+
 class ProductionCrop(Document):
 	def validate(self):
+		self.crop_key = slugify(self.crop_key or self.crop_name)
 		self.warn_count_size_bands()
 
 	def warn_count_size_bands(self):

@@ -54,9 +54,10 @@
   },
   {
    "fieldname": "unit_type",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "label": "Unit Type",
-   "options": "Orchard Block\nPivot\nPivot Block\nPond\nHive Group\nOther",
+   "options": "Production Unit Type",
+   "description": "What kind of block this is.",
    "reqd": 1,
    "in_list_view": 1
   },

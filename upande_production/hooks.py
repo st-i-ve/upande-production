@@ -216,6 +216,7 @@ fixtures = [
 	},
 	# The desk workspace's launcher (one section of app links per crop) and the
 	# desk-grid icon that opens that workspace.
+	{"dt": "Production Unit Type"},
 	{"doctype": "Custom HTML Block", "filters": [["name", "in", ["Production Navigation"]]]},
 	{"doctype": "Desktop Icon", "filters": [["name", "in", ["Production"]]]},
 ]

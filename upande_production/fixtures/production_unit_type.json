@@ -1,0 +1,93 @@
+[
+ {
+  "docstatus": 0,
+  "doctype": "Production Unit Type",
+  "name": "Farm",
+  "unit_type_name": "Farm",
+  "description": "A whole farm; holds pivots or blocks."
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Production Unit Type",
+  "name": "Pivot",
+  "unit_type_name": "Pivot",
+  "description": "A centre-pivot irrigation circle; holds pivot blocks."
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Production Unit Type",
+  "name": "Pivot Block",
+  "unit_type_name": "Pivot Block",
+  "description": "A block cut out of a pivot circle."
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Production Unit Type",
+  "name": "Block",
+  "unit_type_name": "Block",
+  "description": "A planted block of one crop."
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Production Unit Type",
+  "name": "Orchard Block",
+  "unit_type_name": "Orchard Block",
+  "description": "A block of trees in an orchard."
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Production Unit Type",
+  "name": "Bed",
+  "unit_type_name": "Bed",
+  "description": "A planted bed inside a block."
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Production Unit Type",
+  "name": "Row",
+  "unit_type_name": "Row",
+  "description": "A single row inside a block."
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Production Unit Type",
+  "name": "Greenhouse",
+  "unit_type_name": "Greenhouse",
+  "description": "A greenhouse that holds beds."
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Production Unit Type",
+  "name": "Pond",
+  "unit_type_name": "Pond",
+  "description": "A fish pond."
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Production Unit Type",
+  "name": "Hive Group",
+  "unit_type_name": "Hive Group",
+  "description": "A group of beehives at one site."
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Production Unit Type",
+  "name": "Hive",
+  "unit_type_name": "Hive",
+  "description": "A single beehive."
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Production Unit Type",
+  "name": "Other",
+  "unit_type_name": "Other",
+  "description": "Anything that does not fit the other types."
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Production Unit Type",
+  "name": "Field",
+  "unit_type_name": "Field",
+  "description": "An open field planted to one crop."
+ }
+]
