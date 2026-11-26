@@ -1,3 +1,5 @@
+import { useDraftFields } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { SubCropField } from "@/components/cycles/SubCropField";
 import { cropPickerOptions, subCropsOf } from "@/lib/field-crops";
 import { useCallback, useEffect, useState } from "react";
@@ -153,6 +155,11 @@ function CommitmentDialog({
   const [saving, setSaving] = useState(false);
   const [fieldCrop, setFieldCrop] = useState("");
   const [subCrop, setSubCrop] = useState("");
+  const draft = useDraftFields({
+    key: `forecast-commitment:${crop}`,
+    open: true,
+    fields: { customer: [customer, setCustomer], week: [week, setWeek], quantity: [quantity, setQuantity], price: [price, setPrice], status: [status, setStatus], fieldCrop: [fieldCrop, setFieldCrop], subCrop: [subCrop, setSubCrop] },
+  });
   const cropSubs = subCropsOf(fieldCrops, fieldCrop);
   const unit = cropSubs.find((s) => s.name === subCrop)?.harvest_uom ?? fieldCrops?.find((c) => c.name === fieldCrop)?.harvest_uom ?? uom;
 
@@ -176,6 +183,7 @@ function CommitmentDialog({
       toast(r.error, "error");
       return;
     }
+    draft.clear();
     toast("Commitment saved.");
     onSaved();
   }
@@ -187,6 +195,7 @@ function CommitmentDialog({
           <DialogTitle>New commitment</DialogTitle>
           <DialogDescription>Record how much a buyer has agreed to take in a given week.</DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <Field label="Customer" htmlFor="commit-customer">

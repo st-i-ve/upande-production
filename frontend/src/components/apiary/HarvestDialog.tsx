@@ -1,3 +1,5 @@
+import { useDialogDraft } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { useEffect, useMemo, useState } from "react";
 import { DatePicker } from "@/components/DatePicker";
 import { useToast } from "@/components/Toast";
@@ -50,6 +52,7 @@ export function HarvestDialog({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, defaultUnit, form.today]);
+  const draft = useDialogDraft({ key: `honey-harvest:${defaultUnit ?? ""}`, open, value: v, setValue: setV });
 
   const kg = num(v.kg);
   const moisture = num(v.moisture);
@@ -85,6 +88,7 @@ export function HarvestDialog({
     }
     toast("Harvest saved.", "ok", wet ? { hint: `Moisture is over ${form.moisture_limit}%. This honey may ferment in storage.` } : undefined);
     onOpenChange(false);
+    draft.clear();
     onSaved();
   };
 
@@ -95,6 +99,7 @@ export function HarvestDialog({
           <DialogTitle>Record harvest</DialogTitle>
           <DialogDescription>Honey taken off one hive group on one day. It also counts as a harvest for the Overview and Costs pages.</DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
         <div className="grid gap-4 sm:grid-cols-2">
           <Field id="hh-unit" label="Hive group">
             <Picker id="hh-unit" label="Hive group" value={v.unit} onChange={(x) => set("unit", x)} placeholder="Choose a hive group" options={form.units} />

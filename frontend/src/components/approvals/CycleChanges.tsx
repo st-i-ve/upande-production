@@ -1,3 +1,5 @@
+import { useDialogDraft } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { useCallback, useEffect, useState } from "react";
 import { CheckCircle2, TriangleAlert } from "lucide-react";
 import { Bar } from "@/components/Loading";
@@ -29,6 +31,7 @@ function NoteDialog({
   description = "The requester reads this note. The cycle stays as it is.",
   label = "Note for the requester",
   initial = "",
+  draftKey,
 }: {
   title: string;
   confirm: string;
@@ -38,8 +41,10 @@ function NoteDialog({
   description?: string;
   label?: string;
   initial?: string;
+  draftKey?: string;
 }) {
   const [note, setNote] = useState(initial);
+  const draft = useDialogDraft({ key: draftKey ?? "", open: true, value: note, setValue: setNote, enabled: !!draftKey });
   return (
     <Dialog open onOpenChange={(o) => !o && !busy && onCancel()}>
       <DialogContent className="max-w-md">
@@ -47,12 +52,13 @@ function NoteDialog({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
         <Textarea aria-label={label} value={note} onChange={(e) => setNote(e.target.value)} rows={4} autoFocus />
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={onCancel} disabled={busy}>
             Cancel
           </Button>
-          <Button type="button" disabled={!note.trim() || busy} onClick={() => onConfirm(note.trim())}>
+          <Button type="button" disabled={!note.trim() || busy} onClick={() => { draft.clear(); onConfirm(note.trim()); }}>
             {confirm}
           </Button>
         </div>
@@ -252,6 +258,7 @@ export function CycleChanges({
           description="Change the reason if it needs it. A manager decides again."
           label="Reason for deleting"
           initial={amend.reason ?? ""}
+          draftKey={`resubmit-change:${amend.name}`}
           confirm="Resubmit"
           busy={busy.has(amend.name)}
           onCancel={() => setAmend(null)}
@@ -264,6 +271,7 @@ export function CycleChanges({
         <NoteDialog
           title={note.kind === "back" ? `Send back the change to ${note.row.cycle}` : `Reject the change to ${note.row.cycle}`}
           confirm={note.kind === "back" ? "Send back" : "Reject"}
+          draftKey={`change-${note.kind}:${note.row.name}`}
           busy={busy.has(note.row.name)}
           onCancel={() => setNote(null)}
           onConfirm={(t) => void confirmNote(t)}

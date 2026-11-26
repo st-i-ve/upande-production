@@ -1,3 +1,5 @@
+import { useDraftFields } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { useEffect, useState } from "react";
 import { DatePicker } from "@/components/DatePicker";
 import { useToast } from "@/components/Toast";
@@ -44,6 +46,7 @@ export function FeedingDialog({ open, onOpenChange, form, defaultPond, onSaved }
   useEffect(() => {
     if (open) { setPond(defaultPond ?? ""); setDate(todayISO()); setKg(""); setType(""); setTimes(""); setTried(false); }
   }, [open, defaultPond]);
+  const draft = useDraftFields({ key: `pond-feeding:${defaultPond ?? ""}`, open: open, fields: { pond: [pond, setPond], date: [date, setDate], kg: [kg, setKg], type: [type, setType], times: [times, setTimes] } });
 
   const k = numOf(kg);
   const stocking = form.ponds.find((p) => p.unit === pond)?.active_stocking;
@@ -62,6 +65,7 @@ export function FeedingDialog({ open, onOpenChange, form, defaultPond, onSaved }
     if (isError(r)) return void toast(r.error, "error");
     toast("Feeding saved.", "ok", { hint: `${k} kg` });
     onOpenChange(false);
+    draft.clear();
     onSaved();
   };
 
@@ -72,6 +76,7 @@ export function FeedingDialog({ open, onOpenChange, form, defaultPond, onSaved }
           <DialogTitle>Record a feeding</DialogTitle>
           <DialogDescription>One entry for the day's feed in a pond. It counts toward that batch's FCR.</DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
         <div className="grid gap-4 sm:grid-cols-2">
           <Field id="fd-pond" label="Pond"><Picker id="fd-pond" label="Pond" value={pond} onChange={setPond} placeholder="Choose a pond" options={pondOptions(form)} /></Field>
           <Field label="Date"><DatePicker value={date} onChange={setDate} max={todayISO()} aria-label="Feeding date" className="w-full" /></Field>
@@ -99,6 +104,7 @@ export function MortalityDialog({ open, onOpenChange, form, defaultPond, onSaved
   useEffect(() => {
     if (open) { setPond(defaultPond ?? ""); setDate(todayISO()); setCount(""); setCause("Unknown"); setNotes(""); setTried(false); }
   }, [open, defaultPond]);
+  const draft = useDraftFields({ key: `pond-mortality:${defaultPond ?? ""}`, open: open, fields: { pond: [pond, setPond], date: [date, setDate], count: [count, setCount], cause: [cause, setCause], notes: [notes, setNotes] } });
 
   const n = numOf(count);
   const problems: string[] = [];
@@ -115,6 +121,7 @@ export function MortalityDialog({ open, onOpenChange, form, defaultPond, onSaved
     if (isError(r)) return void toast(r.error, "error");
     toast("Mortality saved.", "ok", { hint: `${n} fish · ${cause}` });
     onOpenChange(false);
+    draft.clear();
     onSaved();
   };
 
@@ -125,6 +132,7 @@ export function MortalityDialog({ open, onOpenChange, form, defaultPond, onSaved
           <DialogTitle>Record mortality</DialogTitle>
           <DialogDescription>Dead fish counted in a pond. They come off the batch's live count and its survival.</DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
         <div className="grid gap-4 sm:grid-cols-2">
           <Field id="mt-pond" label="Pond"><Picker id="mt-pond" label="Pond" value={pond} onChange={setPond} placeholder="Choose a pond" options={pondOptions(form)} /></Field>
           <Field label="Date"><DatePicker value={date} onChange={setDate} max={todayISO()} aria-label="Mortality date" className="w-full" /></Field>

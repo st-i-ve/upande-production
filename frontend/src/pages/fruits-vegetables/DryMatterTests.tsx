@@ -1,3 +1,5 @@
+import { useDraftFields } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, X } from "lucide-react";
 import { DatePicker } from "@/components/DatePicker";
@@ -273,6 +275,7 @@ function RecordTestDialog({
       setVals(["", "", ""]);
     }
   }, [open, defaultUnit]);
+  const draft = useDraftFields({ key: `fv-dry-matter-test:${defaultUnit}`, open, fields: { unit: [unit, setUnit], date: [date, setDate], vals: [vals, setVals] } });
 
   const nums = vals.map((v) => (v.trim() === "" ? null : Number(v)));
   const valid = nums.filter((n): n is number => n != null && Number.isFinite(n) && n > 0 && n < 100);
@@ -297,6 +300,7 @@ function RecordTestDialog({
     }
     toast(`Test saved: average ${r.avg_pct.toFixed(1)}%, ${r.ready ? "ready to pick" : "not yet ready"}.`);
     onOpenChange(false);
+    draft.clear();
     onSaved();
   }
 
@@ -307,6 +311,7 @@ function RecordTestDialog({
           <DialogTitle>Record a dry matter test</DialogTitle>
           <DialogDescription id="dmt-desc">Enter the dry matter % of each sample. The average is compared with the target.</DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
         <div className="flex flex-col gap-1.5">
           <Label>Where</Label>
           <Picker label="Where" value={unit} onChange={setUnit} options={unitOptions} placeholder="Choose where" />

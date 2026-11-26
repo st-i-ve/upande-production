@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { useDraftFields } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -72,6 +74,11 @@ export function AddTaskDialog({
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const [rule, setRule] = useState<RuleFailure | null>(null);
+  const draft = useDraftFields({
+    key: `add-task:${crop}:${farm}:${year}:${week}`,
+    open: true,
+    fields: { unit: [unit, setUnit], operation: [operation, setOperation], planned: [planned, setPlanned], due: [due, setDue], supervisor: [supervisor, setSupervisor] },
+  });
 
   const unitOptions = useMemo(
     () =>
@@ -110,6 +117,7 @@ export function AddTaskDialog({
       else setFailure(r.error);
       return;
     }
+    draft.clear();
     onAdded();
   }
 
@@ -122,6 +130,7 @@ export function AddTaskDialog({
             Planned for week {week}, {year} · {farm}
           </DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
         <div className="flex flex-col gap-1.5">
           <Label>{unitLabel}</Label>
           <SearchPicker value={unit} onChange={setUnit} options={unitOptions} placeholder={`Choose a ${unitLabel.toLowerCase()}`} label={unitLabel} />

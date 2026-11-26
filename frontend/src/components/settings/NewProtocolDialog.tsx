@@ -1,3 +1,5 @@
+import { useDraftFields } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { useState } from "react";
 import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
@@ -37,6 +39,7 @@ export function NewProtocolDialog({ crop, varieties, families, opNames = {}, onC
   const [variety, setVariety] = useState("");
   const [copy, setCopy] = useState("");
   const [busy, setBusy] = useState(false);
+  const draft = useDraftFields({ key: `new-protocol:${crop}`, open: true, fields: { name: [name, setName], variety: [variety, setVariety], copy: [copy, setCopy] } });
   const copyOptions = families.flatMap((f) =>
     f.versions.map((v) => ({ value: v.name, label: `${f.label} v${v.version} (${v.version_status})` })),
   );
@@ -57,6 +60,7 @@ export function NewProtocolDialog({ crop, varieties, families, opNames = {}, onC
       return;
     }
     toast(`${name.trim()} created as a draft.`);
+    draft.clear();
     onCreated(name.trim());
   }
 
@@ -69,6 +73,7 @@ export function NewProtocolDialog({ crop, varieties, families, opNames = {}, onC
             Starts as version 1, a draft you can edit. It plans work once a manager approves it. The harvest pattern comes from the variety.
           </DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
         <div className="grid gap-6 md:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
          <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">

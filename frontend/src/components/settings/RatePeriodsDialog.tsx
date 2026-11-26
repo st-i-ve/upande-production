@@ -1,3 +1,5 @@
+import { useDialogDraft } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { useCallback, useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { DatePicker } from "@/components/DatePicker";
@@ -58,6 +60,7 @@ export function RatePeriodsDialog({
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [busy, setBusy] = useState(false);
+  const rateDraft = useDialogDraft({ key: `rate-period:${operation}`, open: true, value: draft, setValue: setDraft, enabled: canEdit });
 
   const load = useCallback(async () => {
     const r = await listRates(operation);
@@ -93,6 +96,7 @@ export function RatePeriodsDialog({
     });
     setBusy(false);
     if (isError(r)) return void toast(r.error, "error");
+    rateDraft.clear();
     toast("Rate period saved.");
     setDraft(null);
     void load();
@@ -119,6 +123,7 @@ export function RatePeriodsDialog({
             Work is paid at the rate of the period its date falls in. Periods for one operation may not overlap; leave Valid to blank for a period that has no end.
           </DialogDescription>
         </DialogHeader>
+        <DraftBar restored={rateDraft.restored} onDiscard={rateDraft.discard} />
 
         {error ? (
           <p role="alert" className="text-[13px] text-[var(--sd-muted)]">{error}</p>

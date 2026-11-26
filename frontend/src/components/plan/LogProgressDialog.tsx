@@ -1,5 +1,7 @@
 import { useRef, useState } from "react";
 import { Paperclip, X } from "lucide-react";
+import { useDraftFields } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -34,6 +36,11 @@ export function LogProgressDialog({
   // Uploaded URLs stay with their File, so a retry after a failure does not upload again.
   const uploaded = useRef(new Map<File, string>());
   const picker = useRef<HTMLInputElement>(null);
+  const draft = useDraftFields({
+    key: `log-progress:${plan}:${task.name}`,
+    open: true,
+    fields: { notes: [notes, setNotes], qty: [qty, setQty] },
+  });
   const uom = task.uom ?? "";
   const qtyNum = num(qty);
   const badQty = qty.trim() !== "" && !(qtyNum >= 0);
@@ -63,6 +70,7 @@ export function LogProgressDialog({
       setFailure(r.error);
       return;
     }
+    draft.clear();
     onLogged(r as ProgressLog);
   }
 
@@ -75,6 +83,7 @@ export function LogProgressDialog({
             {task.operation_name} · due {rowDate(task.due_date)}
           </DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="progress-notes">Notes</Label>

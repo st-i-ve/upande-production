@@ -1,3 +1,5 @@
+import { useDraftFields } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { useCallback, useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { DatePicker } from "@/components/DatePicker";
@@ -129,6 +131,11 @@ function SampleDialog({
   const [stage, setStage] = useState("");
   const [population, setPopulation] = useState("");
   const [saving, setSaving] = useState(false);
+  const draft = useDraftFields({
+    key: `forecast-sample:${crop}`,
+    open: true,
+    fields: { unit: [unit, setUnit], date: [date, setDate], basis: [basis, setBasis], size: [size, setSize], sampled: [sampled, setSampled], stage: [stage, setStage], population: [population, setPopulation] },
+  });
 
   useEffect(() => {
     let live = true;
@@ -159,6 +166,7 @@ function SampleDialog({
       toast(r.error, "error");
       return;
     }
+    draft.clear();
     toast("Sample saved.");
     onSaved();
   }
@@ -172,6 +180,7 @@ function SampleDialog({
             Weigh or count a small sample and the {unitLabel.toLowerCase()} estimate is worked out from it.
           </DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={unitLabel}>
             <FilterSelect

@@ -1,3 +1,5 @@
+import { useDialogDraft } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { useState } from "react";
 import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
@@ -25,6 +27,7 @@ export function DeleteCycleDialog({
   const toast = useToast();
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const draft = useDialogDraft({ key: `delete-cycle:${cycle.name}`, open: true, value: reason, setValue: setReason, enabled: !isManager });
   const ok = (isManager || reason.trim().length > 0) && !busy;
 
   async function go() {
@@ -37,6 +40,7 @@ export function DeleteCycleDialog({
       return;
     }
     toast(isManager ? `Cycle ${cycle.name} deleted.` : "Sent to a manager for approval");
+    draft.clear();
     onDone();
     onClose();
   }
@@ -52,6 +56,7 @@ export function DeleteCycleDialog({
               : "A manager decides whether the cycle is deleted. It stays as it is until then."}
           </DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
         {!isManager && (
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="dc-reason">Reason for deleting</Label>

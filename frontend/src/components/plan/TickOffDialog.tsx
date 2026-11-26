@@ -1,5 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Plus, X } from "lucide-react";
+import { useDraftFields } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -65,6 +67,11 @@ export function TickOffDialog({
   const seq = useRef(0);
   const [logging, setLogging] = useState(false);
   const [logsKey, setLogsKey] = useState(0);
+  const draft = useDraftFields({
+    key: `tick-off:${plan}:${task.name}`,
+    open: true,
+    fields: { status: [status, setStatus], rows: [rows, setRows], note: [note, setNote] },
+  });
 
   const options = useMemo(
     () => people.map((p) => ({ value: p.name, label: p.employee_name || p.name })),
@@ -99,6 +106,7 @@ export function TickOffDialog({
       else setFailure(r.error);
       return;
     }
+    draft.clear();
     onSaved(r.task);
   }
 
@@ -112,6 +120,7 @@ export function TickOffDialog({
             {fmtQty(task.done_qty)} {uom}
           </DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
 
         {task.rule_status && task.rule_status !== "OK" && (
           <div className="flex items-start gap-2 rounded-[var(--sd-radius)] bg-[var(--sd-amber-bg)] px-3 py-2 text-[12.5px] text-[var(--sd-ink)]">
@@ -214,7 +223,7 @@ export function TickOffDialog({
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setRows((all) => [...all, { key: ++seq.current, employee: "", qty: "" }])}
+              onClick={() => setRows((all) => [...all, { key: Date.now() + ++seq.current, employee: "", qty: "" }])}
             >
               <Plus className="h-3.5 w-3.5" /> Add casual labourer
             </Button>

@@ -1,3 +1,5 @@
+import { useDraftFields } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { useEffect, useMemo, useState } from "react";
 import { DatePicker } from "@/components/DatePicker";
 import { Button } from "@/components/ui/button";
@@ -59,6 +61,7 @@ export function RecordSampleDialog({
       setTried(false);
     }
   }, [open, defaultBlock, form.week_number, form.today]);
+  const draft = useDraftFields({ key: `dry-matter-sample:${defaultBlock ?? ""}`, open: open, fields: { block: [block, setBlock], area: [area, setArea], week: [week, setWeek], date: [date, setDate], vals: [vals, setVals] } });
 
   const rows = useMemo(
     () => form.sizes.map((s) => ({ ...s, dm: dryMatterOf(vals[s.count] ?? ""), raw: vals[s.count] ?? "" })),
@@ -95,6 +98,7 @@ export function RecordSampleDialog({
     }
     toast(`${r.saved.length} reading${r.saved.length === 1 ? "" : "s"} saved.`, "ok", { hint: r.verdict });
     onOpenChange(false);
+    draft.clear();
     onSaved();
   };
 
@@ -107,6 +111,7 @@ export function RecordSampleDialog({
             Enter the moisture the lab reported, as 0.77 or as 77. Dry matter is worked out for you. A size you did not dry is left blank, not zero.
           </DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5 sm:col-span-2">

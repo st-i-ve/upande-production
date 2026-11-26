@@ -1,3 +1,5 @@
+import { useDraftFields } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { useEffect, useState } from "react";
 import { SubCropField } from "@/components/cycles/SubCropField";
 import { ItemField } from "@/components/cycles/ItemField";
@@ -107,6 +109,11 @@ export function VarietyDialog({
   const [yieldModel, setYieldModel] = useState(() => toYieldModelDraft(variety));
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  const draft = useDraftFields({
+    key: `variety:${crop}:${variety?.name ?? "new"}`,
+    open: true,
+    fields: { name: [name, setName], item: [item, setItem], section: [section, setSection], fieldCrop: [fieldCrop, setFieldCrop], subCrop: [subCrop, setSubCrop], days: [days, setDays], window: [window, setWindow], lifespan: [lifespan, setLifespan], pattern: [pattern, setPattern], interval: [interval, setInterval], flowering: [flowering, setFlowering], toFlower: [toFlower, setToFlower], toHarvest: [toHarvest, setToHarvest], maturity: [maturity, setMaturity], floweringPattern: [floweringPattern, setFloweringPattern], floweringInterval: [floweringInterval, setFloweringInterval], seasons: [seasons, setSeasons], perM2: [perM2, setPerM2], dryMatter: [dryMatter, setDryMatter], dmTesting: [dmTesting, setDmTesting], dmOn: [dmOn, setDmOn], dmFrom: [dmFrom, setDmFrom], yieldHa: [yieldHa, setYieldHa], yieldPlant: [yieldPlant, setYieldPlant], anchor: [anchor, setAnchor], enabled: [enabled, setEnabled], rows: [rows, setRows], irrigation: [irrigation, setIrrigation], water: [water, setWater], yieldModel: [yieldModel, setYieldModel] },
+  });
 
   useEffect(() => setFailure(null), [name, item, rows]);
 
@@ -170,6 +177,7 @@ export function VarietyDialog({
       return;
     }
     toast(`${variety ? variety.variety_name : name.trim()} saved.`);
+    draft.clear();
     onSaved();
   }
 
@@ -182,6 +190,7 @@ export function VarietyDialog({
             A variety is sold as its own stock item and has its own growth stages. Stage days count from the {anchor.toLowerCase()} date.
           </DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">

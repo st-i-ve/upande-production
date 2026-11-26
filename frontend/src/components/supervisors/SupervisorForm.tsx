@@ -1,3 +1,5 @@
+import { useDraftFields } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
@@ -51,6 +53,7 @@ export function SupervisorForm({
     setSections(existing?.crops ?? []);
     setNotes(existing?.notes ?? "");
   }, [open, existing]);
+  const draft = useDraftFields({ key: `supervisor-form:${existing?.employee ?? "new"}`, open, fields: { picked: [picked, setPicked], active: [active, setActive], farm: [farm, setFarm], sections: [sections, setSections], notes: [notes, setNotes] } });
 
   useEffect(() => {
     if (!open || existing || picked) return;
@@ -79,6 +82,7 @@ export function SupervisorForm({
     }
     toast(existing ? "Supervisor saved." : "Supervisor added.");
     onOpenChange(false);
+    draft.clear();
     onSaved();
   }
 
@@ -89,6 +93,7 @@ export function SupervisorForm({
           <DialogTitle>{existing ? "Edit supervisor" : "Add supervisor"}</DialogTitle>
           <DialogDescription>Photo and phone come from the Employee record.</DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="sv-emp">Employee</Label>

@@ -1,3 +1,5 @@
+import { useDraftFields } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/Toast";
 import { BODY_ROW, TD, TDR, TH, THEAD_ROW, THR } from "@/components/blocks/tableStyles";
@@ -40,6 +42,7 @@ export function BudgetDialog({
     setPrice(budget.budget_price_per_kg ? String(budget.budget_price_per_kg) : "");
     setNotes(budget.notes ?? "");
   }, [open, budget]);
+  const draft = useDraftFields({ key: "season-budget", open: open, fields: { kg: [kg, setKg], price: [price, setPrice], notes: [notes, setNotes] } });
 
   const months = MONTHS.map((month) => ({ month, budget_kg: Number(kg[month] || 0) })).filter((m) => m.budget_kg > 0);
   const total = months.reduce((s, m) => s + m.budget_kg, 0);
@@ -59,6 +62,7 @@ export function BudgetDialog({
     }
     toast(`Budget for ${budget.season} saved.`);
     onOpenChange(false);
+    draft.clear();
     onSaved();
   }
 
@@ -69,6 +73,7 @@ export function BudgetDialog({
           <DialogTitle>Season budget {budget.season}</DialogTitle>
           <DialogDescription>Kilograms budgeted for each month. The season total is their sum.</DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {MONTHS.map((m) => (
             <div key={m} className="flex flex-col gap-1.5">

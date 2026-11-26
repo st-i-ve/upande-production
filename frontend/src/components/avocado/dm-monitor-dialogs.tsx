@@ -1,3 +1,5 @@
+import { useDraftFields } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { useEffect, useMemo, useState } from "react";
 import { DatePicker } from "@/components/DatePicker";
 import { Button } from "@/components/ui/button";
@@ -140,6 +142,7 @@ export function AddReadingDialog({
       setTried(false);
     }
   }, [open, tag]);
+  const draft = useDraftFields({ key: `dm-reading:${tag?.name ?? ""}`, open, fields: { d: [d, set], pick: [pick, setPick] } });
 
   const active = useMemo(() => monitor.tags.filter((t) => t.status === "Active" || t.name === tag?.name), [monitor, tag]);
   const chosen = monitor.tags.find((t) => t.name === pick) ?? null;
@@ -158,6 +161,7 @@ export function AddReadingDialog({
     }
     toast(`Reading saved: ${(r.latest_pct ?? ev.dm ?? 0).toFixed(1)}% dry matter.`, "ok");
     onOpenChange(false);
+    draft.clear();
     onSaved(r);
   };
 
@@ -168,6 +172,7 @@ export function AddReadingDialog({
           <DialogTitle>Add a reading</DialogTitle>
           <DialogDescription id="dmr-desc">Measure the same tagged fruit again. The percentage is worked out for you.</DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="dmr-fruit">Fruit</Label>
@@ -238,6 +243,7 @@ export function TagFruitDialog({
       setTried(false);
     }
   }, [open, defaultUnit]);
+  const draft = useDraftFields({ key: `dm-tag-fruit:${defaultUnit ?? ""}`, open, fields: { d: [d, set], unit: [unit, setUnit], tree: [tree, setTree], fruit: [fruit, setFruit], tagged: [tagged, setTagged], notes: [notes, setNotes], first: [first, setFirst] } });
 
   const trees = useMemo(() => [...new Set(monitor.tags.filter((t) => t.unit === unit).map((t) => t.tree_label))], [monitor, unit]);
   const taken = monitor.tags.some((t) => t.unit === unit && t.tree_label === tree.trim() && t.fruit_tag === fruit.trim());
@@ -269,6 +275,7 @@ export function TagFruitDialog({
     }
     toast(`Fruit ${r.fruit_tag} on ${r.tree_label} tagged.`, "ok");
     onOpenChange(false);
+    draft.clear();
     onSaved(r);
   };
 
@@ -279,6 +286,7 @@ export function TagFruitDialog({
           <DialogTitle>Tag a fruit</DialogTitle>
           <DialogDescription id="dmt-desc">Pick a fruit on a tree and keep measuring that same fruit as it matures. A tree is its block and a label such as R12-T7.</DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="dmt-block">Block</Label>

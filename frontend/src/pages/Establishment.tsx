@@ -1,3 +1,5 @@
+import { useDraftFields } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { RowsSkeleton, firstLoad } from "@/components/Loading";
@@ -105,6 +107,7 @@ function AddCostDialog({
   const [manual, setManual] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  const draft = useDraftFields({ key: `establishment-cost:${crop}:${farm}`, open: true, fields: { date: [date, setDate], operation: [operation, setOperation], amount: [amount, setAmount], paidTo: [paidTo, setPaidTo], reference: [reference, setReference], chosen: [chosen, setChosen], method: [method, setMethod], manual: [manual, setManual] } });
 
   const total = num(amount) ?? 0;
   const leaves = useMemo(() => leavesOf(chosen, units), [chosen, units]);
@@ -143,6 +146,7 @@ function AddCostDialog({
     });
     setBusy(false);
     if (isError(r)) return setFailure(r.error);
+    draft.clear();
     onSaved();
   }
 
@@ -155,6 +159,7 @@ function AddCostDialog({
             Capital or setup spend, shared over one or more blocks. A group is split over the blocks inside it.
           </DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
             <Label>Date</Label>

@@ -1,3 +1,5 @@
+import { useDraftFields } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { SubCropField } from "@/components/cycles/SubCropField";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, TriangleAlert, Upload } from "lucide-react";
@@ -161,6 +163,7 @@ export function AddCycleDialog({
       live = false;
     };
   }, [open, crop.name, defaultUnit, firstMode]);
+  const draft = useDraftFields({ key: `add-cycle:${crop.name}:${defaultUnit ?? ""}`, open, fields: { mode: [mode, setMode], item: [item, setItem], harvesting: [harvesting, setHarvesting], unit: [unit, setUnit], fieldCrop: [fieldCrop, setFieldCrop], subCrop: [subCrop, setSubCrop], variety: [variety, setVariety], protocol: [protocol, setProtocol], type: [type, setType], start: [start, setStart], planting: [planting, setPlanting], stage: [stage, setStage], area: [area, setArea], trees: [trees, setTrees], lastFlower: [lastFlower, setLastFlower], lastHarvest: [lastHarvest, setLastHarvest], lastKg: [lastKg, setLastKg] } });
 
   const unitRow = units.find((u) => u.name === unit);
   // A section with named crops (Fruits & Vegetables): the crop is chosen first and the variety list follows it.
@@ -241,6 +244,7 @@ export function AddCycleDialog({
     setLastHarvest("");
     setLastKg("");
     onOpenChange(false);
+    draft.clear();
     onSaved();
   }
 
@@ -254,6 +258,7 @@ export function AddCycleDialog({
             carries on from where it is in another application.
           </DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
 
         <div role="tablist" aria-label="Kind of cycle" className="flex flex-wrap gap-2">
           {MODES.filter((m) => offered.includes(m.id)).map((m) => (

@@ -1,3 +1,5 @@
+import { useDraftFields } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { useEffect, useState } from "react";
 import { DatePicker } from "@/components/DatePicker";
 import { useToast } from "@/components/Toast";
@@ -47,6 +49,7 @@ export function ClearBlockDialog({
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState<ClearPreview | null>(null);
+  const draft = useDraftFields({ key: `clear-block:${unit}`, open: true, fields: { date: [date, setDate], reason: [reason, setReason], note: [note, setNote] } });
 
   useEffect(() => {
     let live = true;
@@ -75,6 +78,7 @@ export function ClearBlockDialog({
       return;
     }
     toast(isManager ? `${unit} cleared. It is now fallow.` : "Sent to a manager for approval");
+    draft.clear();
     onDone();
     onClose();
   }
@@ -90,6 +94,7 @@ export function ClearBlockDialog({
               : "A manager decides whether the block is cleared. It stays as it is until then."}
           </DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="cb-date">Cleared on</Label>
           <DatePicker id="cb-date" value={date} onChange={setDate} max={todayISO()} min={earliest} aria-label="Cleared on" />

@@ -1,3 +1,5 @@
+import { useDraftFields } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { useEffect, useState } from "react";
 import { DatePicker } from "@/components/DatePicker";
 import { useToast } from "@/components/Toast";
@@ -75,6 +77,7 @@ export function NewCycleDialog({
       live = false;
     };
   }, [open, crop.name, defaultUnit, toast]);
+  const draft = useDraftFields({ key: `new-cycle:${crop.name}:${defaultUnit ?? ""}`, open, fields: { unit: [unit, setUnit], item: [item, setItem], type: [type, setType], start: [start, setStart], hStart: [hStart, setHStart], hEnd: [hEnd, setHEnd], protocol: [protocol, setProtocol], fieldCrop: [fieldCrop, setFieldCrop], subCrop: [subCrop, setSubCrop], variety: [variety, setVariety] } });
 
   const label = crop.unit_label;
   const withCrops = hasFieldCrops(crop);
@@ -111,6 +114,7 @@ export function NewCycleDialog({
     setHEnd("");
     setProtocol("");
     onOpenChange(false);
+    draft.clear();
     onSaved();
   }
 
@@ -124,6 +128,7 @@ export function NewCycleDialog({
             date.
           </DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5 sm:col-span-2">

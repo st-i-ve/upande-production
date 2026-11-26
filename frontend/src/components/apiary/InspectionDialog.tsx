@@ -1,3 +1,5 @@
+import { useDialogDraft } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { useEffect, useMemo, useState } from "react";
 import { DatePicker } from "@/components/DatePicker";
 import { useToast } from "@/components/Toast";
@@ -52,6 +54,7 @@ export function InspectionDialog({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, defaultUnit, form.today]);
+  const draft = useDialogDraft({ key: `hive-inspection:${defaultUnit ?? ""}`, open, value: v, setValue: setV });
 
   const inspected = num(v.inspected);
   const queenright = num(v.queenright);
@@ -94,6 +97,7 @@ export function InspectionDialog({
     }
     toast("Inspection saved.", "ok", mites != null && form.threshold != null && mites > form.threshold ? { hint: `Mite load is over ${form.threshold} per 100 bees. Plan a treatment.` } : undefined);
     onOpenChange(false);
+    draft.clear();
     onSaved();
   };
 
@@ -104,6 +108,7 @@ export function InspectionDialog({
           <DialogTitle>Record inspection</DialogTitle>
           <DialogDescription>One visit to one hive group. Count the colonies you opened, not the ones in the apiary.</DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field id="hi-unit" label="Hive group">

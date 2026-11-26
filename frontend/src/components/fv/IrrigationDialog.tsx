@@ -1,3 +1,5 @@
+import { useDraftFields } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { useEffect, useMemo, useState } from "react";
 import { DatePicker } from "@/components/DatePicker";
 import { TimePicker } from "@/components/TimePicker";
@@ -76,6 +78,11 @@ export function IrrigationDialog({
       setPeople((rows ?? []).map((r) => ({ value: r.value, label: r.description ? `${r.value} · ${r.description}` : r.value }))),
     );
   }, [open, defaultPivot, form.pivots]);
+  const draft = useDraftFields({
+    key: `fv-irrigation:${defaultPivot ?? ""}`,
+    open,
+    fields: { pivot: [pivot, setPivot], d1: [d1, setD1], t1: [t1, setT1], d2: [d2, setD2], t2: [t2, setT2], depth: [depth, setDepth], timer: [timer, setTimer], direction: [direction, setDirection], source: [source, setSource], operator: [operator, setOperator], fault: [fault, setFault], notes: [notes, setNotes], slices: [slices, setSlices] },
+  });
 
   const pivotSlices = useMemo(() => form.pivots.find((x) => x.name === pivot)?.slices ?? [], [form.pivots, pivot]);
   const hours = runHours(d1, t1, d2, t2);
@@ -117,6 +124,7 @@ export function IrrigationDialog({
     }
     toast("Irrigation run saved.", "ok", { hint: `${pivot} · ${fmtNum(r.hours, 1)} h` });
     onOpenChange(false);
+    draft.clear();
     onSaved();
   };
 
@@ -127,6 +135,7 @@ export function IrrigationDialog({
           <DialogTitle>Record an irrigation run</DialogTitle>
           <DialogDescription>One pass of a pivot. The depth applies to every slice it covered.</DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="ir-pivot">Pivot</Label>

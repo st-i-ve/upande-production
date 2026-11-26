@@ -1,3 +1,5 @@
+import { useDraftFields } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { useEffect, useState } from "react";
 import { DatePicker } from "@/components/DatePicker";
 import { useToast } from "@/components/Toast";
@@ -51,6 +53,7 @@ export function StockingDialog({ open, onOpenChange, onSaved, form }: DialogProp
       setTarget("450"); setTargetDate(""); setTried(false);
     }
   }, [open]);
+  const draft = useDraftFields({ key: "pond-stocking", open: open, fields: { pond: [pond, setPond], species: [species, setSpecies], date: [date, setDate], count: [count, setCount], weight: [weight, setWeight], source: [source, setSource], target: [target, setTarget], targetDate: [targetDate, setTargetDate] } });
 
   const free = form.ponds.filter((p) => !p.active_stocking);
   const n = numOf(count);
@@ -75,6 +78,7 @@ export function StockingDialog({ open, onOpenChange, onSaved, form }: DialogProp
     if (isError(r)) return void toast(r.error, "error");
     toast(`${pond} stocked.`, "ok", { hint: `${r.name} · ${n?.toLocaleString("en-US")} ${species.toLowerCase()} fingerlings` });
     onOpenChange(false);
+    draft.clear();
     onSaved();
   };
 
@@ -85,6 +89,7 @@ export function StockingDialog({ open, onOpenChange, onSaved, form }: DialogProp
           <DialogTitle>Stock a pond</DialogTitle>
           <DialogDescription>A new batch. A pond holds one growing batch at a time, so harvest or close the last one first.</DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
         <div className="grid gap-4 sm:grid-cols-2">
           <Field id="st-pond" label="Pond" hint={free.length ? undefined : "Every pond already has a growing batch."}>
             <Picker id="st-pond" label="Pond" value={pond} onChange={setPond} placeholder="Choose a pond" options={free.map((p) => ({ value: p.unit, label: p.label }))} />
@@ -117,6 +122,7 @@ export function SamplingDialog({ open, onOpenChange, onSaved, batch }: DialogPro
   useEffect(() => {
     if (open) { setDate(todayISO()); setSize("30"); setWeight(""); setTried(false); }
   }, [open, batch?.name]);
+  const draft = useDraftFields({ key: `pond-sampling:${batch?.name ?? ""}`, open: open, fields: { date: [date, setDate], size: [size, setSize], weight: [weight, setWeight] } });
 
   const n = numOf(size);
   const w = numOf(weight);
@@ -135,6 +141,7 @@ export function SamplingDialog({ open, onOpenChange, onSaved, batch }: DialogPro
     if (isError(r)) return void toast(r.error, "error");
     toast("Sample saved.", "ok", { hint: `${batch.pond_name} · ${w} g average` });
     onOpenChange(false);
+    draft.clear();
     onSaved();
   };
 
@@ -145,6 +152,7 @@ export function SamplingDialog({ open, onOpenChange, onSaved, batch }: DialogPro
           <DialogTitle>Record a weight sample</DialogTitle>
           <DialogDescription>{batch ? `${batch.pond_name} · ${batch.species}, ${batch.live.toLocaleString("en-US")} alive` : ""}</DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Sample date" className="sm:col-span-2"><DatePicker value={date} onChange={setDate} max={todayISO()} aria-label="Sample date" className="w-full" /></Field>
           <Field id="sp-size" label="Fish weighed"><Input id="sp-size" inputMode="numeric" value={size} onChange={(e) => setSize(e.target.value)} /></Field>
@@ -169,6 +177,7 @@ export function HarvestDialog({ open, onOpenChange, onSaved, batch }: DialogProp
   useEffect(() => {
     if (open) { setDate(todayISO()); setCount(batch ? String(batch.live) : ""); setKg(""); setPrice(""); setTried(false); }
   }, [open, batch]);
+  const draft = useDraftFields({ key: `fish-harvest:${batch?.name ?? ""}`, open: open, fields: { date: [date, setDate], count: [count, setCount], kg: [kg, setKg], price: [price, setPrice] } });
 
   const n = numOf(count);
   const k = numOf(kg);
@@ -189,6 +198,7 @@ export function HarvestDialog({ open, onOpenChange, onSaved, batch }: DialogProp
     if (isError(r)) return void toast(r.error, "error");
     toast("Harvest saved.", "ok", { hint: r.status === "Harvested" ? `${batch.pond_name} is now empty` : `${batch.pond_name} still has fish` });
     onOpenChange(false);
+    draft.clear();
     onSaved();
   };
 
@@ -201,6 +211,7 @@ export function HarvestDialog({ open, onOpenChange, onSaved, batch }: DialogProp
             {batch ? `${batch.pond_name} · ${batch.live.toLocaleString("en-US")} alive. Harvesting every fish closes the batch. The kilograms also go to the crop's harvest records.` : ""}
           </DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Harvest date" className="sm:col-span-2"><DatePicker value={date} onChange={setDate} max={todayISO()} aria-label="Harvest date" className="w-full" /></Field>
           <Field id="hv-count" label="Fish harvested"><Input id="hv-count" inputMode="numeric" value={count} onChange={(e) => setCount(e.target.value)} /></Field>

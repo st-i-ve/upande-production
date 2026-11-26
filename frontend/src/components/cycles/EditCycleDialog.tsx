@@ -1,3 +1,5 @@
+import { useDraftFields } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { useEffect, useMemo, useState } from "react";
 import { TriangleAlert } from "lucide-react";
 import { DatePicker } from "@/components/DatePicker";
@@ -76,6 +78,7 @@ export function EditCycleDialog({
   const [protocols, setProtocols] = useState<{ value: string; label: string; variety: string | null }[]>([]);
   const [confirmClose, setConfirmClose] = useState(false);
   const [busy, setBusy] = useState(false);
+  const draft = useDraftFields({ key: `edit-cycle:${cycle.name}${resubmit ? ":resubmit" : ""}`, open: true, enabled: !!orig, fields: { reason: [reason, setReason], unit: [unit, setUnit], fieldCrop: [fieldCrop, setFieldCrop], subCrop: [subCrop, setSubCrop], variety: [variety, setVariety], protocol: [protocol, setProtocol], start: [start, setStart], planting: [planting, setPlanting], area: [area, setArea], trees: [trees, setTrees], hFrom: [hFrom, setHFrom], hTo: [hTo, setHTo], status: [status, setStatus], notes: [notes, setNotes] } });
 
   useEffect(() => {
     let live = true;
@@ -193,6 +196,7 @@ export function EditCycleDialog({
     }
     if ("pending" in r && r.pending) {
       toast("Sent to a manager for approval");
+      draft.clear();
       onSaved();
       onClose();
       return;
@@ -201,6 +205,7 @@ export function EditCycleDialog({
     toast(`Cycle ${ok.name} saved.`);
     ok.notes.forEach((n) => toast(n));
     ok.warnings.forEach((w) => toast(w, "error"));
+    draft.clear();
     onSaved();
     onClose();
   }
@@ -220,6 +225,7 @@ export function EditCycleDialog({
               {cycle.unit} · {(withCrops ? cropLabel(cycle.field_crop, cycle.variety, null, cycle.sub_crop) : cycle.variety) || cycle.item || cycle.name}. Tasks already in weekly plans are left as they are.
             </DialogDescription>
           </DialogHeader>
+          <DraftBar restored={draft.restored} onDiscard={draft.discard} />
 
           {!orig ? (
             <p className="text-[13px] text-[var(--sd-muted)]">Loading…</p>

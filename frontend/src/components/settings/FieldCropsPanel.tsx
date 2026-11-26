@@ -1,3 +1,5 @@
+import { useDraftFields } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Pencil, Plus } from "lucide-react";
 import { ItemField } from "@/components/cycles/ItemField";
@@ -234,6 +236,7 @@ function FieldCropDialog({ groups, group, fieldCrop, onClose, onSaved }: { group
   const [enabled, setEnabled] = useState(fieldCrop ? !!Number(fieldCrop.enabled) : true);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  const draft = useDraftFields({ key: `field-crop:${fieldCrop?.name ?? "new"}`, open: true, fields: { name: [name, setName], cropGroup: [cropGroup, setCropGroup], scientific: [scientific, setScientific], product: [product, setProduct], uom: [uom, setUom], color: [color, setColor], enabled: [enabled, setEnabled] } });
 
   async function save() {
     const problem = fieldCropProblem({ crop_name: name, harvest_uom: uom });
@@ -253,6 +256,7 @@ function FieldCropDialog({ groups, group, fieldCrop, onClose, onSaved }: { group
     setBusy(false);
     if (isError(r)) return setFailure(r.error);
     toast(`${fieldCrop ? fieldCrop.crop_name : name.trim()} saved.`);
+    draft.clear();
     onSaved();
   }
 
@@ -263,6 +267,7 @@ function FieldCropDialog({ groups, group, fieldCrop, onClose, onSaved }: { group
           <DialogTitle>{fieldCrop ? `Edit ${fieldCrop.crop_name}` : "New crop"}</DialogTitle>
           <DialogDescription>A crop: the product it is sold as and the unit its harvest is counted in. Sections pick up their crops from their varieties.</DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="fc-name">Crop name</Label>
@@ -313,6 +318,7 @@ function GroupDialog({ groups, group, parentDefault, onClose, onSaved }: { group
   const [order, setOrder] = useState(String(group?.sort_order ?? 0));
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  const draft = useDraftFields({ key: `crop-group:${group?.name ?? "new"}`, open: true, fields: { name: [name, setName], parent: [parent, setParent], order: [order, setOrder] } });
 
   async function save() {
     if (!group && !name.trim()) return setFailure("Give the group a name.");
@@ -325,6 +331,7 @@ function GroupDialog({ groups, group, parentDefault, onClose, onSaved }: { group
     setBusy(false);
     if (isError(r)) return setFailure(r.error);
     toast(`${group ? group.name : name.trim()} saved.`);
+    draft.clear();
     onSaved();
   }
 
@@ -335,6 +342,7 @@ function GroupDialog({ groups, group, parentDefault, onClose, onSaved }: { group
           <DialogTitle>{group ? `Edit ${group.name}` : "New group"}</DialogTitle>
           <DialogDescription>A group holds crops and other groups (Summer Flowers sits inside Floriculture).</DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
         <div className="grid gap-4">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="cg-name">Group name</Label>
@@ -367,6 +375,7 @@ function SubCropDialog({ crop, sub, onClose, onSaved }: { crop: FieldCrop; sub: 
   const [enabled, setEnabled] = useState(sub ? sub.enabled === undefined || !!Number(sub.enabled) : true);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  const draft = useDraftFields({ key: `sub-crop:${crop.name}:${sub?.name ?? "new"}`, open: true, fields: { name: [name, setName], uom: [uom, setUom], product: [product, setProduct], enabled: [enabled, setEnabled] } });
 
   async function save() {
     if (!sub && !name.trim()) return setFailure("Give the sub-crop a name.");
@@ -381,6 +390,7 @@ function SubCropDialog({ crop, sub, onClose, onSaved }: { crop: FieldCrop; sub: 
     setBusy(false);
     if (isError(r)) return setFailure(r.error);
     toast(`${sub ? sub.name : name.trim()} saved.`);
+    draft.clear();
     onSaved();
   }
 
@@ -391,6 +401,7 @@ function SubCropDialog({ crop, sub, onClose, onSaved }: { crop: FieldCrop; sub: 
           <DialogTitle>{sub ? `Edit ${sub.name}` : `New sub-crop of ${crop.crop_name}`}</DialogTitle>
           <DialogDescription>A division of one crop, like Standard rose and Spray rose. Varieties of {crop.crop_name} pick one.</DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
         <div className="grid gap-4">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="sc-name">Sub-crop name</Label>

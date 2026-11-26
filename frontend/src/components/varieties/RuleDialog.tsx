@@ -1,3 +1,5 @@
+import { useDialogDraft } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { useMemo, useState } from "react";
 import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
@@ -77,6 +79,7 @@ export function RuleDialog({
   const [f, setF] = useState<RuleForm>(() => toRuleForm(rule));
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  const draft = useDialogDraft({ key: `variety-rule:${crop}:${rule?.name ?? "new"}`, open: true, value: f, setValue: setF });
   const set = (p: Partial<RuleForm>) => {
     setF((x) => ({ ...x, ...p }));
     setFailure(null);
@@ -115,6 +118,7 @@ export function RuleDialog({
       return;
     }
     toast("Rule saved.");
+    draft.clear();
     onSaved();
   }
 
@@ -127,6 +131,7 @@ export function RuleDialog({
             Block refuses the work outright. Warn lets it through once a reason is given, and flags it to the manager.
           </DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5 sm:col-span-2">
             <Label htmlFor="r-type">The rule</Label>

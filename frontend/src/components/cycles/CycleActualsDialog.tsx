@@ -1,3 +1,5 @@
+import { useDraftFields } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { useState } from "react";
 import { DatePicker } from "@/components/DatePicker";
 import { useToast } from "@/components/Toast";
@@ -26,6 +28,7 @@ export function CycleActualsDialog({
   const [harvestStart, setHarvestStart] = useState(cycle.actual_harvest_start ?? "");
   const [harvestEnd, setHarvestEnd] = useState(cycle.actual_harvest_end ?? "");
   const [busy, setBusy] = useState(false);
+  const draft = useDraftFields({ key: `cycle-actuals:${cycle.name}`, open: true, fields: { flowering: [flowering, setFlowering], harvestStart: [harvestStart, setHarvestStart], harvestEnd: [harvestEnd, setHarvestEnd] } });
 
   async function save(close = false) {
     setBusy(true);
@@ -43,6 +46,7 @@ export function CycleActualsDialog({
     }
     toast(close ? `${cycle.name} closed.` : `Dates saved for ${cycle.name}.`);
     if (r.proposed_next_cycle) toast(`Next cycle proposed: ${r.proposed_next_cycle}`);
+    draft.clear();
     onSaved();
     onClose();
   }
@@ -66,6 +70,7 @@ export function CycleActualsDialog({
             When cycle {cycle.name} really flowered and was picked. Late or missing dates are flagged for the manager.
           </DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
         {row("Flowering date", cycle.expected_flowering_date, flowering, setFlowering)}
         {row("Harvest start", cycle.expected_harvest_start, harvestStart, setHarvestStart)}
         {row("Harvest end", cycle.expected_harvest_end, harvestEnd, setHarvestEnd)}

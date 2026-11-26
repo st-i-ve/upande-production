@@ -1,3 +1,5 @@
+import { useDraftFields } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { useEffect, useMemo, useState } from "react";
 import { Plus, X } from "lucide-react";
 import { DatePicker } from "@/components/DatePicker";
@@ -60,6 +62,11 @@ export function GradingDialog({
       setPeople((rows ?? []).map((r) => ({ value: r.value, label: r.description ? `${r.value} · ${r.description}` : r.value }))),
     );
   }, [open, defaultUnit, form.default_grades]);
+  const draft = useDraftFields({
+    key: `fv-grading:${defaultUnit ?? ""}`,
+    open,
+    fields: { unit: [unit, setUnit], date: [date, setDate], received: [received, setReceived], crates: [crates, setCrates], lines: [lines, setLines], rejects: [rejects, setRejects], reason: [reason, setReason], by: [by, setBy], notes: [notes, setNotes] },
+  });
 
   const picked = form.units.find((u) => u.name === unit);
   const recvN = Number(received);
@@ -103,6 +110,7 @@ export function GradingDialog({
     }
     toast("Grading saved.", "ok", { hint: `${unit} · ${fmtNum(r.graded_kg, 1)} kg graded` });
     onOpenChange(false);
+    draft.clear();
     onSaved();
   };
 
@@ -113,6 +121,7 @@ export function GradingDialog({
           <DialogTitle>Record grading</DialogTitle>
           <DialogDescription>What came in from a block and how it split by grade. Grades and rejects must not add up to more than was received.</DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="gr-unit">Block</Label>

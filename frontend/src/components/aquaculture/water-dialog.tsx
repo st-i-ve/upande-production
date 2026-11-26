@@ -1,3 +1,5 @@
+import { useDraftFields } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { useEffect, useState } from "react";
 import { DatePicker } from "@/components/DatePicker";
 import { TimePicker } from "@/components/TimePicker";
@@ -52,6 +54,7 @@ export function WaterReadingDialog({
       setVals({}); setNotes(""); setTried(false);
     }
   }, [open, defaultPond, form.now]);
+  const draft = useDraftFields({ key: `water-reading:${defaultPond ?? ""}`, open: open, fields: { pond: [pond, setPond], date: [date, setDate], time: [time, setTime], vals: [vals, setVals], notes: [notes, setNotes] } });
 
   const parsed = Object.fromEntries(WATER_FIELDS.map((f) => [f.key, numOf(vals[f.key] ?? "")])) as Record<Key, number | null>;
   const bad = WATER_FIELDS.filter((f) => {
@@ -80,6 +83,7 @@ export function WaterReadingDialog({
     if (r.out_of_band) toast("Reading saved, but out of band.", "warn", { hint: r.flags });
     else toast("Reading saved.", "ok");
     onOpenChange(false);
+    draft.clear();
     onSaved();
   };
 
@@ -90,6 +94,7 @@ export function WaterReadingDialog({
           <DialogTitle>Record a water reading</DialogTitle>
           <DialogDescription>Leave a measurement blank if you did not take it. Values outside the safe band are flagged.</DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
         <div className="grid gap-4 sm:grid-cols-3">
           <Field id="wq-pond" label="Pond">
             <Picker id="wq-pond" label="Pond" value={pond} onChange={setPond} placeholder="Choose a pond" options={form.ponds.map((p) => ({ value: p.unit, label: p.label }))} />

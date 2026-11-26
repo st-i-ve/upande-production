@@ -1,3 +1,5 @@
+import { useDraftFields } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { useState } from "react";
 import { DatePicker } from "@/components/DatePicker";
 import { useToast } from "@/components/Toast";
@@ -25,6 +27,7 @@ export function NewPayRunDialog({
   const [to, setTo] = useState(period.to_date);
   const [farm, setFarm] = useState("");
   const [busy, setBusy] = useState(false);
+  const draft = useDraftFields({ key: "new-pay-run", open: true, fields: { from: [from, setFrom], to: [to, setTo], farm: [farm, setFarm] } });
 
   async function create() {
     setBusy(true);
@@ -32,6 +35,7 @@ export function NewPayRunDialog({
     setBusy(false);
     if (isError(r)) return void toast(r.error, "error");
     toast(`Pay run ${r.name} started.`);
+    draft.clear();
     onCreated(r);
   }
 
@@ -44,6 +48,7 @@ export function NewPayRunDialog({
             Gathers approved, unpaid casual labour work dated within the period. You can review and refresh it before approving.
           </DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="npr-from">From</Label>

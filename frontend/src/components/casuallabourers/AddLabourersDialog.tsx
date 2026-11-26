@@ -1,3 +1,5 @@
+import { useDraftFields } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
@@ -53,6 +55,11 @@ export function AddLabourersDialog({
     };
   }, [open]);
 
+  const draft = useDraftFields({
+    key: "add-labourers",
+    open,
+    fields: { department: [department, setDepartment], designation: [designation, setDesignation], search: [search, setSearch], picked: [[...picked], (a: string[]) => setPicked(new Set(a))], supervisor: [supervisor, setSupervisor], crew: [crew, setCrew] },
+  });
   useEffect(() => {
     if (!open) return;
     let live = true;
@@ -106,6 +113,7 @@ export function AddLabourersDialog({
     }
     toast(`${r.added.length} labourer${r.added.length === 1 ? "" : "s"} added to the roster.`);
     onOpenChange(false);
+    draft.clear();
     onAdded();
   }
 
@@ -118,6 +126,7 @@ export function AddLabourersDialog({
             Choose people from the Employee list. Filter by department or designation, then tick as many as you need.
           </DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
 
         <div className="flex flex-wrap items-center gap-2">
           <SearchInput size="md" value={search} onChange={setSearch} placeholder="Search employees" className="w-56" />

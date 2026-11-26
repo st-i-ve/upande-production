@@ -1,3 +1,5 @@
+import { useDraftFields } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Chip, Field, Problems } from "@/components/aquaculture/ui";
@@ -88,6 +90,7 @@ export function NewCycleDialog({
       setPit(options.pit_warehouse ?? ""); setTried(false);
     }
   }, [open, options]);
+  const draft = useDraftFields({ key: "silage-new-cycle", open, fields: { crop: [crop, setCrop], unit: [unit, setUnit], start: [start, setStart], item: [item, setItem], pit: [pit, setPit] } });
 
   const problems: string[] = [];
   if (!crop) problems.push("Choose the crop.");
@@ -104,6 +107,7 @@ export function NewCycleDialog({
     setBusy(false);
     if (isError(r)) return void toast(r.error, "error");
     toast("Silage cycle started.", "ok", { hint: r.cycle.title });
+    draft.clear();
     onOpenChange(false);
     onSaved(r.name);
   };
@@ -118,6 +122,7 @@ export function NewCycleDialog({
             inputs issued to it, the machines allocated to it and the labour on it.
           </DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
         <div className="grid gap-4 sm:grid-cols-2">
           <Field id="sc-crop" label="Crop">
             <Picker id="sc-crop" label="Crop" value={crop} onChange={setCrop} options={options.crops} />
@@ -239,6 +244,7 @@ function IssueForm({ c, options, onChanged }: { c: SilageCycleDetail; options: S
   const [lines, setLines] = useState<InputLine[]>([{ item_code: "", qty: "" }]);
   const [busy, setBusy] = useState(false);
   const [tried, setTried] = useState(false);
+  const draft = useDraftFields({ key: `silage-issue:${c.name}`, open: true, fields: { warehouse: [warehouse, setWarehouse], date: [date, setDate], lines: [lines, setLines] } });
   const problems = inputProblems(lines, warehouse);
   const set = (i: number, patch: Partial<InputLine>) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, ...patch } : l)));
 
@@ -250,12 +256,14 @@ function IssueForm({ c, options, onChanged }: { c: SilageCycleDetail; options: S
     setBusy(false);
     if (isError(r)) return void toast(r.error, "error");
     toast("Inputs issued.", "ok", { hint: r.stock_entry });
+    draft.clear();
     setLines([{ item_code: "", qty: "" }]); setTried(false);
     onChanged(r.cycle);
   };
 
   return (
     <div className="space-y-2 rounded-xl bg-[var(--sd-bg-soft)] p-3">
+      <DraftBar restored={draft.restored} onDiscard={draft.discard} />
       <div className="grid gap-2 sm:grid-cols-2">
         <Picker label="Issue from" value={warehouse} onChange={setWarehouse} placeholder="Issue from store" options={options.warehouses} />
         <DatePicker value={date} onChange={setDate} min={c.start_date} max={todayISO()} aria-label="Issue date" className="w-full" />
@@ -290,6 +298,7 @@ function CloseForm({ c, options, onChanged }: { c: SilageCycleDetail; options: S
   const [busy, setBusy] = useState(false);
   const [tried, setTried] = useState(false);
   const openAllocations = c.allocations.filter((a) => !a.submitted).map((a) => a.allocation);
+  const draft = useDraftFields({ key: `silage-close:${c.name}`, open: true, fields: { kg: [kg, setKg], date: [date, setDate], item: [item, setItem], pit: [pit, setPit] } });
   const problems = closeProblems({ ensiledKg: kg, silageItem: item, pitWarehouse: pit, draftInputs: c.draft_inputs, openAllocations });
   const perKg = costPerKg(c.cost.total, kg);
 
@@ -301,11 +310,13 @@ function CloseForm({ c, options, onChanged }: { c: SilageCycleDetail; options: S
     setBusy(false);
     if (isError(r)) return void toast(r.error, "error");
     toast("Cycle closed; silage received into the pit.", "ok", { hint: `${r.stock_entry} · ${perKgLabel(r.cycle.cost_per_kg)}` });
+    draft.clear();
     onChanged(r.cycle);
   };
 
   return (
     <div className="space-y-3 rounded-xl bg-[var(--sd-bg-soft)] p-3">
+      <DraftBar restored={draft.restored} onDiscard={draft.discard} />
       <div className="grid gap-3 sm:grid-cols-2">
         <Field id="sc-kg" label="Kilos ensiled">
           <Input id="sc-kg" inputMode="decimal" value={kg} onChange={(e) => setKg(e.target.value)} placeholder="250000" />

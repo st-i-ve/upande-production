@@ -20,3 +20,14 @@ if (!Element.prototype.releasePointerCapture) {
 if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {};
 }
+
+// Dialog drafts live in localStorage; a draft kept by one test must not be
+// restored into the next.
+import { beforeEach } from "vitest";
+beforeEach(() => {
+  try {
+    localStorage.clear();
+  } catch {
+    /* ignore */
+  }
+});

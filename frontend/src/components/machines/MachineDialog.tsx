@@ -1,3 +1,5 @@
+import { useDialogDraft } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
@@ -106,6 +108,7 @@ export function MachineDialog({
         : blank,
     );
   }, [open, machine, blank]);
+  const draft = useDialogDraft({ key: `machine:${machine?.name ?? "new"}`, open, value: v, setValue: setV });
 
   const problems: string[] = [];
   if (!v.machine_name.trim()) problems.push("Give the machine a name.");
@@ -132,6 +135,7 @@ export function MachineDialog({
     }
     toast(machine ? "Machine saved." : "Machine added. Print its QR label next.", "ok");
     onOpenChange(false);
+    draft.clear();
     onSaved();
   };
 
@@ -144,6 +148,7 @@ export function MachineDialog({
             A tractor, chopper or mixer wagon that is allocated to work. Its diesel is issued from stock when an allocation is submitted.
           </DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
         <div className="grid gap-4 sm:grid-cols-2">
           <Field id="m-name" label="Name">
             <Input id="m-name" value={v.machine_name} onChange={(e) => setV({ ...v, machine_name: e.target.value })} disabled={!!machine} />

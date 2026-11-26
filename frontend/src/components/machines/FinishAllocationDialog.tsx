@@ -1,3 +1,5 @@
+import { useDialogDraft } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
@@ -31,6 +33,7 @@ export function FinishAllocationDialog({
   useEffect(() => {
     if (allocation) setLitres(allocation.diesel_litres ? String(allocation.diesel_litres) : "");
   }, [allocation]);
+  const draft = useDialogDraft({ key: `finish-allocation:${allocation?.name ?? ""}`, open: !!allocation, value: litres, setValue: setLitres });
 
   const n = litres.trim() === "" ? null : Number(litres);
   const bad = n != null && (!Number.isFinite(n) || n < 0);
@@ -46,6 +49,7 @@ export function FinishAllocationDialog({
     }
     toast(submit ? (n ? "Allocation posted; diesel issued from stock." : "Allocation posted.") : "Allocation closed.", "ok");
     onOpenChange(false);
+    draft.clear();
     onDone();
   };
 
@@ -61,6 +65,7 @@ export function FinishAllocationDialog({
               : `Running ${durationLabel(allocation?.running_hours)}. It is closed now; scanning the machine instead also records where it is.`}
           </DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="fa-litres">Diesel (litres)</Label>
           <Input id="fa-litres" type="number" min={0} step="0.1" inputMode="decimal" value={litres} onChange={(e) => setLitres(e.target.value)} />

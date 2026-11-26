@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { MoreHorizontal } from "lucide-react";
+import { useDraftFields } from "@/hooks/useDialogDraft";
+import { DraftBar } from "@/components/DraftBar";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -124,7 +126,7 @@ interface DialogProps {
 }
 
 /** Shared submit state: busy, inline error, and the activity-rule envelope. */
-function useAction(run: (overrideReason: string | null) => Promise<Envelope<unknown>>, onDone: () => void) {
+function useAction(run: (overrideReason: string | null) => Promise<Envelope<unknown>>, onDone: () => void, onSaved?: () => void) {
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const [rule, setRule] = useState<RuleFailure | null>(null);
@@ -141,6 +143,7 @@ function useAction(run: (overrideReason: string | null) => Promise<Envelope<unkn
       else setFailure(r.error);
       return;
     }
+    onSaved?.();
     onDone();
   }
   return { busy, failure, rule, setRule, submit };
@@ -206,7 +209,8 @@ export function ChangeDateDialog({ plan, task, weekStart, onClose, onDone }: Dia
   const max = ymd(addDays(weekStart, 6));
   const [date, setDate] = useState(task.due_date);
   const inWeek = date >= min && date <= max;
-  const { busy, failure, rule, setRule, submit } = useAction((o) => movePlanTask(plan, task.name ?? "", date, o), onDone);
+  const draft = useDraftFields({ key: `change-date:${plan}:${task.name}`, open: true, fields: { date: [date, setDate] } });
+  const { busy, failure, rule, setRule, submit } = useAction((o) => movePlanTask(plan, task.name ?? "", date, o), onDone, draft.clear);
 
   return (
     <Shell
@@ -218,6 +222,7 @@ export function ChangeDateDialog({ plan, task, weekStart, onClose, onDone }: Dia
       onCancelRule={() => setRule(null)}
       onOverride={(r) => void submit(r)}
     >
+      <DraftBar restored={draft.restored} onDiscard={draft.discard} />
       <div className="flex flex-col gap-1.5">
         <Label>New date</Label>
         <DatePicker value={date} onChange={(d) => { setDate(d); setRule(null); }} min={min} max={max} aria-label="New date" />
@@ -241,9 +246,11 @@ export function PostponeDialog({ plan, task, onClose, onDone }: DialogProps) {
   const [reason, setReason] = useState("");
   const later = date >= min;
   const ready = later && reason.trim().length > 0;
+  const draft = useDraftFields({ key: `postpone-task:${plan}:${task.name}`, open: true, fields: { date: [date, setDate], reason: [reason, setReason] } });
   const { busy, failure, rule, setRule, submit } = useAction(
     (o) => postponePlanTask(plan, task.name ?? "", date, reason.trim(), o),
     onDone,
+    draft.clear,
   );
 
   return (
@@ -256,6 +263,7 @@ export function PostponeDialog({ plan, task, onClose, onDone }: DialogProps) {
       onCancelRule={() => setRule(null)}
       onOverride={(r) => void submit(r)}
     >
+      <DraftBar restored={draft.restored} onDiscard={draft.discard} />
       <div className="flex flex-col gap-1.5">
         <Label>New date</Label>
         <DatePicker value={date} onChange={(d) => { setDate(d); setRule(null); }} min={min} aria-label="New date" />
@@ -278,7 +286,8 @@ export function PostponeDialog({ plan, task, onClose, onDone }: DialogProps) {
 
 export function DeleteTaskDialog({ plan, task, onClose, onDone }: DialogProps) {
   const [reason, setReason] = useState("");
-  const { busy, failure, submit } = useAction(() => deletePlanTask(plan, task.name ?? "", reason.trim()), onDone);
+  const draft = useDraftFields({ key: `delete-task:${plan}:${task.name}`, open: true, fields: { reason: [reason, setReason] } });
+  const { busy, failure, submit } = useAction(() => deletePlanTask(plan, task.name ?? "", reason.trim()), onDone, draft.clear);
 
   return (
     <Dialog open onOpenChange={(o) => !o && !busy && onClose()}>
@@ -289,6 +298,7 @@ export function DeleteTaskDialog({ plan, task, onClose, onDone }: DialogProps) {
             {task.operation_name} · due {rowDate(task.due_date)}. This removes it from the plan.
           </DialogDescription>
         </DialogHeader>
+        <DraftBar restored={draft.restored} onDiscard={draft.discard} />
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="delete-reason">Reason</Label>
           <Textarea id="delete-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why is it being deleted?" />
