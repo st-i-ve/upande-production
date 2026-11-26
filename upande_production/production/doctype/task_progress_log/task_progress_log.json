@@ -12,7 +12,7 @@
   {"fieldname": "task", "fieldtype": "Data", "label": "Task", "reqd": 1, "in_standard_filter": 1},
   {"fieldname": "unit", "fieldtype": "Link", "label": "Unit", "options": "Production Unit", "in_list_view": 1},
   {"fieldname": "operation", "fieldtype": "Link", "label": "Operation", "options": "Field Operation"},
-  {"fieldname": "crop", "fieldtype": "Link", "label": "Crop", "options": "Production Crop"},
+  {"fieldname": "crop", "fieldtype": "Link", "label": "Section", "options": "Production Crop"},
   {"fieldname": "log_date", "fieldtype": "Date", "label": "Log Date", "reqd": 1, "in_list_view": 1, "in_standard_filter": 1},
   {"fieldname": "logged_at", "fieldtype": "Datetime", "label": "Logged At", "read_only": 1},
   {"fieldname": "logged_by", "fieldtype": "Link", "label": "Logged By", "options": "User", "read_only": 1},

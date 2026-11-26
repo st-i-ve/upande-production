@@ -40,6 +40,20 @@ class TestProtocols(IntegrationTestCase):
 		cls.sup = _user("tp_supervisor@example.com", "Production Supervisor")
 		cls.mgr = _user("tp_manager@example.com", "Production Manager")
 		cls.viewer = _user("tp_viewer@example.com", "Production Viewer")
+		# An api.* endpoint that refuses rolls the transaction back (api/envelope.py), which would wipe fixtures made
+		# above and break every later test: commit them, and remove them in tearDownClass.
+		frappe.db.commit()
+
+	@classmethod
+	def tearDownClass(cls):
+		frappe.db.rollback()  # whatever the last test left open
+		frappe.set_user("Administrator")
+		for name in frappe.get_all("Production Protocol", filters={"crop": cls.crop.name}, pluck="name"):
+			frappe.delete_doc("Production Protocol", name, force=True, ignore_missing=True)
+		for doctype, name in (("Field Operation", cls.op.name), ("Farm", cls.farm.name), ("Production Crop", cls.crop.name)):
+			frappe.delete_doc(doctype, name, force=True, ignore_missing=True)
+		frappe.db.commit()
+		super().tearDownClass()
 
 	def tearDown(self):
 		frappe.set_user("Administrator")
@@ -127,7 +141,9 @@ class TestProtocols(IntegrationTestCase):
 		self.assertEqual(frappe.db.get_value("Production Protocol", v2, "version_status"), "Rejected")
 
 	def test_permissions(self):
+		frappe.db.rollback()  # drop earlier tests' open data: the commit below must not keep it
 		a, v2 = self._pending("TPV Perms")
+		frappe.db.commit()  # a refused api call rolls back to here; tearDownClass removes the protocols
 		frappe.set_user(self.sup)
 		with self.assertRaises(frappe.PermissionError):
 			P.approve(v2)

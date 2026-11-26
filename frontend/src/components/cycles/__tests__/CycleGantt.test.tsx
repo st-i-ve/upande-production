@@ -62,4 +62,28 @@ describe("CycleGantt stage bands", () => {
     expect(screen.queryByTestId("gantt-season-CY-1")).toBeNull();
     expect(screen.queryByTestId("gantt-juvenile-CY-1")).toBeNull();
   });
+
+  it("draws an open-ended continuous harvest to the chart's right edge", () => {
+    const cont: Cycle = {
+      ...cycle, harvest_pattern: "Continuous", expected_harvest_end: null, expected_harvest_start: "2026-11-01",
+      stage_bands: [
+        { stage: "Growing", start: "2026-08-01", end: "2026-11-01", is_harvest: 0, actual: false },
+        { stage: "Harvest", start: "2026-11-01", end: "2026-11-08", is_harvest: 1, actual: false },
+      ],
+    };
+    render(<CycleGantt cycles={[cont]} accent="#2a7" unitLabel="Block" />);
+    const band = screen.getByTestId("gantt-band-CY-1-Harvest");
+    expect(band).toHaveAttribute("data-open-ended", "true");
+    const bar = band.parentElement as HTMLElement;
+    const left = parseFloat(bar.style.left);
+    const width = parseFloat(bar.style.width);
+    expect(left + width).toBeCloseTo(100, 5);
+    const bandEnd = parseFloat(band.style.left) + parseFloat(band.style.width);
+    expect(bandEnd).toBeCloseTo(100, 5);
+  });
+
+  it("keeps a bounded continuous cycle and a plain open window as they were", () => {
+    render(<CycleGantt cycles={[{ ...cycle, harvest_pattern: "Continuous", expected_harvest_end: "2027-01-01" }]} accent="#2a7" unitLabel="Block" />);
+    expect(screen.getByTestId("gantt-band-CY-1-Harvest")).not.toHaveAttribute("data-open-ended");
+  });
 });

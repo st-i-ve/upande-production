@@ -34,13 +34,24 @@ class TestCropTreeApi(IntegrationTestCase):
 				_make("User", email=email, first_name=role.split()[1], roles=[{"role": role}], send_welcome_email=0)
 			cls.users[role] = email
 
+	@classmethod
+	def tearDownClass(cls):
+		# The refusal test commits (see there), so the class fixtures must be removed explicitly.
+		frappe.set_user("Administrator")
+		for c in (cls.fv, cls.single, cls.empty):
+			frappe.delete_doc("Production Crop", c.name, force=True, ignore_missing=True)
+		frappe.db.commit()
+		super().tearDownClass()
+
 	def setUp(self):
+		self.savepoint = True
 		frappe.db.savepoint("cta_test")
 		frappe.set_user("Administrator")
 
 	def tearDown(self):
 		frappe.set_user("Administrator")
-		frappe.db.rollback(save_point="cta_test")
+		if self.savepoint:
+			frappe.db.rollback(save_point="cta_test")
 
 	def _varieties(self, section, names):
 		"""A variety per crop name, in the section."""
@@ -92,6 +103,11 @@ class TestCropTreeApi(IntegrationTestCase):
 		self.assertEqual((get("parent_production_crop_group"), get("sort_order")), (None, 4))
 
 	def test_writes_are_manager_only(self):
+		# A refused endpoint rolls the whole transaction back, which drops any savepoint:
+		# commit the fixtures, skip the savepoint, and delete what the test makes.
+		frappe.db.commit()
+		self.savepoint = False
+		self.addCleanup(lambda: (frappe.set_user("Administrator"), frappe.delete_doc("Production Crop Group", "CTA Mgr", force=True, ignore_missing=True), frappe.db.commit()))
 		frappe.set_user(self.users["Production Viewer"])
 		for fn, data in (
 			(api.save_crop_group, {"group_name": "CTA Nope"}),

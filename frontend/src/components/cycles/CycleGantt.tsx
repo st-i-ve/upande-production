@@ -10,8 +10,16 @@ const DAY = 86400000;
 const t = (ymd: string | null | undefined) => (ymd ? new Date(`${ymd.slice(0, 10)}T00:00:00`).getTime() : NaN);
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
+/** A continuous-harvest cycle with no end date: it harvests until it is removed, so its bar runs to the chart's edge. */
+const openEnded = (c: Cycle) => c.harvest_pattern === "Continuous" && !c.expected_harvest_end;
+
 /** Where a cycle's bar ends: its harvest window, else a quiet stub from the start. */
 function endOf(c: Cycle): number {
+  if (openEnded(c)) {
+    // Only used to size the axis: leave room past today and the harvest start; the bar itself is drawn to the edge.
+    const h = t(c.expected_harvest_start);
+    return Math.max(Number.isFinite(h) ? h : 0, t(c.start_date)) + 30 * DAY;
+  }
   const bands = c.stage_bands ?? [];
   if (bands.length) return Math.max(...bands.map((b) => t(b.end)), t(c.expected_harvest_end) || 0);
   const e = t(c.expected_harvest_end);
@@ -107,7 +115,8 @@ export function CycleGantt({
         {rows.map((c) => {
           const s = t(c.start_date);
           const hs = t(c.expected_harvest_start);
-          const e = endOf(c);
+          const open = openEnded(c);
+          const e = open ? hi : endOf(c);
           const closed = c.status === "Closed";
           const hasWindow = Number.isFinite(hs);
           const growEnd = hasWindow ? hs : e;
@@ -177,23 +186,25 @@ export function CycleGantt({
                 <div
                   className="absolute top-[17px] h-[18px] overflow-hidden rounded-full"
                   style={{ left: `${pct(bar0)}%`, width: `${Math.max(0.6, pct(e) - pct(bar0))}%` }}
-                  title={`${c.item || c.title || c.name}: ${shortDate(c.start_date)}${hasWindow ? ` · harvest ${shortDate(c.expected_harvest_start)} to ${shortDate(c.expected_harvest_end)}` : ""}${c.protocol ? ` · ${c.protocol}` : ""}`}
+                  title={`${c.item || c.title || c.name}: ${shortDate(c.start_date)}${hasWindow ? ` · harvest ${shortDate(c.expected_harvest_start)} to ${c.expected_harvest_end ? shortDate(c.expected_harvest_end) : "removal"}` : ""}${c.protocol ? ` · ${c.protocol}` : ""}`}
                 >
                   {bands.length ? (
                     bands.map((b, i) => {
                       const bs = t(b.start);
-                      const be = t(b.end);
                       const harvest = !!Number(b.is_harvest);
+                      const be = open && harvest ? e : t(b.end);
                       return (
                         <div
                           key={`${b.stage}-${i}`}
                           data-testid={`gantt-band-${c.name}-${b.stage}`}
+                          data-open-ended={open && harvest ? "true" : undefined}
                           title={`${b.stage}: ${shortDate(b.start)} to ${shortDate(b.end)}${b.actual ? " (recorded)" : ""}`}
-                          className="absolute inset-y-0 border-r border-[var(--sd-card)]"
+                          className={cn("absolute inset-y-0", open && harvest ? "border-r-0" : "border-r border-[var(--sd-card)]")}
                           style={{
                             left: `${((bs - bar0) / (e - bar0 || 1)) * 100}%`,
                             width: `${((be - bs) / (e - bar0 || 1)) * 100}%`,
                             background: closed ? (harvest ? "var(--sd-quiet)" : "var(--sd-line)") : accent,
+                            ...(open && harvest ? { backgroundImage: "repeating-linear-gradient(135deg, rgba(255,255,255,0.35) 0 4px, transparent 4px 8px)", maskImage: "linear-gradient(to right, #000 85%, transparent)", WebkitMaskImage: "linear-gradient(to right, #000 85%, transparent)" } : {}),
                             opacity: closed ? 1 : harvest ? 1 : i % 2 ? 0.5 : 0.32,
                           }}
                         />
@@ -207,6 +218,7 @@ export function CycleGantt({
                       />
                       {hasWindow && (
                         <div
+                          data-testid={open ? `gantt-open-harvest-${c.name}` : undefined}
                           className="absolute inset-y-0 right-0"
                           style={{ width: `${((e - hs) / (e - s || 1)) * 100}%`, background: closed ? "var(--sd-quiet)" : accent }}
                         />

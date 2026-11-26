@@ -207,6 +207,7 @@ export interface Cycle {
   start_date: string;
   expected_harvest_start: string | null;
   expected_harvest_end: string | null;
+  harvest_pattern?: string | null;
   protocol: string | null;
   status: string;
   area_ha: number;

@@ -2,6 +2,7 @@ import frappe
 from frappe.tests import IntegrationTestCase
 from frappe.utils import add_days, getdate, today
 
+from upande_production.api import production as api
 from upande_production.production.logic import cycle_chain, stages
 
 
@@ -178,6 +179,12 @@ class TestCycleChain(IntegrationTestCase):
 		c = self._cycle(variety=v, start=add_days(today(), -100), actual_flowering_date=add_days(today(), -10))
 		self.assertEqual(getdate(c.expected_harvest_start), getdate(add_days(c.actual_flowering_date, 70)))
 		self.assertFalse(c.expected_harvest_end)
+
+	def test_list_cycles_sends_harvest_pattern(self):
+		v = self._continuous("CC Cont List")
+		c = self._cycle(variety=v, start=add_days(today(), -100))
+		rows = api.list_cycles(self.crop.name)["cycles"]
+		self.assertEqual(next(r["harvest_pattern"] for r in rows if r["name"] == c.name), "Continuous")
 
 	def test_continuous_lifespan_sets_end(self):
 		v = self._continuous("CC Cont Life", lifespan_years=2)

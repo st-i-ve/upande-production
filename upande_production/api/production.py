@@ -239,7 +239,11 @@ def list_cycles(crop, unit=None, status=None):
 		for r in frappe.get_all(
 			"Production Cycle Change Request", filters={"status": "Pending", "cycle": ("in", [c["name"] for c in cycles] or [""])},
 			fields=["name", "cycle", "action", "requested_by", "changes"])}
+	patterns = {v.name: v.harvest_pattern or "Once" for v in frappe.get_all(
+		"Production Variety", filters={"name": ("in", list({c["variety"] for c in cycles if c.get("variety")}) or [""])},
+		fields=["name", "harvest_pattern"])}
 	for c in cycles:
+		c["harvest_pattern"] = patterns.get(c.get("variety"))
 		c["stage_bands"] = _stage_bands(c)
 		fl = c.pop("protocol_flags", None) or ""
 		c["flags"] = [f for f in fl.split("\n") if f] if see else []

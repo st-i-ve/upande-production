@@ -263,10 +263,11 @@ class TestRules(IntegrationTestCase):
 		plan = plans.get_or_create_plan(self.crop, self.farm.name, y, w)
 		self.assertEqual(plans.generate_week_detail(plan.name)["created"], 2)
 		plan.reload()
-		mine = [t for t in plan.tasks if t.cycle == cy]
-		task_schedule.delete_task(plan.name, mine[0].name, "Not needed")
+		mine = {t.operation: t for t in plan.tasks if t.cycle == cy}
+		task_schedule.delete_task(plan.name, mine[self.weed].name, "Not needed")
+		# Postpone the pruning: no rule covers it, so the new date's stage cannot refuse it (weeding is barred in some stages).
 		nxt = add_days(today(), 8)
-		res = task_schedule.postpone_task(plan.name, mine[1].name, nxt, "Rain")
+		res = task_schedule.postpone_task(plan.name, mine[self.prune].name, nxt, "Rain")
 		self.addCleanup(lambda: frappe.delete_doc("Production Work Plan", res["plan"], force=True))
 		self.assertEqual(plans.generate_week_detail(plan.name)["created"], 0)
 		plan.reload()
