@@ -86,6 +86,9 @@ def needs_check(doc) -> bool:
 def check(names) -> dict:
 	"""The assistant manager who assigned the task vouches for the entries; a manager approves them next."""
 	docs = _docs(_names(names), "Pending")
+	if not assistant_step_on():
+		frappe.throw(_("The assistant manager step is off; work no longer needs a check."), frappe.ValidationError)
+	_decided_in_wm(docs)
 	for d in docs:
 		if not d.plan_task or _assigner(d.plan_task) != frappe.session.user or not is_assistant_manager():
 			frappe.throw(_("Only the assistant manager who assigned the task can check {0}.").format(d.name),
@@ -242,7 +245,7 @@ def list_approvals(
 			fields=["name", "plan_year", "plan_week"],
 		)
 	}
-	me = frappe.session.user if is_assistant_manager() else None
+	me = frappe.session.user if assistant_step_on() and is_assistant_manager() else None
 	assistants = {}
 
 	def _needs(task):
@@ -346,7 +349,7 @@ def approval_counts() -> dict:
 		group by crop, plan_task, unit, operation, work_date, submitted_by, approval_status""",
 		{"retired": retired_sql()}, as_dict=True,
 	)
-	me = frappe.session.user if is_assistant_manager() else None  # only assistants have a check queue
+	me = frappe.session.user if assistant_step_on() and is_assistant_manager() else None  # only assistants have a check queue
 	assigners = dict(frappe.get_all(
 		"Work Plan Task", filters={"name": ("in", list({r.plan_task for r in rows if r.plan_task}) or [""])},
 		fields=["name", "assigned_by"], as_list=True,

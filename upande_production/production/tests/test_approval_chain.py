@@ -443,3 +443,13 @@ class TestApprovalChain(IntegrationTestCase):
 		self.assertEqual(self._t(task).done_qty, 0)
 		self._as(self.mgr, approvals.approve, [e])
 		self.assertEqual(self._t(task).done_qty, 5)
+
+	def test_step_off_empties_check_queue_and_refuses_check(self):
+		_, _, e = self._worked(self.asst)
+		set_step(False)
+		frappe.set_user(self.asst)
+		self.assertEqual(approvals.list_approvals(queue="check")["groups"], [])
+		self.assertEqual(approvals.approval_counts()["to_check"], 0)
+		frappe.set_user("Administrator")
+		with self.assertRaises(frappe.ValidationError):
+			self._as(self.asst, approvals.check, [e])
