@@ -26,22 +26,28 @@ function NoteDialog({
   busy,
   onCancel,
   onConfirm,
+  description = "The requester reads this note. The cycle stays as it is.",
+  label = "Note for the requester",
+  initial = "",
 }: {
   title: string;
   confirm: string;
   busy: boolean;
   onCancel: () => void;
   onConfirm: (note: string) => void;
+  description?: string;
+  label?: string;
+  initial?: string;
 }) {
-  const [note, setNote] = useState("");
+  const [note, setNote] = useState(initial);
   return (
     <Dialog open onOpenChange={(o) => !o && !busy && onCancel()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>The requester reads this note. The cycle stays as it is.</DialogDescription>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        <Textarea aria-label="Note for the requester" value={note} onChange={(e) => setNote(e.target.value)} rows={4} autoFocus />
+        <Textarea aria-label={label} value={note} onChange={(e) => setNote(e.target.value)} rows={4} autoFocus />
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={onCancel} disabled={busy}>
             Cancel
@@ -81,6 +87,7 @@ export function CycleChanges({
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [stale, setStale] = useState<Record<string, string>>({});
   const [anyway, setAnyway] = useState<Record<string, boolean>>({});
+  const [amend, setAmend] = useState<CycleChangeRequest | null>(null);
   const [note, setNote] = useState<{ row: CycleChangeRequest; kind: "back" | "reject" } | null>(null);
 
   const load = useCallback(async () => {
@@ -217,7 +224,7 @@ export function CycleChanges({
                     Edit &amp; resubmit
                   </Button>
                 ) : (
-                  <Button disabled={wait} onClick={() => void act(r, () => resubmitCycleChange(r.name, {}), "Sent to a manager for approval")}>
+                  <Button disabled={wait} onClick={() => setAmend(r)}>
                     Resubmit
                   </Button>
                 )
@@ -226,6 +233,20 @@ export function CycleChanges({
           </article>
         );
       })}
+      {amend && (
+        <NoteDialog
+          title={`Resubmit the delete request for ${amend.cycle}`}
+          description="Change the reason if it needs it. A manager decides again."
+          label="Reason for deleting"
+          initial={amend.reason ?? ""}
+          confirm="Resubmit"
+          busy={busy.has(amend.name)}
+          onCancel={() => setAmend(null)}
+          onConfirm={async (t) => {
+            if (await act(amend, () => resubmitCycleChange(amend.name, {}, t), "Sent to a manager for approval")) setAmend(null);
+          }}
+        />
+      )}
       {note && (
         <NoteDialog
           title={note.kind === "back" ? `Send back the change to ${note.row.cycle}` : `Reject the change to ${note.row.cycle}`}

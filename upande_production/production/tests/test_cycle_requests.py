@@ -308,6 +308,7 @@ class TestCycleRequests(IntegrationTestCase):
 		rows = self.as_user(self.sup, desk.list_cycles, self.crop.name)["cycles"]
 		row = [r for r in rows if r["name"] == self.cycle][0]
 		self.assertEqual(row["pending_request"]["name"], name)
+		self.assertIn("area_ha", row["pending_request"]["changes"])  # the chip's hover shows old -> new
 
 	def test_approve_closing_request(self):
 		name = self.as_user(self.asst, api.update_cycle, self.cycle, {"status": "Closed", "reason": "Season over"})["request"]

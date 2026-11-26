@@ -104,4 +104,15 @@ describe("CycleChanges", () => {
     expect(within(back).getByText(/Check the area/)).toBeTruthy();
     expect(within(back).getByRole("button", { name: "Edit & resubmit" })).toBeTruthy();
   });
+
+  it("lets the requester amend the reason when resubmitting a sent-back delete", async () => {
+    vi.mocked(setup.listCycleChanges).mockResolvedValue({ rows: [row("CCR-4", { action: "Delete", status: "Sent Back", reason: "Planted twice", changes: {} })] });
+    vi.mocked(setup.resubmitCycleChange).mockReset().mockResolvedValue({ request: "CCR-4", pending: true });
+    show(false);
+    fireEvent.click(within(await screen.findByTestId("cycle-change-CCR-4")).getByRole("button", { name: "Resubmit" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText("Reason for deleting"), { target: { value: "Planted twice, confirmed" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Resubmit" }));
+    await waitFor(() => expect(setup.resubmitCycleChange).toHaveBeenCalledWith("CCR-4", {}, "Planted twice, confirmed"));
+  });
 });
