@@ -18,7 +18,7 @@ def visible_filter() -> dict:
 
 def refuse_if_awaiting(row):
 	if settings.assistant_step_on() and row.get("awaiting_approval"):
-		frappe.throw(_("This task is waiting for the manager to forward it."), frappe.ValidationError)
+		frappe.throw(_("This task is waiting for a manager's approval."), frappe.ValidationError)
 
 
 def forward(plan: str, tasks: list | None = None) -> dict:

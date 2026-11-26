@@ -2,6 +2,7 @@
 
 import frappe
 from frappe import _
+from frappe.utils import flt
 
 from upande_production.api.envelope import as_dict, run
 from upande_production.production.logic import crop_groups, field_crops
@@ -372,7 +373,10 @@ def save_plan_tasks(crop, farm, year, week, tasks, override_reason=None):
 				vals.update(_task_rules({**row.as_dict(), **vals}, override_reason, exclude_task=row.name))
 			if "supervisor" in vals and (vals["supervisor"] or None) != row.supervisor:
 				vals["supervisor_from_plan"] = 0  # a manager's own choice, so the supervisor plan leaves it alone
-			changed = any(k in vals and (vals[k] or None) != (row.get(k) or None) for k in task_approval.REAWAIT_FIELDS)
+			changed = any(
+				k in vals and (flt(vals[k]) != flt(row.get(k)) if k in ("planned_qty", "rate") else (vals[k] or None) != (row.get(k) or None))
+				for k in task_approval.REAWAIT_FIELDS
+			)
 			row.update(vals)
 			if reawait and changed and not row.awaiting_approval:
 				row.awaiting_approval = 1  # a forwarded task an assistant changed goes back to the manager

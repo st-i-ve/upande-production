@@ -208,7 +208,7 @@ class TestApprovalChain(IntegrationTestCase):
 		plan = self._plan_with(self.asst)
 		res = desk.record_task_work(plan, self._task(plan), "Skipped")
 		self.assertIn("error", res)
-		self.assertIn("This task is waiting for the manager to forward it.", res["error"])
+		self.assertIn("This task is waiting for a manager's approval.", res["error"])
 
 	def test_forward_all_and_one(self):
 		set_step(True)
@@ -259,6 +259,10 @@ class TestApprovalChain(IntegrationTestCase):
 		self.assertEqual(row.awaiting_approval, 1)
 		self.assertFalse(row.forwarded_by)
 		self.assertFalse(row.forwarded_on)
+
+	def test_same_qty_as_string_does_not_reawait(self):
+		plan, name = self._forwarded()
+		self.assertEqual(self._edit(self.asst, name, planned_qty="5", rate="40.0").awaiting_approval, 0)
 
 	def test_manager_edit_does_not_reawait(self):
 		plan, name = self._forwarded()
