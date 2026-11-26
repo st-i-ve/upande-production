@@ -3,8 +3,11 @@
 Same conventions as mobile/api.py: JSON body in, `frappe.response["data"]` out, a refusal is a 200 carrying
 `{"error": ...}`, success carries `"status": "success"`.
 """
+import json
+
 import frappe
 
+from upande_production.mobile import access
 from upande_production.mobile.api import _denied, _fail, _need, _payload, _require, _run, _s, _strip_pay
 from upande_production.production.logic import approvals, task_approval
 
@@ -23,9 +26,27 @@ def _guarded(name, go):
 	_run(name, inner)
 
 
+def _has(cap) -> bool:
+	return access.has_capability(cap)
+
+
 def _names(data):
 	names = data.get("names")
 	return names if isinstance(names, (list, str)) else None
+
+
+def _task_names(value):
+	"""Optional list of task names: a list, a JSON list in a string, or nothing (all awaiting tasks)."""
+	if value in (None, "", []):
+		return None
+	if isinstance(value, str):
+		try:
+			value = json.loads(value)
+		except ValueError:
+			frappe.throw("Tasks must be a list of task names.", frappe.ValidationError)
+	if not isinstance(value, list) or not all(isinstance(t, str) and t for t in value):
+		frappe.throw("Tasks must be a list of task names.", frappe.ValidationError)
+	return value or None
 
 
 @frappe.whitelist()
@@ -108,12 +129,6 @@ def productionSendBackWork():
 	_guarded("productionSendBackWork", go)
 
 
-def _has(cap) -> bool:
-	from upande_production.mobile import access
-
-	return access.has_capability(cap)
-
-
 @frappe.whitelist()
 def productionForwardTasks():
 	"""Release an assistant manager's awaiting tasks (all of the plan's, or the named ones) to the supervisors."""
@@ -125,7 +140,7 @@ def productionForwardTasks():
 		return _fail(err)
 
 	def go():
-		res = task_approval.forward(_s(data, "plan"), data.get("tasks") or None)
+		res = task_approval.forward(_s(data, "plan"), _task_names(data.get("tasks")))
 		frappe.db.commit()
 		return {"status": "success", "forwarded": res["forwarded"],
 			"message": f"{len(res['forwarded'])} task(s) forwarded to the supervisors."}
@@ -135,7 +150,10 @@ def productionForwardTasks():
 
 @frappe.whitelist()
 def productionApprovalCounts():
-	"""Badge numbers: to_check (assistant manager's queue) and to_approve (manager's queue)."""
+	"""Badge numbers: to_check (assistant manager's queue) and to_approve (manager's queue).
+	Needs plan_check or plan_approve."""
+	if not (_has("plan_check") or _has("plan_approve")):
+		return _fail("You do not have permission to do this.")
 	if _denied(("Casual Labour Work", "read")):
 		return
 

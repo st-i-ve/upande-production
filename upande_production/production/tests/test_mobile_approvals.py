@@ -139,6 +139,33 @@ class TestMobileApprovals(IntegrationTestCase):
 		self.assertTrue(m["plan_approve"])
 		self.assertFalse(s["plan_approve"] or s["plan_check"])
 
+	def test_supervisor_does_not_see_awaiting(self):
+		self._plan(self.asst)
+		payload = {"crop": self.crop.name, "farm": self.farm.name, "year": self.year, "week": self.week}
+		self.assertEqual(self._call(self.sup, api.productionGetWeekPlan, payload)["tasks"], [])
+		det = self._call(self.sup, api.productionGetPlanDetail, payload)
+		self.assertEqual([t for b in det["blocks"] for t in b["tasks"]], [])
+
+	def test_assistant_add_task_awaits(self):
+		res = self._call(self.asst, api.productionAddTask, {
+			"crop": self.crop.name, "farm": self.farm.name, "unit": self.u1.name, "operation": self.op.name,
+			"planned_qty": 3, "year": self.year, "week": self.week})
+		self.assertNotIn("error", res)
+		row = frappe.get_all("Work Plan Task", filters={"unit": self.u1.name, "operation": self.op.name,
+			"parenttype": "Production Work Plan"}, fields=["awaiting_approval", "assigned_by"])[0]
+		self.assertEqual((row.awaiting_approval, row.assigned_by), (1, self.asst))
+
+	def test_forward_tasks_accepts_json_string_and_rejects_other_types(self):
+		plan, task = self._plan(self.asst)
+		for bad in (5, {"a": 1}, "not json", '{"a": 1}', [1]):
+			self.assertIn("error", self._call(self.mgr, mobile.productionForwardTasks, {"plan": plan, "tasks": bad}), bad)
+		self.assertEqual(frappe.db.get_value("Work Plan Task", task, "awaiting_approval"), 1)
+		res = self._call(self.mgr, mobile.productionForwardTasks, {"plan": plan, "tasks": f'["{task}"]'})
+		self.assertEqual(res["forwarded"], [task])
+
+	def test_counts_refused_for_supervisor(self):
+		self.assertIn("error", self._call(self.sup, mobile.productionApprovalCounts))
+
 	def test_phone_tasks_carry_awaiting(self):
 		plan, task = self._plan(self.asst)
 		payload = {"crop": self.crop.name, "farm": self.farm.name, "year": self.year, "week": self.week}
