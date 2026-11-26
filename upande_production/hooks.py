@@ -292,7 +292,8 @@ override_whitelisted_methods = dict(RENAMED_API_PATHS)
 # Ignore links to specified DocTypes when deleting documents
 # -----------------------------------------------------------
 
-# ignore_links_on_delete = ["Communication", "ToDo"]
+# Change requests keep their history when the cycle they were about is deleted
+ignore_links_on_delete = ["Production Cycle Change Request"]
 
 # Request Events
 # ----------------

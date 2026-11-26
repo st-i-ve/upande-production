@@ -232,10 +232,14 @@ def list_cycles(crop, unit=None, status=None):
 		filters["status"] = status
 	cycles = frappe.get_all("Production Crop Cycle", filters=filters, fields=_CYCLE_FIELDS, order_by="start_date desc")
 	see = _can_see_flags()
+	pending = {r.cycle: {"name": r.name, "action": r.action, "requested_by": r.requested_by} for r in frappe.get_all(
+		"Production Cycle Change Request", filters={"status": "Pending", "cycle": ("in", [c["name"] for c in cycles] or [""])},
+		fields=["name", "cycle", "action", "requested_by"])}
 	for c in cycles:
 		c["stage_bands"] = _stage_bands(c)
 		fl = c.pop("protocol_flags", None) or ""
 		c["flags"] = [f for f in fl.split("\n") if f] if see else []
+		c["pending_request"] = pending.get(c["name"])
 	return {"cycles": cycles}
 
 

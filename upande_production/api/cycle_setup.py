@@ -4,8 +4,8 @@ import frappe
 from frappe import _
 
 from upande_production.api.envelope import as_dict, run
-from upande_production.production.logic import cycle_setup
-from upande_production.production.logic.settings import crop_allowed
+from upande_production.production.logic import cycle_requests, cycle_setup
+from upande_production.production.logic.settings import crop_allowed, is_manager
 
 
 def _gate(crop=None):
@@ -56,13 +56,81 @@ def import_cycles(crop, rows):
 @run
 def update_cycle(name, data):
 	"""Edit a cycle: block (until it has tasks), variety, protocol, start / planting date, area, plant count,
-	expected harvest dates, status and notes. Returns {name, warnings, notes}; a changed protocol or start date on a
-	running cycle re-plans from today and says so in `notes`."""
+	expected harvest dates, status and notes. A manager's edit applies at once and returns {name, warnings, notes}
+	(a changed protocol or start date on a running cycle re-plans from today and says so in `notes`). Anyone else
+	who changes a protected field (setup, or closing) sends a request instead, with `reason` in data, and gets
+	{request, pending: True}; the cycle stays as it was."""
 	frappe.has_permission("Production Crop Cycle", "write", doc=name, throw=True)
+	_gate_cycle(name)
+	data = as_dict(data) or {}
+	if not is_manager():
+		changes = cycle_requests.diff(frappe.get_doc("Production Crop Cycle", name), data)
+		if cycle_requests.touches_protected(changes, data):
+			return cycle_requests.request_edit(name, data, data.get("reason"))
+	return cycle_setup.update_cycle(name, {k: v for k, v in data.items() if k != "reason"})
+
+
+def _gate_cycle(name):
 	crop = frappe.db.get_value("Production Crop Cycle", name, "crop")
 	if crop and not crop_allowed(crop):
 		frappe.throw(_("You are not permitted to see this crop."), frappe.PermissionError)
-	return cycle_setup.update_cycle(name, as_dict(data) or {})
+
+
+def _gate_request(name):
+	_gate_cycle(frappe.db.get_value(cycle_requests.DT, name, "cycle"))
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def delete_cycle(name, reason=None):
+	"""Delete a cycle: a manager deletes it at once ({deleted}); anyone else sends a delete request with a reason
+	({request, pending}). Refused when records exist against the cycle."""
+	frappe.has_permission("Production Crop Cycle", "write", doc=name, throw=True)
+	_gate_cycle(name)
+	return cycle_requests.delete_cycle(name, reason)
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def list_cycle_changes(status=None, crop=None):
+	"""Change requests: all for managers, the caller's own for everyone else. {rows}."""
+	frappe.has_permission(cycle_requests.DT, "read", throw=True)
+	return {"rows": cycle_requests.list_requests(status, crop)}
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def approve_cycle_change(name, apply_anyway=0):
+	_gate_request(name)
+	return cycle_requests.approve(name, apply_anyway)
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def send_back_cycle_change(name, note):
+	_gate_request(name)
+	return cycle_requests.send_back(name, note)
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def reject_cycle_change(name, note):
+	_gate_request(name)
+	return cycle_requests.reject(name, note)
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def resubmit_cycle_change(name, data, reason=None):
+	_gate_request(name)
+	return cycle_requests.resubmit(name, as_dict(data) or {}, reason)
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def withdraw_cycle_change(name):
+	_gate_request(name)
+	return cycle_requests.withdraw(name)
 
 
 @frappe.whitelist(methods=["POST"])

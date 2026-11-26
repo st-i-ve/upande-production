@@ -10,7 +10,7 @@ import frappe
 from frappe import _
 from frappe.utils import add_days, cint, now_datetime, today
 
-from upande_production.production.logic import labourers, wm_bridge, work
+from upande_production.production.logic import cycle_requests as _cycle_requests, labourers, wm_bridge, work
 from upande_production.production.logic.units import retired_sql
 from upande_production.production.logic.settings import (
 	assistant_step_on, can_see_pay, get_stale_days, is_assistant_manager, is_manager, is_supervisor,
@@ -391,6 +391,7 @@ def approval_counts() -> dict:
 		"crops": crops,
 		"total": sum(c["pending"] for c in crops),
 		"to_check": to_check,
+		"cycle_changes": _cycle_requests.pending_counts(),
 		"protocols_pending": sum(c["protocols_pending"] for c in crops),
 		"stale": sum(c["stale"] for c in crops),
 		"stale_days": stale_days,

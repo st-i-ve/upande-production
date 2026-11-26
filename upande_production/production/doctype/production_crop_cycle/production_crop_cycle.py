@@ -6,28 +6,33 @@ from frappe import _
 from frappe.model.document import Document
 
 from upande_production.production.logic.cycles import crop_uses_cycles
-from upande_production.production.logic import cycle_chain, cycle_setup, field_crops
+from upande_production.production.logic import cycle_chain, cycle_requests, cycle_setup, field_crops
 from upande_production.production.logic.stages import apply_variety_defaults
 
 
 CYCLE_DT = "Production Crop Cycle"
+REQUEST_DT = "Production Cycle Change Request"
+
+
+def recorded_in(cycle) -> list:
+	"""The doctypes with a record that links to `cycle` (harvests, plan tasks, labour, samples ...), other than
+	cycles and change requests: rows of child tables count (a Work Plan Task row), and so do links added by Custom
+	Fields."""
+	links = frappe.get_all("DocField", filters={"fieldtype": "Link", "options": CYCLE_DT, "parent": ("not in", (CYCLE_DT, REQUEST_DT))},
+		fields=["parent", "fieldname"])
+	links += frappe.get_all("Custom Field", filters={"fieldtype": "Link", "options": CYCLE_DT, "dt": ("not in", (CYCLE_DT, REQUEST_DT))},
+		fields=["dt as parent", "fieldname"])
+	return [df.parent for df in links if frappe.db.table_exists(df.parent) and frappe.db.exists(df.parent, {df.fieldname: cycle})]
 
 
 def _recorded_against(cycle) -> bool:
-	"""True when any record other than a cycle links to `cycle` (harvests, plan tasks, labour, samples ...): rows of
-	child tables count (a Work Plan Task row), and so do links added by Custom Fields."""
-	links = frappe.get_all("DocField", filters={"fieldtype": "Link", "options": CYCLE_DT, "parent": ("!=", CYCLE_DT)},
-		fields=["parent", "fieldname"])
-	links += frappe.get_all("Custom Field", filters={"fieldtype": "Link", "options": CYCLE_DT, "dt": ("!=", CYCLE_DT)},
-		fields=["dt as parent", "fieldname"])
-	for df in links:
-		if frappe.db.table_exists(df.parent) and frappe.db.exists(df.parent, {df.fieldname: cycle}):
-			return True
-	return False
+	"""True when any record other than a cycle or a change request links to `cycle`."""
+	return bool(recorded_in(cycle))
 
 
 class ProductionCropCycle(Document):
 	def validate(self):
+		cycle_requests.guard(self)
 		if self.unit:
 			self.crop = frappe.db.get_value("Production Unit", self.unit, "crop")
 		if self.crop and not crop_uses_cycles(self.crop):

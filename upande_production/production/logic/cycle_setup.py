@@ -419,6 +419,10 @@ def edit_info(name) -> dict:
 	out = {k: doc.get(k) for k in ("name", "unit", "crop", "field_crop", "sub_crop", "variety", "item", "protocol", "start_date", "planting_date",
 		"area_ha", "plant_count", "expected_harvest_start", "expected_harvest_end", "status", "notes", "existing_cycle")}
 	out["has_tasks"] = bool(frappe.db.exists("Work Plan Task", {"cycle": name}))
+	from upande_production.production.logic import cycle_requests
+
+	p = cycle_requests.pending_for(name)
+	out["pending_request"] = {**p, "changes": frappe.parse_json(p.changes) or {}} if p else None
 	return out
 
 
