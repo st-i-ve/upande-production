@@ -109,6 +109,11 @@
    "read": 1,
    "report": 1,
    "role": "Production Supervisor"
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "Production Assistant Manager"
   }
  ],
  "sort_field": "creation",

@@ -26,12 +26,28 @@ class ProductionWorkPlan(Document):
 				frappe.DuplicateEntryError,
 			)
 		self._guard_task_changes()
+		self._stamp_new_tasks()
 		supervisors.fill_plan_tasks(self)
 		tol = get_tolerance_days()
 		for t in self.tasks:
 			t.deviation = task_deviation(
 				t.status, t.due_date, t.completed_at, t.planned_qty, t.done_qty, tol
 			) or ("Late" if t.postpone_count else "")  # a postponed task stays Late
+
+	def _stamp_new_tasks(self):
+		"""Rows new to this save and without an assigned_by get the session user; an assistant manager's rows await approval."""
+		from upande_production.production.logic import settings
+
+		before = self.get_doc_before_save()
+		old = {r.name for r in before.tasks} if before else set()
+		fresh = [r for r in self.tasks if not r.assigned_by and (not r.name or r.name not in old)]
+		if not fresh:
+			return
+		awaiting = int(settings.assistant_step_on() and settings.is_assistant_manager())
+		for r in fresh:
+			r.assigned_by = frappe.session.user
+			if awaiting:
+				r.awaiting_approval = 1
 
 	def _guard_task_changes(self):
 		"""Removing a task or changing its date needs the reschedule permission, however the plan is saved."""

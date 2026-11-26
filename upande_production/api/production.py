@@ -9,6 +9,7 @@ from upande_production.production.logic import analytics, bands, blockcost, cycl
 from upande_production.production.logic import drymatter as drymatter_logic
 from upande_production.production.logic import task_schedule
 from upande_production.production.logic.settings import PAY_ROLES, avocado_only_crop_keys, can_reschedule, can_see_pay, is_manager
+from upande_production.production.logic import settings as _settings
 from upande_production.production.logic.units import unit_filter
 from upande_production.production.logic.weeks import iso_week_bounds
 
@@ -158,6 +159,8 @@ def get_bootstrap():
 		"can_plan": admin or bool(PAY_ROLES & roles),
 		"can_manage": admin or bool(MANAGE_ROLES & roles),
 		"can_reschedule": can_reschedule(),
+		"is_assistant_manager": _settings.is_assistant_manager(),
+		"assistant_step": _settings.assistant_step_on(),
 	}
 
 
@@ -293,6 +296,7 @@ def get_plan(crop, farm, year, week):
 			"rate", "due_date", "supervisor", "status", "deviation", "protocol_ref", "note",
 			"rule_status", "rule_notes", "override_reason", "times_per_week",
 			"original_due_date", "postpone_count", "postpone_reason", "postponed_by", "postponed_on",
+			"assigned_by", "awaiting_approval", "forwarded_by", "forwarded_on",
 		],
 		order_by="idx asc",
 	)

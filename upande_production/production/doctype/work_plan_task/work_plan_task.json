@@ -30,6 +30,10 @@
   "postpone_reason",
   "postponed_by",
   "postponed_on",
+  "assigned_by",
+  "awaiting_approval",
+  "forwarded_by",
+  "forwarded_on",
   "rule_status",
   "rule_notes",
   "override_reason",
@@ -189,6 +193,33 @@
    "fieldname": "postponed_on",
    "fieldtype": "Datetime",
    "label": "Postponed On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "assigned_by",
+   "fieldtype": "Link",
+   "label": "Assigned By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "awaiting_approval",
+   "fieldtype": "Check",
+   "label": "Awaiting Approval",
+   "default": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "forwarded_by",
+   "fieldtype": "Link",
+   "label": "Forwarded By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "forwarded_on",
+   "fieldtype": "Datetime",
+   "label": "Forwarded On",
    "read_only": 1
   },
   {

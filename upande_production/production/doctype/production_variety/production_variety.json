@@ -388,6 +388,11 @@
   {
    "read": 1,
    "report": 1,
+   "role": "Production Assistant Manager"
+  },
+  {
+   "read": 1,
+   "report": 1,
    "role": "Production Viewer"
   }
  ],

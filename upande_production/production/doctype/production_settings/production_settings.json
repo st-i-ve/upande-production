@@ -8,6 +8,7 @@
   "company",
   "late_tolerance_days",
   "approval_stale_days",
+  "assistant_manager_step",
   "cost_center_parent",
   "harvest_section",
   "harvest_warehouse",
@@ -59,6 +60,13 @@
    "label": "Approval Stale Days",
    "default": "2",
    "description": "Pending work older than this many days is flagged stale."
+  },
+  {
+   "fieldname": "assistant_manager_step",
+   "fieldtype": "Check",
+   "label": "Assistant manager step",
+   "default": "0",
+   "description": "Assistant managers' tasks need a manager's approval before supervisors see them, and work on them is checked by the assistant manager before the manager approves it."
   },
   {
    "fieldname": "cost_center_parent",
@@ -300,6 +308,11 @@
    "write": 1,
    "report": 1,
    "role": "Production Supervisor"
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "Production Assistant Manager"
   },
   {
    "read": 1,

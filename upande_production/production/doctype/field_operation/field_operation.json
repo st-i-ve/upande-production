@@ -158,6 +158,16 @@
    "read": 1,
    "role": "Production Supervisor",
    "permlevel": 1
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "Production Assistant Manager"
+  },
+  {
+   "read": 1,
+   "role": "Production Assistant Manager",
+   "permlevel": 1
   }
  ],
  "sort_field": "creation",

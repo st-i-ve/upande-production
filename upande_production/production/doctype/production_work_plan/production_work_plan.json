@@ -126,6 +126,13 @@
    "role": "Production Supervisor"
   },
   {
+   "create": 1,
+   "read": 1,
+   "write": 1,
+   "report": 1,
+   "role": "Production Assistant Manager"
+  },
+  {
    "read": 1,
    "report": 1,
    "role": "Production Viewer"
@@ -145,6 +152,12 @@
   {
    "read": 1,
    "role": "Production Supervisor",
+   "permlevel": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Production Assistant Manager",
    "permlevel": 1,
    "write": 1
   }

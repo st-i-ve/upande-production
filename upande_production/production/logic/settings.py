@@ -17,7 +17,8 @@ def get_tolerance_days() -> int:
 	return 1 if val is None or val == "" else int(val)
 
 
-PAY_ROLES = {"Production Manager", "Production Supervisor", "System Manager", "Avocado Production Manager"}
+ASSISTANT_ROLE = "Production Assistant Manager"
+PAY_ROLES = {"Production Manager", "Production Supervisor", "System Manager", "Avocado Production Manager", ASSISTANT_ROLE}
 
 
 def can_see_pay() -> bool:
@@ -32,11 +33,30 @@ def get_stale_days() -> int:
 
 MANAGE_ROLES = {"Production Manager", "System Manager", "Avocado Production Manager"}
 SUPERVISE_ROLES = {"Production Supervisor"} | MANAGE_ROLES
-RESCHEDULE_ROLES = {"Production Plan Editor"} | MANAGE_ROLES
+RESCHEDULE_ROLES = {"Production Plan Editor", ASSISTANT_ROLE} | MANAGE_ROLES
 
 
 def is_manager() -> bool:
 	return frappe.session.user == "Administrator" or bool(MANAGE_ROLES & set(frappe.get_roles()))
+
+
+def is_manager_user(user) -> bool:
+	"""True for Administrator and any user holding a manage role (not only the session user)."""
+	return user == "Administrator" or bool(MANAGE_ROLES & set(frappe.get_roles(user)))
+
+
+def assistant_step_on() -> bool:
+	return bool(frappe.db.get_single_value("Production Settings", "assistant_manager_step"))
+
+
+def is_assistant_manager(user=None) -> bool:
+	"""Holds the assistant manager role, is enabled, and is not a manager."""
+	user = user or frappe.session.user
+	if not user or user in ("Administrator", "Guest") or is_manager_user(user):
+		return False
+	if not frappe.db.get_value("User", user, "enabled"):
+		return False
+	return ASSISTANT_ROLE in frappe.get_roles(user)
 
 
 def can_reschedule() -> bool:
