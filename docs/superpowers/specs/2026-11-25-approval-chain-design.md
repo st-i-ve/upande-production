@@ -31,7 +31,6 @@ working as they do now.
 - With Work Management in Automatic mode, work approval stays in Work Management (production's approval step is
   already skipped there); the two-step work approval applies to built-in labour mode only. Plan approval and cycle
   requests still apply.
-- Phone screens for checking/approving: not in this build (the phone has no approval screens today).
 
 ## Anti-goals
 - Unapproved values must never be live on a cycle: a pending edit leaves the cycle exactly as it was.
@@ -155,6 +154,18 @@ New doctype **Production Cycle Change Request** (autoname `CCR-.YYYY.-.#####`, t
   System Manager read/write all.
 - **Pay visibility (user: "yes"):** assistant managers see pay like supervisors do today — rates, pay value and
   unpaid totals on the Plan and Approvals pages (`can_see_pay` true for them).
+
+## Phone (added 2026-11-26, user: "yes add task 7 and the phone approval screens")
+- Capabilities (mobile/access.py): new `plan_check` (Production Assistant Manager) and `plan_approve` (managers).
+  Assistant managers also get `plan_view` and `plan_manage` (see and add tasks on the phone); not `plan_tick_off`.
+- Phone task data carries `awaiting_approval`; awaiting tasks show an **Awaiting manager** pill. Managers get
+  **Approve & forward** on an awaiting task and a week bar "N awaiting · Approve & forward" (same server rule as desk).
+- Phone work entries know **Checked** (label "Checked", neutral tone).
+- **Approvals screen** on the phone (reached from the Plan tab, with a count badge), built like the Sent back screen:
+  assistants see **To check** (Check / Send back with note); managers see **To approve** (Approve / Send back with
+  note; a Not checked card asks to confirm, then approves with unchecked_ok). Online only, like Sent back. Pay shown
+  only when the user can see pay (same server stripping as other phone lists).
+- Claude's calls: cycle change approvals stay desk-only; assistants don't tick off work on the phone.
 
 ## Left to the builder
 Exact UI placement and copy beyond what is stated; whether the assistant-manager queue and the manager queue are

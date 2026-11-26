@@ -151,3 +151,41 @@ Keep the page's existing structure; queues are a segmented toggle or tab on the 
 - [ ] **Step 3: Implement.**
 - [ ] **Step 4: Run** them plus `src/pages/__tests__/Cycles.test.tsx` and `Approvals.test.tsx`; `npx tsc -b` clean.
 - [ ] **Step 5: Commit** source; rebuild bundle and commit `public/dist` alone ("Rebuild desk bundle for cycle change requests"); restart the web group.
+
+### Task 7: Mobile API for assistant managers, forwarding and approvals
+
+**Files:**
+- Modify: `upande_production/mobile/access.py` (capabilities `plan_check`, `plan_approve`; assistant role in `plan_view`, `plan_manage`)
+- Modify: `upande_production/mobile/api.py` (`TASK_FIELDS` / `PLAN_TASK_FIELDS` + `awaiting_approval`; get_session_info carries the new capabilities through `capabilities()`)
+- Create: `upande_production/mobile/approvals.py` (phone endpoints, same `_run` / `_need` / `_payload` / `_fail` / `_strip_pay` patterns as mobile/api.py)
+- Test: `upande_production/production/tests/test_mobile_approvals.py` (new); `test_mobile_api`, `test_mobile_access` must still pass
+
+**Interfaces:**
+- Consumes: `approvals.list_approvals(crop, status, ..., queue)`, `approvals.check`, `approvals.approve(names, unchecked_ok)`, `approvals.send_back(names, note)`, `approvals.approval_counts()`, `task_approval.forward(plan, tasks)`.
+- Produces (whitelisted, JSON body like other phone endpoints, success `{"status": "success", ...}`): `productionListApprovals` (body `crop`, `queue` "check"|"approve") → `{"status","groups","counts"}` with pay stripped when the user can't see pay; `productionCheckWork` (`names`) ; `productionApproveWork` (`names`, `unchecked_ok`); `productionSendBackWork` (`names`, `note`); `productionForwardTasks` (`plan`, `tasks` optional) ; `productionApprovalCounts` → `{"status","to_check","to_approve"}`. Guards: check needs `plan_check`, approve/forward need `plan_approve`, send back needs either; list "check" needs `plan_check`, "approve" needs `plan_approve`.
+
+- [ ] **Step 1: Write failing tests**: `test_capabilities_per_role` (assistant: plan_view, plan_manage, plan_check true; plan_tick_off, plan_approve false; manager: plan_approve true), `test_phone_tasks_carry_awaiting`, `test_phone_check_then_approve` (entry Pending → Checked → Approved via the endpoints), `test_phone_unchecked_approve_needs_flag`, `test_phone_send_back_needs_note`, `test_phone_forward_manager_only`, `test_phone_lists_strip_pay`, `test_phone_counts`.
+- [ ] **Step 2: Run** — fails.
+- [ ] **Step 3: Implement.**
+- [ ] **Step 4: Run** `test_mobile_approvals`, `test_mobile_api`, `test_mobile_access`, `test_approval_chain` (one at a time) — pass.
+- [ ] **Step 5: Commit.** Also update `upande_production/mobile/SUPERVISOR_API.md` with the new endpoints.
+
+### Task 8: Phone app — awaiting tasks, forward, Checked, Approvals screen
+
+Repo: `/mnt/data/code/reactnative/upande-production`, branch `mutara` (commit there; do not push).
+
+**Files:**
+- Modify: `src/access.ts` (`plan_check`, `plan_approve` in Capabilities and KEYS)
+- Modify: `src/services/planning.ts` (ApprovalStatus + `'Checked'`; approvalMeta "Checked"; task `awaiting_approval`; `planningApi.listApprovals(crop, queue)`, `checkWork`, `approveWork(names, uncheckedOk)`, `sendBackWork(names, note)`, `forwardTasks(plan, tasks?)`, `approvalCounts()`)
+- Modify: `src/components/plan/TaskCard.tsx`, `TaskSheet.tsx` (Awaiting manager pill; managers' Approve & forward), `app/(tabs)/plan.tsx` (week bar for managers; entry to Approvals with count badge when plan_check or plan_approve)
+- Create: `app/plan/approvals.tsx` (modelled on `app/plan/sent-back.tsx`: To check / To approve, select cards, actions, note sheet, Not checked confirm through the app's alert host, online only)
+- Test: `__tests__/approvals-test.ts` (service + capability parsing) and extend `__tests__/planning-test.ts`, `__tests__/access.test.ts`
+
+**Interfaces:**
+- Consumes: Task 7 endpoint names and shapes exactly.
+
+- [ ] **Step 1: Write failing jest tests**: capability parsing keeps plan_check/plan_approve; approvalMeta("Checked") label "Checked"; unknown status no longer coerces Checked to Pending; listApprovals sends `{crop, queue}`; approveWork sends `unchecked_ok` 1 only when asked; forwardTasks sends plan and tasks.
+- [ ] **Step 2: Run** `npx jest __tests__/approvals-test.ts __tests__/planning-test.ts __tests__/access.test.ts` — fails.
+- [ ] **Step 3: Implement.** Use the app's own components (Screen, Pill, Button, Sheet, Toast, AppAlertHost); no native Alert.
+- [ ] **Step 4: Run** those tests, then the full `npm test` and `npx tsc --noEmit` — pass.
+- [ ] **Step 5: Commit** in the phone repo (no attribution).
