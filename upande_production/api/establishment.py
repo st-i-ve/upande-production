@@ -5,7 +5,7 @@ from frappe import _
 
 from upande_production.api.envelope import as_dict, run
 from upande_production.production.logic import establishment as logic
-from upande_production.production.logic.settings import can_see_pay, is_manager
+from upande_production.production.logic.settings import can_see_pay, crop_allowed, is_manager
 
 
 def _manage():
@@ -42,10 +42,23 @@ def capital_activities(crop):
 	return {"rows": logic.capital_activities(crop)}
 
 
+def _gate_crop(crop):
+	if not crop_allowed(crop):
+		frappe.throw(_("You are not permitted to see this crop."), frappe.PermissionError)
+
+
+def _gate_unit(unit):
+	crop = frappe.db.get_value("Production Unit", unit, "crop")
+	if crop is None and not frappe.db.exists("Production Unit", unit):
+		frappe.throw(_("Production Unit {0} not found").format(unit), frappe.ValidationError)
+	_gate_crop(crop)
+
+
 @frappe.whitelist(methods=["POST"])
 @run
 def get_unit_capital_budget(unit):
 	frappe.has_permission("Production Unit", "read", throw=True)
+	_gate_unit(unit)
 	return logic.get_unit_budget(unit)
 
 
@@ -53,6 +66,7 @@ def get_unit_capital_budget(unit):
 @run
 def save_unit_capital_budget(unit, rows):
 	_manage()
+	_gate_unit(unit)
 	return logic.save_unit_budget(unit, as_dict(rows) or [])
 
 
@@ -60,6 +74,10 @@ def save_unit_capital_budget(unit, rows):
 @run
 def cycle_capital_costs(cycle):
 	frappe.has_permission("Block Establishment Cost", "read", throw=True)
+	row = frappe.db.get_value("Production Crop Cycle", cycle, ["crop"], as_dict=True)
+	if not row:
+		frappe.throw(_("Cycle {0} not found").format(cycle), frappe.ValidationError)
+	_gate_crop(row.crop)
 	return logic.cycle_capital_costs(cycle)
 
 

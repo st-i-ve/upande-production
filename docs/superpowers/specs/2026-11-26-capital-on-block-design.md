@@ -39,3 +39,16 @@ unit already budgets, and prints what it did. Then it fills `cycle` on existing 
   protocol lookup. Summaries also give spend per cycle (unit -> cycle -> operation amounts).
 - `api/establishment`: existing names kept; added `get_unit_capital_budget(unit)`,
   `save_unit_capital_budget(unit, rows)` (managers) and `cycle_capital_costs(cycle)`.
+
+## Review amendments (2026-11-26)
+- "Running" means Active or Harvesting. `cycle_on` asks it as of the posting date (a cycle since Closed counts
+  if it was Active/Harvesting then: start_date <= date and closed_on / actual_harvest_end >= date); the patch
+  asks it as of today (cycle status Active or Harvesting). Planned never counts.
+- Saving a block budget runs with ignore_permissions after the manager and crop checks (Avocado managers
+  only read Production Unit). The three budget endpoints refuse a block or cycle of a crop the user cannot see.
+- Patch order: variety-specific protocols first, then crop-wide, newest first in each; the first to budget an
+  operation on a block keeps it. Draft and Pending Approval protocols that still hold capital rows are logged
+  (print and Error Log "capital_costs_to_blocks"), not copied.
+- Per ha on a block without area has no effective budget (None). `capital_activities` also lists Capital
+  operations of the crop nobody budgets yet (blocks 0). A group or retired block keeps rows it has; only new
+  rows are checked, and new rows on a group are refused.

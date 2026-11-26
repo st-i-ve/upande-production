@@ -177,5 +177,64 @@ class TestCapitalOnBlock(IntegrationTestCase):
 			read = api.get_unit_capital_budget(u.name)
 		finally:
 			frappe.set_user("Administrator")
-		self.assertIn("error", saved)
+		self.assertIn("Only a manager", saved["error"])
 		self.assertNotIn("error", read)
+
+	# -- review fixes
+	def _avo_user(self):
+		email = "cob_avo@example.com"
+		if not frappe.db.exists("User", email):
+			_make("User", email=email, first_name="COBAvo", send_welcome_email=0,
+				roles=[{"role": "Avocado Production Manager"}])
+		return email
+
+	def test_avocado_manager_saves_on_avocado_block_only(self):
+		avo = frappe.db.get_value("Production Crop", {"crop_key": "avocado"})
+		if not avo:
+			self.skipTest("no avocado crop on this site")
+		avo_op = _make("Field Operation", crop=avo, operation_name="COB Avo Cap", category="Other",
+			work_uom="Kg", default_rate=1, activity_type="Capital").name
+		avo_unit = _make("Production Unit", unit_name="COB Avo Block", crop=avo, farm=self.farm.name,
+			unit_type="Orchard Block", company=self.company, area_ha=2)
+		other = self._unit("COB NotAvo")
+		cyc = self._cycle(other, "2026-01-01")
+		frappe.set_user(self._avo_user())
+		try:
+			with patch.object(frappe.db, "rollback"):
+				ok = api.save_unit_capital_budget(avo_unit.name, [{"operation": avo_op, "basis": "Per ha", "amount": 5}])
+				no_save = api.save_unit_capital_budget(other.name, [{"operation": self.clear, "basis": "Total", "amount": 1}])
+				no_get = api.get_unit_capital_budget(other.name)
+				no_cycle = api.cycle_capital_costs(cyc.name)
+				missing = api.cycle_capital_costs("NO-SUCH-CYCLE")
+		finally:
+			frappe.set_user("Administrator")
+		self.assertNotIn("error", ok)
+		self.assertEqual(ok["total_budget"], 10)
+		for out in (no_save, no_get, no_cycle):
+			self.assertIn("not permitted to see this crop", out["error"])
+		self.assertIn("not found", missing["error"])
+
+	def test_per_ha_without_area_has_no_effective_budget(self):
+		u = self._budget(self._unit("COB Z0", area=0), [{"operation": self.clear, "basis": "Per ha", "amount": 100}])
+		self.assertIsNone(establishment.unit_budget(u.name)[self.clear])
+		self.assertEqual(api.get_unit_capital_budget(u.name)["total_budget"], 0)
+
+	def test_retired_block_keeps_rows_and_group_refuses_new(self):
+		u = self._budget(self._unit("COB R1"), [{"operation": self.clear, "basis": "Total", "amount": 1}])
+		frappe.db.set_value("Field Operation", self.clear, "activity_type", "Key activity")
+		try:
+			u.reload()
+			u.status = "Retired"
+			u.save()  # existing rows are not re-checked
+		finally:
+			frappe.db.set_value("Field Operation", self.clear, "activity_type", "Capital")
+		g = _make("Production Unit", unit_name="COB G1", crop=self.crop.name, farm=self.farm.name,
+			unit_type="Pivot", company=self.company, is_group=1)
+		with self.assertRaises(frappe.ValidationError):
+			self._budget(g, [{"operation": self.clear, "basis": "Total", "amount": 1}])
+
+	def test_capital_activities_lists_unbudgeted_operations_too(self):
+		self._budget(self._unit("COB L1"), [{"operation": self.clear, "basis": "Total", "amount": 1}])
+		acts = {r["operation"]: r for r in api.capital_activities(self.crop.name)["rows"]}
+		self.assertGreaterEqual(acts[self.clear]["blocks"], 1)
+		self.assertIn(self.rip, acts)

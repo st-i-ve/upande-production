@@ -9,6 +9,7 @@ import frappe
 from frappe.utils import flt
 
 OLD = "Production Protocol Capital Activity"
+RUNNING = ["Active", "Harvesting"]  # the same meaning as establishment.cycle_on, as of today
 
 
 def _units_for(protocol, units=None):
@@ -25,10 +26,21 @@ def _units_for(protocol, units=None):
 	if not scope or not names:
 		return names
 	running = set(frappe.get_all("Production Crop Cycle", filters={
-		"unit": ("in", names), "status": ("in", ["Planned", "Active", "Harvesting"]), **scope}, pluck="unit"))
+		"unit": ("in", names), "status": ("in", RUNNING), **scope}, pluck="unit"))
 	running |= set(frappe.get_all("Production Crop Cycle", filters={
-		"unit": ("in", names), "status": ("in", ["Planned", "Active", "Harvesting"]), "protocol": protocol.name}, pluck="unit"))
+		"unit": ("in", names), "status": ("in", RUNNING), "protocol": protocol.name}, pluck="unit"))
 	return [n for n in names if n in running]
+
+
+def _log_unreached():
+	"""Draft and Pending Approval protocols still hold capital rows: not copied, so say which."""
+	for p in frappe.get_all("Production Protocol", filters={"version_status": ("in", ["Draft", "Pending Approval"])},
+			fields=["name", "crop", "version_status"]):
+		n = frappe.db.count(OLD, {"parent": p.name, "parenttype": "Production Protocol"})
+		if n:
+			msg = f"{p.name} ({p.crop}, {p.version_status}) still has {n} capital rows; they are kept in the old table but not copied to blocks"
+			print(f"capital_costs_to_blocks: {msg}")
+			frappe.log_error(msg, "capital_costs_to_blocks")
 
 
 def copy_protocol_capital(protocols=None, units=None) -> int:
@@ -39,7 +51,14 @@ def copy_protocol_capital(protocols=None, units=None) -> int:
 	filters = {"version_status": "Active"}
 	if protocols is not None:
 		filters["name"] = ("in", list(protocols) or [""])
-	for p in frappe.get_all("Production Protocol", filters=filters, fields=["name", "crop", "variety", "field_crop"]):
+	found = frappe.get_all("Production Protocol", filters=filters, fields=["name", "crop", "variety", "field_crop", "modified"])
+	# variety-specific protocols first, then crop-wide ones; newest first within each. The first to budget an
+	# operation on a block keeps it.
+	found = [p for _k, grp in ((k, [x for x in found if (0 if x.variety else 1) == k]) for k in (0, 1))
+		for p in sorted(grp, key=lambda x: str(x.modified), reverse=True)]
+	if protocols is None:
+		_log_unreached()
+	for p in found:
 		rows = frappe.db.get_all(OLD, filters={"parent": p.name, "parenttype": "Production Protocol"},
 			fields=["operation", "budget_per_ha", "description"], order_by="idx asc")
 		if not rows:

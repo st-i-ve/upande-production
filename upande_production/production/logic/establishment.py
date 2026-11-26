@@ -156,8 +156,12 @@ def validate_budget(unit):
 	rows = unit.get("capital_budget") or []
 	if not rows:
 		return
-	if unit.is_group:
+	# a group or a retired block keeps the rows it already has; only new rows are checked (and refused on a group)
+	fresh = [r for r in rows if r.get("__islocal") or not r.get("name")]
+	if unit.is_group and fresh:
 		frappe.throw(_("Capital is budgeted on a block, not on a group ({0}).").format(unit.name), frappe.ValidationError)
+	if unit.is_group or unit.status == "Retired":
+		rows = fresh
 	seen = set()
 	for i, r in enumerate(rows, 1):
 		op = frappe.db.get_value("Field Operation", r.operation, ["activity_type", "crop"], as_dict=True)
@@ -175,7 +179,10 @@ def validate_budget(unit):
 
 
 def effective(basis, amount, area):
-	return round(flt(amount) * flt(area), 2) if basis == "Per ha" else round(flt(amount), 2)
+	"""Per ha: amount x area, None when the block has no area. Total: the amount."""
+	if basis == "Per ha":
+		return round(flt(amount) * flt(area), 2) if flt(area) else None
+	return round(flt(amount), 2)
 
 
 def budget_rows(units):
@@ -192,7 +199,7 @@ def budget_rows(units):
 def unit_budget(unit):
 	"""operation -> effective budget of one block (amount x area when Per ha)."""
 	area = _area(unit)
-	return {r["operation"]: effective(r["basis"], r["amount"], area) for r in budget_rows([unit]).get(unit, [])}
+	return {r["operation"]: effective(r["basis"], r["amount"], area) for r in budget_rows([unit]).get(unit, [])}  # None: Per ha without area
 
 
 def capital_activities(crop):
@@ -209,8 +216,8 @@ def capital_activities(crop):
 		per_ha = {flt(i["amount"]) for i in items if i["basis"] == "Per ha"}
 		common = per_ha.pop() if len(per_ha) == 1 and all(i["basis"] == "Per ha" for i in items) else None
 		rows.append({"operation": op, "budget_per_ha": common, "blocks": len(items)})
-	if not rows:
-		for op in frappe.get_all("Field Operation", filters={"crop": crop, "activity_type": "Capital"}, pluck="name"):
+	for op in frappe.get_all("Field Operation", filters={"crop": crop, "activity_type": "Capital"}, pluck="name"):
+		if op not in per_op:
 			rows.append({"operation": op, "budget_per_ha": None, "blocks": 0})
 	colors = dict(frappe.get_all("Field Operation", filters={"name": ("in", [r["operation"] for r in rows] or [""])},
 		fields=["name", "color"], as_list=True))
@@ -219,7 +226,7 @@ def capital_activities(crop):
 
 def get_unit_budget(unit):
 	"""{unit, area_ha, rows: [{operation, operation_name, basis, amount, note, effective, spent}],
-	total_budget, total_spent} for one block."""
+	total_budget, total_spent} for one block. `effective` is None for a Per ha row on a block without area."""
 	if not frappe.db.exists("Production Unit", unit):
 		frappe.throw(_("Production Unit {0} not found").format(unit), frappe.ValidationError)
 	area = _area(unit)
@@ -232,7 +239,7 @@ def get_unit_budget(unit):
 		rows.append({**r, "operation_name": names.get(r["operation"], r["operation"]),
 			"effective": effective(r["basis"], r["amount"], area), "spent": round(spent.get(r["operation"], 0), 2)})
 	return {"unit": unit, "area_ha": area, "rows": rows,
-		"total_budget": round(sum(r["effective"] for r in rows), 2), "total_spent": round(sum(spent.values()), 2)}
+		"total_budget": round(sum(r["effective"] or 0 for r in rows), 2), "total_spent": round(sum(spent.values()), 2)}
 
 
 def save_unit_budget(unit, rows):
@@ -240,7 +247,7 @@ def save_unit_budget(unit, rows):
 	doc = frappe.get_doc("Production Unit", unit)
 	doc.set("capital_budget", [{"operation": r.get("operation"), "basis": r.get("basis") or "Per ha",
 		"amount": flt(r.get("amount")), "note": r.get("note")} for r in rows or [] if r.get("operation")])
-	doc.save()
+	doc.save(ignore_permissions=True)  # the caller has checked manager and crop; Avocado managers only read Production Unit
 	return get_unit_budget(unit)
 
 
