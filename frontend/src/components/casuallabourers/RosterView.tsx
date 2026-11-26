@@ -4,39 +4,28 @@ import { ClearFiltersPill } from "@/components/ClearFiltersPill";
 import { DateRangePicker, type DateRange } from "@/components/DateRangePicker";
 import { FilterSelect } from "@/components/FilterSelect";
 import { KpiCard, KpiGrid } from "@/components/KpiCard";
-import { TableRowsSkeleton, firstLoad } from "@/components/Loading";
+import { RowsSkeleton, firstLoad } from "@/components/Loading";
 import { PageShell } from "@/components/PageShell";
 import { RefreshButton } from "@/components/RefreshButton";
 import { SearchInput } from "@/components/SearchInput";
 import { ToolbarButton } from "@/components/ToolbarButton";
 import { AddLabourersDialog } from "@/components/casuallabourers/AddLabourersDialog";
+import { LabourerCard } from "@/components/casuallabourers/LabourerCard";
 import { LabourerDialog } from "@/components/casuallabourers/LabourerDialog";
 import { weeklySeries } from "@/components/casuallabourers/series";
-import { EmptyNote, Panel } from "@/components/overview/Panel";
+import { EmptyNote } from "@/components/overview/Panel";
 import { addDays, rowDate } from "@/components/plan/fmt";
 import { formatUoms, kes } from "@/lib/format";
 import { useCurrentCrop } from "@/lib/crops";
 import { isError } from "@/lib/frappe";
-import { listLabourers, type RosterDay, type RosterRow, type RosterTotals } from "@/lib/labourers-api";
-import { cn, matchesQuery, parseYmd, todayISO, ymd } from "@/lib/utils";
-
-const TH = "px-4 py-2.5 font-medium";
-const NUM = "px-4 py-2.5 text-right tabular-nums";
+import { getSupervisorOptions, listLabourers, type RosterDay, type RosterRow, type RosterTotals } from "@/lib/labourers-api";
+import { matchesQuery, parseYmd, todayISO, ymd } from "@/lib/utils";
 
 const defaultRange = (): DateRange => ({ from: ymd(addDays(parseYmd(todayISO())!, -28)), to: todayISO() });
 
 function csvCell(v: unknown): string {
   const s = String(v ?? "");
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]!.toUpperCase())
-    .join("");
 }
 
 /** The Labourers tab: the casual labour roster with each person's KPIs over the period. Add people
@@ -50,6 +39,8 @@ export function RosterView({ tabs }: { tabs?: React.ReactNode }) {
   const [status, setStatus] = useState("1");
   const [department, setDepartment] = useState("");
   const [designation, setDesignation] = useState("");
+  const [supervisor, setSupervisor] = useState("");
+  const [supervisors, setSupervisors] = useState<string[]>([]);
   const [rows, setRows] = useState<RosterRow[] | null>(null);
   const [days, setDays] = useState<RosterDay[]>([]);
   const [totals, setTotals] = useState<RosterTotals | null>(null);
@@ -80,20 +71,31 @@ export function RosterView({ tabs }: { tabs?: React.ReactNode }) {
     };
   }, [crop.name, from, to, tick]);
 
+  useEffect(() => {
+    let live = true;
+    void getSupervisorOptions(crop.name).then((r) => {
+      if (live && Array.isArray(r)) setSupervisors([...new Set(r.map((o) => o.employee_name))].sort());
+    });
+    return () => {
+      live = false;
+    };
+  }, [crop.name]);
+
   const shown = useMemo(
     () =>
       (rows ?? [])
         .filter((r) => (status === "" ? true : String(r.active) === status))
         .filter((r) => !department || r.department === department)
         .filter((r) => !designation || r.designation === designation)
+        .filter((r) => !supervisor || r.supervisor_name === supervisor)
         .filter((r) => matchesQuery(`${r.employee_name} ${r.employee} ${r.crew ?? ""} ${r.supervisor_name ?? ""}`, query))
         .sort((a, b) => b.days_worked - a.days_worked || a.employee_name.localeCompare(b.employee_name)),
-    [rows, status, department, designation, query],
+    [rows, status, department, designation, supervisor, query],
   );
   const departments = useMemo(() => [...new Set((rows ?? []).map((r) => r.department).filter(Boolean) as string[])].sort(), [rows]);
   const designations = useMemo(() => [...new Set((rows ?? []).map((r) => r.designation).filter(Boolean) as string[])].sort(), [rows]);
   const waiting = firstLoad(loading, !!rows);
-  const dirty = !!query || status !== "1" || !!department || !!designation || from !== defaultRange().from || to !== defaultRange().to;
+  const dirty = !!query || status !== "1" || !!department || !!designation || !!supervisor || from !== defaultRange().from || to !== defaultRange().to;
   const hit = totals?.hit_rate;
 
   function exportCsv() {
@@ -129,6 +131,7 @@ export function RosterView({ tabs }: { tabs?: React.ReactNode }) {
       />
       {departments.length > 0 && <FilterSelect label="Department" value={department} onChange={setDepartment} options={departments} allLabel="All departments" />}
       {designations.length > 0 && <FilterSelect label="Designation" value={designation} onChange={setDesignation} options={designations} allLabel="All designations" />}
+      {supervisors.length > 0 && <FilterSelect label="Supervisor" value={supervisor} onChange={setSupervisor} options={supervisors} allLabel="All supervisors" />}
       <SearchInput size="md" value={query} onChange={setQuery} placeholder="Search" className="w-44" />
       <ClearFiltersPill
         active={dirty}
@@ -137,6 +140,7 @@ export function RosterView({ tabs }: { tabs?: React.ReactNode }) {
           setStatus("1");
           setDepartment("");
           setDesignation("");
+          setSupervisor("");
           setRange(defaultRange());
         }}
       />
@@ -194,106 +198,30 @@ export function RosterView({ tabs }: { tabs?: React.ReactNode }) {
         )}
       </KpiGrid>
 
-      <Panel
-        className="mt-4"
-        title="Roster"
-        hint={`${rowDate(from)} to ${rowDate(to)}. Open a person for their KPIs, targets and paid status.`}
-        bodyClassName="px-0 pb-2"
-      >
-        {error ? (
-          <div className="flex flex-col items-start gap-3 px-5 py-4 text-[13px] text-[var(--sd-muted)]">
-            {error}
-            <ToolbarButton onClick={() => setTick((t) => t + 1)}>Try again</ToolbarButton>
-          </div>
-        ) : !waiting && !shown.length ? (
-          <div className="px-5">
-            <EmptyNote>
-              {rows && rows.length
-                ? "No labourers match these filters."
-                : "No casual labourers on the roster yet. Use Add labourers to choose them from the Employee list."}
-            </EmptyNote>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-[13px]">
-              <thead>
-                <tr className="border-b border-[var(--sd-line)] text-left text-[10.5px] uppercase tracking-[0.12em] text-[var(--sd-quiet)]">
-                  <th className={cn(TH, "w-10")}>#</th>
-                  <th className={TH}>Labourer</th>
-                  <th className={TH}>Crew / supervisor</th>
-                  <th className={cn(NUM, "font-medium")}>Days</th>
-                  <th className={cn(NUM, "font-medium")}>Quantity</th>
-                  <th className={cn(TH, "w-[16%]")}>Target hit rate</th>
-                  {canPay && <th className={cn(NUM, "font-medium")}>Pay</th>}
-                  {canPay && <th className={cn(NUM, "font-medium")}>Unpaid</th>}
-                  <th className={TH}>Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--sd-line-soft)]">
-                {waiting ? (
-                  <TableRowsSkeleton cols={canPay ? 9 : 7} rows={6} />
-                ) : (
-                  shown.map((r, i) => (
-                    <tr
-                      key={r.employee}
-                      onClick={() => setOpen(r)}
-                      className="cursor-pointer transition-colors hover:bg-[var(--sd-bg-soft)]"
-                    >
-                      <td className="px-4 py-2.5 tabular-nums text-[var(--sd-quiet)]">{i + 1}</td>
-                      <td className="px-4 py-2.5 text-[var(--sd-ink)]">
-                        <span className="flex items-center gap-2.5">
-                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--sd-pistachio)] text-[10.5px] font-semibold">
-                            {initials(r.employee_name)}
-                          </span>
-                          <span>
-                            <span className="block font-medium">{r.employee_name}</span>
-                            <span className="block text-[11px] text-[var(--sd-quiet)]">
-                              {[r.designation, r.department].filter(Boolean).join(" · ") || r.employee}
-                              {r.overrides > 0 ? ` · ${r.overrides} own target${r.overrides === 1 ? "" : "s"}` : ""}
-                            </span>
-                          </span>
-                        </span>
-                      </td>
-                      <td className="px-4 py-2.5 text-[var(--sd-muted)]">{[r.crew, r.supervisor_name].filter(Boolean).join(" · ") || "—"}</td>
-                      <td className={NUM}>{r.days_worked}</td>
-                      <td className={cn(NUM, "whitespace-normal")}>{formatUoms(r.qty_by_uom) || "—"}</td>
-                      <td className="px-4 py-2.5">
-                        {r.hit_rate == null ? (
-                          <span className="text-[var(--sd-quiet)]">—</span>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--sd-bg-soft)]">
-                              <div
-                                className="h-full rounded-full"
-                                style={{ width: `${Math.min(100, r.hit_rate)}%`, background: r.hit_rate >= 50 ? accent : "var(--sd-amber)" }}
-                              />
-                            </div>
-                            <span className="w-11 text-right tabular-nums">{r.hit_rate}%</span>
-                          </div>
-                        )}
-                      </td>
-                      {canPay && <td className={NUM}>{kes(r.pay_value)}</td>}
-                      {canPay && (
-                        <td className={cn(NUM, r.unpaid_value ? "text-[var(--sd-amber)]" : "text-[var(--sd-quiet)]")}>{kes(r.unpaid_value)}</td>
-                      )}
-                      <td className="px-4 py-2.5">
-                        <span
-                          className={cn(
-                            "rounded-full px-2 py-0.5 text-[11.5px] font-medium",
-                            r.active ? "bg-[var(--sd-pistachio)] text-[var(--sd-ink)]" : "bg-[var(--sd-bg-soft)] text-[var(--sd-quiet)]",
-                          )}
-                        >
-                          {r.active ? "Active" : "Inactive"}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Panel>
+      <h2 className="mb-1 mt-4 text-[13px] font-semibold text-[var(--sd-ink)]">Roster</h2>
+      <p className="mb-3 text-[12px] text-[var(--sd-quiet)]">
+        {rowDate(from)} to {rowDate(to)}. Open a person for their KPIs, targets and paid status.
+      </p>
+      {error ? (
+        <div className="flex flex-col items-start gap-3 text-[13px] text-[var(--sd-muted)]">
+          {error}
+          <ToolbarButton onClick={() => setTick((t) => t + 1)}>Try again</ToolbarButton>
+        </div>
+      ) : waiting ? (
+        <RowsSkeleton rows={4} />
+      ) : !shown.length ? (
+        <EmptyNote>
+          {rows && rows.length
+            ? "No labourers match these filters."
+            : "No casual labourers on the roster yet. Use Add labourers to choose them from the Employee list."}
+        </EmptyNote>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {shown.map((r) => (
+            <LabourerCard key={r.employee} row={r} canPay={canPay} accent={accent} onOpen={() => setOpen(r)} />
+          ))}
+        </div>
+      )}
 
       {open && (
         <LabourerDialog

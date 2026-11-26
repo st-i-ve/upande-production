@@ -59,21 +59,42 @@ beforeEach(() => {
 });
 
 describe("Casual labourer roster", () => {
-  it("lists active labourers with hit rate and unpaid pay, and no hours", async () => {
+  it("lists active labourers as cards with hit rate and unpaid pay, and no hours", async () => {
     renderIt();
     expect(await screen.findByText("Jane Wanjiru")).toBeTruthy();
     expect(screen.queryByText("Peter Otieno")).toBeNull(); // inactive hidden by default
-    expect(screen.getByText("80%", { selector: "td span" })).toBeTruthy();
-    expect(screen.getAllByText("KES 600").length).toBeGreaterThan(0);
-    expect(screen.getByText("Unpaid", { selector: "th" })).toBeTruthy();
+    expect(document.querySelector("table")).toBeNull();
+    const card = screen.getByRole("button", { name: /Jane Wanjiru/ });
+    expect(within(card).getByText("80% of target")).toBeTruthy();
+    expect(within(card).getByText("5 days")).toBeTruthy();
+    expect(within(card).getByText("KES 600 unpaid")).toBeTruthy();
+    expect(within(card).getByText(/Grace W/)).toBeTruthy();
     expect(screen.queryByText(/hours/i)).toBeNull();
   });
 
-  it("hides pay columns without pay access", async () => {
+  it("hides pay without pay access", async () => {
     renderIt(false);
     await screen.findByText("Jane Wanjiru");
-    expect(screen.queryByText("Unpaid", { selector: "th" })).toBeNull();
+    expect(screen.queryByText(/unpaid/i, { selector: "span" })).toBeNull();
     expect(screen.queryByText("KES 600")).toBeNull();
+  });
+
+  it("filters by supervisor", async () => {
+    vi.mocked(lab.getSupervisorOptions).mockResolvedValue([
+      { name: "S1", employee_name: "Grace W", user: null },
+      { name: "S2", employee_name: "Otto K", user: null },
+    ]);
+    vi.mocked(lab.listLabourers).mockResolvedValue({
+      rows: [row({}), row({ name: "E5", employee: "E5", employee_name: "Mary Njeri", supervisor_name: "Otto K" })],
+      days: [],
+      totals: { labourers: 2, active: 2, working: 2, days_worked: 10, qty_by_uom: [], hit_rate: 80, target_days: 5, pay_value: 0, unpaid_value: 0 },
+    });
+    renderIt();
+    await screen.findByText("Mary Njeri");
+    fireEvent.click(await screen.findByRole("combobox", { name: /Supervisor/ }));
+    fireEvent.click(await screen.findByRole("option", { name: "Otto K" }));
+    await waitFor(() => expect(screen.queryByText("Jane Wanjiru")).toBeNull());
+    expect(screen.getByText("Mary Njeri")).toBeTruthy();
   });
 
   it("adds several employees at once", async () => {
