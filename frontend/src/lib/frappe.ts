@@ -204,6 +204,6 @@ export async function uploadFile(file: File, isPrivate = false): Promise<{ file_
     if (typeof url === "string" && url) return { file_url: url };
     return { error: isPrivate ? "The file did not upload." : "The picture did not upload." };
   } catch {
-    return { error: "Network error — the picture did not reach the server." };
+    return { error: isPrivate ? "Network error — the file did not reach the server." : "Network error — the picture did not reach the server." };
   }
 }

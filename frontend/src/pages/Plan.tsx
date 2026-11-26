@@ -539,6 +539,7 @@ export function Plan() {
           canSeePay={boot.can_see_pay}
           onClose={() => setPicked(null)}
           onSaved={applySaved}
+          onLogged={() => void load(true)}
         />
       )}
       {adding && (

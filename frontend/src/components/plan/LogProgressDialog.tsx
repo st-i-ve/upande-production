@@ -31,6 +31,8 @@ export function LogProgressDialog({
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  // Uploaded URLs stay with their File, so a retry after a failure does not upload again.
+  const uploaded = useRef(new Map<File, string>());
   const picker = useRef<HTMLInputElement>(null);
   const uom = task.uom ?? "";
   const qtyNum = num(qty);
@@ -42,13 +44,18 @@ export function LogProgressDialog({
     setFailure(null);
     const urls: string[] = [];
     for (const f of files) {
-      const up = await uploadFile(f, true);
-      if ("error" in up) {
-        setBusy(false);
-        setFailure(`${f.name}: ${up.error}`);
-        return;
+      let url = uploaded.current.get(f);
+      if (!url) {
+        const up = await uploadFile(f, true);
+        if ("error" in up) {
+          setBusy(false);
+          setFailure(`${f.name}: ${up.error}`);
+          return;
+        }
+        url = up.file_url;
+        uploaded.current.set(f, url);
       }
-      urls.push(up.file_url);
+      urls.push(url);
     }
     const r = await logTaskProgress(plan, task.name as string, notes.trim(), qtyNum > 0 ? qtyNum : null, urls);
     setBusy(false);

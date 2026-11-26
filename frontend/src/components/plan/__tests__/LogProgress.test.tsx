@@ -49,6 +49,30 @@ describe("LogProgressDialog", () => {
     await waitFor(() => expect(onLogged).toHaveBeenCalled());
   });
 
+  it("a file alone enables the button", () => {
+    render(<LogProgressDialog plan="P" task={task} onClose={vi.fn()} onLogged={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("Attach files"), { target: { files: [new File(["x"], "a.jpg")] } });
+    expect(screen.getByRole("button", { name: "Log progress" })).toBeEnabled();
+  });
+
+  it("an upload failure stops before logging, and a retry does not re-upload what went up", async () => {
+    upload.mockResolvedValueOnce({ file_url: "/private/files/a.jpg" }).mockResolvedValueOnce({ error: "The file did not upload." });
+    mocked.logTaskProgress.mockResolvedValue(log({}));
+    render(<LogProgressDialog plan="P" task={task} onClose={vi.fn()} onLogged={vi.fn()} />);
+    const a = new File(["x"], "a.jpg");
+    const b = new File(["y"], "b.jpg");
+    fireEvent.change(screen.getByLabelText("Attach files"), { target: { files: [a, b] } });
+    fireEvent.click(screen.getByRole("button", { name: "Log progress" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("b.jpg: The file did not upload.");
+    expect(mocked.logTaskProgress).not.toHaveBeenCalled();
+    upload.mockResolvedValueOnce({ file_url: "/private/files/b.jpg" });
+    fireEvent.click(screen.getByRole("button", { name: "Log progress" }));
+    await waitFor(() =>
+      expect(mocked.logTaskProgress).toHaveBeenCalledWith("P", "T-1", "", null, ["/private/files/a.jpg", "/private/files/b.jpg"]),
+    );
+    expect(upload).toHaveBeenCalledTimes(3);
+  });
+
   it("shows the server error and stays open", async () => {
     mocked.logTaskProgress.mockResolvedValue({ error: "Add a note, a quantity or a file to log progress." });
     const onLogged = vi.fn();

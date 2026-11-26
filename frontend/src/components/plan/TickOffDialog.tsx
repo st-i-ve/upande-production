@@ -42,6 +42,7 @@ export function TickOffDialog({
   canSeePay,
   onClose,
   onSaved,
+  onLogged,
 }: {
   plan: string;
   task: PlanTask;
@@ -49,6 +50,8 @@ export function TickOffDialog({
   canSeePay: boolean;
   onClose: () => void;
   onSaved: (task: PlanTask) => void;
+  /** A progress log was added; the page refreshes the row's "Last log". */
+  onLogged?: () => void;
 }) {
   const [status, setStatus] = useState(task.status || "Open");
   const [rows, setRows] = useState<EntryRow[]>([]);
@@ -264,6 +267,7 @@ export function TickOffDialog({
           onClose={() => setLogging(false)}
           onLogged={() => {
             setLogging(false);
+            onLogged?.();
             setLogsKey((k) => k + 1);
           }}
         />
