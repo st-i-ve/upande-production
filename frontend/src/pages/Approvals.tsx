@@ -10,11 +10,14 @@ import { RefreshButton } from "@/components/RefreshButton";
 import { useToast } from "@/components/Toast";
 import { ActionPill } from "@/components/approvals/ActionPill";
 import { ApprovalCard } from "@/components/approvals/ApprovalCard";
+import { CycleChanges } from "@/components/approvals/CycleChanges";
+import { EditCycleDialog } from "@/components/cycles/EditCycleDialog";
 import { ProtocolReview } from "@/components/approvals/ProtocolReview";
 import { SendBackDialog } from "@/components/approvals/SendBackDialog";
 import { UncheckedDialog } from "@/components/approvals/UncheckedDialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  approvalCounts,
   approve,
   checkWork,
   listApprovals,
@@ -31,11 +34,13 @@ import {
   sendBackProtocol,
   type PendingProtocol,
 } from "@/lib/protocols-api";
+import { listUnits, type Cycle, type UnitRow } from "@/lib/api";
+import type { CycleChangeRequest } from "@/lib/cycle-setup-api";
 import { useCurrentCrop } from "@/lib/crops";
 import { isError, type Envelope } from "@/lib/frappe";
 import { formatUoms, kes, qty } from "@/lib/format";
 
-type Tab = "check" | "pending" | "stale" | "sent" | "approved" | "protocols";
+type Tab = "check" | "pending" | "stale" | "sent" | "approved" | "protocols" | "cycles";
 const STATUS: Record<Tab, ApprovalStatus> = {
   check: "Pending",
   pending: "Pending",
@@ -43,6 +48,7 @@ const STATUS: Record<Tab, ApprovalStatus> = {
   sent: "Sent Back",
   approved: "Approved",
   protocols: "Pending",
+  cycles: "Pending",
 };
 const EMPTY_RANGE: DateRange = { from: "", to: "" };
 
@@ -56,6 +62,7 @@ const EMPTY: Record<Tab, { title: string; hint: string }> = {
   stale: { title: "Nothing is stale", hint: "Every submission has been looked at recently." },
   sent: { title: "Nothing sent back", hint: "Submissions you send back for fixing will wait here for the supervisor." },
   protocols: { title: "No protocol versions waiting", hint: "Submitted protocol versions land here." },
+  cycles: { title: "No cycle changes", hint: "Requests to change or delete a cycle land here." },
   approved: { title: "No approved work in this period", hint: "Widen the date range to see earlier approvals." },
 };
 
@@ -84,7 +91,12 @@ export function Approvals() {
   const [opts, setOpts] = useState({ units: new Map<string, string>(), ops: new Map<string, string>(), sups: new Map<string, string>() });
   const [protos, setProtos] = useState<PendingProtocol[] | null>(null);
   const [protoBusy, setProtoBusy] = useState<Set<string>>(new Set());
+  const [cycleCount, setCycleCount] = useState<number | null>(null);
+  const [resubmitting, setResubmitting] = useState<CycleChangeRequest | null>(null);
+  const [cycleRev, setCycleRev] = useState(0);
+  const [units, setUnits] = useState<UnitRow[]>([]);
   const seq = useRef(0);
+  const isManager = !!crop.boot.is_manager;
 
   const filters = useMemo(
     () => ({ fromDate: range.from || null, toDate: range.to || null, unit: unit || null, operation: operation || null, supervisor: supervisor || null }),
@@ -127,6 +139,23 @@ export function Approvals() {
     void load();
   }, [load]);
   useEffect(() => setSelected(new Set()), [tab, crop.name]);
+
+  // Requests waiting for a manager: the tab badge. The cycle changes list itself loads when the tab opens.
+  const loadCycleCount = useCallback(async () => {
+    if (!isManager) return;
+    const r = await approvalCounts();
+    if (r && !isError(r)) setCycleCount((r as { cycle_changes?: number }).cycle_changes ?? null);
+  }, [isManager]);
+  useEffect(() => {
+    void loadCycleCount();
+  }, [loadCycleCount]);
+  const openResubmit = async (r: CycleChangeRequest) => {
+    if (!units.length) {
+      const u = await listUnits(crop.name);
+      if (!isError(u)) setUnits((u as { units: UnitRow[] }).units);
+    }
+    setResubmitting(r);
+  };
 
   const list = needsOther ? other : pending;
   const groups = useMemo(() => {
@@ -250,6 +279,7 @@ export function Approvals() {
                 ["sent", "Sent back", c?.["Sent Back"]],
                 ["approved", "Approved", c?.Approved],
                 ...(assistant ? [] : ([["protocols", "Protocols", protos?.length]] as const)),
+                ["cycles", "Cycle changes", cycleCount ?? undefined],
               ] as const
             ).map(([id, label, n]) => (
               <TabsTrigger key={id} value={id}>
@@ -291,7 +321,18 @@ export function Approvals() {
         {showPay && <KpiCard label="Pay awaiting" value={kes(payAwaiting)} hint="not yet in costs" loading={!pending} />}
       </KpiGrid>
 
-      {tab === "protocols" ? (
+      {tab === "cycles" ? (
+        <CycleChanges
+          crop={crop.name}
+          isManager={isManager}
+          reloadKey={cycleRev}
+          onChanged={() => {
+            announce();
+            void loadCycleCount();
+          }}
+          onEdit={(r) => void openResubmit(r)}
+        />
+      ) : tab === "protocols" ? (
         <ProtocolReview
           rows={protos}
           busy={protoBusy}
@@ -351,6 +392,19 @@ export function Approvals() {
         onSendBack={() => setDialog(chosen)}
         onClear={() => setSelected(new Set())}
       />
+      {resubmitting && (
+        <EditCycleDialog
+          cycle={{ name: resubmitting.cycle, unit: resubmitting.unit ?? "", variety: resubmitting.cycle_title } as Cycle}
+          crop={crop}
+          units={units}
+          resubmit={{ name: resubmitting.name, reason: resubmitting.reason, changes: resubmitting.changes }}
+          onClose={() => setResubmitting(null)}
+          onSaved={() => {
+            announce();
+            setCycleRev((n) => n + 1);
+          }}
+        />
+      )}
       <UncheckedDialog open={!!unchecked} cards={unchecked?.length ?? 0} busy={approving} onCancel={() => !approving && setUnchecked(null)} onConfirm={() => void doApproveUnchecked()} />
       <SendBackDialog open={!!dialog} cards={dialog?.length ?? 0} busy={sending} onCancel={() => setDialog(null)} onConfirm={(n) => void doSendBack(n)} />
     </PageShell>

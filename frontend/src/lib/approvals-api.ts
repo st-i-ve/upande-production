@@ -162,6 +162,8 @@ export interface ApprovalCounts {
   to_check?: number;
   /** All crops. */
   protocols_pending?: number;
+  /** Cycle change requests waiting for a manager (managers only). */
+  cycle_changes?: number;
   stale: number;
   stale_days: number;
 }

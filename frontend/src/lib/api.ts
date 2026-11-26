@@ -233,6 +233,8 @@ export interface Cycle {
   last_season_yield_kg?: number | null;
   /** The variety's stages with real dates (actuals applied). */
   stage_bands?: StageBand[];
+  /** A change (or deletion) waiting for a manager. */
+  pending_request?: import("./cycle-setup-api").PendingRequest | null;
 }
 
 export interface StageBand {

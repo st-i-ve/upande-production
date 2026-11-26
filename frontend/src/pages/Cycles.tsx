@@ -19,6 +19,7 @@ import { StageChip } from "@/components/varieties/StageChip";
 import { listRules, listVarieties, type ActivityRule, type Variety } from "@/lib/varieties-api";
 import { CycleGantt } from "@/components/cycles/CycleGantt";
 import { AddCycleDialog } from "@/components/cycles/AddCycleDialog";
+import { DeleteCycleDialog } from "@/components/cycles/DeleteCycleDialog";
 import { EditCycleDialog } from "@/components/cycles/EditCycleDialog";
 import { CYCLE_STATUSES, NewCycleDialog } from "@/components/cycles/NewCycleDialog";
 import { Card, CardContent, CardDescription, CardHeaderRow, CardHeading, CardTitle } from "@/components/ui/card";
@@ -28,6 +29,7 @@ import { pluralise, useCurrentCrop, viewLabel } from "@/lib/crops";
 import { canAddCycle, canManageCycles, hasNewCycleTab } from "@/lib/cycle-setup-api";
 import { isError } from "@/lib/frappe";
 import { ha, qty, shortDate } from "@/lib/format";
+import { changeSummary } from "@/lib/cycle-changes";
 import { cn, matchesQuery, ymd } from "@/lib/utils";
 
 const ALL = "";
@@ -79,6 +81,7 @@ export function Cycles() {
   const [creating, setCreating] = useState(false);
   const [addingExisting, setAddingExisting] = useState(false);
   const [editing, setEditing] = useState<Cycle | null>(null);
+  const [deleting, setDeleting] = useState<Cycle | null>(null);
   const [variety, setVariety] = useState(ALL);
   const [fieldCrop, setFieldCrop] = useState(ALL);
   const [varieties, setVarieties] = useState<Variety[]>([]);
@@ -271,12 +274,14 @@ export function Cycles() {
         </TabsContent>
 
         {picked && (
-          <CycleStageDialog cycle={picked} accent={accent} canRecord={crop.boot.can_plan} onRecordDates={crop.boot.can_plan ? () => { setRecording(picked); setPicked(null); } : undefined} onEdit={canEdit ? () => { setEditing(picked); setPicked(null); } : undefined} onClose={() => setPicked(null)} onChanged={() => void load()} />
+          <CycleStageDialog cycle={picked} accent={accent} canRecord={crop.boot.can_plan} onRecordDates={crop.boot.can_plan ? () => { setRecording(picked); setPicked(null); } : undefined} onEdit={canEdit ? () => { setEditing(picked); setPicked(null); } : undefined} onDelete={canEdit ? () => { setDeleting(picked); setPicked(null); } : undefined} onClose={() => setPicked(null)} onChanged={() => void load()} />
         )}
 
         {recording && <CycleActualsDialog cycle={recording} onClose={() => setRecording(null)} onSaved={() => void load()} />}
 
         {editing && <EditCycleDialog cycle={editing} crop={crop} units={units} onClose={() => setEditing(null)} onSaved={() => void load()} />}
+
+        {deleting && <DeleteCycleDialog cycle={deleting} isManager={!!crop.boot.is_manager} onClose={() => setDeleting(null)} onDone={() => void load()} />}
 
         {addable && (
           <AddCycleDialog
@@ -334,6 +339,15 @@ function CycleTable({ cycles, unitLabel, accent, onSelect, onRecord, withCrops =
                   {(c.cycle_no ?? 1) > 1 ? ` · cycle ${c.cycle_no}` : ""}
                   {c.existing_cycle ? " · existing cycle" : ""}
                 </div>
+                {c.pending_request && (
+                  <div
+                    data-testid={`pending-chip-${c.name}`}
+                    title={c.pending_request.action === "Delete" ? "Delete requested" : changeSummary(c.pending_request.changes)}
+                    className="mt-0.5 inline-block rounded-full bg-[var(--sd-alert-warn)] px-2 py-0.5 text-[11px] text-[var(--sd-sev-high)]"
+                  >
+                    Change pending · {c.pending_request.requested_by}
+                  </div>
+                )}
                 {(c.flags ?? []).map((f) => (
                   <div key={f} className="text-[11px] text-[var(--sd-sev-high)]">{f}</div>
                 ))}

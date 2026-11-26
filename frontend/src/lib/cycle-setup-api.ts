@@ -90,6 +90,41 @@ export interface CycleEdit {
   existing_cycle: 0 | 1 | boolean;
   /** Once a cycle has tasks its block is fixed. */
   has_tasks: boolean;
+  /** A change already waiting for a manager: nothing else can be sent until it is decided. */
+  pending_request?: PendingRequest | null;
+}
+
+export type ChangeAction = "Edit" | "Delete";
+export type ChangeStatus = "Pending" | "Approved" | "Rejected" | "Sent Back";
+
+/** The fields of a request that changed: what they were and what they would become. */
+export type FieldChanges = Record<string, { old: string | number | null; new: string | number | null }>;
+
+/** What a cycle row and its edit form carry about the open request. */
+export interface PendingRequest {
+  name: string;
+  requested_by: string;
+  action: ChangeAction;
+  changes: FieldChanges;
+}
+
+export interface CycleChangeRequest {
+  name: string;
+  cycle: string;
+  action: ChangeAction;
+  status: ChangeStatus;
+  reason: string | null;
+  changes: FieldChanges;
+  requested_by: string;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  review_note: string | null;
+  /** Set once approved over a newer value on the cycle. */
+  stale: 0 | 1 | boolean;
+  creation: string;
+  crop: string | null;
+  unit: string | null;
+  cycle_title: string | null;
 }
 
 export const getCycleForEdit = (name: string) => rpc<CycleEdit>("get_cycle_for_edit", { name });
@@ -107,11 +142,30 @@ export interface UpdateCycleInput {
   expected_harvest_end?: string | null;
   status?: string;
   notes?: string | null;
+  /** A person who may not change setup directly says why; it goes with the request. */
+  reason?: string;
 }
 
 /** `notes` say what the change did to planning (a running cycle re-plans from today); `warnings` are capacity. */
 export const updateCycle = (name: string, data: UpdateCycleInput) =>
-  rpc<{ name: string; warnings: string[]; notes: string[] }>("update_cycle", { name, data });
+  rpc<{ name: string; warnings: string[]; notes: string[] } | { request: string; pending: true }>("update_cycle", { name, data });
+
+/** A manager deletes at once ({deleted}); anyone else sends a request with a reason ({request, pending}). */
+export const deleteCycle = (name: string, reason?: string) =>
+  rpc<{ deleted: string } | { request: string; pending: true }>("delete_cycle", { name, reason });
+
+export const listCycleChanges = (status?: ChangeStatus | null, crop?: string | null) =>
+  rpc<{ rows: CycleChangeRequest[] }>("list_cycle_changes", { ...(status ? { status } : {}), ...(crop ? { crop } : {}) });
+
+/** A request made over a value that has since changed is refused until `applyAnyway` is 1. */
+export const approveCycleChange = (name: string, applyAnyway: 0 | 1 = 0) =>
+  rpc<{ request: string }>("approve_cycle_change", { name, apply_anyway: applyAnyway });
+
+export const sendBackCycleChange = (name: string, note: string) => rpc<{ request: string }>("send_back_cycle_change", { name, note });
+export const rejectCycleChange = (name: string, note: string) => rpc<{ request: string }>("reject_cycle_change", { name, note });
+export const resubmitCycleChange = (name: string, data: UpdateCycleInput, reason?: string) =>
+  rpc<{ request: string; pending: true }>("resubmit_cycle_change", { name, data, ...(reason !== undefined ? { reason } : {}) });
+export const withdrawCycleChange = (name: string) => rpc<{ request: string }>("withdraw_cycle_change", { name });
 
 type CropRef = CurrentCrop;
 

@@ -108,4 +108,21 @@ describe("Cycles", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Stages of CYC-9" }));
     expect(await screen.findByRole("button", { name: "Edit" })).toBeTruthy();
   });
+
+  it("marks a cycle with a change pending, with who asked and old to new on hover", async () => {
+    listCycles.mockResolvedValue({
+      cycles: [
+        {
+          name: "CYC-8", title: "Hass", unit: "Block A1", item: "Hass", cycle_type: "Season", start_date: "2026-02-01",
+          expected_harvest_start: null, expected_harvest_end: null, protocol: null, status: "Active", area_ha: 8, previous_cycle: null,
+          pending_request: { name: "CCR-1", requested_by: "sup@x.com", action: "Edit", changes: { area_ha: { old: 8, new: 9 } } },
+        },
+      ],
+    });
+    renderPage(<Cycles />);
+    fireEvent.mouseDown(await screen.findByRole("tab", { name: "List" }));
+    const chip = await screen.findByTestId("pending-chip-CYC-8");
+    expect(chip.textContent).toContain("sup@x.com");
+    expect(chip.getAttribute("title")).toContain("Area (ha): 8 → 9");
+  });
 });
