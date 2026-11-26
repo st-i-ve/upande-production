@@ -99,7 +99,7 @@ describe("Settings", () => {
     version: n, version_status: status, protocol_family: "Season", previous_version: n > 1 ? "Season" : null,
     submitted_by: null, submitted_at: null, approved_by: null, approved_at: null, review_note: null,
     key_activities: [{ operation: "OP-1", week: 3, repeats: "Every cycle", planned_qty: 10, description: null }],
-    cultural_activities: [], capital_activities: [],
+    cultural_activities: [],
     ...over,
   });
   const family = (versions: ProtocolVersion[]): ProtocolFamily => ({

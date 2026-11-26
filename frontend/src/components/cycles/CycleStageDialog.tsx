@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { DatePicker } from "@/components/DatePicker";
 import { useToast } from "@/components/Toast";
+import { CycleCapitalCosts } from "@/components/cycles/CycleCapitalCosts";
 import { StageChip } from "@/components/varieties/StageChip";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -100,6 +101,7 @@ export function CycleStageDialog({
           ))}
           {stages && stages.length === 0 && <li className="py-2 text-[13px] text-[var(--sd-quiet)]">No stages.</li>}
         </ul>
+        <CycleCapitalCosts cycle={cycle.name} />
         {canRecord && !!stages?.length && (
           <div className="flex flex-col gap-3">
             <Label>Record when a stage began</Label>

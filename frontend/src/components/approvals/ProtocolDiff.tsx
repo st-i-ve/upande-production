@@ -9,7 +9,6 @@ const LABEL: Record<string, string> = {
   times_per_week: "Times per week",
   establishment_period_weeks: "Establishment period (weeks)",
   pre_harvest_interval_days: "PHI (days)",
-  budget_per_ha: "Budget per ha",
   planned_qty: "Planned qty",
   description: "Description",
   item: "Item",
@@ -17,7 +16,6 @@ const LABEL: Record<string, string> = {
 const TABLE: Record<string, string> = {
   key_activities: "Key activities",
   cultural_activities: "Cultural activities",
-  capital_activities: "Capital activities",
 };
 const show = (v: unknown) => (v === null || v === undefined || v === "" ? "none" : String(v));
 
@@ -32,7 +30,6 @@ function rowLine(s?: ProtocolRow) {
     if (r.establishment_period_weeks) parts.push(`from week ${r.establishment_period_weeks}`);
     if (r.pre_harvest_interval_days) parts.push(`PHI ${r.pre_harvest_interval_days} d`);
   }
-  if (r.budget_per_ha) parts.push(`budget ${r.budget_per_ha} per ha`);
   if (r.planned_qty) parts.push(`qty ${r.planned_qty}`);
   if (r.description) parts.push(String(r.description));
   return parts.join(", ");

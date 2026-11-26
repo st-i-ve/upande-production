@@ -3,6 +3,7 @@ import { DraftBar } from "@/components/DraftBar";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { RowsSkeleton, firstLoad } from "@/components/Loading";
+import { CapitalBudgetDialog } from "@/components/establishment/CapitalBudgetDialog";
 import { DatePicker } from "@/components/DatePicker";
 import { FilterSelect } from "@/components/FilterSelect";
 import { KpiCard } from "@/components/KpiCard";
@@ -338,6 +339,7 @@ export function Establishment() {
   const [loading, setLoading] = useState(true);
   const [failure, setFailure] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [budgeting, setBudgeting] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -434,6 +436,7 @@ export function Establishment() {
       <Tabs defaultValue="costs" className="flex flex-col gap-4">
         <TabsList className="self-start">
           <TabsTrigger value="costs">Costs</TabsTrigger>
+          <TabsTrigger value="budget">Capital budget</TabsTrigger>
           <TabsTrigger value="opening">Opening balances</TabsTrigger>
         </TabsList>
 
@@ -542,6 +545,60 @@ export function Establishment() {
           )}
         </TabsContent>
 
+        <TabsContent value="budget" className="m-0">
+          <Card>
+            <CardHeaderRow>
+              <CardHeading>
+                <CardTitle>Capital budget</CardTitle>
+                <CardDescription>
+                  What setting up each {(crop.unit_label || "block").toLowerCase()} is budgeted to cost. Open a block to see or {canWrite ? "edit" : "read"} its rows.
+                </CardDescription>
+              </CardHeading>
+            </CardHeaderRow>
+            <CardContent className="pt-0">
+              {first ? (
+                <RowsSkeleton rows={5} />
+              ) : leafUnits.length === 0 ? (
+                <p className="px-1 py-6 text-center text-[13px] text-[var(--sd-muted)]">No blocks yet.</p>
+              ) : (
+                <ScrollTable>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{crop.unit_label || "Block"}</TableHead>
+                        <TableHead className="text-right">Area (ha)</TableHead>
+                        <TableHead className="text-right">Budget</TableHead>
+                        <TableHead className="text-right">Spent</TableHead>
+                        <TableHead className="w-24" />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {leafUnits.map((u) => {
+                        const row = byUnit.find((r) => r.unit === u.name);
+                        const budgets = (row?.by_activity ?? []).map((a) => a.budget);
+                        const budget = budgets.some((b) => b != null) ? budgets.reduce<number>((t, b) => t + (b ?? 0), 0) : null;
+                        return (
+                          <TableRow key={u.name} data-testid={`budget-unit-${u.name}`}>
+                            <TableCell className="font-medium">{u.name}</TableCell>
+                            <TableCell className="text-right tabular-nums">{u.area_ha > 0 ? ha(u.area_ha) : "—"}</TableCell>
+                            <TableCell className="text-right tabular-nums">{kes(budget)}</TableCell>
+                            <TableCell className="text-right tabular-nums">{row ? kes(row.total) : "—"}</TableCell>
+                            <TableCell>
+                              <Button size="sm" variant="outline" aria-label={`Capital budget ${u.name}`} onClick={() => setBudgeting(u.name)}>
+                                {canWrite ? "Edit" : "View"}
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </ScrollTable>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="opening" className="m-0">
           <Card>
             <CardHeaderRow>
@@ -583,6 +640,16 @@ export function Establishment() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {budgeting && (
+        <CapitalBudgetDialog
+          unit={budgeting}
+          operations={activities.map((a) => a.operation)}
+          canWrite={!!canWrite}
+          onClose={() => setBudgeting(null)}
+          onSaved={() => void load()}
+        />
+      )}
 
       {adding && (
         <AddCostDialog

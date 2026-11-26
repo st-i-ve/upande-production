@@ -6,7 +6,6 @@ import { Picker } from "@/components/ui/picker";
 import { SendBackDialog } from "@/components/approvals/SendBackDialog";
 import { qty } from "@/lib/format";
 import type {
-  CapitalActivity,
   CulturalActivity,
   KeyActivity,
   ProtocolFamily,
@@ -55,7 +54,6 @@ const EMPTY_CULTURAL: CulturalActivity = {
   operation: null, schedule: "Interval", interval_weeks: null, times_per_week: 1, establishment_period_weeks: null,
   pre_harvest_interval_days: null, occurrences: null, planned_qty: null, description: null,
 };
-const EMPTY_CAPITAL: CapitalActivity = { operation: null, description: null, budget_per_ha: null };
 
 const REPEATS = ["Every cycle", "First cycle only"];
 const SCHEDULES = ["Interval", "As needed"];
@@ -170,13 +168,11 @@ function Activities({ v, operations, editable, onSave }: {
   const initial = (): ProtocolTables => ({
     key_activities: v.key_activities ?? [],
     cultural_activities: v.cultural_activities ?? [],
-    capital_activities: v.capital_activities ?? [],
   });
   const [t, setT] = useState<ProtocolTables>(initial);
   const dirty = JSON.stringify(t) !== JSON.stringify(initial());
   const names = Object.fromEntries(operations.map((o) => [o.value, o.label]));
   const scheduled = operations.filter((o) => o.type !== "Capital");
-  const capital = operations.filter((o) => o.type === "Capital");
   const bad = outOfOrder(t.key_activities);
 
   const patch = <K extends keyof ProtocolTables>(k: K, i: number, p: Partial<ProtocolTables[K][number]>) =>
@@ -189,35 +185,6 @@ function Activities({ v, operations, editable, onSave }: {
   return (
     <div>
       <Template v={v} />
-
-      <Section title="Capital activities" count={t.capital_activities.length} onAdd={editable ? () => add("capital_activities", EMPTY_CAPITAL) : undefined}>
-        {empty(t.capital_activities.length, "No capital activities.")}
-        {t.capital_activities.length > 0 && (
-          <table className="w-full min-w-[28rem] text-[12.5px]">
-            <thead><tr className={TH_CLS}>
-              <th className={TH}>Activity</th><th className={`${TH} text-right`}>Budget per ha</th><th className={TH}>Description</th>{editable && <th />}
-            </tr></thead>
-            <tbody>
-              {t.capital_activities.map((r, i) => (
-                <tr key={i}>
-                  <td className="py-1 pr-2"><OpCell value={r.operation} options={capital} label={`Capital activity ${i + 1}`} editable={editable} names={names} onChange={(x) => patch("capital_activities", i, { operation: x })} /></td>
-                  <td className="py-1 pr-2 text-right">
-                    {editable
-                      ? <Input aria-label={`Budget per ha ${i + 1}`} className="ml-auto h-8 w-28 text-right" type="number" value={r.budget_per_ha ?? ""} onChange={(e) => patch("capital_activities", i, { budget_per_ha: num(e.target.value) })} />
-                      : <span className="tabular-nums">{r.budget_per_ha ? qty(r.budget_per_ha, 0) : "—"}</span>}
-                  </td>
-                  <td className="py-1 pr-2">
-                    {editable
-                      ? <Input aria-label={`Description of capital activity ${i + 1}`} className="h-8" value={r.description ?? ""} onChange={(e) => patch("capital_activities", i, { description: e.target.value })} />
-                      : <span className="text-[var(--sd-muted)]">{r.description || ""}</span>}
-                  </td>
-                  <RemoveCell editable={editable} label={`Remove capital activity ${i + 1}`} onRemove={() => remove("capital_activities", i)} />
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </Section>
 
       <Section title="Key activities" hint={KEY_HINT} count={t.key_activities.length} onAdd={editable ? () => add("key_activities", EMPTY_KEY) : undefined}>
         {empty(t.key_activities.length, "No key activities.")}
@@ -375,9 +342,9 @@ function Version({ fam, v, operations, canPlan, canManage, actions }: {
   );
 }
 
-const tablesKey = (v: ProtocolVersion) => JSON.stringify([v.key_activities, v.cultural_activities, v.capital_activities]);
+const tablesKey = (v: ProtocolVersion) => JSON.stringify([v.key_activities, v.cultural_activities]);
 const activityCount = (v: ProtocolVersion) =>
-  (v.key_activities?.length ?? 0) + (v.cultural_activities?.length ?? 0) + (v.capital_activities?.length ?? 0);
+  (v.key_activities?.length ?? 0) + (v.cultural_activities?.length ?? 0);
 
 /** Protocol families, each opening to its versions (status chips, steps, actions). Edit only on Drafts. */
 export function ProtocolsList({ families, operations, canPlan, canManage, actions, openFamily, cropOf }: {

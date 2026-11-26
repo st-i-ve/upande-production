@@ -14,7 +14,6 @@ const fam = {
     previous_version: null, submitted_by: null, submitted_at: null, approved_by: null, approved_at: null, review_note: null,
     key_activities: [{ operation: "OP-P", week: 4, repeats: "Every cycle", planned_qty: null, description: null }],
     cultural_activities: [{ operation: "OP-I", schedule: "Interval", interval_weeks: 1, times_per_week: 3, establishment_period_weeks: 0, pre_harvest_interval_days: 0, planned_qty: null, description: null }],
-    capital_activities: [],
   }],
 } as ProtocolFamily;
 

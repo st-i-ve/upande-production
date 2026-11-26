@@ -24,7 +24,6 @@ const version = (over: Partial<ProtocolVersion> = {}): ProtocolVersion => ({
   cultural_activities: [
     { operation: "OP-SPRAY", schedule: "Interval", interval_weeks: 2, establishment_period_weeks: 6, pre_harvest_interval_days: 14, planned_qty: null, description: null },
   ],
-  capital_activities: [{ operation: "OP-CAP", description: null, budget_per_ha: 1000 }],
   ...over,
 });
 const family = (v: ProtocolVersion): ProtocolFamily => ({
@@ -39,9 +38,10 @@ function open(v = version(), a = actions()) {
 }
 
 describe("ProtocolsList", () => {
-  it("shows the three sections, the key hint and the variety template", () => {
+  it("shows the two sections, the key hint and the variety template", () => {
     open();
-    for (const t of ["Capital activities", "Key activities", "Cultural activities"]) expect(screen.getByRole("region", { name: t })).toBeInTheDocument();
+    for (const t of ["Key activities", "Cultural activities"]) expect(screen.getByRole("region", { name: t })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Capital activities" })).toBeNull();
     expect(screen.getByText("List key activities in the order of their week.")).toBeInTheDocument();
     expect(within(screen.getByTestId("protocol-template")).getByText("Interval")).toBeInTheDocument();
   });
@@ -93,19 +93,12 @@ describe("ProtocolsList", () => {
     expect(screen.getByTestId("key-row-1")).not.toHaveAttribute("data-out-of-order");
   });
 
-  it("capital picker lists only capital activities", () => {
-    open();
-    fireEvent.click(screen.getByRole("combobox", { name: "Capital activity 1" }));
-    const names = screen.getAllByRole("option").map((o) => o.textContent);
-    expect(names).toEqual(["Land clearing", "Drip lines"]);
-  });
-
-  it("saves all three tables on Save draft", () => {
+  it("saves both tables on Save draft", () => {
     const a = open();
-    fireEvent.change(screen.getByLabelText("Budget per ha 1"), { target: { value: "1500" } });
+    fireEvent.change(screen.getByLabelText("Week for Spraying"), { target: { value: "12" } });
     fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
     const [, tables] = vi.mocked(a.saveDraft).mock.calls[0];
-    expect(tables.capital_activities[0].budget_per_ha).toBe(1500);
+    expect(tables).not.toHaveProperty("capital_activities");
     expect(tables.key_activities).toHaveLength(2);
     expect(tables.cultural_activities).toHaveLength(1);
   });

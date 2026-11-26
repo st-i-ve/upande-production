@@ -112,7 +112,6 @@ function CopyPreview({ v, opNames }: { v: ProtocolVersion | null; opNames: Recor
     );
   }
   const groups: [string, string[]][] = [
-    ["Capital activities", (v.capital_activities ?? []).map((r) => label(opNames, r.operation))],
     ["Key activities", (v.key_activities ?? []).map((r) => `${label(opNames, r.operation)}: week ${r.week ?? "—"}`)],
     ["Cultural activities", (v.cultural_activities ?? []).map((r) => `${label(opNames, r.operation)}: ${
       r.schedule === "As needed" ? "as needed" : `every ${r.interval_weeks ?? "—"} wk`}${(r.times_per_week ?? 1) > 1 ? `, ${r.times_per_week}× / week` : ""}`)],

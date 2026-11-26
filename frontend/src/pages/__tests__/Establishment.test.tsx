@@ -10,6 +10,8 @@ vi.mock("@/lib/establishment-api", () => ({
   capitalActivities: vi.fn(),
   listOpeningBalances: vi.fn(),
   saveOpeningBalance: vi.fn(),
+  getUnitCapitalBudget: vi.fn(),
+  saveUnitCapitalBudget: vi.fn(),
 }));
 import { listUnits } from "@/lib/api";
 import * as est from "@/lib/establishment-api";
@@ -36,6 +38,18 @@ beforeEach(() => {
 });
 
 describe("Establishment", () => {
+  it("capital budget tab opens a block's budget", async () => {
+    vi.mocked(est.getUnitCapitalBudget).mockResolvedValue({ unit: "Block A", area_ha: 3, rows: [], total_budget: 0, total_spent: 0 } as never);
+    renderPage(<Establishment />);
+    await screen.findByTestId("unit-Block A");
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Capital budget" }), { button: 0 });
+    fireEvent.click(screen.getByRole("tab", { name: "Capital budget" }));
+    expect(await screen.findByTestId("budget-unit-Block A")).toHaveTextContent("KES 2,000");
+    fireEvent.click(screen.getByRole("button", { name: "Capital budget Block A" }));
+    await waitFor(() => expect(est.getUnitCapitalBudget).toHaveBeenCalledWith("Block A"));
+    expect(await screen.findByRole("button", { name: "Save budget" })).toBeInTheDocument();
+  });
+
   it("shows totals, per ha and budget vs actual", async () => {
     renderPage(<Establishment />);
     expect(await screen.findByTestId("unit-Block A")).toHaveTextContent("KES 3,000");

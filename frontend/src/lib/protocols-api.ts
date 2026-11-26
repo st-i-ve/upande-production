@@ -16,7 +16,7 @@ const rpc = <T>(name: string, args: Record<string, unknown> = {}): Promise<Envel
 
 export type VersionStatus = "Draft" | "Pending Approval" | "Active" | "Superseded" | "Rejected";
 
-export type ProtocolTable = "key_activities" | "cultural_activities" | "capital_activities";
+export type ProtocolTable = "key_activities" | "cultural_activities";
 
 /** A key activity: done in a given week of the cycle, in week order. */
 export interface KeyActivity {
@@ -44,13 +44,6 @@ export interface CulturalActivity {
   description: string | null;
 }
 
-/** A capital (set-up) activity with its budget per hectare. */
-export interface CapitalActivity {
-  operation: string | null;
-  description: string | null;
-  budget_per_ha: number | null;
-}
-
 /** Template values the protocol reads from its variety. */
 export interface ProtocolTemplate {
   lifespan_years?: number | null;
@@ -70,7 +63,6 @@ export interface ProtocolTemplate {
 export interface ProtocolTables {
   key_activities: KeyActivity[];
   cultural_activities: CulturalActivity[];
-  capital_activities: CapitalActivity[];
 }
 
 export interface ProtocolVersion extends ProtocolTemplate, ProtocolTables {
@@ -104,7 +96,7 @@ export interface ProtocolFamily {
   versions: ProtocolVersion[];
 }
 
-export type ProtocolRow = KeyActivity | CulturalActivity | CapitalActivity;
+export type ProtocolRow = KeyActivity | CulturalActivity;
 
 export interface StepChange {
   /** Which table the row belongs to. */

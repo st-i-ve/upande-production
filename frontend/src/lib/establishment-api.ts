@@ -83,3 +83,45 @@ export const listOpeningBalances = (crop: string) =>
 
 export const saveOpeningBalance = (data: OpeningBalance & { crop: string }) =>
   call<{ name?: string }>(PREFIX + "save_opening_balance", { data });
+
+export interface UnitBudgetRow {
+  operation: string;
+  operation_name?: string;
+  basis: "Per ha" | "Total";
+  amount: number;
+  note?: string | null;
+  /** The amount for the block: amount x area when Per ha. Null for a Per ha row on a block without area. */
+  effective: number | null;
+  spent: number;
+}
+
+export interface UnitBudget {
+  unit: string;
+  area_ha: number | null;
+  rows: UnitBudgetRow[];
+  total_budget: number | null;
+  total_spent: number;
+}
+
+export interface UnitBudgetInput {
+  operation: string;
+  basis: "Per ha" | "Total";
+  amount: number;
+  note?: string | null;
+}
+
+export const getUnitCapitalBudget = (unit: string) => call<UnitBudget>(PREFIX + "get_unit_capital_budget", { unit });
+
+export const saveUnitCapitalBudget = (unit: string, rows: UnitBudgetInput[]) =>
+  call<UnitBudget>(PREFIX + "save_unit_capital_budget", { unit, rows });
+
+export interface CycleCapitalCosts {
+  cycle: string;
+  unit: string;
+  rows: { cost: string; posting_date: string; operation: string; amount: number; supplier?: string | null; reference?: string | null }[];
+  total: number;
+  /** `budget` is the block's budget for the operation (not split between its cycles); null when none or no area. */
+  by_operation: { operation: string; amount: number; budget: number | null }[];
+}
+
+export const cycleCapitalCosts = (cycle: string) => call<CycleCapitalCosts>(PREFIX + "cycle_capital_costs", { cycle });
