@@ -20,6 +20,8 @@ export interface RosterRow {
   designation: string | null;
   image: string | null;
   active: 0 | 1;
+  /** Employee id of the supervisor. */
+  supervisor: string | null;
   supervisor_name: string | null;
   crew: string | null;
   /** Number of per-person target overrides. */

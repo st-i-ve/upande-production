@@ -27,7 +27,7 @@ const crop: Crop = {
 const boot = (pay: boolean): Boot => ({ crops: [crop], farms: ["Mutara"], can_see_pay: pay, can_plan: true, can_manage: true });
 const row = (o: Partial<lab.RosterRow>): lab.RosterRow => ({
   name: "E1", employee: "E1", employee_name: "Jane Wanjiru", department: "Field", designation: "Casual Labourer", image: null,
-  active: 1, supervisor_name: "Grace W", crew: "Pruning A", overrides: 1, days_worked: 5, qty_by_uom: [{ uom: "Tree", qty: 240 }],
+  active: 1, supervisor: "S1", supervisor_name: "Grace W", crew: "Pruning A", overrides: 1, days_worked: 5, qty_by_uom: [{ uom: "Tree", qty: 240 }],
   entries: 5, target_days: 5, met_days: 4, hit_rate: 80, pay_value: 1200, unpaid_value: 600, ...o,
 });
 const renderIt = (pay = true) =>
@@ -79,22 +79,23 @@ describe("Casual labourer roster", () => {
     expect(screen.queryByText("KES 600")).toBeNull();
   });
 
-  it("filters by supervisor", async () => {
-    vi.mocked(lab.getSupervisorOptions).mockResolvedValue([
-      { name: "S1", employee_name: "Grace W", user: null },
-      { name: "S2", employee_name: "Otto K", user: null },
-    ]);
+  it("filters by supervisor id, built from the roster, even for two supervisors with one name", async () => {
     vi.mocked(lab.listLabourers).mockResolvedValue({
-      rows: [row({}), row({ name: "E5", employee: "E5", employee_name: "Mary Njeri", supervisor_name: "Otto K" })],
+      rows: [
+        row({}),
+        row({ name: "E5", employee: "E5", employee_name: "Mary Njeri", supervisor: "S2", supervisor_name: "Grace W" }),
+        row({ name: "E6", employee: "E6", employee_name: "Paul Mwangi", supervisor: "S3", supervisor_name: "Otto K" }),
+      ],
       days: [],
-      totals: { labourers: 2, active: 2, working: 2, days_worked: 10, qty_by_uom: [], hit_rate: 80, target_days: 5, pay_value: 0, unpaid_value: 0 },
+      totals: { labourers: 3, active: 3, working: 3, days_worked: 15, qty_by_uom: [], hit_rate: 80, target_days: 5, pay_value: 0, unpaid_value: 0 },
     });
     renderIt();
     await screen.findByText("Mary Njeri");
     fireEvent.click(await screen.findByRole("combobox", { name: /Supervisor/ }));
-    fireEvent.click(await screen.findByRole("option", { name: "Otto K" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Grace W (S2)" }));
     await waitFor(() => expect(screen.queryByText("Jane Wanjiru")).toBeNull());
     expect(screen.getByText("Mary Njeri")).toBeTruthy();
+    expect(screen.queryByText("Paul Mwangi")).toBeNull();
   });
 
   it("adds several employees at once", async () => {

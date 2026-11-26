@@ -156,7 +156,7 @@ def labourer_list(crop, from_date, to_date, pay, search="", department="", desig
 		filters["active"] = cint(active)
 	roster = frappe.get_all(
 		"Casual Labourer", filters=filters,
-		fields=["name", "employee", "employee_name", "department", "designation", "active", "supervisor_name", "crew"],
+		fields=["name", "employee", "employee_name", "department", "designation", "active", "supervisor", "supervisor_name", "crew"],
 		order_by="employee_name asc",
 	)
 	if department:

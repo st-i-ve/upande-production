@@ -157,6 +157,13 @@ class TestSupervisorRecords(IntegrationTestCase):
 		create_production_supervisors.execute()
 		self.assertEqual(frappe.db.get_value("Production Supervisor", self.d.name, "active"), 0)
 
+	def test_roster_rows_carry_the_supervisor_employee_id(self):
+		_make("Production Supervisor", employee=self.a.name)
+		_make("Casual Labourer", employee=self.d.name, active=1, supervisor=self.a.name)
+		res = labourers.labourer_list(self.crop.name, None, None, False, active=1)
+		row = next(r for r in res["rows"] if r["employee"] == self.d.name)
+		self.assertEqual(row["supervisor"], self.a.name)
+
 	def test_get_week_passes_the_crop(self):
 		_make("Production Supervisor", employee=self.a.name, crops=[{"crop": self.other_crop.name}])
 		_make("Production Supervisor", employee=self.b.name, crops=[{"crop": self.crop.name}])

@@ -435,6 +435,8 @@ export interface SupervisorCandidate {
   name: string;
   employee_name: string;
   user: string | null;
+  /** "Inactive" for an assigned supervisor who is no longer active. */
+  status?: string | null;
 }
 
 /** One entry of a supervisor dropdown (get_supervisor_options). */

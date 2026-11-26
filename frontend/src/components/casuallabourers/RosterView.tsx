@@ -18,7 +18,7 @@ import { addDays, rowDate } from "@/components/plan/fmt";
 import { formatUoms, kes } from "@/lib/format";
 import { useCurrentCrop } from "@/lib/crops";
 import { isError } from "@/lib/frappe";
-import { getSupervisorOptions, listLabourers, type RosterDay, type RosterRow, type RosterTotals } from "@/lib/labourers-api";
+import { listLabourers, type RosterDay, type RosterRow, type RosterTotals } from "@/lib/labourers-api";
 import { matchesQuery, parseYmd, todayISO, ymd } from "@/lib/utils";
 
 const defaultRange = (): DateRange => ({ from: ymd(addDays(parseYmd(todayISO())!, -28)), to: todayISO() });
@@ -40,7 +40,6 @@ export function RosterView({ tabs }: { tabs?: React.ReactNode }) {
   const [department, setDepartment] = useState("");
   const [designation, setDesignation] = useState("");
   const [supervisor, setSupervisor] = useState("");
-  const [supervisors, setSupervisors] = useState<string[]>([]);
   const [rows, setRows] = useState<RosterRow[] | null>(null);
   const [days, setDays] = useState<RosterDay[]>([]);
   const [totals, setTotals] = useState<RosterTotals | null>(null);
@@ -71,27 +70,26 @@ export function RosterView({ tabs }: { tabs?: React.ReactNode }) {
     };
   }, [crop.name, from, to, tick]);
 
-  useEffect(() => {
-    let live = true;
-    void getSupervisorOptions(crop.name).then((r) => {
-      if (live && Array.isArray(r)) setSupervisors([...new Set(r.map((o) => o.employee_name))].sort());
-    });
-    return () => {
-      live = false;
-    };
-  }, [crop.name]);
-
   const shown = useMemo(
     () =>
       (rows ?? [])
         .filter((r) => (status === "" ? true : String(r.active) === status))
         .filter((r) => !department || r.department === department)
         .filter((r) => !designation || r.designation === designation)
-        .filter((r) => !supervisor || r.supervisor_name === supervisor)
+        .filter((r) => !supervisor || r.supervisor === supervisor)
         .filter((r) => matchesQuery(`${r.employee_name} ${r.employee} ${r.crew ?? ""} ${r.supervisor_name ?? ""}`, query))
         .sort((a, b) => b.days_worked - a.days_worked || a.employee_name.localeCompare(b.employee_name)),
     [rows, status, department, designation, supervisor, query],
   );
+  // One entry per supervisor id on the roster (inactive ones included); two people with one name stay apart.
+  const supervisors = useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const r of rows ?? []) if (r.supervisor) byId.set(r.supervisor, r.supervisor_name || r.supervisor);
+    const names = [...byId.values()];
+    return [...byId]
+      .map(([value, name]) => ({ value, label: names.filter((n) => n === name).length > 1 ? `${name} (${value})` : name }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [rows]);
   const departments = useMemo(() => [...new Set((rows ?? []).map((r) => r.department).filter(Boolean) as string[])].sort(), [rows]);
   const designations = useMemo(() => [...new Set((rows ?? []).map((r) => r.designation).filter(Boolean) as string[])].sort(), [rows]);
   const waiting = firstLoad(loading, !!rows);

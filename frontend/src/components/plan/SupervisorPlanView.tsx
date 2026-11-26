@@ -135,7 +135,9 @@ export function SupervisorPlanView({
   const unitNames = useMemo(() => (data?.units ?? []).map((u) => u.name), [data]);
   const rowsKey = (rows: Row[]) => JSON.stringify(rows);
   const dirty = useMemo(
-    () => rowsKey(toRows(draft, unitNames)) !== rowsKey(toRows(toDraft(data?.assignments ?? []), unitNames)),
+    () =>
+      rowsKey(toRows(draft, unitNames)) !== rowsKey(toRows(toDraft(data?.assignments ?? []), unitNames)) ||
+      unitNames.some((u) => draft[u]?.activities.some((a) => !a.category && a.sups.some(Boolean))), // so Save can say what is missing
     [draft, data, unitNames],
   );
   // The active supervisors for the crop, plus anyone already assigned who is no longer listed (so they still show).
@@ -145,7 +147,10 @@ export function SupervisorPlanView({
     for (const r of data?.assignments ?? []) if (!m.has(r.supervisor)) m.set(r.supervisor, r.supervisor_name || r.supervisor);
     return m;
   }, [people, data]);
-  const options = useMemo(() => [...nameOf].map(([value, label]) => ({ value, label })), [nameOf]);
+  // Assigned supervisors who are no longer active still show, marked.
+  const inactive = useMemo(() => new Set((data?.supervisors ?? []).filter((s) => s.status === "Inactive").map((s) => s.name)), [data]);
+  const labelOf = useCallback((id: string) => `${nameOf.get(id) || id}${inactive.has(id) ? " (inactive)" : ""}`, [nameOf, inactive]);
+  const options = useMemo(() => [...nameOf].map(([value]) => ({ value, label: labelOf(value) })), [nameOf, labelOf]);
   const overseerOptions = useMemo(() => [{ value: NONE, label: "Unassigned" }, ...options], [options]);
 
   function edit(unit: string, fn: (b: BlockDraft) => BlockDraft) {
@@ -163,8 +168,15 @@ export function SupervisorPlanView({
   const weekEmpty = (data?.assignments.length ?? 0) === 0;
 
   async function save() {
-    setBusy(true);
     setSaveError(null);
+    for (const unit of unitNames) {
+      const lost = draft[unit]?.activities.find((a) => !a.category && a.sups.some(Boolean));
+      if (lost) {
+        setSaveError(`Choose an activity for the supervisors listed under ${unit}, or remove them.`);
+        return;
+      }
+    }
+    setBusy(true);
     const rows = toRows(draft, unitNames);
     const r = await saveSupervisorPlan(crop, farm, year, week, rows);
     setBusy(false);
@@ -274,7 +286,7 @@ export function SupervisorPlanView({
                         />
                       ) : (
                         <span className={b.overseer ? "text-[var(--sd-ink)]" : "text-[var(--sd-muted)]"}>
-                          {b.overseer ? nameOf.get(b.overseer) || b.overseer : "Unassigned"}
+                          {b.overseer ? labelOf(b.overseer) : "Unassigned"}
                         </span>
                       )}
                     </td>
@@ -328,7 +340,7 @@ export function SupervisorPlanView({
                               </>
                             ) : (
                               <span className="text-[var(--sd-ink)]">
-                                {a.category}: {a.sups.map((s) => nameOf.get(s) || s).join(", ")}
+                                {a.category}: {a.sups.map(labelOf).join(", ")}
                               </span>
                             )}
                           </div>
