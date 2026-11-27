@@ -7,7 +7,6 @@ upande_production.patches.rename_value_adder_to_casual_labour
 upande_production.patches.rename_field_crop_doctype
 # Patches added in this section will be executed before doctypes are migrated
 # Read docs to understand patches: https://frappeframework.com/docs/v14/user/en/database-migrations
-upande_production.patches.move_variety_product_to_field_crop
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
@@ -37,6 +36,7 @@ upande_production.patches.casual_labour_targets_and_paid
 upande_production.patches.seed_silage_settings
 upande_production.patches.add_field_crops
 upande_production.patches.crop_hierarchy
+upande_production.patches.move_variety_product_to_field_crop
 upande_production.patches.add_assistant_manager_perms
 upande_production.patches.create_production_supervisors
 upande_production.patches.capital_costs_to_blocks

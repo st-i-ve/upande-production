@@ -28,14 +28,27 @@ def plan(varieties, crop_products, sub_products):
 	return changes, conflicts
 
 
+def _variety_rows():
+	"""[{name, field_crop, sub_crop, product}] read straight from the table: by now the model sync has dropped `product`
+	from the doctype (its column stays), and `sub_crop` / `field_crop` may be missing on a site that never had them."""
+	t = frappe.qb.DocType("Production Variety")
+	cols = [c for c in ("field_crop", "sub_crop") if frappe.db.has_column("Production Variety", c)]
+	q = frappe.qb.from_(t).select(t.name, t.product, *[t[c] for c in cols]).where(t.product.isnotnull() & (t.product != ""))
+	rows = q.run(as_dict=True)
+	for r in rows:
+		for c in ("field_crop", "sub_crop"):
+			r.setdefault(c, None)
+	return rows
+
+
 def execute():
 	"""Production Variety.product goes away: the product of a variety is its sub-crop's, else its field crop's.
 	Copies each variety's product into the field crop (sub-crop when set) that has none; never overwrites a different
-	product (logged instead). Runs before the model sync drops the field; a no-op once the column is gone."""
+	product (logged instead). Runs after the model sync and crop_hierarchy (so varieties are linked to their crop);
+	the old column is read directly. A no-op where the column never existed."""
 	if not frappe.db.has_column("Production Variety", "product"):
 		return
-	varieties = frappe.get_all("Production Variety", filters={"product": ("is", "set")},
-		fields=["name", "field_crop", "sub_crop", "product"], limit_page_length=0)
+	varieties = _variety_rows()
 	crop_products = dict(frappe.get_all(DT, fields=["name", "product"], as_list=True, limit_page_length=0))
 	sub_products = dict(frappe.get_all(SUB, fields=["name", "product"], as_list=True, limit_page_length=0)) \
 		if frappe.db.table_exists(SUB) else {}
