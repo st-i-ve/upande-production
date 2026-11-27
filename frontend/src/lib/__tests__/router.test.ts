@@ -20,7 +20,7 @@ describe("parseRoute", () => {
   });
   it("reads the labour pay views", () => {
     expect(parseRoute("#/avocado/attendance").view).toBe("attendance");
-    expect(parseRoute("#/avocado/pay-runs").view).toBe("pay-runs");
+    expect(parseRoute("#/avocado/pay-runs").view).toBe("overview");
   });
   it("maps the retired value-adders route to casual-labourers", () => {
     expect(parseRoute("#/avocado/value-adders")).toEqual({ crop: "avocado", view: "casual-labourers" });

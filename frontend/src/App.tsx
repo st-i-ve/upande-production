@@ -68,7 +68,6 @@ const CasualLabourers = page(() =>
 );
 const Supervisors = page(() => import("@/pages/Supervisors").then((m) => ({ default: m.Supervisors })));
 const Attendance = page(() => import("@/pages/Attendance").then((m) => ({ default: m.Attendance })));
-const PayRuns = page(() => import("@/pages/PayRuns").then((m) => ({ default: m.PayRuns })));
 const Costs = page(() => import("@/pages/Costs").then((m) => ({ default: m.Costs })));
 const Establishment = page(() =>
   import("@/pages/Establishment").then((m) => ({ default: m.Establishment })),
@@ -133,7 +132,6 @@ const PAGES: Record<View, React.ComponentType> = {
   "casual-labourers": CasualLabourers,
   supervisors: Supervisors,
   attendance: Attendance,
-  "pay-runs": PayRuns,
   costs: Costs,
   establishment: Establishment,
   "break-even": BreakEven,

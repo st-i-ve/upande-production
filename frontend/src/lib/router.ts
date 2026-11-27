@@ -17,9 +17,8 @@ export const VIEWS = [
   "plan",
   "casual-labourers",
   "supervisors",
-  // Casual labour attendance for a day, and built-in pay runs (hidden when Work Management drives pay).
+  // Casual labour attendance for a day.
   "attendance",
-  "pay-runs",
   "costs",
   // Capital / setup costs and opening balances per block.
   "establishment",

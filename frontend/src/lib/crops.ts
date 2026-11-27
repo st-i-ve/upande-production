@@ -80,8 +80,6 @@ export function viewLabel(view: View, crop?: Pick<Crop, "unit_label"> | null): s
       return "Supervisors";
     case "attendance":
       return "Attendance";
-    case "pay-runs":
-      return "Pay Runs";
     case "costs":
       return "Block Costs";
     case "establishment":

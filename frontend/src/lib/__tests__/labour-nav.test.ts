@@ -8,17 +8,15 @@ const avocado: Crop = {
 };
 
 describe("labour pay navigation", () => {
-  it("lists Attendance and Pay Runs under Field work, after Casual Labourers", () => {
+  it("lists Attendance under Field work, after Casual Labourers", () => {
     const field = navForCrop(avocado).find((g) => g.label === "Field work")!;
     const labels = field.items.map((i) => i.label);
     expect(labels.indexOf("Attendance")).toBe(labels.indexOf("Casual Labourers") + 1);
-    expect(labels).toContain("Pay Runs");
   });
 
   it("is allowed for ordinary crops and not for flower crops", () => {
     expect(viewAllowed("attendance", "avocado", avocado)).toBe(true);
-    expect(viewAllowed("pay-runs", "avocado", avocado)).toBe(true);
     const roses = { ...avocado, crop_key: "roses", unit_label: "Greenhouse", parent_unit_label: "Farm", sub_unit_label: "Bed" };
-    expect(viewAllowed("pay-runs", "roses", roses)).toBe(false);
+    expect(viewAllowed("attendance", "roses", roses)).toBe(false);
   });
 });

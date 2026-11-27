@@ -36,7 +36,7 @@ const SELECTS: { key: string; label: string; help: string }[] = [
   { key: "labour_mode", label: "Labour mode", help: "Automatic uses Work Management for approvals and pay whenever it is installed. Built-in only keeps everything in production." },
   { key: "pay_period", label: "Pay period", help: "How often casual labour is paid. New pay runs default to this length." },
   { key: "pay_week_starts_on", label: "Pay week starts on", help: "The first day of the pay week, so a weekly or fortnightly run covers whole weeks." },
-  { key: "pay_day", label: "Pay day", help: "The day people are paid. It is shown on the Pay runs page as a reminder." },
+  { key: "pay_day", label: "Pay day", help: "The day people are paid." },
   { key: "duplicate_rule", label: "Duplicate work", help: "What happens when the same person, day, operation and block is keyed twice. Block refuses it, Warn lets it through with a message, Off ignores it." },
   { key: "multiple_jobs_per_day", label: "Several jobs in one day", help: "Whether one person may be recorded on different jobs in the same day. Warn allows it but tells the supervisor." },
   { key: "attendance_source", label: "Attendance source", help: "Where attendance comes from when it is required: marked in production, read from HRMS Attendance, or either." },
