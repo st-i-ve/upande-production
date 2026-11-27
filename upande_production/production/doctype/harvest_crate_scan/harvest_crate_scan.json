@@ -10,6 +10,7 @@
   "harvestor",
   "column_break_1",
   "block_ref",
+  "cycle",
   "status",
   "allocated_at",
   "batch_id_ref"
@@ -51,6 +52,12 @@
    "options": "Production Unit",
    "in_list_view": 1,
    "in_standard_filter": 1
+  },
+  {
+   "fieldname": "cycle",
+   "fieldtype": "Link",
+   "label": "Cycle",
+   "options": "Production Crop Cycle"
   },
   {
    "fieldname": "status",

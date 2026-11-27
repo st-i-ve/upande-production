@@ -239,6 +239,43 @@ class TestHarvest(IntegrationTestCase):
 		self.assertEqual((bulk["ok_count"], bulk["fail_count"]), (0, 4))
 		self.assertIn("not in registry", api.scan_crate(crate_id="HV-NOPE", team_id="HV-T1")["error"])
 
+	def test_block_running_two_cycles_harvests_the_one_picked(self):
+		"""Hass and Fuerte on one block: the cycle sent decides the item; none sent means the first; a stranger is refused."""
+		frappe.db.savepoint("hv_two_cycles")
+		try:
+			self._two_cycles()
+		finally:
+			frappe.db.rollback(save_point="hv_two_cycles")
+
+	def _two_cycles(self):
+		first = frappe.db.get_value("Production Crop Cycle", {"unit": self.unit4.name}, "name")
+		second = _make("Production Crop Cycle", title="HV c4b", unit=self.unit4.name, crop=self.crop.name,
+			item=self.item2.name, cycle_type="Season", start_date=today(), status="Active")
+		other = frappe.db.get_value("Production Crop Cycle", {"unit": self.unit.name}, "name")
+		self.assertEqual(H.current_item(self.unit4.name, self.crop.name, first), (self.item.name, first))
+		self.assertEqual(H.current_item(self.unit4.name, self.crop.name, second.name), (self.item2.name, second.name))
+		with self.assertRaises(frappe.ValidationError):
+			H.current_item(self.unit4.name, self.crop.name, other)
+		# the block list offers one entry per running cycle, each with its own item and variety
+		rows = [b for b in api.get_blocks(farm=self.farm.farm_name) if b["name"] == self.unit4.name]
+		self.assertEqual({r["cycle"] for r in rows}, {first, second.name})
+		self.assertEqual({r["item"] for r in rows}, {self.item.name, self.item2.name})
+		self.assertTrue(all(second.name in r["label"] or first in r["label"] for r in rows))
+		# scans carry the cycle; closing for one cycle leaves the other's crates open
+		ids = self.crates(2)
+		self.assertNotIn("error", api.scan_crates_bulk(crate_ids=ids[:1], team_id="HV-T2", block=self.unit4.name, cycle=first))
+		self.assertNotIn("error", api.scan_crates_bulk(crate_ids=ids[1:], team_id="HV-T2", block=self.unit4.name, cycle=second.name))
+		bad = api.scan_crates_bulk(crate_ids=self.crates(1), team_id="HV-T2", block=self.unit4.name, cycle=other)
+		self.assertIn("not running", bad["error"])
+		res = api.mark_ready_for_collection(block=self.unit4.name, team_id="HV-T2", cycle=second.name)
+		self.assertEqual((res["crate_count"], res["item"]), (1, self.item2.name))
+		self.assertEqual(frappe.db.get_value("Harvest Batch", res["batch"], "cycle"), second.name)
+		self.assertEqual(frappe.db.get_value("Production Harvest", res["production_harvest"], "cycle"), second.name)
+		self.assertIn("not running", api.mark_ready_for_collection(block=self.unit4.name, team_id="HV-T2", cycle=other)["error"])
+		# an old app sends no cycle: everything open closes against the first running cycle
+		res = api.mark_ready_for_collection(block=self.unit4.name, team_id="HV-T2")
+		self.assertEqual((res["crate_count"], res["item"]), (1, self.item.name))
+
 	def test_scan_validations(self):
 		cid = self.crates(1)[0]
 		self.assertIn("required", api.scan_crate(crate_id=cid)["error"])

@@ -58,8 +58,23 @@ def crate_unit(unit: str) -> frappe._dict:
 	return row
 
 
-def current_item(unit: str, crop: str) -> tuple[str, str | None]:
-	"""(item, cycle) of the block's current cycle. Falls back to its latest cycle of any status."""
+def running_cycle(unit: str, cycle: str):
+	"""The Active / Harvesting cycle `cycle` on `unit` (a block can run several, Hass and Fuerte); refuses any other."""
+	cyc = frappe.db.get_value("Production Crop Cycle", {"name": cycle, "unit": unit, "status": ("in", ["Active", "Harvesting"])},
+		["name", "item"], as_dict=True)
+	if not cyc:
+		frappe.throw(_("That cycle is not running on this block."), frappe.ValidationError)
+	return cyc
+
+
+def current_item(unit: str, crop: str, cycle: str | None = None) -> tuple[str, str | None]:
+	"""(item, cycle) of the cycle being harvested: `cycle` when given (it must be running on the block), else the
+	block's newest running cycle. Falls back to its latest cycle of any status."""
+	if cycle:
+		cyc = running_cycle(unit, cycle)
+		if not cyc.item:
+			frappe.throw(_("Cycle {0} has no item").format(cycle), frappe.ValidationError)
+		return cyc.item, cyc.name
 	cyc = current_cycles(crop).get(unit)
 	if not (cyc and cyc.item):
 		cyc = frappe.db.get_value("Production Crop Cycle", {"unit": unit, "item": ("is", "set")},
@@ -269,7 +284,7 @@ def validate_batch(doc):
 		r.harvestor = r.harvestor or scan.harvestor
 	assign_pickers(doc.crates, doc.team)
 	doc.crate_count = len(doc.crates)
-	doc.item, doc.cycle = current_item(doc.unit, doc.crop)
+	doc.item, doc.cycle = current_item(doc.unit, doc.crop, doc.cycle or None)
 	doc.field_crop, doc.sub_crop = (frappe.db.get_value("Production Crop Cycle", doc.cycle, ["field_crop", "sub_crop"]) if doc.cycle else None) or (None, None)
 	doc.uom = field_crops.harvest_uom(doc.field_crop, "Kg", doc.sub_crop)
 	doc.avg_kg_per_crate = avg_kg_per_crate(doc.item, doc.crop)
@@ -386,20 +401,36 @@ def reverse_batch(doc):
 
 # ---------------------------------------------------------------- closing a team's crates
 
-def open_scans(team: str, unit: str) -> list[str]:
+def open_scans(team: str, unit: str, cycle: str | None = None) -> list[str]:
+	"""The team's open crates on the block. With `cycle`, only crates scanned for that cycle (or for none: an
+	older app version sends no cycle); without, all of them."""
+	rows = open_scan_rows(team, unit)
+	return [r.name for r in rows if not cycle or not r.cycle or r.cycle == cycle]
+
+
+def open_scan_rows(team: str, unit: str):
 	return frappe.get_all("Harvest Crate Scan",
-		filters={"team_id": team, "block_ref": unit, "status": ("in", OPEN_STATUSES)}, pluck="name",
+		filters={"team_id": team, "block_ref": unit, "status": ("in", OPEN_STATUSES)}, fields=["name", "cycle"],
 		order_by="allocated_at asc, creation asc")
 
 
-def close_batch(team: str, unit: str, harvest_date=None, warehouse: str | None = None):
+def close_batch(team: str, unit: str, harvest_date=None, warehouse: str | None = None, cycle: str | None = None):
 	"""Close the team's open crates for the block into a submitted Harvest Batch (None if there are none).
 	The stock is received into `warehouse` (a store), default `default_store(farm)`."""
-	scans = open_scans(team, unit)
+	if cycle:
+		running_cycle(unit, cycle)
+	else:
+		# no cycle sent (older app): when every open crate was scanned for the same cycle, that is the one
+		seen = {r.cycle for r in open_scan_rows(team, unit)}
+		if len(seen) == 1 and None not in seen and "" not in seen:
+			one = seen.pop()
+			if frappe.db.exists("Production Crop Cycle", {"name": one, "unit": unit, "status": ("in", ["Active", "Harvesting"])}):
+				cycle = one
+	scans = open_scans(team, unit, cycle)
 	if not scans:
 		return None
 	doc = frappe.get_doc({
-		"doctype": "Harvest Batch", "team": team, "unit": unit, "harvest_date": harvest_date or today(),
+		"doctype": "Harvest Batch", "team": team, "unit": unit, "cycle": cycle or None, "harvest_date": harvest_date or today(),
 		"crates": [{"crate_scan": s} for s in scans],
 		"warehouse": warehouse or None,
 	})

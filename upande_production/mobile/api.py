@@ -338,6 +338,10 @@ def productionRecordHarvest():
 
 	def go():
 		unit = _s(data, "unit")
+		if _s(data, "cycle"):
+			from upande_production.production.logic.harvest import running_cycle
+
+			running_cycle(unit, _s(data, "cycle"))
 		crop = frappe.db.get_value("Production Unit", unit, "crop")
 		uom = _s(data, "uom") or (frappe.db.get_value("Production Crop", crop, "yield_uom") if crop else None)
 		doc = frappe.get_doc({

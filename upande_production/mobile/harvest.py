@@ -17,7 +17,7 @@ from frappe.utils import add_days, flt, now_datetime, today
 
 from upande_production.mobile import access
 from upande_production.production.logic import field_crops, harvest as H
-from upande_production.production.logic.analytics import current_cycles
+from upande_production.production.logic.analytics import running_cycles
 
 CRATE_SCAN = "Harvest Crate Scan"
 COLLECTED = ("Batched",)
@@ -176,19 +176,26 @@ def get_blocks(farm=None, section=None, crop=None, **kw):
 			if section and sec != section:
 				continue
 			if u.crop not in cycles:
-				cycles[u.crop] = current_cycles(u.crop)
-			cy = cycles[u.crop].get(u.name)
-			fc = cy.field_crop if cy else None
+				cycles[u.crop] = running_cycles(u.crop)
 			if u.crop not in multi:
 				multi[u.crop] = field_crops.has_field_crops(u.crop)
-			# the crop is named only in a section with several crops; elsewhere (Avocado) the variety alone
-			crop_label = (field_crops.label(fc, cy.variety, cy.sub_crop) if multi[u.crop] else cy.variety) if cy else None
-			out.append({"name": u.name, "label": u.unit_name, "crop": u.crop, "section": sec,
-				"item": cy.item if cy else None, "cost_center": u.cost_center,
-				"field_crop": fc, "sub_crop": cy.sub_crop if cy else None, "variety": cy.variety if cy else None,
-				"crop_label": crop_label,
-				"harvest_uom": field_crops.harvest_uom(fc, default=(units_of.get(fc) or {}).get("uom"),
-					sub_crop=cy.sub_crop if cy else None) if fc else None})
+			# a block can run several cycles at once (Hass and Fuerte): one entry per running cycle, newest first,
+			# the block's own name on each; a block with one or none is one entry as before
+			running = list(reversed(cycles[u.crop].get(u.name) or [])) or [None]
+			for cy in running:
+				fc = cy.field_crop if cy else None
+				# the crop is named only in a section with several crops; elsewhere (Avocado) the variety alone
+				crop_label = (field_crops.label(fc, cy.variety, cy.sub_crop) if multi[u.crop] else cy.variety) if cy else None
+				label = u.unit_name
+				if len(running) > 1:
+					label = f"{u.unit_name} \u00b7 {cy.variety or cy.item or cy.name} ({cy.name})"
+				out.append({"name": u.name, "label": label, "crop": u.crop, "section": sec,
+					"cycle": cy.name if cy else None,
+					"item": cy.item if cy else None, "cost_center": u.cost_center,
+					"field_crop": fc, "sub_crop": cy.sub_crop if cy else None, "variety": cy.variety if cy else None,
+					"crop_label": crop_label,
+					"harvest_uom": field_crops.harvest_uom(fc, default=(units_of.get(fc) or {}).get("uom"),
+						sub_crop=cy.sub_crop if cy else None) if fc else None})
 		return out
 	except Exception as e:
 		return _fail("get_blocks", e)
@@ -278,7 +285,7 @@ def get_harvesting_state(block=None, **kw):
 
 # ---------------------------------------------------------------- scanning
 
-def _scan_one(crate_id: str, team: str, block: str, harvestor: str | None):
+def _scan_one(crate_id: str, team: str, block: str, harvestor: str | None, cycle: str | None = None):
 	"""One scan. Returns (scan doc or None, error text or None, extra dict for the single-scan reply)."""
 	crate = frappe.db.get_value("Harvest Crate", crate_id, ["name", "status"], as_dict=True)
 	if not crate:
@@ -288,15 +295,18 @@ def _scan_one(crate_id: str, team: str, block: str, harvestor: str | None):
 	if frappe.db.exists(CRATE_SCAN, {"crate_id": crate_id, "status": ("in", H.OPEN_STATUSES)}):
 		return None, "Crate already in use", {"in_use": True}
 	doc = frappe.get_doc({"doctype": CRATE_SCAN, "crate_id": crate_id, "team_id": team, "status": "Filling",
-		"allocated_at": now_datetime(), "block_ref": block or None, "harvestor": harvestor or None})
+		"allocated_at": now_datetime(), "block_ref": block or None, "harvestor": harvestor or None,
+		"cycle": cycle or None})
 	doc.insert(ignore_permissions=True)
 	return doc, None, {}
 
 
-def _check_scan_inputs(block, harvestor):
+def _check_scan_inputs(block, harvestor, cycle=None):
 	if block:
 		try:
 			H.crate_unit(block)
+			if cycle:
+				H.running_cycle(block, cycle)
 		except frappe.ValidationError as e:
 			return str(e)
 	if harvestor and not frappe.db.exists("Employee", harvestor):
@@ -305,11 +315,11 @@ def _check_scan_inputs(block, harvestor):
 
 
 @frappe.whitelist()
-def scan_crate(crate_id=None, team_id=None, block=None, harvestor=None, **kw):
+def scan_crate(crate_id=None, team_id=None, block=None, harvestor=None, cycle=None, **kw):
 	"""{crate_id, status:'Filling', team_id, allocation}. `harvestor` (Employee) optional."""
 	try:
 		_begin()
-		crate_id, team_number, block, harvestor = _s(crate_id), _s(team_id), _s(block), _s(harvestor)
+		crate_id, team_number, block, harvestor, cycle = _s(crate_id), _s(team_id), _s(block), _s(harvestor), _s(cycle)
 		if not crate_id or not team_number:
 			return _err("crate_id and team_id are required")
 		if not _can_scan():
@@ -317,10 +327,10 @@ def scan_crate(crate_id=None, team_id=None, block=None, harvestor=None, **kw):
 		team = _team(team_number)
 		if not team:
 			return _err(f"Team {team_number} not found")
-		bad = _check_scan_inputs(block, harvestor)
+		bad = _check_scan_inputs(block, harvestor, cycle)
 		if bad:
 			return _err(bad)
-		doc, error, extra = _scan_one(crate_id, team, block, harvestor)
+		doc, error, extra = _scan_one(crate_id, team, block, harvestor, cycle)
 		if error:
 			return _err(f"Crate '{crate_id}' not in registry" if error == "Not in registry" else error) | extra
 		return {"crate_id": crate_id, "status": "Filling", "team_id": team, "allocation": doc.name}
@@ -329,12 +339,12 @@ def scan_crate(crate_id=None, team_id=None, block=None, harvestor=None, **kw):
 
 
 @frappe.whitelist()
-def scan_crates_bulk(crate_ids=None, team_id=None, block=None, harvestor=None, **kw):
+def scan_crates_bulk(crate_ids=None, team_id=None, block=None, harvestor=None, cycle=None, **kw):
 	"""{results:[{crate_id, ok, error, allocation?}], ok_count, fail_count, team_id}.
 	`harvestor` (Employee) optional: the picker credited with all the crates in this call."""
 	try:
 		_begin()
-		ids, team_number, block, harvestor = _list(crate_ids), _s(team_id), _s(block), _s(harvestor)
+		ids, team_number, block, harvestor, cycle = _list(crate_ids), _s(team_id), _s(block), _s(harvestor), _s(cycle)
 		if not ids or not team_number:
 			return _err("crate_ids and team_id are required")
 		if not _can_scan():
@@ -342,7 +352,7 @@ def scan_crates_bulk(crate_ids=None, team_id=None, block=None, harvestor=None, *
 		team = _team(team_number)
 		if not team:
 			return _err(f"Team {team_number} not found")
-		bad = _check_scan_inputs(block, harvestor)
+		bad = _check_scan_inputs(block, harvestor, cycle)
 		if bad:
 			return _err(bad)
 		results, seen = [], set()
@@ -355,7 +365,7 @@ def scan_crates_bulk(crate_ids=None, team_id=None, block=None, harvestor=None, *
 				row["error"] = "Duplicate in this batch"
 			else:
 				seen.add(cid)
-				doc, error, _extra = _scan_one(cid, team, block, harvestor)
+				doc, error, _extra = _scan_one(cid, team, block, harvestor, cycle)
 				if error:
 					row["error"] = error
 				else:
@@ -368,11 +378,12 @@ def scan_crates_bulk(crate_ids=None, team_id=None, block=None, harvestor=None, *
 
 
 @frappe.whitelist()
-def mark_ready_for_collection(block=None, team_id=None, warehouse=None, **kw):
+def mark_ready_for_collection(block=None, team_id=None, warehouse=None, cycle=None, **kw):
 	"""Close the team's open crates for the block into a Harvest Batch and post the Harvesting stock entry.
 	{team_id, team_number, resolved_team, block, crate_count, crates_marked, + batch, stock_entry, item,
 	estimated_kg, avg_kg_per_crate, production_harvest, warehouse, work}. crate_count 0 and no batch when nothing was open.
-	`warehouse` is the store the fruit is received into (from get_stores); default = the farm's last store."""
+	`warehouse` is the store the fruit is received into (from get_stores); default = the farm's last store.
+	`cycle` is the running cycle harvested (a block can run several); default = the block's newest."""
 	try:
 		_begin()
 		block, team_number = _s(block), _s(team_id)
@@ -383,7 +394,7 @@ def mark_ready_for_collection(block=None, team_id=None, warehouse=None, **kw):
 		team = _team(team_number)
 		if not team:
 			return _err(f"Team {team_number} not found")
-		batch = H.close_batch(team, block, warehouse=_s(warehouse) or None)
+		batch = H.close_batch(team, block, warehouse=_s(warehouse) or None, cycle=_s(cycle) or None)
 		res = {"team_id": team, "team_number": frappe.db.get_value("Harvest Team", team, "team_number"),
 			"resolved_team": team, "block": block, "crate_count": 0, "crates_marked": []}
 		if batch:
@@ -623,7 +634,7 @@ def update_crate_block(crate_id=None, new_block=None, **kw):
 			H.crate_unit(new_block)
 		except frappe.ValidationError as e:
 			return _err(e, 400)
-		frappe.db.set_value(CRATE_SCAN, name, "block_ref", new_block)
+		frappe.db.set_value(CRATE_SCAN, name, {"block_ref": new_block, "cycle": None})  # the cycle belonged to the old block
 		return {"ok": True, "crate_id": crate_id, "old_block": old or "", "new_block": new_block, "changed_by": frappe.session.user}
 	except Exception as e:
 		return _fail("update_crate_block", e)
