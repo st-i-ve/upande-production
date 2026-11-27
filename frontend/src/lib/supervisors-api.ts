@@ -92,3 +92,7 @@ export interface AssistantWithoutManager {
 
 /** Managers only: assistant managers whose employee reports to nobody (or to someone who is not a manager). */
 export const assistantsWithoutManager = () => rpc<AssistantWithoutManager[]>("assistants_without_manager");
+
+/** Active employees for the Add supervisor picker (managers only; not limited by HR's self-service permissions). */
+export const employeeOptions = (search: string, limit = 15) =>
+  rpc<{ value: string; label: string }[]>("employee_options", { search, limit });

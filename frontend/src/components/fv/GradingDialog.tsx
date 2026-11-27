@@ -58,7 +58,7 @@ export function GradingDialog({
     setBy("");
     setNotes("");
     setTried(false);
-    void searchLink("Employee", "", 50).then((rows) =>
+    void searchLink("Employee", "", 50, { doctype: "Harvest Grading Log", fieldname: "graded_by" }).then((rows) =>
       setPeople((rows ?? []).map((r) => ({ value: r.value, label: r.description ? `${r.value} · ${r.description}` : r.value }))),
     );
   }, [open, defaultUnit, form.default_grades]);

@@ -5,7 +5,7 @@ import { ToastProvider } from "@/components/Toast";
 import type { Boot, Crop } from "@/lib/api";
 
 vi.mock("@/lib/people-api", () => ({ supervisorPeople: vi.fn(), labourerPeople: vi.fn() }));
-vi.mock("@/lib/supervisors-api", () => ({ listSupervisors: vi.fn(), getSupervisor: vi.fn(), saveSupervisor: vi.fn(), assistantsWithoutManager: vi.fn() }));
+vi.mock("@/lib/supervisors-api", () => ({ listSupervisors: vi.fn(), getSupervisor: vi.fn(), saveSupervisor: vi.fn(), assistantsWithoutManager: vi.fn(), employeeOptions: vi.fn() }));
 vi.mock("@/lib/frappe", async (orig) => ({
   ...(await orig<typeof import("@/lib/frappe")>()),
   searchLink: vi.fn().mockResolvedValue([{ value: "E9", description: "Newbie Hand", label: "Newbie Hand" }]),
@@ -45,6 +45,7 @@ const renderIt = (manage = true) =>
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(searchLink).mockResolvedValue([{ value: "E9", description: "Newbie Hand", label: "Newbie Hand" }]);
+  vi.mocked(api.employeeOptions).mockResolvedValue([{ value: "E9", label: "Newbie Hand" }]);
   vi.mocked(api.assistantsWithoutManager).mockResolvedValue([]);
   vi.mocked(people.supervisorPeople).mockResolvedValue({
     from: "2026-11-02", to: "2026-11-27", weeks: ["2026-11-02"], can_manage: true,

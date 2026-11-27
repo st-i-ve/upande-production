@@ -295,3 +295,21 @@ class TestSupervisorsPage(IntegrationTestCase):
 			doc.save(ignore_permissions=True)
 			with self.assertRaises(frappe.PermissionError):
 				supervisor_page.save_supervisor({"employee": e.name, "notes": "x"})
+
+	def test_employee_options_reach_past_hr_self_service_limits(self):
+		"""A manager whom HR limits to their own Employee record (self-service) still finds every active
+		employee when adding a supervisor; someone who is not a manager is refused."""
+		from upande_production.api import supervisors as sup_api
+
+		others = frappe.get_all("Employee", filters={"status": "Active"}, pluck="name", limit=3)
+		if len(others) < 2:
+			self.skipTest("needs two active employees")
+		frappe.get_doc({"doctype": "User Permission", "user": self.mgr_user, "allow": "Employee", "for_value": others[0],
+			"apply_to_all_doctypes": 1}).insert(ignore_permissions=True)
+		frappe.set_user(self.mgr_user)
+		rows = sup_api.employee_options("", 20)
+		self.assertGreater(len(rows), 1)
+		self.assertTrue({"value", "label"} <= set(rows[0]))
+		frappe.set_user(self.sup_user)
+		with patch.object(frappe.db, "rollback"):
+			self.assertIn("error", sup_api.employee_options("", 5))

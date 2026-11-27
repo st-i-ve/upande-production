@@ -132,6 +132,10 @@ export async function searchLink(
   doctype: string,
   term: string,
   pageLength = 20,
+  /** The form field this search fills. When that field ignores user permissions (an Employee link a manager
+   *  picks from, while HR limits them to their own Employee record), the search does too; Frappe checks the
+   *  field itself, so this cannot widen a field that does not allow it. */
+  field?: { doctype: string; fieldname: string },
 ): Promise<Array<{ value: string; description: string; label?: string }> | null> {
   try {
     const res = await fetch("/api/method/frappe.desk.search.search_link", {
@@ -142,7 +146,12 @@ export async function searchLink(
         "X-Frappe-CSRF-Token": csrf(),
         "X-Requested-With": "XMLHttpRequest",
       },
-      body: JSON.stringify({ doctype, txt: term, page_length: pageLength }),
+      body: JSON.stringify({
+        doctype,
+        txt: term,
+        page_length: pageLength,
+        ...(field ? { reference_doctype: field.doctype, link_fieldname: field.fieldname, ignore_user_permissions: 1 } : {}),
+      }),
     });
     if (!res.ok) return null;
     const body = await res.json();

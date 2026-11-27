@@ -9,8 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Picker } from "@/components/ui/picker";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { searchLink, isError } from "@/lib/frappe";
-import { saveSupervisor, type SupervisorDetail } from "@/lib/supervisors-api";
+import { isError } from "@/lib/frappe";
+import { employeeOptions, saveSupervisor, type SupervisorDetail } from "@/lib/supervisors-api";
 
 interface Person {
   value: string;
@@ -59,8 +59,8 @@ export function SupervisorForm({
     if (!open || existing || picked) return;
     let live = true;
     const t = setTimeout(() => {
-      void searchLink("Employee", search, 15).then((rows) => {
-        if (live) setPeople((rows ?? []).map((r) => ({ value: r.value, label: r.label || r.description || r.value })));
+      void employeeOptions(search, 15).then((rows) => {
+        if (live) setPeople(isError(rows) ? [] : rows);
       });
     }, 200);
     return () => {

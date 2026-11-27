@@ -74,7 +74,7 @@ export function IrrigationDialog({
     setFault("None");
     setNotes("");
     setTried(false);
-    void searchLink("Employee", "", 50).then((rows) =>
+    void searchLink("Employee", "", 50, { doctype: "Pivot Irrigation Run", fieldname: "operator" }).then((rows) =>
       setPeople((rows ?? []).map((r) => ({ value: r.value, label: r.description ? `${r.value} · ${r.description}` : r.value }))),
     );
   }, [open, defaultPivot, form.pivots]);
