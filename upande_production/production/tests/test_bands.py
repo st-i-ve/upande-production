@@ -20,6 +20,11 @@ def _rows(*spec):
 	return [{"min": lo, "max": hi if hi > lo else None, "severity": sev, "label": lab} for lab, lo, hi, sev in spec]
 
 
+def _fv():
+	"""The pivot section, found by its key: a site may have renamed it (Pivots)."""
+	return frappe.db.get_value("Production Section", {"crop_key": "fruits-vegetables"}) or "Fruits & Vegetables"
+
+
 class Isolated(IntegrationTestCase):
 	"""Each test starts from the state the class set up and leaves nothing behind."""
 
@@ -195,7 +200,7 @@ class TestFvLimits(Isolated):
 		fv_seed.ensure_limits()
 
 	def test_weekly_target_variety_then_crop(self):
-		crop = "Fruits & Vegetables"
+		crop = _fv()
 		self.assertEqual(fv.weekly_target_mm(), 25.0)
 		frappe.db.set_value("Production Section", crop, "irrigation_mm_week", 30)
 		self.assertEqual(fv.weekly_target_mm(), 30.0)
@@ -211,7 +216,7 @@ class TestFvLimits(Isolated):
 		r = fv.irrigation()
 		self.assertEqual(r["target"]["weekly_mm"], 25.0)
 		self.assertIn("Irrigation % of target", r["bands"])
-		frappe.db.set_value("Production Section", "Fruits & Vegetables", "irrigation_mm_week", 50)
+		frappe.db.set_value("Production Section", _fv(), "irrigation_mm_week", 50)
 		self.assertEqual(fv.irrigation()["target"]["weekly_mm"], 50.0)
 
 	def test_slice_target_follows_its_variety(self):
@@ -222,8 +227,8 @@ class TestFvLimits(Isolated):
 		self.assertEqual(a["slice_target_mm"], {"PV-1": 50.0, "PV-2": 20.0})
 
 	def test_grades_from_the_crop_table(self):
-		crop = frappe.get_doc("Production Section", "Fruits & Vegetables")
-		grades = fv.grade_rules("Fruits & Vegetables")
+		crop = frappe.get_doc("Production Section", _fv())
+		grades = fv.grade_rules(_fv())
 		self.assertEqual([g["grade"] for g in grades][:5], ["Class 1", "Class 2", "Ware", "Seed", "Chats"])
 		self.assertTrue(fv.is_top_grade("class 1", grades))
 		self.assertTrue(fv.is_top_grade("Premium", grades))
@@ -232,7 +237,7 @@ class TestFvLimits(Isolated):
 		self.assertEqual(fv.grading()["form"]["default_grades"][:3], ["Class 1", "Class 2", "Ware"])
 		crop.grades[1].is_top_grade = 1  # Class 2 now counts as top
 		crop.save()
-		self.assertTrue(fv.is_top_grade("Class 2", fv.grade_rules("Fruits & Vegetables")))
+		self.assertTrue(fv.is_top_grade("Class 2", fv.grade_rules(_fv())))
 
 	def test_grading_order_follows_rank(self):
 		from frappe.utils import getdate

@@ -69,6 +69,11 @@ def seed_core():
 	if not frappe.db.get_single_value("Production Settings", "company"):
 		frappe.db.set_single_value("Production Settings", "company", company)
 	for crop in DEMO["crops"]:
+		# a site may have renamed the section (Avocado -> Phases, Fruits & Vegetables -> Pivots): its key stays
+		named = frappe.db.get_value("Production Section", {"crop_key": crop["key"]})
+		if named and named != crop["name"]:
+			frappe.db.set_value("Production Section", named, "uses_crop_cycles", crop.get("cycles", 1))
+			continue
 		_ensure("Production Section", {"crop_name": crop["name"]}, {
 			"crop_key": crop["key"], "accent_color": crop["accent"], "icon_key": crop["icon"],
 			"parent_unit_label": crop["parent"], "unit_label": crop["unit"], "sub_unit_label": crop["sub"],

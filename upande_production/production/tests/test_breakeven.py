@@ -1,6 +1,7 @@
 from datetime import date
 
 import frappe
+from unittest.mock import patch
 from frappe.tests import IntegrationTestCase
 from frappe.utils import add_days, add_months, flt, today
 
@@ -15,6 +16,14 @@ def _make(doctype, **kw):
 
 
 class TestBreakEven(IntegrationTestCase):
+
+	def setUp(self):
+		# An api.* endpoint that refuses rolls the transaction back (api/envelope.py), which would wipe the class
+		# fixtures made in setUpClass and break every later test: keep the rollback out of these tests.
+		p = patch.object(frappe.db, "rollback")
+		p.start()
+		self.addCleanup(p.stop)
+
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
