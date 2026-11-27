@@ -17,7 +17,12 @@ from upande_production.api.envelope import as_dict, run
 from upande_production.production.logic import bands as band_logic
 from upande_production.production.logic.units import unit_filter
 
-CROP = "Fruits & Vegetables"
+CROP = "Fruits & Vegetables"  # the pivot section's original name; looked up by its key, which survives a rename
+CROP_KEY = "fruits-vegetables"
+
+
+def _section():
+	return frappe.db.get_value("Production Crop", {"crop_key": CROP_KEY}) or CROP
 
 # A pivot is "utilised" by the hours it ran against all the hours in the period.
 HOURS_PER_DAY = 24.0
@@ -58,11 +63,12 @@ def weekly_target_mm(variety=None):
 		v = flt(frappe.db.get_value("Production Variety", variety, "irrigation_mm_week"))
 		if v > 0:
 			return v
-	return flt(frappe.db.get_value("Production Crop", CROP, "irrigation_mm_week"))
+	return flt(frappe.db.get_value("Production Crop", _section(), "irrigation_mm_week"))
 
 
-def grade_rules(crop=CROP):
+def grade_rules(crop=None):
 	"""The crop's Production Grade rows: [{grade, rank, is_top}] in rank order."""
+	crop = crop or _section()
 	rows = frappe.get_all("Production Grade", filters={"parent": crop, "parenttype": "Production Crop"},
 						  fields=["grade", "rank", "is_top_grade"], order_by="rank asc, idx asc", limit_page_length=0)
 	return [{"grade": r.grade, "rank": r.rank, "is_top": bool(r.is_top_grade)} for r in rows]
