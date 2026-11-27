@@ -3,7 +3,7 @@
 import frappe
 
 from upande_production.api.envelope import as_dict, run
-from upande_production.production.logic import labourers
+from upande_production.production.logic import labourers, people
 from upande_production.production.logic.settings import can_see_pay
 
 
@@ -66,3 +66,11 @@ def save_labourer(employee, active=None, supervisor=None, crew=None, targets=Non
 def remove_labourer(employee):
 	_need("Casual Labourer", "delete")
 	return labourers.remove_labourer(employee)
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def people_labourers(crop=None, from_date=None, to_date=None):
+	"""The Casual Labourers page: the roster with each person's figures (no pay), flags, block/activity shares and weekly strip."""
+	_need("Casual Labourer")
+	return people.labourer_people(crop or None, from_date or None, to_date or None)

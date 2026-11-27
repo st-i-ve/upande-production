@@ -3,7 +3,7 @@
 import frappe
 
 from upande_production.api.envelope import as_dict, run
-from upande_production.production.logic import supervisor_page
+from upande_production.production.logic import people, supervisor_page
 
 
 def _need(doctype, ptype="read"):
@@ -37,3 +37,11 @@ def save_supervisor(data):
 @run
 def assistants_without_manager():
 	return supervisor_page.assistants_without_manager()
+
+
+@frappe.whitelist(methods=["POST"])
+@run
+def people_supervisors(crop=None, from_date=None, to_date=None):
+	"""The Supervisors page: the roster with each supervisor's figures, flags, block shares and weekly strip for the range (default last four weeks)."""
+	_need("Production Supervisor")
+	return people.supervisor_people(crop or None, from_date or None, to_date or None)
