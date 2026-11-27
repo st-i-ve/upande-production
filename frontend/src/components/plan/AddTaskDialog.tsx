@@ -80,12 +80,21 @@ export function AddTaskDialog({
     fields: { unit: [unit, setUnit], operation: [operation, setOperation], planned: [planned, setPlanned], due: [due, setDue], supervisor: [supervisor, setSupervisor] },
   });
 
+  // One choice per running cycle: a block can run several at once (Hass and Fuerte), and the task must land on
+  // the one picked. A block with no running cycle (or a crop without cycles) is one choice on its own.
   const unitOptions = useMemo(
     () =>
       units
         .filter((u) => !u.is_group)
-        .map((u) => ({ value: u.name, label: u.item ? `${u.name} · ${u.item}` : u.name, short: u.name })),
-    [units],
+        .flatMap((u) => {
+          const running = usesCycles ? (u.cycles ?? []) : [];
+          if (!running.length) return [{ value: u.name, label: u.item ? `${u.name} · ${u.item}` : u.name, short: u.name, unit: u.name, cycle: usesCycles ? (u.current_cycle ?? null) : null }];
+          return running.map((c) => {
+            const what = c.variety || c.item || c.name;
+            return { value: c.name, label: `${u.name} · ${what}${running.length > 1 ? ` (${c.name})` : ""}`, short: `${u.name} · ${what}`, unit: u.name, cycle: c.name };
+          });
+        }),
+    [units, usesCycles],
   );
   const opOptions = useMemo(
     () => operations.map((o) => ({ value: o.name, label: o.operation_name || o.name, short: o.operation_name || o.name })),
@@ -98,11 +107,11 @@ export function AddTaskDialog({
     setBusy(true);
     setFailure(null);
     setRule(null);
-    const u = units.find((x) => x.name === unit);
+    const picked = unitOptions.find((o) => o.value === unit);
     const r = await savePlanTasks(crop, farm, year, week, [
       {
-        unit,
-        cycle: usesCycles ? (u?.current_cycle ?? null) : null,
+        unit: picked?.unit ?? unit,
+        cycle: picked?.cycle ?? null,
         operation,
         planned_qty: num(planned),
         uom: op?.work_uom ?? null,

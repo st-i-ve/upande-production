@@ -230,6 +230,39 @@ class TestMobileApi(IntegrationTestCase):
 			"crop": self.crop.name, "unit": self.unit.name, "operation": self.op.name, "planned_qty": 0,
 		}))
 
+	def test_add_task_lands_on_the_cycle_picked(self):
+		"""A block running two cycles (Hass and Fuerte): the task goes on the one the phone names."""
+		made = []
+		for d in (-60, -30):
+			c = frappe.get_doc({"doctype": "Production Crop Cycle", "unit": self.unit.name, "crop": self.crop.name,
+				"cycle_type": "Season", "start_date": add_days(today(), d), "status": "Active"})
+			c.flags.ignore_validate = True
+			c.insert(ignore_permissions=True)
+			made.append(c.name)
+		def drop():
+			# the endpoint commits: remove the tasks on these cycles before the cycles themselves
+			for t in frappe.get_all("Work Plan Task", filters={"cycle": ("in", made)}, pluck="name"):
+				frappe.db.delete("Work Plan Task", t)
+			for n in made:
+				frappe.delete_doc("Production Crop Cycle", n, force=True, ignore_permissions=True)
+			frappe.db.commit()
+		self.addCleanup(drop)
+		due = add_days(today(), 35)
+		y, w = iso_of(due)
+		body = {"crop": self.crop.name, "farm": self.farm.name, "year": y, "week": w, "unit": self.unit.name,
+			"operation": self.op.name, "planned_qty": 5, "due_date": str(due)}
+		older = self._call(api.productionAddTask, {**body, "cycle": made[0]})
+		self.assertEqual(older["status"], "success")
+		self.assertEqual(frappe.db.get_value("Work Plan Task", older["task"]["name"], "cycle"), made[0])
+		units = self._call(api.productionListUnits, {"crop": self.crop.name})
+		listed = next(u for u in units if u["name"] == self.unit.name)
+		self.assertEqual(sorted(c["name"] for c in listed["cycles"]), sorted(made))
+		newest = self._call(api.productionAddTask, body)
+		self.assertEqual(frappe.db.get_value("Work Plan Task", newest["task"]["name"], "cycle"), made[1])
+		with patch.object(frappe.db, "rollback"):
+			bad = self._call(api.productionAddTask, {**body, "cycle": "CYC-NOT-HERE"})
+		self.assertIn("not running on this block", bad["error"])
+
 	def test_add_task_refuses_an_inactive_supervisor(self):
 		y, w = iso_of(add_days(today(), 21))
 		due = add_days(today(), 21)

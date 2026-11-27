@@ -131,3 +131,28 @@ describe("rule flags", () => {
     expect(screen.getByTestId("protocol-rule-check")).toHaveTextContent("day 300");
   });
 });
+
+describe("Add task on a block running two cycles", () => {
+  it("lists each running cycle and saves the task on the one picked", async () => {
+    mocked.getSupervisorOptions.mockResolvedValue([] as never);
+    mocked.savePlanTasks.mockResolvedValue({ name: "WP-1" } as never);
+    const two = [{
+      name: "PH1-AV3B1", is_group: 0, current_cycle: "CYC-101", item: "Fuerte Avocado", area_ha: 5,
+      cycles: [
+        { name: "CYC-098", unit: "PH1-AV3B1", item: "Hass Avocado", variety: "Hass", status: "Active" },
+        { name: "CYC-101", unit: "PH1-AV3B1", item: "Fuerte Avocado", variety: "Fuerte", status: "Active" },
+      ],
+    }] as unknown as UnitRow[];
+    render(
+      <AddTaskDialog crop="Avocado" farm="Mutara" year={2026} week={44} weekStart={new Date(2026, 9, 26)} unitLabel="Block" units={two} operations={ops} onClose={() => {}} onAdded={vi.fn()} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Block" }));
+    expect(await screen.findByRole("option", { name: "PH1-AV3B1 · Fuerte (CYC-101)" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("option", { name: "PH1-AV3B1 · Hass (CYC-098)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Operation" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Spraying" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add task" }));
+    await waitFor(() => expect(mocked.savePlanTasks).toHaveBeenCalled());
+    expect(mocked.savePlanTasks.mock.calls[0][4][0]).toMatchObject({ unit: "PH1-AV3B1", cycle: "CYC-098" });
+  });
+});

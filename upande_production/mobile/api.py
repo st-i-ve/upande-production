@@ -165,7 +165,14 @@ def productionListUnits():
 			order_by="unit_name asc",
 		)
 		info = _stage_info([r.name for r in rows])
-		return [_with_stage(r, info) for r in rows]
+		# every running cycle per block: a block can run several at once (Hass and Fuerte) and Add task picks one
+		running = {}
+		if rows:
+			for c in frappe.get_all("Production Crop Cycle",
+					filters={"unit": ("in", [r.name for r in rows]), "status": ("in", ["Active", "Harvesting"])},
+					fields=["name", "unit", "variety", "item"], order_by="start_date desc"):
+				running.setdefault(c.unit, []).append({"name": c.name, "variety": c.variety, "item": c.item})
+		return [_with_stage(dict(r, cycles=running.get(r.name, [])), info) for r in rows]
 
 	_run("productionListUnits", go)
 
@@ -772,8 +779,14 @@ def productionAddTask():
 		from upande_production.production.logic.cycles import crop_uses_cycles
 
 		if crop_uses_cycles(crop):
-			cycle = frappe.db.get_value("Production Crop Cycle",
-				{"unit": unit, "status": ("in", ["Active", "Harvesting"])}, "name")
+			# A block can run several cycles at once (Hass and Fuerte): take the one the phone picked when it is
+			# running on this block, else the block's newest running cycle.
+			running = frappe.get_all("Production Crop Cycle",
+				filters={"unit": unit, "status": ("in", ["Active", "Harvesting"])}, pluck="name", order_by="start_date desc")
+			asked = _s(data, "cycle")
+			if asked and asked not in running:
+				frappe.throw("That cycle is not running on this block.", frappe.ValidationError)
+			cycle = asked or (running[0] if running else None)
 		stamp = rules.enforce(rules.check(cycle=cycle, unit=unit, operation=operation, on_date=due),
 			_s(data, "override_reason"))
 		plan = _plan_for_edit(crop, farm, year, week)
