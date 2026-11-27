@@ -148,6 +148,14 @@ def get_bootstrap():
 	only = avocado_only_crop_keys()
 	if only:  # an Avocado Production Manager sees the avocado crop and nothing else
 		crops = [c for c in crops if c["crop_key"] in only]
+	# the farms each crop has blocks on: pages default to these, not to any farm (a site can carry farms of other
+	# apps or test leftovers with none of this crop's blocks)
+	farms_of = {}
+	for r in frappe.get_all("Production Unit", filters={"status": ("!=", "Retired"), "farm": ("is", "set")},
+			fields=["crop", "farm"], distinct=True, order_by="farm asc"):
+		farms_of.setdefault(r.crop, []).append(r.farm)
+	for c in crops:
+		c["farms"] = farms_of.get(c["name"], [])
 	for c in crops:  # the page gate: the crop's default is on, or one of its varieties says Yes
 		c["dry_matter_testing"] = int(drymatter_logic.crop_tests_dry_matter(c["name"]))
 	for c in crops:  # a section with Field Crops (Fruits & Vegetables): Cabbage, Maize ... each with its harvest unit

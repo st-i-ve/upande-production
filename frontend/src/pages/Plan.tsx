@@ -51,7 +51,9 @@ export function Plan() {
   const accent = crop.accent_color || "#3f7d3a";
   const toast = useToast();
   const [week, setWeek] = useState<IsoWeek>(currentIsoWeek);
-  const [farm, setFarm] = useState(boot.farms[0] ?? "");
+  // the crop's own farms first: a site can hold farms (of other apps, or test leftovers) without this crop's blocks
+  const cropFarms = crop.farms?.length ? crop.farms : boot.farms;
+  const [farm, setFarm] = useState(cropFarms[0] ?? "");
   const [view, setView] = useState<"tasks" | "supervisors">("tasks");
   const [opFilter, setOpFilter] = useState("");
   const [cropFilter, setCropFilter] = useState("");
@@ -232,7 +234,7 @@ export function Plan() {
   const selected = tasks.find((t) => t.name === picked) ?? null;
   const unitLabel = crop.unit_label || "Unit";
   const weekLabel = `W${String(week.week).padStart(2, "0")} ${week.year}`;
-  const farmOptions = boot.farms.map((f) => ({ value: f, label: f }));
+  const farmOptions = cropFarms.map((f) => ({ value: f, label: f }));
 
   const actions = (
     <>

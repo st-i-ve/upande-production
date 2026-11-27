@@ -41,6 +41,8 @@ export interface Crop {
   dry_matter_target_pct?: number | null;
   /** Grown for silage: the crop has the Silage page. */
   grown_for_silage?: number | boolean;
+  /** The farms this crop has blocks on; pages default to the first. */
+  farms?: string[];
   /** The named crops inside this section (Cabbage, Maize ... in Fruits & Vegetables); empty for the others. */
   field_crops?: FieldCropOption[];
   has_field_crops?: number | boolean;
