@@ -59,7 +59,8 @@
    "label": "Crop Name",
    "reqd": 1,
    "unique": 1,
-   "in_list_view": 1
+   "in_list_view": 1,
+   "description": "A section is a part of the farm run as one unit, with its own blocks, team and pages (for example Phases or Pivots). It is not a crop: to add a crop such as Passion Fruit or Onion, use Crops (Production Field Crop)."
   },
   {
    "fieldname": "crop_key",
@@ -344,7 +345,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-11 09:00:00.000000",
+ "modified": "2026-11-27 08:11:18.616709",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production Crop",

@@ -102,6 +102,13 @@
    "color": "Grey",
    "doc_view": "List",
    "label": "Crops",
+   "link_to": "Production Field Crop",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Sections",
    "link_to": "Production Crop",
    "type": "DocType"
   },
@@ -115,5 +122,5 @@
  ],
  "title": "Production",
  "type": "Workspace",
- "modified": "2026-10-28 12:00:00.000000"
+ "modified": "2026-11-27 08:11:18.616709"
 }
