@@ -1,9 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ToastProvider } from "@/components/Toast";
 import type { Boot, Crop } from "@/lib/api";
 
+vi.mock("@/lib/people-api", () => ({ supervisorPeople: vi.fn(), labourerPeople: vi.fn() }));
 vi.mock("@/lib/supervisors-api", () => ({ listSupervisors: vi.fn(), getSupervisor: vi.fn(), saveSupervisor: vi.fn(), assistantsWithoutManager: vi.fn() }));
 vi.mock("@/lib/frappe", async (orig) => ({
   ...(await orig<typeof import("@/lib/frappe")>()),
@@ -11,6 +12,7 @@ vi.mock("@/lib/frappe", async (orig) => ({
 }));
 
 import { searchLink } from "@/lib/frappe";
+import * as people from "@/lib/people-api";
 import * as api from "@/lib/supervisors-api";
 import { CropProvider } from "@/lib/crops";
 import { Supervisors } from "@/pages/Supervisors";
@@ -20,9 +22,14 @@ const crop: Crop = {
   parent_unit_label: "Pivot", sub_unit_label: "Block", yield_uom: "kg",
 };
 const boot = (manage: boolean): Boot => ({ crops: [crop], farms: ["Mutara"], can_see_pay: false, can_plan: true, can_manage: manage });
-const card = (o: Partial<api.SupervisorCard> & { employee: string; employee_name: string }): api.SupervisorCard => ({
-  image: null, phone: "0700111222", user: null, farm: null, active: true,
-  kpis: { blocks: 2, tasks: { done: 3, open: 4, late: 1, skipped: 0, total: 8 }, crew: 5, pending: 2 }, ...o,
+const person = (o: Partial<people.SupervisorPerson> & { employee: string; employee_name: string }): people.SupervisorPerson => ({
+  image: null, phone: "0700111222", user: null, farm: "Mutara", active: true, blocks: 2, activities: 1, overseer: true, crew: 5, full: true,
+  metrics: { assigned: 8, done: 3, on_time_pct: 62.5, late_pct: 25, logs: 6, active_days: 3, logs_per_day: 2, sent_back: 1, entries: 10, sent_back_pct: 10, check_days: 1.5 },
+  scores: { on_time: 62.5, steady: 75, logging: 80, returns: 90, check_speed: 78 },
+  flags: [{ kind: "overdue", label: "Overdue tasks", count: 2, detail: "2 unfinished past their due date." }],
+  where: [{ key: "B1", label: "Block 1", count: 5, share: 62.5 }],
+  weekly: [{ week: "2026-11-02", done: 1, logs: 2 }],
+  ...o,
 });
 const renderIt = (manage = true) =>
   render(
@@ -38,11 +45,16 @@ const renderIt = (manage = true) =>
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(searchLink).mockResolvedValue([{ value: "E9", description: "Newbie Hand", label: "Newbie Hand" }]);
-  vi.mocked(api.assistantsWithoutManager).mockReset().mockResolvedValue([]);
-  vi.mocked(api.listSupervisors).mockResolvedValue([
-    card({ employee: "E1", employee_name: "Grace Wambui" }),
-    card({ employee: "E2", employee_name: "Peter Otieno", active: false, phone: null }),
-  ]);
+  vi.mocked(api.assistantsWithoutManager).mockResolvedValue([]);
+  vi.mocked(people.supervisorPeople).mockResolvedValue({
+    from: "2026-11-02", to: "2026-11-27", weeks: ["2026-11-02"], can_manage: true,
+    medians: { assigned: 6, on_time_pct: 70, late_pct: 20, logs_per_day: 1.5, sent_back_pct: 5, check_days: 1, on_time: 70, steady: 80, logging: 60, returns: 95, check_speed: 85 },
+    people: [
+      person({ employee: "E1", employee_name: "Grace Wambui" }),
+      person({ employee: "E2", employee_name: "Peter Otieno", active: false, phone: null, overseer: false }),
+      person({ employee: "E3", employee_name: "Ann Kamau", overseer: false, full: false, metrics: { assigned: 4, done: 1, on_time_pct: 50, late_pct: 40, logs: 0, active_days: 0, logs_per_day: null, sent_back: null, entries: null, sent_back_pct: null, check_days: null }, flags: [] }),
+    ],
+  });
   vi.mocked(api.getSupervisor).mockResolvedValue({
     supervisor: { employee: "E1", employee_name: "Grace Wambui", image: null, phone: "0700111222", user: null, farm: null, active: true, notes: null, crops: [] },
     year: 2026, week: 48, can_edit: true,
@@ -66,35 +78,57 @@ describe("Supervisors page", () => {
 
   it("shows no warning when every assistant has a manager", async () => {
     renderIt();
-    await screen.findByText("Grace Wambui");
+    await screen.findByTestId("supervisor-record");
     expect(screen.queryByTestId("assistants-without-manager")).toBeNull();
   });
 
-  it("shows a card per active supervisor with initials, phone and KPI chips; inactive hidden by default", async () => {
+  it("lists active supervisors in the roster and opens the first one's record against the farm median", async () => {
     renderIt();
-    expect(await screen.findByText("Grace Wambui")).toBeTruthy();
-    expect(screen.getByText("GW")).toBeTruthy();
-    expect(screen.getByText("0700111222")).toBeTruthy();
-    expect(screen.getByText("2 blocks")).toBeTruthy();
-    expect(screen.getByText("5 in crew")).toBeTruthy();
-    expect(screen.getByText("1 late")).toBeTruthy();
-    expect(screen.getByText("2 to approve")).toBeTruthy();
-    expect(screen.queryByText("Peter Otieno")).toBeNull();
+    const record = await screen.findByTestId("supervisor-record");
+    const roster = screen.getByTestId("person-E1");
+    expect(within(roster).getByText("Grace Wambui")).toBeTruthy();
+    expect(within(roster).getByText(/2 blocks, 1 activity · Overseer/)).toBeTruthy();
+    expect(within(roster).getByText("62.5%")).toBeTruthy();
+    expect(screen.queryByTestId("person-E2")).toBeNull(); // inactive hidden by default
+    const table = within(record).getByRole("table", { name: "Against the farm median" });
+    expect(within(table).getByText("Done on time")).toBeTruthy();
+    expect(within(table).getByText("70%")).toBeTruthy(); // the farm median
+    expect(within(record).getByText("Overdue tasks")).toBeTruthy();
+    expect(within(record).getByText("Block 1")).toBeTruthy();
+    expect(within(record).getByRole("img", { name: "Score parts" })).toBeTruthy();
+    expect(api.getSupervisor).not.toHaveBeenCalled();
+    expect(people.supervisorPeople).toHaveBeenCalledWith("Avocado", expect.stringMatching(/^\d{4}-\d\d-\d\d$/), expect.stringMatching(/^\d{4}-\d\d-\d\d$/));
   });
 
-  it("filters by search and by status", async () => {
+  it("switches the record when another supervisor is picked and shows private crew figures as a dash", async () => {
     renderIt();
-    await screen.findByText("Grace Wambui");
-    fireEvent.change(screen.getByPlaceholderText("Search"), { target: { value: "zzz" } });
-    expect(await screen.findByText(/No supervisors match/)).toBeTruthy();
+    fireEvent.click(await screen.findByTestId("person-E3"));
+    const record = await screen.findByText("crew figures are private");
+    expect(record).toBeTruthy();
   });
 
-  it("opens the detail with blocks and crew", async () => {
+  it("searches the roster", async () => {
     renderIt();
-    fireEvent.click(await screen.findByText("Grace Wambui"));
-    expect(await screen.findByText("Block 1")).toBeTruthy();
-    expect(screen.getByText("Jane Crew")).toBeTruthy();
-    expect(screen.getByText("Spraying")).toBeTruthy();
+    await screen.findByTestId("supervisor-record");
+    fireEvent.change(screen.getByLabelText("Find a supervisor"), { target: { value: "zzz" } });
+    expect(await screen.findByText(/Nobody matches/)).toBeTruthy();
+  });
+
+  it("compares with another supervisor", async () => {
+    renderIt();
+    await screen.findByTestId("supervisor-record");
+    fireEvent.click(screen.getByRole("button", { name: /Compare/ }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("How Grace Wambui compares")).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: /Ann Kamau/ }));
+    expect(within(dialog).getByRole("table", { name: "Comparison figures" }).textContent).toContain("Ann Kamau");
+  });
+
+  it("opens the details with blocks and crew from the record", async () => {
+    renderIt();
+    await screen.findByTestId("supervisor-record");
+    fireEvent.click(screen.getByRole("button", { name: /Details and edit/ }));
+    expect(await screen.findByText("Jane Crew")).toBeTruthy();
     expect(api.getSupervisor).toHaveBeenCalledWith("E1", "Avocado", expect.any(Number), expect.any(Number));
   });
 
@@ -107,20 +141,9 @@ describe("Supervisors page", () => {
     await waitFor(() => expect(api.saveSupervisor).toHaveBeenCalledWith(expect.objectContaining({ employee: "E9", active: true })));
   });
 
-  it("shows no crew list or approvals when the server withholds them", async () => {
-    vi.mocked(api.getSupervisor).mockResolvedValue({
-      ...(await api.getSupervisor("E1", "Avocado", 1, 1)) as api.SupervisorDetail,
-      pending: null, crew_hidden: true, labourers: [], crew_count: 3,
-    });
-    renderIt();
-    fireEvent.click(await screen.findByText("Grace Wambui"));
-    expect(await screen.findByText(/only shown to managers/)).toBeTruthy();
-    expect(screen.queryByText("Jane Crew")).toBeNull();
-  });
-
   it("hides Add supervisor for a non-manager", async () => {
     renderIt(false);
-    await screen.findByText("Grace Wambui");
+    await screen.findByTestId("supervisor-record");
     expect(screen.queryByText("Add supervisor")).toBeNull();
   });
 });
