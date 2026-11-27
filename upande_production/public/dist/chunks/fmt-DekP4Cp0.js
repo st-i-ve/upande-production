@@ -1,0 +1,1 @@
+import{t as r}from"./format-2iAcyESH.js";import{I as a,a1 as n}from"../production-BgN4bLO_.js";function m(t,e){return new Date(t.getFullYear(),t.getMonth(),t.getDate()+e)}function u(t){const e=a(t||"");return e?e.toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"}):"—"}const i=r;function c(t){return t==null?"—":n(t)}export{m as a,c as m,i as q,u as r};
