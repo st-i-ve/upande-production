@@ -34,7 +34,7 @@ class TestManagerTeams(IntegrationTestCase):
 			_make("Farm Type", name="Has Blocks")
 		cls.farm = _make("Farm", farm_name="MT Farm", company=cls.company, abbreviation="MTF",
 			farm_type=[{"farm_type": "Has Blocks"}])
-		cls.crop = _make("Production Crop", crop_name="MT Crop", crop_key="mt-crop", unit_label="Block",
+		cls.crop = _make("Production Section", crop_name="MT Crop", crop_key="mt-crop", unit_label="Block",
 			yield_uom="Kg", uses_crop_cycles=1)
 		cls.op = _make("Field Operation", crop=cls.crop.name, operation_name="MT Weeding",
 			category="Other", work_uom="Kg", default_rate=40)
@@ -65,7 +65,7 @@ class TestManagerTeams(IntegrationTestCase):
 		frappe.db.rollback()
 		cls._wipe()
 		for dt, name in (("Production Unit", cls.unit.name), ("Field Operation", cls.op.name),
-				("Production Crop", cls.crop.name), ("Farm", cls.farm.name)):
+				("Production Section", cls.crop.name), ("Farm", cls.farm.name)):
 			frappe.delete_doc(dt, name, force=True)
 		for e in cls.emps.values():
 			frappe.db.set_value("Employee", e, "reports_to", None)

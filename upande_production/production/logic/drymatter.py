@@ -23,7 +23,7 @@ def retest_days() -> int:
 
 def rules_for(variety, crop) -> dict:
 	"""{testing, on, target, from_stage} for a variety under its crop: the variety's own setting, else the crop's."""
-	c = frappe.db.get_value("Production Crop", crop, ["dry_matter_testing", "dry_matter_on", "dry_matter_target_pct"],
+	c = frappe.db.get_value("Production Section", crop, ["dry_matter_testing", "dry_matter_on", "dry_matter_target_pct"],
 		as_dict=True) or frappe._dict()
 	v = (frappe.db.get_value("Production Variety", variety,
 		["dry_matter_testing", "dry_matter_on", "dry_matter_target_pct", "dry_matter_from_stage"], as_dict=True)
@@ -39,7 +39,7 @@ def rules_for(variety, crop) -> dict:
 
 def crop_tests_dry_matter(crop) -> bool:
 	"""True when the crop's default is on or any of its enabled varieties says Yes (what the page gate asks)."""
-	if cint(frappe.db.get_value("Production Crop", crop, "dry_matter_testing")):
+	if cint(frappe.db.get_value("Production Section", crop, "dry_matter_testing")):
 		return True
 	return bool(frappe.db.exists("Production Variety", {"crop": crop, "enabled": 1, "dry_matter_testing": "Yes"}))
 

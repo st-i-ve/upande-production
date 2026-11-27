@@ -30,8 +30,8 @@ class TestVarieties(IntegrationTestCase):
 			_make("Farm Type", name="Has Blocks")
 		cls.farm = _make("Farm", farm_name="TV Farm", company=cls.company, abbreviation="TVF",
 			farm_type=[{"farm_type": "Has Blocks"}])
-		cls.crop = _make("Production Crop", crop_name="TV Crop", crop_key="tv-crop", unit_label="Block", yield_uom="Kg")
-		cls.other_crop = _make("Production Crop", crop_name="TV Other", crop_key="tv-other", unit_label="Block", yield_uom="Kg")
+		cls.crop = _make("Production Section", crop_name="TV Crop", crop_key="tv-crop", unit_label="Block", yield_uom="Kg")
+		cls.other_crop = _make("Production Section", crop_name="TV Other", crop_key="tv-other", unit_label="Block", yield_uom="Kg")
 		cls.op = _make("Field Operation", crop=cls.crop.name, operation_name="TV Top Dress", category="Fertilising",
 			work_uom="Kg", default_rate=10)
 		cls.unit = _make("Production Unit", unit_name="TV Unit", unit_type="Orchard Block", crop=cls.crop.name,
@@ -349,7 +349,7 @@ class TestFloweringPatternDerive(IntegrationTestCase):
 	def test_patch_sets_interval_pattern(self):
 		from upande_production.patches import flowering_pattern_from_reflower
 
-		crop = frappe.db.get_value("Production Crop", {}, "name")
+		crop = frappe.db.get_value("Production Section", {}, "name")
 		item = frappe.db.get_value("Item", {"is_stock_item": 1}, "name")
 		name = "TV Patch Interval"
 		if frappe.db.exists("Production Variety", name):

@@ -22,7 +22,7 @@ CROP_KEY = "fruits-vegetables"
 
 
 def _section():
-	return frappe.db.get_value("Production Crop", {"crop_key": CROP_KEY}) or CROP
+	return frappe.db.get_value("Production Section", {"crop_key": CROP_KEY}) or CROP
 
 # A pivot is "utilised" by the hours it ran against all the hours in the period.
 HOURS_PER_DAY = 24.0
@@ -63,13 +63,13 @@ def weekly_target_mm(variety=None):
 		v = flt(frappe.db.get_value("Production Variety", variety, "irrigation_mm_week"))
 		if v > 0:
 			return v
-	return flt(frappe.db.get_value("Production Crop", _section(), "irrigation_mm_week"))
+	return flt(frappe.db.get_value("Production Section", _section(), "irrigation_mm_week"))
 
 
 def grade_rules(crop=None):
 	"""The crop's Production Grade rows: [{grade, rank, is_top}] in rank order."""
 	crop = crop or _section()
-	rows = frappe.get_all("Production Grade", filters={"parent": crop, "parenttype": "Production Crop"},
+	rows = frappe.get_all("Production Grade", filters={"parent": crop, "parenttype": "Production Section"},
 						  fields=["grade", "rank", "is_top_grade"], order_by="rank asc, idx asc", limit_page_length=0)
 	return [{"grade": r.grade, "rank": r.rank, "is_top": bool(r.is_top_grade)} for r in rows]
 

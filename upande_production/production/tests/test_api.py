@@ -33,9 +33,9 @@ class TestApi(IntegrationTestCase):
 			"Farm", farm_name="API Farm", company=cls.company, abbreviation="APF",
 			farm_type=[{"farm_type": "Has Blocks"}],
 		)
-		cls.crop = _make("Production Crop", crop_name="API Crop", crop_key="api-crop", unit_label="Block", yield_uom="Kg")
+		cls.crop = _make("Production Section", crop_name="API Crop", crop_key="api-crop", unit_label="Block", yield_uom="Kg")
 		cls.empty_crop = _make(
-			"Production Crop", crop_name="API Empty Crop", crop_key="api-empty", unit_label="Block", yield_uom="Kg"
+			"Production Section", crop_name="API Empty Crop", crop_key="api-empty", unit_label="Block", yield_uom="Kg"
 		)
 		cls.op = _make(
 			"Field Operation", crop=cls.crop.name, operation_name="API Weeding",

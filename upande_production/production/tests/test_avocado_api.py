@@ -172,7 +172,7 @@ class TestAvocadoApi(IntegrationTestCase):
 	def test_harvest_calendar(self):
 		r = api.harvest_calendar()
 		self.assertNotIn("error", r)
-		self.assertEqual(r["kg_per_crate"], frappe.db.get_value("Production Crop", "Avocado", "avg_kg_per_crate"))
+		self.assertEqual(r["kg_per_crate"], frappe.db.get_value("Production Section", "Avocado", "avg_kg_per_crate"))
 		states = {b["block"]: b["state"] for b in r["blocks"]}
 		self.assertEqual(set(states), _active())
 		self.assertTrue({"ready", "waiting"} <= set(states.values()))
@@ -263,10 +263,10 @@ class TestAvocadoApi(IntegrationTestCase):
 		self.assertEqual(api.set_forecast_mode("manual")["mode"], "manual")
 		# the price is the estate's: saved on the crop, not per user
 		self.assertEqual(api.save_price_per_kg(110)["price_per_kg"], 110)
-		self.assertEqual(frappe.db.get_value("Production Crop", "Avocado", "price_per_kg"), 110)
+		self.assertEqual(frappe.db.get_value("Production Section", "Avocado", "price_per_kg"), 110)
 		self.assertEqual(api.production_forecast()["price_per_kg"], 110)
 		self.assertEqual(api.production_forecast(price_per_kg=120)["price_per_kg"], 120)  # a session try
-		self.assertEqual(frappe.db.get_value("Production Crop", "Avocado", "price_per_kg"), 110)
+		self.assertEqual(frappe.db.get_value("Production Section", "Avocado", "price_per_kg"), 110)
 		# manual forecast upserts: a second save for the same block updates, not duplicates
 		with _scratch_block() as code:
 			first = api.save_manual_forecast(code, 1234, season=DEMO["season"], crop="Whole Season")

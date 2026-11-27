@@ -34,7 +34,7 @@ class TestApprovals(IntegrationTestCase):
 			"Farm", farm_name="TA Farm", company=cls.company, abbreviation="TAF",
 			farm_type=[{"farm_type": "Has Blocks"}],
 		)
-		cls.crop = _make("Production Crop", crop_name="TA Crop", crop_key="ta-crop", unit_label="Block", yield_uom="Kg")
+		cls.crop = _make("Production Section", crop_name="TA Crop", crop_key="ta-crop", unit_label="Block", yield_uom="Kg")
 		cls.op = _make(
 			"Field Operation", crop=cls.crop.name, operation_name="TA Weeding",
 			category="Other", work_uom="Kg", default_rate=40,

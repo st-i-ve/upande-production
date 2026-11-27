@@ -46,7 +46,7 @@ LOCAL_BLOCK_DOCTYPE = "Avocado Yield Block"
 
 # Every parameter of the model (export dry matter window, dry matter gain, how long a
 # reading stays usable, picking weeks, the yield-by-age curve, biennial bearing, the
-# late crop's share of a year) lives on Production Crop / Production Variety and is
+# late crop's share of a year) lives on Production Section / Production Variety and is
 # read by avocado_model.load_model(). The functions below take that `model` as a plain
 # dict; there is no estate figure in this file.
 

@@ -1,6 +1,6 @@
 """Field Crops: the named crops inside a farm section (Cabbage, Maize, Onion ... inside Fruits & Vegetables).
 
-A section (Production Crop) that has Field Crops keeps its pivots, blocks, operations, labour and one weekly
+A section (Production Section) that has Field Crops keeps its pivots, blocks, operations, labour and one weekly
 plan; every variety, protocol, cycle and harvest under it says which Field Crop it is, and harvests are
 counted in that crop's own unit (Pieces for cabbage, Kg for the rest). Totals are therefore always kept per
 Field Crop and per unit, never added across units.
@@ -258,7 +258,7 @@ def create_from_varieties(min_products=2) -> list:
 		return []  # a variety no longer has a product: crops carry it (see patches/move_variety_product_to_field_crop)
 	crop_groups.ensure_groups()
 	made = []
-	for section in frappe.get_all("Production Crop", pluck="name"):
+	for section in frappe.get_all("Production Section", pluck="name"):
 		products = frappe.get_all("Production Variety", filters={"crop": section, "product": ("is", "set")}, pluck="product", distinct=True)
 		if len(products) < min_products:
 			continue

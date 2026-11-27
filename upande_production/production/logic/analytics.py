@@ -509,7 +509,7 @@ def _pct(actual, forecast):
 def forecast_summary(crop, from_date, to_date):
 	frm, to = _range(from_date, to_date)
 	frm = _monday(frm)
-	uom = frappe.db.get_value("Production Crop", crop, "yield_uom")
+	uom = frappe.db.get_value("Production Section", crop, "yield_uom")
 
 	fc = frappe.db.sql(
 		"""select w.week_start, f.unit, sum(w.expected_qty)

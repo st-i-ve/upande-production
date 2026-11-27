@@ -37,9 +37,9 @@ class TestFieldCrops(IntegrationTestCase):
 		if not frappe.db.exists("Item Group", "All Item Groups"):
 			_make("Item Group", item_group_name="All Item Groups", is_group=1)
 		cls.farm = _make("Farm", farm_name="FCX Farm", company=cls.company, abbreviation="FCX", farm_type=[{"farm_type": "Has Blocks"}])
-		cls.section = _make("Production Crop", crop_name="FCX Mixed", crop_key="fcx-mixed", unit_label="Block", yield_uom="Kg",
+		cls.section = _make("Production Section", crop_name="FCX Mixed", crop_key="fcx-mixed", unit_label="Block", yield_uom="Kg",
 			enabled=1, uses_crop_cycles=1)
-		cls.single = _make("Production Crop", crop_name="FCX Single", crop_key="fcx-single", unit_label="Block", yield_uom="Kg",
+		cls.single = _make("Production Section", crop_name="FCX Single", crop_key="fcx-single", unit_label="Block", yield_uom="Kg",
 			enabled=1, uses_crop_cycles=1)
 		for code, name in (("FCX Cabbage", "Cabbage"), ("FCX Potatoes", "Potatoes"), ("FCX Cabbage - Gloria", "Cabbage - Gloria"),
 				("FCX Potatoes - Shangi", "Potatoes - Shangi"), ("FCX Lone", "Lone")):

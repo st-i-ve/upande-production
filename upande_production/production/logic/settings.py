@@ -90,8 +90,8 @@ def avocado_only_crop_keys():
 
 
 def crop_allowed(crop) -> bool:
-	"""False when the user is avocado-only and `crop` (a Production Crop name) is another crop."""
+	"""False when the user is avocado-only and `crop` (a Production Section name) is another crop."""
 	only = avocado_only_crop_keys()
 	if not only or not crop:
 		return True
-	return frappe.db.get_value("Production Crop", crop, "crop_key") in only
+	return frappe.db.get_value("Production Section", crop, "crop_key") in only

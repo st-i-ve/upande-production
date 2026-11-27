@@ -409,7 +409,7 @@ def feeding_mortality(from_date=None, to_date=None, unit=None):
 
 def _feed_types():
 	"""The crop's Production Feed Type rows, in order."""
-	return frappe.get_all("Production Feed Type", filters={"parent": CROP, "parenttype": "Production Crop"},
+	return frappe.get_all("Production Feed Type", filters={"parent": CROP, "parenttype": "Production Section"},
 						  pluck="feed_type", order_by="idx asc", limit_page_length=0)
 
 

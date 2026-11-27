@@ -19,7 +19,7 @@ from upande_production.production.logic import harvest as H
 
 CRATES = 400
 PREFIX = "C"
-# crop key -> kg in a full crate (Production Crop default)
+# crop key -> kg in a full crate (Production Section default)
 CROP_KG = {"avocado": 18, "fruits-vegetables": 20}
 # Fruit & vegetable items whose crate weighs differently from the crop default.
 ITEM_KG = {"Potatoes": 25, "Cabbage": 18, "Onion": 22, "Passion Fruit": 10, "Maize": 25}
@@ -46,21 +46,21 @@ def setup_masters():
 	H.ensure_stock_entry_type()
 	H.ensure_harvest_warehouse("Mutara Harvest Store", company)
 	for key, kg in CROP_KG.items():
-		name = frappe.db.get_value("Production Crop", {"crop_key": key})
+		name = frappe.db.get_value("Production Section", {"crop_key": key})
 		if name:
-			frappe.db.set_value("Production Crop", name, {"harvests_in_crates": 1, "avg_kg_per_crate": kg})
+			frappe.db.set_value("Production Section", name, {"harvests_in_crates": 1, "avg_kg_per_crate": kg})
 	for item, kg in ITEM_KG.items():
 		if frappe.db.exists("Item", item):
 			frappe.db.set_value("Item", item, "production_avg_kg_per_crate", kg)
 	for item, price in BASE["prices"].items():
 		if frappe.db.exists("Item", item) and not frappe.db.get_value("Item", item, "valuation_rate"):
 			frappe.db.set_value("Item", item, "valuation_rate", round(price * VALUATION_SHARE, 2))
-	# last-resort price of a harvest (Production Crop, Price per Kg): kept when a manager already set one
+	# last-resort price of a harvest (Production Section, Price per Kg): kept when a manager already set one
 	for crop, price in CROP_PRICE.items():
-		if frappe.db.exists("Production Crop", crop) and not frappe.db.get_value("Production Crop", crop, "price_per_kg"):
-			frappe.db.set_value("Production Crop", crop, "price_per_kg", price)
+		if frappe.db.exists("Production Section", crop) and not frappe.db.get_value("Production Section", crop, "price_per_kg"):
+			frappe.db.set_value("Production Section", crop, "price_per_kg", price)
 	for crop in ("Avocado", "Fruits & Vegetables"):
-		if frappe.db.exists("Production Crop", crop):
+		if frappe.db.exists("Production Section", crop):
 			H.harvest_operation(crop)
 
 

@@ -21,11 +21,11 @@ def test_perms_table():
 	flat = {n for names, _, _ in ar.PERMS for n in names}
 	# transactions the harvest flow posts, and the masters it only reads
 	for need in ("Production Crop Cycle", "Harvest Batch", "Stock Entry", "Stock Ledger Entry", "Bin",
-				 "Production Crop", "Production Unit", "Warehouse", "Avocado Fruit Count"):
+				 "Production Section", "Production Unit", "Warehouse", "Avocado Fruit Count"):
 		assert need in flat, need
 	by = {n: r for names, r, _ in ar.PERMS for n in names}
 	assert {"submit", "cancel"} <= set(by["Stock Entry"])
-	assert by["Production Crop"] == ar.READ and "write" not in by["Warehouse"]
+	assert by["Production Section"] == ar.READ and "write" not in by["Warehouse"]
 	# a casual labour doctype is listed under both its current and its former name
 	assert {"Casual Labour Work", "Value Adder Work"} <= flat
 

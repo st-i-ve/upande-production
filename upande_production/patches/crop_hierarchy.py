@@ -10,7 +10,7 @@ LINKED = ("Production Variety", "Production Protocol", "Production Crop Cycle", 
 
 def _avocado_crop(section):
 	"""Make the crop for a single-crop section (Avocado) and put it on that section's records that lack one."""
-	name = frappe.db.get_value("Production Crop", section, "crop_name") or section
+	name = frappe.db.get_value("Production Section", section, "crop_name") or section
 	products = []
 	if frappe.db.has_column("Production Variety", "product"):  # read the old column directly: the doctype no longer has the field
 		t = frappe.qb.DocType("Production Variety")
@@ -45,7 +45,7 @@ def execute():
 		else:
 			unknown.append(c.name)
 	avocado = {}
-	for section in frappe.get_all("Production Crop", filters={"crop_key": "avocado"}, pluck="name"):
+	for section in frappe.get_all("Production Section", filters={"crop_key": "avocado"}, pluck="name"):
 		name, linked = _avocado_crop(section)
 		avocado[name] = linked
 	msg = f"crop_hierarchy: groups made {made}, crops grouped {grouped}, avocado {avocado}"

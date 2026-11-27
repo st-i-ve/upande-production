@@ -36,7 +36,7 @@ def ensure_unit_cost_center(unit) -> str:
 		_make_group(parent)
 	else:
 		base = frappe.db.get_single_value("Production Settings", "cost_center_parent") or root
-		crop_name = frappe.db.get_value("Production Crop", unit.crop, "crop_name") or unit.crop
+		crop_name = frappe.db.get_value("Production Section", unit.crop, "crop_name") or unit.crop
 		abbr = frappe.db.get_value("Company", company, "abbr")
 		crop_cc = frappe.db.get_value("Cost Center", f"{crop_name} - {abbr}")
 		if not crop_cc:

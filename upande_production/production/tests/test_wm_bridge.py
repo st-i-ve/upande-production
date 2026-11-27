@@ -64,7 +64,7 @@ class TestWMBridge(IntegrationTestCase):
 			parentfield="farms", farm=cls.farm.name, project=cls.project.name, idx=999)
 		frappe.clear_document_cache("Work Management Settings", "Work Management Settings")
 		cls.wh = _make("Warehouse", warehouse_name=f"WMB Block {tag}", company=cls.company, custom_farm=cls.farm.name)
-		cls.crop = _make("Production Crop", crop_name=f"WMB Crop {tag}", crop_key=f"wmb-{tag.lower()}",
+		cls.crop = _make("Production Section", crop_name=f"WMB Crop {tag}", crop_key=f"wmb-{tag.lower()}",
 			unit_label="Block", yield_uom="Kg")
 		cls.op = _make("Field Operation", crop=cls.crop.name, operation_name=f"WMB Weeding {tag}", category="Other",
 			work_uom="Kg", default_rate=40, daily_target=10)

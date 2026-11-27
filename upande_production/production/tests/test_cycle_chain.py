@@ -27,7 +27,7 @@ class TestCycleChain(IntegrationTestCase):
 			_make("Farm Type", name="Has Blocks")
 		cls.farm = _make("Farm", farm_name="CC Farm", company=cls.company, abbreviation="CCF",
 			farm_type=[{"farm_type": "Has Blocks"}])
-		cls.crop = _make("Production Crop", crop_name="CC Crop", crop_key="cc-crop", unit_label="Block", yield_uom="Kg")
+		cls.crop = _make("Production Section", crop_name="CC Crop", crop_key="cc-crop", unit_label="Block", yield_uom="Kg")
 		cls.unit = _make("Production Unit", unit_name="CC Block A", unit_type="Orchard Block", crop=cls.crop.name,
 			farm=cls.farm.name, company=cls.company)
 		cls.item = _make("Item", item_code="CC Hass", item_name="CC Hass", item_group="All Item Groups",

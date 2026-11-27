@@ -67,6 +67,6 @@ def save_bands(rows) -> None:
 
 
 def crop_limits(crop: str, *fields: str) -> dict:
-	"""{field: float or None} from the Production Crop; None where the manager has not set it."""
-	vals = frappe.db.get_value("Production Crop", crop, list(fields), as_dict=True) or {}
+	"""{field: float or None} from the Production Section; None where the manager has not set it."""
+	vals = frappe.db.get_value("Production Section", crop, list(fields), as_dict=True) or {}
 	return {f: (flt(vals.get(f)) if vals.get(f) not in (None, "", 0) else None) for f in fields}

@@ -31,7 +31,7 @@ class TestBlockCost(IntegrationTestCase):
 			_make("Item Group", item_group_name="All Item Groups", is_group=1)
 		cls.farm = _make("Farm", farm_name="BC Farm", company=cls.company, abbreviation="BCF",
 			farm_type=[{"farm_type": "Has Blocks"}])
-		cls.crop = _make("Production Crop", crop_name="BC Crop", crop_key="bc-crop", unit_label="Block", yield_uom="Kg")
+		cls.crop = _make("Production Section", crop_name="BC Crop", crop_key="bc-crop", unit_label="Block", yield_uom="Kg")
 		cls.fert = _make("Item", item_code="BC Fertiliser", item_name="BC Fertiliser", item_group="All Item Groups",
 			stock_uom="Kg", is_stock_item=1)
 		cls.expense = frappe.get_all("Account", filters={"company": cls.company, "root_type": "Expense", "is_group": 0},

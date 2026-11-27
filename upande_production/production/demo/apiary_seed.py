@@ -43,7 +43,7 @@ DEMO = {
 							 (247, 6, 47, 83.0, 19.1, "B", 2.2)],
 	},
 	"inspector": None,  # None picks the first active Employee
-	# Production Crop limits (editable in Desk); only filled where the crop has none.
+	# Production Section limits (editable in Desk); only filled where the crop has none.
 	"limits": {"mite_threshold": 3.0, "mite_watch": 2.0, "honey_moisture_limit": 20.0},
 }
 
@@ -57,7 +57,7 @@ def _unit(name):
 
 def ensure_groups():
 	"""The demo hive groups as Production Units, made when the site has none (a site other than Mutara)."""
-	if not frappe.db.exists("Production Crop", "Apiary"):
+	if not frappe.db.exists("Production Section", "Apiary"):
 		return
 	farm = frappe.db.get_value("Farm", {}, "name")
 	for name in DEMO["groups"]:
@@ -82,13 +82,13 @@ def ensure_limits():
 	from upande_production.production.demo import bands_seed
 
 	bands_seed.run(commit=False)
-	crop = frappe.db.exists("Production Crop", "Apiary")
+	crop = frappe.db.exists("Production Section", "Apiary")
 	if not crop:
 		return {}
-	have = frappe.db.get_value("Production Crop", crop, list(DEMO["limits"]), as_dict=True)
+	have = frappe.db.get_value("Production Section", crop, list(DEMO["limits"]), as_dict=True)
 	todo = {k: v for k, v in DEMO["limits"].items() if not have.get(k)}
 	if todo:
-		frappe.db.set_value("Production Crop", crop, todo)
+		frappe.db.set_value("Production Section", crop, todo)
 	return todo
 
 

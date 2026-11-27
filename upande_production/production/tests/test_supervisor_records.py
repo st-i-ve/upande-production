@@ -35,8 +35,8 @@ class TestSupervisorRecords(IntegrationTestCase):
 			_make("Farm Type", name="Has Blocks")
 		cls.farm = _make("Farm", farm_name="SR Farm", company=cls.company, abbreviation="SRF",
 			farm_type=[{"farm_type": "Has Blocks"}])
-		cls.crop = _make("Production Crop", crop_name="SR Crop", crop_key="sr-crop", unit_label="Block", yield_uom="Kg")
-		cls.other_crop = _make("Production Crop", crop_name="SR Other", crop_key="sr-other", unit_label="Block", yield_uom="Kg")
+		cls.crop = _make("Production Section", crop_name="SR Crop", crop_key="sr-crop", unit_label="Block", yield_uom="Kg")
+		cls.other_crop = _make("Production Section", crop_name="SR Other", crop_key="sr-other", unit_label="Block", yield_uom="Kg")
 		cls.unit = _make("Production Unit", unit_name="SR B1", crop=cls.crop.name, farm=cls.farm.name,
 			unit_type="Orchard Block", company=cls.company)
 		cls.mgr_user = _user("sr.mgr@x.test", "Production Manager")

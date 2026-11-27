@@ -36,7 +36,7 @@ class TestLabourPay(IntegrationTestCase):
 			_make("Farm Type", name="Has Blocks")
 		cls.farm = _make("Farm", farm_name="LP Farm", company=cls.company, abbreviation="LPF",
 			farm_type=[{"farm_type": "Has Blocks"}])
-		cls.crop = _make("Production Crop", crop_name="LP Crop", crop_key="lp-crop", unit_label="Block", yield_uom="Kg")
+		cls.crop = _make("Production Section", crop_name="LP Crop", crop_key="lp-crop", unit_label="Block", yield_uom="Kg")
 		cls.op = _make("Field Operation", crop=cls.crop.name, operation_name="LP Weeding", category="Other",
 			work_uom="Kg", default_rate=40)
 		cls.op2 = _make("Field Operation", crop=cls.crop.name, operation_name="LP Pruning", category="Other",

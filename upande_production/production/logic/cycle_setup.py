@@ -107,7 +107,7 @@ def tree_age_years(planting_date, on=None):
 
 def is_avocado(crop) -> bool:
 	"""Avocado keeps its own rules (a stage is required, last flowering date, tree columns)."""
-	return bool(crop) and frappe.db.get_value("Production Crop", crop, "crop_key") == "avocado"
+	return bool(crop) and frappe.db.get_value("Production Section", crop, "crop_key") == "avocado"
 
 
 def _variety(name):

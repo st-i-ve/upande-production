@@ -43,7 +43,7 @@ class TestMobileApprovals(IntegrationTestCase):
 			_make("Farm Type", name="Has Blocks")
 		cls.farm = _make("Farm", farm_name="MAP Farm", company=cls.company, abbreviation="MAP",
 			farm_type=[{"farm_type": "Has Blocks"}])
-		cls.crop = _make("Production Crop", crop_name="MAP Crop", crop_key="map-crop", unit_label="Block", yield_uom="Kg")
+		cls.crop = _make("Production Section", crop_name="MAP Crop", crop_key="map-crop", unit_label="Block", yield_uom="Kg")
 		cls.op = _make("Field Operation", crop=cls.crop.name, operation_name="MAP Weeding",
 			category="Other", work_uom="Kg", default_rate=40)
 		cls.u1 = _make("Production Unit", unit_name="MAP B1", crop=cls.crop.name, farm=cls.farm.name,
@@ -64,7 +64,7 @@ class TestMobileApprovals(IntegrationTestCase):
 		set_step(False)
 		cls._wipe()
 		for dt, name in (("Production Unit", cls.u1.name), ("Field Operation", cls.op.name),
-				("Production Crop", cls.crop.name), ("Farm", cls.farm.name)):
+				("Production Section", cls.crop.name), ("Farm", cls.farm.name)):
 			frappe.delete_doc(dt, name, force=True)
 		for u in (cls.mgr, cls.sup, cls.asst):
 			frappe.delete_doc("User", u, force=True)

@@ -9,7 +9,7 @@ import re
 
 import frappe
 
-from upande_production.production.doctype.production_crop.production_crop import slugify
+from upande_production.production.doctype.production_section.production_section import slugify
 from upande_production.production.doctype.production_unit_type.production_unit_type import STANDARD
 
 LABELS = ("parent_unit_label", "unit_label", "sub_unit_label")
@@ -37,7 +37,7 @@ def execute():
 	for name, desc in STANDARD:
 		_ensure_type(name, desc)
 
-	for crop in frappe.get_all("Production Crop", fields=["name", "crop_key", "icon_key", *LABELS]):
+	for crop in frappe.get_all("Production Section", fields=["name", "crop_key", "icon_key", *LABELS]):
 		changes = {}
 		for f in LABELS:
 			new = _match(crop[f])
@@ -49,7 +49,7 @@ def execute():
 		if crop.icon_key and crop.icon_key not in ICONS:
 			changes["icon_key"] = ""
 		if changes:
-			frappe.db.set_value("Production Crop", crop.name, changes, update_modified=False)
+			frappe.db.set_value("Production Section", crop.name, changes, update_modified=False)
 			print(f"unit_type_list: crop {crop.name}: " + ", ".join(
 				f"{k} {crop.get(k)!r} -> {v!r}" for k, v in changes.items()))
 

@@ -1194,7 +1194,7 @@ def save_price_per_kg(price_per_kg):
 	crop = avocado_model.crop_name()
 	if not crop:
 		frappe.throw("There is no avocado crop.")
-	frappe.db.set_value("Production Crop", crop, "price_per_kg", p)
+	frappe.db.set_value("Production Section", crop, "price_per_kg", p)
 	return {"ok": True, "price_per_kg": p}
 
 

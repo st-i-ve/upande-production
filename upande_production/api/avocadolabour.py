@@ -26,7 +26,7 @@ HARVEST_DOCTYPE = "Avocado Harvest Log"
 
 # The crate weight, the picking rate used for a block nobody has picked, the range
 # of rates that counts as one day's picking and the picking days per week are all on
-# the avocado Production Crop (avocado_model.load_model()); every function here takes
+# the avocado Production Section (avocado_model.load_model()); every function here takes
 # that `model`.
 
 # Logs written by a closed Harvest Batch (crates scanned in the field) carry this client_ref.

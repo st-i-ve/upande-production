@@ -71,7 +71,7 @@ def _band_list(crop):
 
 def count_for_weight(crop, grams):
 	"""The count whose band holds `grams` (min <= grams < max), or None when it falls in a gap or outside every band.
-	`crop` is a Production Crop document or name."""
+	`crop` is a Production Section document or name."""
 	g = flt(grams)
 	for c, lo, hi, _r in _band_list(crop):
 		if lo <= g < hi:

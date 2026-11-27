@@ -1,7 +1,7 @@
 """The avocado model reads its parameters from records, never from code.
 
 Site tests run against the demo data (avocado_seed, which is idempotent and
-uncommitted here). Each test changes one setting on Production Crop / Production
+uncommitted here). Each test changes one setting on Production Section / Production
 Variety / a Harvest Team and checks the endpoint output moves with it. The grep tests
 fail if a removed constant or a stand-in number comes back into the avocado modules.
 """
@@ -65,10 +65,10 @@ class TestAvocadoModel(IntegrationTestCase):
 		# every test edits settings; undo them so the next one starts from the seeded model
 		frappe.db.savepoint("avocado_model_test")
 		self.addCleanup(frappe.db.rollback, save_point="avocado_model_test")
-		self.crop = frappe.get_doc("Production Crop", "Avocado")
+		self.crop = frappe.get_doc("Production Section", "Avocado")
 
 	def set_crop(self, **values):
-		frappe.db.set_value("Production Crop", "Avocado", values)
+		frappe.db.set_value("Production Section", "Avocado", values)
 
 	def test_every_parameter_is_read_from_the_crop(self):
 		m = avocado_model.load_model()
@@ -134,7 +134,7 @@ class TestAvocadoModel(IntegrationTestCase):
 		self.assertEqual(mins[hass], 22.0)
 
 	def test_count_sizes_follow_the_crop(self):
-		crop = frappe.get_doc("Production Crop", "Avocado")
+		crop = frappe.get_doc("Production Section", "Avocado")
 		crop.set("count_sizes", [{"count": 10, "min_g": 400, "max_g": 500}])
 		crop.save()
 		self.assertEqual(api.dry_matter()["form"]["sizes"], [{"count": 10, "min_g": 400.0, "max_g": 500.0}])
@@ -256,7 +256,7 @@ class TestCropModelApi(IntegrationTestCase):
 		r = cropmodel.save_crop_model("Avocado", {"price_per_kg": 120, "default_pick_weeks": 4,
 			"count_sizes": [{"count": 12, "min_g": 300, "max_g": 340}]})
 		self.assertNotIn("error", r)
-		self.assertEqual(frappe.db.get_value("Production Crop", "Avocado", ["price_per_kg", "default_pick_weeks"]), (120, 4))
+		self.assertEqual(frappe.db.get_value("Production Section", "Avocado", ["price_per_kg", "default_pick_weeks"]), (120, 4))
 		self.assertEqual(frappe.db.get_all("Production Crop Count Size", {"parent": "Avocado"}, ["count", "min_g"]),
 			[frappe._dict(count=12, min_g=300)])
 		self.assertEqual(avocado_model.load_model()["default_pick_weeks"], 4)

@@ -44,7 +44,7 @@ class TestCoverageMap(IntegrationTestCase):
 		for u in ("Kg", "Bed"):
 			if not frappe.db.exists("UOM", u):
 				_make("UOM", uom_name=u)
-		cls.crop = _make("Production Crop", crop_name="Cov Crop", crop_key="cov-crop", unit_label="Block", yield_uom="Kg")
+		cls.crop = _make("Production Section", crop_name="Cov Crop", crop_key="cov-crop", unit_label="Block", yield_uom="Kg")
 		cls.op1 = _make("Field Operation", crop=cls.crop.name, operation_name="Cov Weeding", category="Other", work_uom="Kg", default_rate=1)
 		cls.op2 = _make("Field Operation", crop=cls.crop.name, operation_name="Cov Spraying", category="Spraying", work_uom="Bed", default_rate=1)
 		gj = {"type": "Feature", "properties": {}, "geometry": {"type": "Polygon", "coordinates": [[[36.7, 0.0], [36.8, 0.0], [36.8, 0.1], [36.7, 0.0]]]}}

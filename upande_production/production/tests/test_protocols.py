@@ -34,7 +34,7 @@ class TestProtocols(IntegrationTestCase):
 			_make("Farm Type", name="Has Blocks")
 		cls.farm = _make("Farm", farm_name="TP Farm", company=cls.company, abbreviation="TPF",
 			farm_type=[{"farm_type": "Has Blocks"}])
-		cls.crop = _make("Production Crop", crop_name="TP Crop", crop_key="tp-crop", unit_label="Block", yield_uom="Kg")
+		cls.crop = _make("Production Section", crop_name="TP Crop", crop_key="tp-crop", unit_label="Block", yield_uom="Kg")
 		cls.op = _make("Field Operation", crop=cls.crop.name, operation_name="TP Weeding",
 			category="Other", work_uom="Kg", default_rate=40)
 		cls.sup = _user("tp_supervisor@example.com", "Production Supervisor")
@@ -50,7 +50,7 @@ class TestProtocols(IntegrationTestCase):
 		frappe.set_user("Administrator")
 		for name in frappe.get_all("Production Protocol", filters={"crop": cls.crop.name}, pluck="name"):
 			frappe.delete_doc("Production Protocol", name, force=True, ignore_missing=True)
-		for doctype, name in (("Field Operation", cls.op.name), ("Farm", cls.farm.name), ("Production Crop", cls.crop.name)):
+		for doctype, name in (("Field Operation", cls.op.name), ("Farm", cls.farm.name), ("Production Section", cls.crop.name)):
 			frappe.delete_doc(doctype, name, force=True, ignore_missing=True)
 		frappe.db.commit()
 		super().tearDownClass()
@@ -281,7 +281,7 @@ class TestProtocols(IntegrationTestCase):
 		self.assertIn("name", self._refused(self.crop.name, "  "))
 		api.create_protocol(self.crop.name, "NP Dup")
 		self.assertIn("already exists", self._refused(self.crop.name, "NP Dup"))
-		other = _make("Production Crop", crop_name="NP Other", crop_key="np-other", unit_label="Block", yield_uom="Kg")
+		other = _make("Production Section", crop_name="NP Other", crop_key="np-other", unit_label="Block", yield_uom="Kg")
 		if not frappe.db.exists("Item Group", "All Item Groups"):
 			_make("Item Group", item_group_name="All Item Groups", is_group=1)
 		item = _make("Item", item_code="NP Hass", item_name="NP Hass", item_group="All Item Groups", stock_uom="Kg",
@@ -302,7 +302,7 @@ class TestProtocols(IntegrationTestCase):
 		self.assertEqual((doc.key_activities[0].week, doc.cultural_activities[0].times_per_week), (2, 3))
 		self.assertNotEqual(doc.key_activities[0].name, src.key_activities[0].name)
 		self.assertEqual(frappe.db.get_value("Production Protocol", src.name, "version_status"), "Active")
-		other = _make("Production Crop", crop_name="NP Other2", crop_key="np-other2", unit_label="Block", yield_uom="Kg")
+		other = _make("Production Section", crop_name="NP Other2", crop_key="np-other2", unit_label="Block", yield_uom="Kg")
 		self.assertIn("another crop", self._refused(other.name, "NP Cross", copy_from=src.name))
 
 	def test_create_protocol_permissions(self):
@@ -315,9 +315,9 @@ class TestProtocols(IntegrationTestCase):
 		from upande_production.production.logic.avocado_role import ROLE, setup
 
 		setup()
-		avocado = frappe.db.get_value("Production Crop", {"crop_key": "avocado"})
+		avocado = frappe.db.get_value("Production Section", {"crop_key": "avocado"})
 		if not avocado:
-			avocado = _make("Production Crop", crop_name="NP Avocado", crop_key="avocado", unit_label="Block",
+			avocado = _make("Production Section", crop_name="NP Avocado", crop_key="avocado", unit_label="Block",
 				yield_uom="Kg").name
 		email = "np_avocado@example.com"
 		if not frappe.db.exists("User", email):
@@ -333,7 +333,7 @@ class TestProtocolTables(IntegrationTestCase):
 		super().setUpClass()
 		if not frappe.db.exists("UOM", "Kg"):
 			_make("UOM", uom_name="Kg")
-		cls.crop = _make("Production Crop", crop_name="TPT Crop", crop_key="tpt-crop", unit_label="Block", yield_uom="Kg")
+		cls.crop = _make("Production Section", crop_name="TPT Crop", crop_key="tpt-crop", unit_label="Block", yield_uom="Kg")
 		mk = lambda n, t: _make("Field Operation", crop=cls.crop.name, operation_name=n, category="Other",
 			work_uom="Kg", default_rate=1, activity_type=t).name
 		cls.cap, cls.key, cls.cul = mk("TPT Excavate", "Capital"), mk("TPT Prune", "Key activity"), mk("TPT Weed", "Cultural")
@@ -379,9 +379,9 @@ class TestConvertSteps(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
-		cls.crop = frappe.db.get_value("Production Crop", "TP Crop") and "TP Crop"
+		cls.crop = frappe.db.get_value("Production Section", "TP Crop") and "TP Crop"
 		if not cls.crop:
-			cls.crop = _make("Production Crop", crop_name="TP Crop", crop_key="tp-crop", unit_label="Block",
+			cls.crop = _make("Production Section", crop_name="TP Crop", crop_key="tp-crop", unit_label="Block",
 				yield_uom="Kg").name
 		cls.op = frappe.db.get_value("Field Operation", {"crop": cls.crop, "operation_name": "TC Spray"}) or _make(
 			"Field Operation", crop=cls.crop, operation_name="TC Spray", category="Spraying",

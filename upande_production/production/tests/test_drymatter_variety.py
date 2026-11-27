@@ -28,8 +28,8 @@ class TestDryMatterVariety(IntegrationTestCase):
 		if not frappe.db.exists("UOM", "Kg"):
 			_make("UOM", uom_name="Kg")
 		# the crop default is off: each variety decides
-		cls.crop = _make("Production Crop", crop_name="DMV Crop", crop_key="dmv-crop", unit_label="Block", yield_uom="Kg")
-		cls.on_crop = _make("Production Crop", crop_name="DMV On", crop_key="dmv-on", unit_label="Block", yield_uom="Kg",
+		cls.crop = _make("Production Section", crop_name="DMV Crop", crop_key="dmv-crop", unit_label="Block", yield_uom="Kg")
+		cls.on_crop = _make("Production Section", crop_name="DMV On", crop_key="dmv-on", unit_label="Block", yield_uom="Kg",
 			dry_matter_testing=1, dry_matter_on="Fruit", dry_matter_target_pct=24)
 		for n in ("DMV Onion", "DMV Passion", "DMV Plain"):
 			if not frappe.db.exists("Item", n):

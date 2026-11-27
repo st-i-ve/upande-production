@@ -56,7 +56,7 @@ DEMO = {
 
 def _ensure_operations():
 	for crop, name, uom, rate, cat in DEMO["operations"]:
-		if not frappe.db.exists("Production Crop", crop):
+		if not frappe.db.exists("Production Section", crop):
 			continue
 		if not frappe.db.exists("Field Operation", {"crop": crop, "operation_name": name}):
 			frappe.get_doc({"doctype": "Field Operation", "crop": crop, "operation_name": name,
@@ -102,7 +102,7 @@ def run():
 	_ensure_operations()
 	made = 0
 	for spec in DEMO["rules"]:
-		if not frappe.db.exists("Production Crop", spec["crop"]):
+		if not frappe.db.exists("Production Section", spec["crop"]):
 			continue
 		if spec.get("product"):
 			varieties = _varieties(spec["crop"], spec["product"])

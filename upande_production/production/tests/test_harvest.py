@@ -24,10 +24,10 @@ class TestHarvest(IntegrationTestCase):
 		use_builtin_labour(cls)
 		frappe.set_user("Administrator")
 		seed.seed_core()  # the Avocado crop the avocado-block tests look up, built when the site has none
-		avocado = frappe.db.get_value("Production Crop", {"crop_key": "avocado"})
+		avocado = frappe.db.get_value("Production Section", {"crop_key": "avocado"})
 		avocado_defaults.apply_to_crop(avocado)
-		if not frappe.db.get_value("Production Crop", avocado, "avg_kg_per_crate"):
-			frappe.db.set_value("Production Crop", avocado, {"avg_kg_per_crate": 10, "harvests_in_crates": 1})
+		if not frappe.db.get_value("Production Section", avocado, "avg_kg_per_crate"):
+			frappe.db.set_value("Production Section", avocado, {"avg_kg_per_crate": 10, "harvests_in_crates": 1})
 		cls.company = frappe.defaults.get_global_default("company") or frappe.db.get_value("Company", {}, "name")
 		for uom in ("Kg", "Crate"):
 			if not frappe.db.exists("UOM", uom):
@@ -38,9 +38,9 @@ class TestHarvest(IntegrationTestCase):
 			_make("Item Group", item_group_name="All Item Groups", is_group=1)
 		cls.farm = _make("Farm", farm_name="HV Farm", company=cls.company, abbreviation="HVF",
 			farm_type=[{"farm_type": "Has Blocks"}])
-		cls.crop = _make("Production Crop", crop_name="HV Crop", crop_key="hv-crop", unit_label="Block",
+		cls.crop = _make("Production Section", crop_name="HV Crop", crop_key="hv-crop", unit_label="Block",
 			yield_uom="Kg", enabled=1, harvests_in_crates=1, avg_kg_per_crate=10, uses_crop_cycles=1)
-		cls.flat_crop = _make("Production Crop", crop_name="HV Flat", crop_key="hv-flat", unit_label="Pond",
+		cls.flat_crop = _make("Production Section", crop_name="HV Flat", crop_key="hv-flat", unit_label="Pond",
 			yield_uom="Kg", enabled=1, uses_crop_cycles=0)
 		cls.item = _make("Item", item_code="HV Fruit", item_name="HV Fruit", item_group="All Item Groups",
 			stock_uom="Kg", is_stock_item=1, valuation_rate=8)

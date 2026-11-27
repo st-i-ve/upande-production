@@ -52,7 +52,7 @@ class TestMonitor(IntegrationTestCase):
 		company = frappe.defaults.get_global_default("company") or frappe.db.get_value("Company", {}, "name")
 		if not frappe.db.exists("UOM", "Kg"):
 			_make("UOM", uom_name="Kg")
-		cls.crop = _make("Production Crop", crop_name="DM Mon Crop", crop_key="dm-mon", unit_label="Block", yield_uom="Kg",
+		cls.crop = _make("Production Section", crop_name="DM Mon Crop", crop_key="dm-mon", unit_label="Block", yield_uom="Kg",
 			dry_matter_testing=1, dry_matter_on="Fruit", dry_matter_target_pct=24, dry_matter_max_pct=34).name
 		cls.unit = _make("Production Unit", unit_name="DMM A", crop=cls.crop, unit_type="Orchard Block", company=company, area_ha=1).name
 

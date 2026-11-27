@@ -43,7 +43,7 @@ class TestCropHierarchyMigration(IntegrationTestCase):
 			self.assertEqual(frappe.db.get_value("Production Field Crop", crop, "crop_group"), group, crop)
 
 	def test_avocado_is_a_crop(self):
-		section = frappe.db.get_value("Production Crop", {"crop_key": "avocado"}, "name")
+		section = frappe.db.get_value("Production Section", {"crop_key": "avocado"}, "name")
 		if not section:
 			self.skipTest("no avocado section on this site")
 		self.assertTrue(frappe.db.exists("Production Field Crop", "Avocado"))
@@ -57,7 +57,7 @@ class TestCropHierarchyMigration(IntegrationTestCase):
 	def test_single_crop_section_fills_its_crop_silently(self):
 		"""Avocado has one crop: it is not a section 'with crops' (no crop required, no crop column) and a cycle
 		saved without field_crop ends with field_crop Avocado."""
-		section = frappe.db.get_value("Production Crop", {"crop_key": "avocado"}, "name")
+		section = frappe.db.get_value("Production Section", {"crop_key": "avocado"}, "name")
 		unit = section and frappe.db.get_value("Production Unit", {"crop": section}, "name")
 		if not unit or not frappe.db.exists("Production Variety", "Hass"):
 			self.skipTest("no avocado section with units on this site")
@@ -85,7 +85,7 @@ class TestCropHierarchyMigration(IntegrationTestCase):
 				frappe.get_doc({"doctype": "UOM", "uom_name": uom}).insert()
 		if not frappe.db.exists("Item Group", "All Item Groups"):
 			frappe.get_doc({"doctype": "Item Group", "item_group_name": "All Item Groups", "is_group": 1}).insert()
-		section = frappe.get_doc({"doctype": "Production Crop", "crop_name": "CHM Mixed", "crop_key": "chm-mixed", "unit_label": "Block",
+		section = frappe.get_doc({"doctype": "Production Section", "crop_name": "CHM Mixed", "crop_key": "chm-mixed", "unit_label": "Block",
 			"yield_uom": "Kg", "enabled": 1, "uses_crop_cycles": 1}).insert()
 		for code, name in (("CHM Beetroot", "CHM Beetroot"), ("CHM Coffee", "Coffee")):
 			frappe.get_doc({"doctype": "Item", "item_code": code, "item_name": name, "item_group": "All Item Groups", "stock_uom": "Kg",
@@ -106,11 +106,11 @@ class TestCropHierarchyMigration(IntegrationTestCase):
 	def test_section_links_labelled_section(self):
 		bad = []
 		for dt in frappe.get_all("DocType", filters={"module": "Production", "istable": 0}, pluck="name"):
-			for df in frappe.get_meta(dt).get("fields", {"fieldtype": "Link", "options": "Production Crop"}):
+			for df in frappe.get_meta(dt).get("fields", {"fieldtype": "Link", "options": "Production Section"}):
 				if df.label != "Section":
 					bad.append((dt, df.fieldname, df.label))
 		for dt in frappe.get_all("DocType", filters={"module": "Production", "istable": 1}, pluck="name"):
-			for df in frappe.get_meta(dt).get("fields", {"fieldtype": "Link", "options": "Production Crop"}):
+			for df in frappe.get_meta(dt).get("fields", {"fieldtype": "Link", "options": "Production Section"}):
 				if df.label != "Section":
 					bad.append((dt, df.fieldname, df.label))
 		self.assertEqual(bad, [])

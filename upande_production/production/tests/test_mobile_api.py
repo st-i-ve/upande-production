@@ -36,7 +36,7 @@ class TestMobileApi(IntegrationTestCase):
 			farm_type=[{"farm_type": "Has Blocks"}],
 		)
 		cls.crop = _make(
-			"Production Crop", crop_name="TM Crop", crop_key="tm-crop", unit_label="Block", yield_uom="Kg"
+			"Production Section", crop_name="TM Crop", crop_key="tm-crop", unit_label="Block", yield_uom="Kg"
 		)
 		cls.op = _make(
 			"Field Operation", crop=cls.crop.name, operation_name="TM Weeding",
@@ -74,7 +74,7 @@ class TestMobileApi(IntegrationTestCase):
 			("Production Protocol", {"crop": crop}),
 			("Production Unit", {"name": unit}),
 			("Field Operation", {"crop": crop}),
-			("Production Crop", {"name": crop}),
+			("Production Section", {"name": crop}),
 			("Employee", {"name": cls.emp.name}),
 			("Farm", {"name": cls.farm.name}),
 		):
@@ -382,7 +382,7 @@ class TestMobileApi(IntegrationTestCase):
 		self.assertEqual(res["totals"]["pending_approval"], 1)
 
 	def test_protocol_check_cycleless_crop(self):
-		res = self._call(api.productionProtocolCheck, {"crop": "Apiary"}) if frappe.db.exists("Production Crop", "Apiary") else None
+		res = self._call(api.productionProtocolCheck, {"crop": "Apiary"}) if frappe.db.exists("Production Section", "Apiary") else None
 		if res is None:
 			self.skipTest("no Apiary crop")
 		self.assertEqual(res["blocks"], [])

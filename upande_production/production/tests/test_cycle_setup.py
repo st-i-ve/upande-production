@@ -28,7 +28,7 @@ class TestCycleSetup(IntegrationTestCase):
 			_make("Farm Type", name="Has Blocks")
 		cls.farm = _make("Farm", farm_name="CS Farm", company=cls.company, abbreviation="CSF",
 			farm_type=[{"farm_type": "Has Blocks"}])
-		cls.crop = _make("Production Crop", crop_name="CS Crop", crop_key="cs-crop", unit_label="Block", yield_uom="Kg")
+		cls.crop = _make("Production Section", crop_name="CS Crop", crop_key="cs-crop", unit_label="Block", yield_uom="Kg")
 		cls.item = _make("Item", item_code="CS Hass", item_name="CS Hass", item_group="All Item Groups",
 			stock_uom="Kg", is_stock_item=1).name
 		cls.hass = _make("Production Variety", variety_name="CS Hass", crop=cls.crop.name, item=cls.item,
@@ -141,7 +141,7 @@ class TestCycleSetupOtherCrops(IntegrationTestCase):
 			_make("Farm Type", name="Has Blocks")
 		cls.farm = _make("Farm", farm_name="CSO Farm", company=cls.company, abbreviation="CSO",
 			farm_type=[{"farm_type": "Has Blocks"}])
-		cls.crop = _make("Production Crop", crop_name="CSO Crop", crop_key="cso-crop", unit_label="Block", yield_uom="Kg")
+		cls.crop = _make("Production Section", crop_name="CSO Crop", crop_key="cso-crop", unit_label="Block", yield_uom="Kg")
 		cls.item = _make("Item", item_code="CSO Tomato", item_name="CSO Tomato", item_group="All Item Groups",
 			stock_uom="Kg", is_stock_item=1).name
 		cls.op = _make("Field Operation", crop=cls.crop.name, operation_name="CSO Weeding", category="Other",

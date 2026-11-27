@@ -34,7 +34,7 @@ class TestClearBlock(IntegrationTestCase):
 			_make("Farm Type", name="Has Blocks")
 		cls.farm = _make("Farm", farm_name="CLB Farm", company=cls.company, abbreviation="CLB",
 			farm_type=[{"farm_type": "Has Blocks"}])
-		cls.crop = _make("Production Crop", crop_name="CLB Crop", crop_key="clb-crop", unit_label="Block", yield_uom="Kg", uses_crop_cycles=1)
+		cls.crop = _make("Production Section", crop_name="CLB Crop", crop_key="clb-crop", unit_label="Block", yield_uom="Kg", uses_crop_cycles=1)
 		cls.op = _make("Field Operation", crop=cls.crop.name, operation_name="CLB Weeding", category="Other", work_uom="Kg", default_rate=40)
 		cls.item = _make("Item", item_code="CLB Tomato", item_name="CLB Tomato", item_group="All Item Groups",
 			stock_uom="Kg", is_stock_item=1).name
@@ -48,7 +48,7 @@ class TestClearBlock(IntegrationTestCase):
 		frappe.set_user("Administrator")
 		frappe.db.rollback()
 		cls._wipe()
-		for dt, name in (("Field Operation", cls.op.name), ("Item", cls.item), ("Production Crop", cls.crop.name), ("Farm", cls.farm.name)):
+		for dt, name in (("Field Operation", cls.op.name), ("Item", cls.item), ("Production Section", cls.crop.name), ("Farm", cls.farm.name)):
 			frappe.delete_doc(dt, name, force=True)
 		for u in (cls.mgr, cls.sup, cls.asst):
 			frappe.delete_doc("User", u, force=True)

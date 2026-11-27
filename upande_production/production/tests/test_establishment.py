@@ -25,7 +25,7 @@ class TestEstablishment(IntegrationTestCase):
 			_make("Farm Type", name="Has Blocks")
 		cls.farm = _make("Farm", farm_name="EST Farm", company=cls.company, abbreviation="ESF",
 			farm_type=[{"farm_type": "Has Blocks"}])
-		cls.crop = _make("Production Crop", crop_name="EST Crop", crop_key="est-crop", unit_label="Block", yield_uom="Kg")
+		cls.crop = _make("Production Section", crop_name="EST Crop", crop_key="est-crop", unit_label="Block", yield_uom="Kg")
 		cls.op = _make("Field Operation", crop=cls.crop.name, operation_name="EST Land Prep",
 			category="Other", work_uom="Kg", activity_type="Capital")
 		cls.group = cls._unit("EST Group", unit_type="Pivot", is_group=1)
@@ -99,7 +99,7 @@ class TestEstablishment(IntegrationTestCase):
 		self.assertEqual(api.list_opening_balances(self.crop.name)["rows"][0]["setup_cost"], 5)
 
 	def test_leaf_units_only_of_the_costs_crop(self):
-		other = _make("Production Crop", crop_name="EST Other Crop", crop_key="est-other", unit_label="Block", yield_uom="Kg")
+		other = _make("Production Section", crop_name="EST Other Crop", crop_key="est-other", unit_label="Block", yield_uom="Kg")
 		g = self._unit("EST Mixed G", unit_type="Pivot", is_group=1)
 		mine = self._unit("EST Mixed Mine", parent_production_unit=g.name, area_ha=1)
 		_make("Production Unit", unit_name="EST Mixed Theirs", crop=other.name, farm=self.farm.name,

@@ -31,7 +31,7 @@ class TestRules(IntegrationTestCase):
 			_make("Farm Type", name="Has Blocks")
 		cls.farm = _make("Farm", farm_name="TR Farm", company=cls.company, abbreviation="TRF",
 			farm_type=[{"farm_type": "Has Blocks"}])
-		cls.crop = _make("Production Crop", crop_name="TR Crop", crop_key="tr-crop", unit_label="Block", yield_uom="Kg").name
+		cls.crop = _make("Production Section", crop_name="TR Crop", crop_key="tr-crop", unit_label="Block", yield_uom="Kg").name
 
 		def op(name, cat, harvest=0):
 			return _make("Field Operation", crop=cls.crop, operation_name=name, category=cat,
@@ -147,8 +147,8 @@ class TestRules(IntegrationTestCase):
 
 	def test_unit_without_cycle_uses_stocking(self):
 		fish = "Aquaculture"
-		if not frappe.db.exists("Production Crop", fish):
-			_make("Production Crop", crop_name=fish, crop_key="aquaculture", unit_label="Pond", yield_uom="Kg",
+		if not frappe.db.exists("Production Section", fish):
+			_make("Production Section", crop_name=fish, crop_key="aquaculture", unit_label="Pond", yield_uom="Kg",
 				uses_crop_cycles=0)
 		feed = _make("Field Operation", crop=fish, operation_name="TR Feeding", category="Feeding",
 			work_uom="Kg", default_rate=1).name

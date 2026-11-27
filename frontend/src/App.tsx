@@ -231,7 +231,7 @@ export function App() {
     main = (
       <Notice title="No crops yet">
         <p className="text-[13px] text-[var(--sd-muted)]">
-          Add a Production Crop in the desk and it will appear here.
+          Add a Production Section in the desk and it will appear here.
         </p>
       </Notice>
     );

@@ -392,7 +392,7 @@ def approval_counts(all_teams=0) -> dict:
 		c["stale"] += 1 if _age_days(r.created) >= stale_days else 0
 	meta = {
 		c.name: c for c in frappe.get_all(
-			"Production Crop", fields=["name", "crop_key", "sort_order"], order_by="sort_order asc, name asc"
+			"Production Section", fields=["name", "crop_key", "sort_order"], order_by="sort_order asc, name asc"
 		)
 	}
 	from upande_production.production.logic import protocols as _protocols

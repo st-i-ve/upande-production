@@ -139,7 +139,7 @@ def save_week(crop, farm, year, week, rows) -> dict:
 	allowed = {u.name for u in week_units(crop, farm)}
 	categories = set(CATEGORIES)
 	# serialise saves for the crop (the week may have no rows yet to lock), so two saves cannot both add an overseer
-	if not frappe.db.get_value("Production Crop", crop, "name", for_update=True):
+	if not frappe.db.get_value("Production Section", crop, "name", for_update=True):
 		frappe.throw(_("Unknown crop {0}.").format(crop), frappe.ValidationError)
 	current = {a.supervisor for a in assignments(crop, year, week, units=allowed)}
 	wanted, seen = {}, set()

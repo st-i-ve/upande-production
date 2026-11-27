@@ -80,7 +80,7 @@ class TestBandSettings(Isolated):
 		self.assertEqual(bands.get_bands()["Queen status"], before)
 
 	def test_forecast_summary_carries_the_bands(self):
-		crop = frappe.db.get_value("Production Crop", {"crop_key": "avocado"})
+		crop = frappe.db.get_value("Production Section", {"crop_key": "avocado"})
 		r = production_api.forecast_summary(crop)
 		self.assertNotIn("error", r)
 		self.assertIn("Forecast error", r["bands"])
@@ -101,7 +101,7 @@ class TestApiaryLimits(Isolated):
 		r = apiary.hive_inspections(*self._rng())
 		self.assertEqual((r["threshold"], r["watch"]), (3.0, 2.0))
 		self.assertEqual(apiary.honey_harvest(*self._rng())["form"]["moisture_limit"], 20.0)
-		frappe.db.set_value("Production Crop", "Apiary", {"mite_threshold": 1.0, "mite_watch": 0.5, "honey_moisture_limit": 18.0})
+		frappe.db.set_value("Production Section", "Apiary", {"mite_threshold": 1.0, "mite_watch": 0.5, "honey_moisture_limit": 18.0})
 		r = apiary.hive_inspections(*self._rng())
 		self.assertEqual((r["threshold"], r["watch"]), (1.0, 0.5))
 		self.assertEqual({g["mite_status"] for g in r["groups"]}, {"high"})
@@ -149,7 +149,7 @@ class TestAquacultureLimits(Isolated):
 		self.assertEqual(b, {"do_min": 4.0, "ph_min": 6.5, "ph_max": 8.5, "ammonia_max": 0.5})
 
 	def test_seeded_bands_match_the_old_tilapia_figures(self):
-		crop = frappe.get_doc("Production Crop", "Aquaculture")
+		crop = frappe.get_doc("Production Section", "Aquaculture")
 		b = aqua_logic.bands_from_rows([r.as_dict() for r in crop.water_bands])
 		self.assertEqual(b, {"do_min": 4.0, "ph_min": 6.5, "ph_max": 8.5, "temp_min": 25.0, "temp_max": 30.0,
 							 "ammonia_max": 0.5, "nitrite_max": 0.3})
@@ -176,7 +176,7 @@ class TestAquacultureLimits(Isolated):
 		p = aquaculture.pond_batches()
 		self.assertEqual(p["sample_stale_days"], 10)
 		self.assertIn("Fish survival", p["bands"])
-		frappe.db.set_value("Production Crop", "Aquaculture", "sample_stale_days", 4)
+		frappe.db.set_value("Production Section", "Aquaculture", "sample_stale_days", 4)
 		self.assertEqual(aquaculture.pond_batches()["sample_stale_days"], 4)
 		self.assertEqual(aquaculture.feeding_mortality()["form"]["feed_types"][0], "Starter Crumble")
 
@@ -197,7 +197,7 @@ class TestFvLimits(Isolated):
 	def test_weekly_target_variety_then_crop(self):
 		crop = "Fruits & Vegetables"
 		self.assertEqual(fv.weekly_target_mm(), 25.0)
-		frappe.db.set_value("Production Crop", crop, "irrigation_mm_week", 30)
+		frappe.db.set_value("Production Section", crop, "irrigation_mm_week", 30)
 		self.assertEqual(fv.weekly_target_mm(), 30.0)
 		variety = frappe.db.get_value("Production Variety", {"crop": crop}, "name") or frappe.get_doc(
 			{"doctype": "Production Variety", "variety_name": "TB Variety", "crop": crop,
@@ -211,7 +211,7 @@ class TestFvLimits(Isolated):
 		r = fv.irrigation()
 		self.assertEqual(r["target"]["weekly_mm"], 25.0)
 		self.assertIn("Irrigation % of target", r["bands"])
-		frappe.db.set_value("Production Crop", "Fruits & Vegetables", "irrigation_mm_week", 50)
+		frappe.db.set_value("Production Section", "Fruits & Vegetables", "irrigation_mm_week", 50)
 		self.assertEqual(fv.irrigation()["target"]["weekly_mm"], 50.0)
 
 	def test_slice_target_follows_its_variety(self):
@@ -222,7 +222,7 @@ class TestFvLimits(Isolated):
 		self.assertEqual(a["slice_target_mm"], {"PV-1": 50.0, "PV-2": 20.0})
 
 	def test_grades_from_the_crop_table(self):
-		crop = frappe.get_doc("Production Crop", "Fruits & Vegetables")
+		crop = frappe.get_doc("Production Section", "Fruits & Vegetables")
 		grades = fv.grade_rules("Fruits & Vegetables")
 		self.assertEqual([g["grade"] for g in grades][:5], ["Class 1", "Class 2", "Ware", "Seed", "Chats"])
 		self.assertTrue(fv.is_top_grade("class 1", grades))

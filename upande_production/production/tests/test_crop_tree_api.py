@@ -22,9 +22,9 @@ class TestCropTreeApi(IntegrationTestCase):
 		if not frappe.db.exists("UOM", "Kg"):
 			_make("UOM", uom_name="Kg")
 		crop_groups.ensure_groups()
-		cls.fv = _make("Production Crop", crop_name="CTA Mixed", crop_key="cta-mixed", unit_label="Block", yield_uom="Kg", enabled=1)
-		cls.single = _make("Production Crop", crop_name="CTA Single", crop_key="cta-single", unit_label="Block", yield_uom="Kg", enabled=1)
-		cls.empty = _make("Production Crop", crop_name="CTA Empty", crop_key="cta-empty", unit_label="Block", yield_uom="Kg", enabled=1)
+		cls.fv = _make("Production Section", crop_name="CTA Mixed", crop_key="cta-mixed", unit_label="Block", yield_uom="Kg", enabled=1)
+		cls.single = _make("Production Section", crop_name="CTA Single", crop_key="cta-single", unit_label="Block", yield_uom="Kg", enabled=1)
+		cls.empty = _make("Production Section", crop_name="CTA Empty", crop_key="cta-empty", unit_label="Block", yield_uom="Kg", enabled=1)
 		if not frappe.db.exists("Item Group", "All Item Groups"):
 			_make("Item Group", item_group_name="All Item Groups", is_group=1)
 		cls.users = {}
@@ -39,7 +39,7 @@ class TestCropTreeApi(IntegrationTestCase):
 		# The refusal test commits (see there), so the class fixtures must be removed explicitly.
 		frappe.set_user("Administrator")
 		for c in (cls.fv, cls.single, cls.empty):
-			frappe.delete_doc("Production Crop", c.name, force=True, ignore_missing=True)
+			frappe.delete_doc("Production Section", c.name, force=True, ignore_missing=True)
 		frappe.db.commit()
 		super().tearDownClass()
 

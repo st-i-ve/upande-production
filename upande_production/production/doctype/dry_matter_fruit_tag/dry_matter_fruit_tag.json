@@ -28,7 +28,7 @@
  "fields": [
   {"fieldname": "unit", "fieldtype": "Link", "label": "Block", "options": "Production Unit", "reqd": 1, "in_list_view": 1, "in_standard_filter": 1},
   {"fieldname": "farm", "fieldtype": "Link", "label": "Farm", "options": "Farm", "fetch_from": "unit.farm", "read_only": 1, "in_standard_filter": 1},
-  {"fieldname": "crop", "fieldtype": "Link", "label": "Section", "options": "Production Crop", "read_only": 1, "in_standard_filter": 1},
+  {"fieldname": "crop", "fieldtype": "Link", "label": "Section", "options": "Production Section", "read_only": 1, "in_standard_filter": 1},
   {"fieldname": "cycle", "fieldtype": "Link", "label": "Cycle", "options": "Production Crop Cycle"},
   {"fieldname": "variety", "fieldtype": "Link", "label": "Variety", "options": "Production Variety", "read_only": 1},
   {"fieldname": "col_a", "fieldtype": "Column Break"},
@@ -47,7 +47,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-11-25 10:00:00.000000",
+ "modified": "2026-11-27 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Dry Matter Fruit Tag",

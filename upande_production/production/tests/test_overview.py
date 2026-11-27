@@ -27,9 +27,9 @@ class TestOverviewExtras(IntegrationTestCase):
 			"Farm", farm_name="OV Farm", company=cls.company, abbreviation="OVF",
 			farm_type=[{"farm_type": "Has Blocks"}],
 		)
-		cls.crop = _make("Production Crop", crop_name="OV Crop", crop_key="ov-crop", unit_label="Block", yield_uom="Kg")
+		cls.crop = _make("Production Section", crop_name="OV Crop", crop_key="ov-crop", unit_label="Block", yield_uom="Kg")
 
-		cls.crop2 = _make("Production Crop", crop_name="OV Crop 2", crop_key="ov-crop2", unit_label="Block", yield_uom="Kg")
+		cls.crop2 = _make("Production Section", crop_name="OV Crop 2", crop_key="ov-crop2", unit_label="Block", yield_uom="Kg")
 
 	def test_empty_crop(self):
 		r = api.get_overview_extras(self.crop.name)
@@ -121,7 +121,7 @@ class TestOverviewExtras(IntegrationTestCase):
 		from upande_production.production.logic import analytics
 
 		# a crop of its own so the shared empty-crop tests above never see this unit
-		self.crop = _make("Production Crop", crop_name="OV Dev Crop", crop_key="ov-dev", unit_label="Block", yield_uom="Kg")
+		self.crop = _make("Production Section", crop_name="OV Dev Crop", crop_key="ov-dev", unit_label="Block", yield_uom="Kg")
 		unit, emps, ops, work = self._keyed_unit(["Kg"])
 		t = getdate(today())
 		window = (t - timedelta(days=28), t)

@@ -1,6 +1,6 @@
-"""Desk API for Settings, Crop model: a crop's model parameters, read from and written to Production Crop.
+"""Desk API for Settings, Crop model: a crop's model parameters, read from and written to Production Section.
 
-The editor is driven by the doctype itself: every section of Production Crop after the identity fields
+The editor is driven by the doctype itself: every section of Production Section after the identity fields
 becomes a group, its fields and child tables are described from the meta, and the values come from the
 record. A parameter added to the doctype shows up here without a code change. Writes need a Production
 Manager (the doctype also lets a supervisor edit a crop; this screen does not).
@@ -15,7 +15,7 @@ from frappe.utils import cint, flt
 from upande_production.api.envelope import as_dict, run
 from upande_production.api.production import MANAGE_ROLES, _need
 
-# Identity and layout fields of the crop: edited on the Production Crop form, not here.
+# Identity and layout fields of the crop: edited on the Production Section form, not here.
 SKIP = {"crop_name", "crop_key", "accent_color", "icon_key", "parent_unit_label", "unit_label", "sub_unit_label",
 	"yield_uom", "uses_crop_cycles", "default_cycle_type", "enabled", "sort_order"}
 LAYOUT = {"Section Break", "Column Break", "Tab Break"}
@@ -53,7 +53,7 @@ def _table(f, doc):
 
 def _layout(doc):
 	"""[{label, fields, tables}] of the crop's model sections, plus the child doctype of each table."""
-	meta = frappe.get_meta("Production Crop")
+	meta = frappe.get_meta("Production Section")
 	groups = [{"label": INTRO_GROUP, "fields": [], "tables": []}]
 	current, visible = groups[0], True
 	for f in meta.fields:
@@ -74,8 +74,8 @@ def _layout(doc):
 @run
 def get_crop_model(crop):
 	"""{crop, crop_key, can_edit, groups: [{label, fields: [...], tables: [...]}]} of the crop's model parameters."""
-	_need("Production Crop")
-	doc = frappe.get_doc("Production Crop", crop)
+	_need("Production Section")
+	doc = frappe.get_doc("Production Section", crop)
 	return {"crop": doc.name, "crop_key": doc.crop_key, "can_edit": _is_manager(), "groups": _layout(doc)}
 
 
@@ -86,7 +86,7 @@ def save_crop_model(crop, data):
 	get_crop_model describes are accepted."""
 	if not _is_manager():
 		frappe.throw(_("Only a Production Manager can change the crop model."), frappe.PermissionError)
-	doc = frappe.get_doc("Production Crop", crop)
+	doc = frappe.get_doc("Production Section", crop)
 	data = dict(as_dict(data) or {})
 	allowed = {f["fieldname"]: f for g in _layout(doc) for f in g["fields"]}
 	tables = {t["fieldname"]: t for g in _layout(doc) for t in g["tables"]}

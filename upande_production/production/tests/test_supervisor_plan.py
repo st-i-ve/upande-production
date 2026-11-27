@@ -45,7 +45,7 @@ class TestSupervisorPlan(IntegrationTestCase):
 			_make("Farm Type", name="Has Blocks")
 		cls.farm = _make("Farm", farm_name="SP Farm", company=cls.company, abbreviation="SPF",
 			farm_type=[{"farm_type": "Has Blocks"}])
-		cls.crop = _make("Production Crop", crop_name="SP Crop", crop_key="sp-crop", unit_label="Block", yield_uom="Kg")
+		cls.crop = _make("Production Section", crop_name="SP Crop", crop_key="sp-crop", unit_label="Block", yield_uom="Kg")
 		cls.op = _make("Field Operation", crop=cls.crop.name, operation_name="SP Weeding",
 			category="Other", work_uom="Kg", default_rate=40)
 		cls.spray = _make("Field Operation", crop=cls.crop.name, operation_name="SP Spraying",
@@ -127,7 +127,7 @@ class TestSupervisorPlan(IntegrationTestCase):
 			supervisor=self.sup.name, plan_year=self.year, plan_week=self.week)
 
 	def test_block_must_belong_to_crop(self):
-		other = _make("Production Crop", crop_name="SP Other", crop_key="sp-other", unit_label="Block", yield_uom="Kg")
+		other = _make("Production Section", crop_name="SP Other", crop_key="sp-other", unit_label="Block", yield_uom="Kg")
 		with self.assertRaises(frappe.ValidationError):
 			_make("Production Supervisor Assignment", crop=other.name, unit=self.u1.name,
 				supervisor=self.sup.name, plan_year=self.year, plan_week=self.week)

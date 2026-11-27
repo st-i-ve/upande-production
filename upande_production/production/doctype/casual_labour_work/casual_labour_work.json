@@ -87,7 +87,7 @@
    "fieldname": "crop",
    "fieldtype": "Link",
    "label": "Section",
-   "options": "Production Crop"
+   "options": "Production Section"
   },
   {
    "fieldname": "cycle",
@@ -295,7 +295,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-25 10:00:00.000000",
+ "modified": "2026-11-27 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Casual Labour Work",

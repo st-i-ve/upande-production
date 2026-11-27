@@ -33,7 +33,7 @@ class TestPlanTaskSchedule(IntegrationTestCase):
 			_make("Farm Type", name="Has Blocks")
 		cls.farm = _make("Farm", farm_name="PTS Farm", company=cls.company, abbreviation="PTS",
 			farm_type=[{"farm_type": "Has Blocks"}])
-		cls.crop = _make("Production Crop", crop_name="PTS Crop", crop_key="pts-crop", unit_label="Block", yield_uom="Kg")
+		cls.crop = _make("Production Section", crop_name="PTS Crop", crop_key="pts-crop", unit_label="Block", yield_uom="Kg")
 		cls.op = _make("Field Operation", crop=cls.crop.name, operation_name="PTS Weeding",
 			category="Other", work_uom="Kg", default_rate=40)
 		cls.u1 = _make("Production Unit", unit_name="PTS B1", crop=cls.crop.name, farm=cls.farm.name,
@@ -57,7 +57,7 @@ class TestPlanTaskSchedule(IntegrationTestCase):
 		for p in frappe.get_all("Production Work Plan", filters={"crop": cls.crop.name}, pluck="name"):
 			frappe.delete_doc("Production Work Plan", p, force=True)
 		for dt, doc in (("Employee", cls.employee), ("Production Unit", cls.u2), ("Production Unit", cls.u1),
-				("Field Operation", cls.op), ("Production Crop", cls.crop), ("Farm", cls.farm)):
+				("Field Operation", cls.op), ("Production Section", cls.crop), ("Farm", cls.farm)):
 			frappe.delete_doc(dt, doc.name, force=True)
 		for u in (cls.mgr, cls.sup, cls.editor, cls.avo):
 			frappe.delete_doc("User", u, force=True)

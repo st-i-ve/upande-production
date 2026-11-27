@@ -237,7 +237,7 @@ def update_tag(tag, status=None, notes=None, ignore_permissions=False):
 
 def crop_window(crop):
 	"""(target, max) export window of the crop; None where unset."""
-	c = frappe.db.get_value("Production Crop", crop, ["dry_matter_target_pct", "dry_matter_max_pct"], as_dict=True)
+	c = frappe.db.get_value("Production Section", crop, ["dry_matter_target_pct", "dry_matter_max_pct"], as_dict=True)
 	if not c:
 		return None, None
 	return flt(c.dry_matter_target_pct) or None, flt(c.dry_matter_max_pct) or None

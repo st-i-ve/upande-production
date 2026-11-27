@@ -37,7 +37,7 @@ class TestRetiredUnits(IntegrationTestCase):
 			_make("Farm Type", name="Has Blocks")
 		cls.farm = _make("Farm", farm_name="RT Farm", company=cls.company, abbreviation="RTF",
 			farm_type=[{"farm_type": "Has Blocks"}])
-		cls.crop = _make("Production Crop", crop_name="RT Crop", crop_key="rt-crop", unit_label="Block", yield_uom="Kg")
+		cls.crop = _make("Production Section", crop_name="RT Crop", crop_key="rt-crop", unit_label="Block", yield_uom="Kg")
 		cls.op = _make("Field Operation", crop=cls.crop.name, operation_name="RT Weeding", category="Other",
 			work_uom="Kg", default_rate=5)
 		cls.cap = _make("Field Operation", crop=cls.crop.name, operation_name="RT Clearing", category="Other",
@@ -207,9 +207,9 @@ class TestHarvestValue(IntegrationTestCase):
 		from upande_production.production.logic.harvest import valuation_rate
 
 		frappe.set_user("Administrator")
-		crop = _make("Production Crop", crop_name="HV Crop", crop_key="hv-crop", unit_label="Block", yield_uom="Kg")
+		crop = _make("Production Section", crop_name="HV Crop", crop_key="hv-crop", unit_label="Block", yield_uom="Kg")
 		self.assertEqual(valuation_rate(None, crop.name), 0)
-		frappe.db.set_value("Production Crop", crop.name, "price_per_kg", 7)
+		frappe.db.set_value("Production Section", crop.name, "price_per_kg", 7)
 		self.assertEqual(valuation_rate(None, crop.name), 7)
 		if not frappe.db.exists("Item Group", "All Item Groups"):
 			self.skipTest("no item group")

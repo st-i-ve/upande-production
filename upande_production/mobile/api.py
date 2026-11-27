@@ -132,11 +132,11 @@ def _with_stage(row: dict, info: dict) -> dict:
 
 @frappe.whitelist()
 def productionListCrops():
-	if _denied(("Production Crop", "read")):
+	if _denied(("Production Section", "read")):
 		return
 	def go():
 		rows = frappe.get_all(
-			"Production Crop", filters={"enabled": 1},
+			"Production Section", filters={"enabled": 1},
 			fields=["name", "crop_name", "crop_key", "accent_color", "icon_key", "unit_label",
 				"sub_unit_label", "yield_uom"],
 			order_by="sort_order asc, crop_name asc",
@@ -343,7 +343,7 @@ def productionRecordHarvest():
 
 			running_cycle(unit, _s(data, "cycle"))
 		crop = frappe.db.get_value("Production Unit", unit, "crop")
-		uom = _s(data, "uom") or (frappe.db.get_value("Production Crop", crop, "yield_uom") if crop else None)
+		uom = _s(data, "uom") or (frappe.db.get_value("Production Section", crop, "yield_uom") if crop else None)
 		doc = frappe.get_doc({
 			"doctype": "Production Harvest", "unit": unit, "crop": crop,
 			"cycle": _s(data, "cycle") or None, "item": _s(data, "item") or None, "field_crop": _s(data, "field_crop") or None,

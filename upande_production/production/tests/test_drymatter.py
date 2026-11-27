@@ -22,10 +22,10 @@ class TestDryMatter(IntegrationTestCase):
 			if not frappe.db.exists("UOM", u):
 				_make("UOM", uom_name=u)
 		cls.crop = _make(
-			"Production Crop", crop_name="DM Crop", crop_key="dm-crop", unit_label="Block", yield_uom="Kg",
+			"Production Section", crop_name="DM Crop", crop_key="dm-crop", unit_label="Block", yield_uom="Kg",
 			dry_matter_testing=1, dry_matter_on="Fruit", dry_matter_target_pct=21,
 		)
-		cls.off = _make("Production Crop", crop_name="DM Off", crop_key="dm-off", unit_label="Block", yield_uom="Kg")
+		cls.off = _make("Production Section", crop_name="DM Off", crop_key="dm-off", unit_label="Block", yield_uom="Kg")
 		cls.unit = _make(
 			"Production Unit", unit_name="DM A", crop=cls.crop.name, unit_type="Orchard Block", company=cls.company, area_ha=1
 		).name

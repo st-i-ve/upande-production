@@ -7,8 +7,8 @@ from upande_production.production.logic import cycles as cycles_logic
 class TestNoCyclesForBeesAndFish(IntegrationTestCase):
 	def setUp(self):
 		self.crop = "Apiary Test Crop"
-		if not frappe.db.exists("Production Crop", self.crop):
-			frappe.get_doc({"doctype": "Production Crop", "crop_name": self.crop, "crop_key": "apiary-test",
+		if not frappe.db.exists("Production Section", self.crop):
+			frappe.get_doc({"doctype": "Production Section", "crop_name": self.crop, "crop_key": "apiary-test",
 				"unit_label": "Hive Group", "uses_crop_cycles": 0}).insert()
 		self.unit = "Test Hive Group"
 		if not frappe.db.exists("Production Unit", self.unit):
@@ -29,6 +29,6 @@ class TestNoCyclesForBeesAndFish(IntegrationTestCase):
 
 	def test_demo_bees_and_fish_have_no_cycles(self):
 		for name in ("Apiary", "Aquaculture"):
-			if frappe.db.exists("Production Crop", name):
-				self.assertFalse(frappe.db.get_value("Production Crop", name, "uses_crop_cycles"), name)
+			if frappe.db.exists("Production Section", name):
+				self.assertFalse(frappe.db.get_value("Production Section", name, "uses_crop_cycles"), name)
 				self.assertFalse(frappe.db.count("Production Crop Cycle", {"crop": name}), name)

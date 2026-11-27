@@ -101,7 +101,7 @@ def _dry_matter_by_unit(crop):
 	from upande_production.api import drymatter
 
 	out = drymatter.latest_by_unit(crop)
-	if frappe.db.get_value("Production Crop", crop, "crop_key") == "avocado":
+	if frappe.db.get_value("Production Section", crop, "crop_key") == "avocado":
 		try:
 			from upande_production.api import avocado_model, avocadoapi
 
@@ -136,7 +136,7 @@ def get_bootstrap():
 	roles = set(frappe.get_roles())
 	admin = _is_admin()
 	crops = frappe.get_all(
-		"Production Crop",
+		"Production Section",
 		filters={"enabled": 1},
 		fields=[
 			"name", "crop_key", "accent_color", "icon_key", "unit_label", "parent_unit_label",

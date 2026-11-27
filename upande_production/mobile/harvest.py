@@ -101,8 +101,8 @@ def _crate_units(farm=None, crop=None):
 	if crop:
 		# The crop's name or its crop_key ("Avocado" / "avocado"), resolved to the stored name: the
 		# database matches case-insensitively, the list check below does not.
-		crop = (frappe.db.get_value("Production Crop", crop, "name")
-			or frappe.db.get_value("Production Crop", {"crop_key": crop}, "name") or crop)
+		crop = (frappe.db.get_value("Production Section", crop, "name")
+			or frappe.db.get_value("Production Section", {"crop_key": crop}, "name") or crop)
 	crops = [crop] if crop else H.crate_crops()
 	crops = [c for c in crops if c in H.crate_crops()]
 	if not crops:
@@ -132,7 +132,7 @@ def get_crops(**kw):
 	"""[{name, crop_key, label}] - crops that harvest in crates (Configure's crop picker)."""
 	try:
 		return [{"name": c.name, "crop_key": c.crop_key, "label": c.crop_name} for c in frappe.get_all(
-			"Production Crop", filters={"name": ("in", H.crate_crops() or [""])},
+			"Production Section", filters={"name": ("in", H.crate_crops() or [""])},
 			fields=["name", "crop_key", "crop_name"], order_by="sort_order, crop_name")]
 	except Exception as e:
 		return _fail("get_crops", e)

@@ -1,4 +1,4 @@
-// Production Crop desk form: keep the count size bands contiguous while they are edited.
+// Production Section desk form: keep the count size bands contiguous while they are edited.
 // Changing a band's min moves the next-higher count's max to it; changing a max moves the next-lower
 // count's min. Gaps and overlaps show as an orange banner; saving is never blocked.
 // (Same rules as production/logic/count_sizes.py and the React settings editor.)
@@ -56,7 +56,7 @@
 		banner(frm);
 	}
 
-	frappe.ui.form.on("Production Crop", {
+	frappe.ui.form.on("Production Section", {
 		refresh: banner,
 		validate: banner,
 		count_sizes_remove: banner,

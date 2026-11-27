@@ -39,7 +39,7 @@ class TestCycleRequests(IntegrationTestCase):
 			_make("Farm Type", name="Has Blocks")
 		cls.farm = _make("Farm", farm_name="CCR Farm", company=cls.company, abbreviation="CCR",
 			farm_type=[{"farm_type": "Has Blocks"}])
-		cls.crop = _make("Production Crop", crop_name="CCR Crop", crop_key="ccr-crop", unit_label="Block", yield_uom="Kg", uses_crop_cycles=1)
+		cls.crop = _make("Production Section", crop_name="CCR Crop", crop_key="ccr-crop", unit_label="Block", yield_uom="Kg", uses_crop_cycles=1)
 		cls.op = _make("Field Operation", crop=cls.crop.name, operation_name="CCR Weeding",
 			category="Other", work_uom="Kg", default_rate=40)
 		cls.item = _make("Item", item_code="CCR Tomato", item_name="CCR Tomato", item_group="All Item Groups",
@@ -60,7 +60,7 @@ class TestCycleRequests(IntegrationTestCase):
 		frappe.db.rollback()
 		cls._wipe()
 		for dt, name in (("Production Unit", cls.u1.name), ("Production Protocol", cls.protocol),
-				("Field Operation", cls.op.name), ("Item", cls.item), ("Production Crop", cls.crop.name),
+				("Field Operation", cls.op.name), ("Item", cls.item), ("Production Section", cls.crop.name),
 				("Farm", cls.farm.name)):
 			frappe.delete_doc(dt, name, force=True)
 		for u in (cls.mgr, cls.sup, cls.sup2, cls.asst):

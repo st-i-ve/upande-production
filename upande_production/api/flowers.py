@@ -66,7 +66,7 @@ def _empty():
 
 @frappe.whitelist()
 def flower_data(crop):
-	"""{mode, units, cycles, farms, totals} for one flower Production Crop."""
+	"""{mode, units, cycles, farms, totals} for one flower Production Section."""
 	if not frappe.db.exists("DocType", "Crop Cycle"):  # the Crop Production module is not on this site
 		return _empty()
 	frappe.has_permission("Crop Cycle", "read", throw=True)

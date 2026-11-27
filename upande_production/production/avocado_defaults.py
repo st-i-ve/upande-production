@@ -3,7 +3,7 @@
 
 # Today's avocado model values, kept in one place for SEEDING only.
 #
-# Until the model moved onto Production Crop / Production Variety these figures were
+# Until the model moved onto Production Section / Production Variety these figures were
 # constants in the avocado API modules. They are the starting values for the demo and
 # for a site that predates the settings (see patches/seed_avocado_model.py); after that
 # a manager edits them in Settings, Crop model. The model code never imports this
@@ -40,8 +40,8 @@ CROP_DEFAULTED = ["harvest_days_per_week", "min_trees_to_override_curve", "defau
 
 def apply_to_crop(name):
 	"""Fill the avocado crop's model fields where they are empty. Never overwrites a value."""
-	doc = frappe.get_doc("Production Crop", name)
-	meta = frappe.get_meta("Production Crop")
+	doc = frappe.get_doc("Production Section", name)
+	meta = frappe.get_meta("Production Section")
 	changed = False
 	for f in CROP_DEFAULTED:
 		if not flt(doc.get(f)):

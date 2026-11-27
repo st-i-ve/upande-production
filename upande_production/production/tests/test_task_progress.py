@@ -45,7 +45,7 @@ class TestTaskProgress(IntegrationTestCase):
 			_make("Farm Type", name="Has Blocks")
 		cls.farm = _make("Farm", farm_name="TPL Farm", company=cls.company, abbreviation="TPL",
 			farm_type=[{"farm_type": "Has Blocks"}])
-		cls.crop = _make("Production Crop", crop_name="TPL Crop", crop_key="tpl-crop", unit_label="Block", yield_uom="Kg", uses_crop_cycles=1)
+		cls.crop = _make("Production Section", crop_name="TPL Crop", crop_key="tpl-crop", unit_label="Block", yield_uom="Kg", uses_crop_cycles=1)
 		cls.op = _make("Field Operation", crop=cls.crop.name, operation_name="TPL Weeding",
 			category="Other", work_uom="Kg", default_rate=40)
 		cls.item = _make("Item", item_code="TPL Tomato", item_name="TPL Tomato", item_group="All Item Groups",
@@ -77,7 +77,7 @@ class TestTaskProgress(IntegrationTestCase):
 		for c in frappe.get_all("Production Crop Cycle", filters={"unit": cls.u1.name}, pluck="name"):
 			frappe.delete_doc("Production Crop Cycle", c, force=True)
 		for dt, name in (("Production Unit", cls.u1.name), ("Production Unit", cls.u2.name), ("Production Protocol", cls.protocol),
-				("Field Operation", cls.op.name), ("Item", cls.item), ("Production Crop", cls.crop.name),
+				("Field Operation", cls.op.name), ("Item", cls.item), ("Production Section", cls.crop.name),
 				("Farm", cls.farm.name)):
 			frappe.delete_doc(dt, name, force=True)
 		for u in (cls.mgr, cls.sup, cls.asst):

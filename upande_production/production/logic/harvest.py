@@ -30,8 +30,8 @@ DEFAULT_PICK_RATE = 30  # per crate, when a crop has no crate harvest operation 
 # ---------------------------------------------------------------- masters
 
 def crate_crops() -> list[str]:
-	"""Production Crops that harvest into crates (avocado, fruits & vegetables)."""
-	return frappe.get_all("Production Crop", filters={"enabled": 1, "harvests_in_crates": 1}, pluck="name",
+	"""Production Sections that harvest into crates (avocado, fruits & vegetables)."""
+	return frappe.get_all("Production Section", filters={"enabled": 1, "harvests_in_crates": 1}, pluck="name",
 		order_by="sort_order, crop_name")
 
 
@@ -53,7 +53,7 @@ def crate_unit(unit: str) -> frappe._dict:
 		frappe.throw(_("Block {0} not found").format(unit), frappe.ValidationError)
 	if row.is_group:
 		frappe.throw(_("{0} is a group; pick a block").format(unit), frappe.ValidationError)
-	if not frappe.db.get_value("Production Crop", row.crop, "harvests_in_crates"):
+	if not frappe.db.get_value("Production Section", row.crop, "harvests_in_crates"):
 		frappe.throw(_("{0} ({1}) is not harvested in crates").format(unit, row.crop), frappe.ValidationError)
 	return row
 
@@ -86,14 +86,14 @@ def current_item(unit: str, crop: str, cycle: str | None = None) -> tuple[str, s
 
 
 def avg_kg_per_crate(item: str | None, crop: str | None) -> float:
-	"""The item's own figure, else the crop's (Production Crop, Avg Kg per Crate). No figure is an
+	"""The item's own figure, else the crop's (Production Section, Avg Kg per Crate). No figure is an
 	error: a crate with no weight would book an invented quantity."""
 	if item:
 		v = flt(frappe.db.get_value("Item", item, "production_avg_kg_per_crate"))
 		if v > 0:
 			return v
 	if crop:
-		v = flt(frappe.db.get_value("Production Crop", crop, "avg_kg_per_crate"))
+		v = flt(frappe.db.get_value("Production Section", crop, "avg_kg_per_crate"))
 		if v > 0:
 			return v
 	frappe.throw(_("Set the Avg Kg per Crate on the item or on crop {0}").format(crop or ""),
@@ -102,7 +102,7 @@ def avg_kg_per_crate(item: str | None, crop: str | None) -> float:
 
 def valuation_rate(item: str | None, crop: str | None) -> float:
 	"""Per-kg value of a harvest: the item's valuation rate, else the latest buyer price (of the item,
-	else of the crop), else the crop's own Price per Kg (Production Crop), else the Production Settings
+	else of the crop), else the crop's own Price per Kg (Production Section), else the Production Settings
 	fallback, else 0 (a receipt is then booked with allow_zero_valuation_rate)."""
 	v = flt(frappe.db.get_value("Item", item, "valuation_rate")) if item else 0
 	if v > 0:
@@ -114,7 +114,7 @@ def valuation_rate(item: str | None, crop: str | None) -> float:
 			order_by="week_start desc"))
 		if v > 0:
 			return v
-	v = flt(frappe.db.get_value("Production Crop", crop, "price_per_kg")) if crop else 0
+	v = flt(frappe.db.get_value("Production Section", crop, "price_per_kg")) if crop else 0
 	if v > 0:
 		return v
 	return flt(frappe.db.get_single_value("Production Settings", "harvest_default_rate"))

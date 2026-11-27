@@ -61,7 +61,7 @@ FV = {
 		"Maize": ["Rot", "Pest damage", "Undersize"],
 	},
 	"irrigation_mm_week": 25.0,
-	# Production Crop grades (grade, rank, top): the top grade and the names it goes by on the sites
+	# Production Section grades (grade, rank, top): the top grade and the names it goes by on the sites
 	"crop_grades": [("Class 1", 1, 1), ("Class 2", 2, 0), ("Ware", 3, 0), ("Seed", 4, 0), ("Chats", 5, 0),
 					("Class I", 6, 1), ("Grade 1", 7, 1), ("Grade A", 8, 1), ("Premium", 9, 1), ("Export", 10, 1)],
 	"kg_per_crate": {"Potatoes": 50, "Cabbage": 30, "Onion": 25, "Passion Fruit": 4, "Maize": 30},
@@ -158,9 +158,9 @@ def ensure_limits():
 	from upande_production.production.demo import bands_seed
 
 	bands_seed.run(commit=False)
-	if not frappe.db.exists("Production Crop", CROP):
+	if not frappe.db.exists("Production Section", CROP):
 		return
-	crop = frappe.get_doc("Production Crop", CROP)
+	crop = frappe.get_doc("Production Section", CROP)
 	if not crop.irrigation_mm_week:
 		crop.irrigation_mm_week = FV["irrigation_mm_week"]
 	if not crop.grades:

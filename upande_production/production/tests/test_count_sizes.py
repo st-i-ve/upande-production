@@ -66,7 +66,7 @@ class TestProductionCropValidate(IntegrationTestCase):
 		self.addCleanup(frappe.db.rollback, save_point="count_size_validate")
 
 	def crop(self, bands):
-		doc = frappe.get_doc({"doctype": "Production Crop", "crop_name": "Zz Band Test", "crop_key": "zzband", "unit_label": "Block"})
+		doc = frappe.get_doc({"doctype": "Production Section", "crop_name": "Zz Band Test", "crop_key": "zzband", "unit_label": "Block"})
 		for c, lo, hi in bands:
 			doc.append("count_sizes", {"count": c, "min_g": lo, "max_g": hi})
 		return doc
@@ -75,7 +75,7 @@ class TestProductionCropValidate(IntegrationTestCase):
 		doc = self.crop([(16, 242, 275), (18, 216, 240)])
 		with mock.patch.object(frappe, "msgprint") as m:
 			doc.insert()
-		self.assertTrue(frappe.db.exists("Production Crop", doc.name))
+		self.assertTrue(frappe.db.exists("Production Section", doc.name))
 		self.assertIn("has no count size", m.call_args.args[0])
 		self.assertEqual(m.call_args.kwargs["indicator"], "orange")
 

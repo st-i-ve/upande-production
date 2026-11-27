@@ -1,7 +1,7 @@
 """The "Avocado Production Manager" role: full production transactions on avocado, nothing else.
 
 The role only carries document rights. "Avocado only" comes from User Permissions on the user
-(Production Crop = Avocado, Farm, Company); the app also limits the crop switcher for a user whose
+(Production Section = Avocado, Farm, Company); the app also limits the crop switcher for a user whose
 only production role is this one (see settings.avocado_only_crop_keys).
 
 Rights are applied as Custom DocPerm (the doctype's standard rows are copied first, so no other role
@@ -59,7 +59,7 @@ PERMS = [
 	(("Bin",), READ_REPORT, None),
 	(("Stock Entry Type",), READ, None),
 	# reference data
-	(("Production Crop",), READ, None),
+	(("Production Section",), READ, None),
 	(("Production Variety",), READ, None),
 	(("Production Unit",), READ_REPORT, None),
 	(("Production Settings",), READ, None),

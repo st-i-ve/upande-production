@@ -4,7 +4,7 @@
 # The avocado model's parameters, read from the records a manager edits in Settings.
 #
 # Nothing here is a number about this estate. Estate-wide parameters sit on the
-# Avocado Production Crop (price, crate weight, picking rates, dry matter window,
+# Avocado Production Section (price, crate weight, picking rates, dry matter window,
 # model constants, count sizes); parameters that differ by variety sit on Production
 # Variety (yield by age, biennial bearing, late crop share, dry matter target).
 # `load_model()` reads them once per request and the forecasting maths takes the
@@ -42,7 +42,7 @@ REQUIRED_CROP_FIELDS = [
 
 
 def crop_name():
-	return frappe.db.get_value("Production Crop", {"crop_key": CROP_KEY})
+	return frappe.db.get_value("Production Section", {"crop_key": CROP_KEY})
 
 
 def curve_bands(rows):
@@ -79,7 +79,7 @@ def _variety(v, crop_dm_min):
 
 
 def build_model(crop, varieties):
-	"""The model dict from a Production Crop row and its Production Variety rows (plain dicts)."""
+	"""The model dict from a Production Section row and its Production Variety rows (plain dicts)."""
 	for field, label in REQUIRED_CROP_FIELDS:
 		if not flt(crop.get(field)):
 			frappe.throw(f"Set {label} on the {crop.get('name')} crop (Settings, Crop model).",
@@ -106,12 +106,12 @@ def build_model(crop, varieties):
 
 
 def load_model(crop=None):
-	"""Read the avocado model from Production Crop / Production Variety."""
+	"""Read the avocado model from Production Section / Production Variety."""
 	name = crop or crop_name()
 	if not name:
-		frappe.throw("There is no avocado crop. Add a Production Crop with the key 'avocado'.",
+		frappe.throw("There is no avocado crop. Add a Production Section with the key 'avocado'.",
 					 frappe.ValidationError)
-	c = frappe.get_doc("Production Crop", name).as_dict()
+	c = frappe.get_doc("Production Section", name).as_dict()
 	varieties = [frappe.get_doc("Production Variety", n).as_dict()
 				 for n in frappe.get_all("Production Variety", filters={"crop": name, "enabled": 1},
 										 pluck="name", order_by="name asc")]

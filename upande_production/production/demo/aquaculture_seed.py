@@ -38,7 +38,7 @@ DEMO = {
 		"Pond 4": {"species": "Tilapia", "age_days": 90, "count": 7000, "w0": 5.0, "target_g": 450, "target_days": 190,
 				   "source": "Lake Basin Hatchery, Kisumu", "k": 0.48},
 	},
-	# Safe tilapia water bands (parameter, min, max, unit), a Production Crop default and on each tilapia strain.
+	# Safe tilapia water bands (parameter, min, max, unit), a Production Section default and on each tilapia strain.
 	"water_bands": [("DO", 4.0, 0, "mg/L"), ("pH", 6.5, 8.5, ""), ("Temperature", 25.0, 30.0, "C"),
 					("Ammonia", 0, 0.5, "mg/L"), ("Nitrite", 0, 0.3, "mg/L")],
 	"strains": ["GIFT", "Nile (local)"],
@@ -201,10 +201,10 @@ def ensure_limits():
 	from upande_production.production.demo import bands_seed
 
 	bands_seed.run(commit=False)
-	if not frappe.db.exists("Production Crop", DEMO["crop"]):
+	if not frappe.db.exists("Production Section", DEMO["crop"]):
 		return
 	rows = [{"parameter": p, "min": lo, "max": hi, "unit": u} for p, lo, hi, u in DEMO["water_bands"]]
-	crop = frappe.get_doc("Production Crop", DEMO["crop"])
+	crop = frappe.get_doc("Production Section", DEMO["crop"])
 	if not crop.water_bands:
 		for r in rows:
 			crop.append("water_bands", r)

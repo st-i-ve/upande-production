@@ -2,7 +2,7 @@
 #
 # These are test inputs, not defaults: the model code has no copy of them (see
 # test_avocado_no_literals.py). They mirror what the demo seed writes onto the
-# Avocado Production Crop and the Hass variety, so the arithmetic is checked against
+# Avocado Production Section and the Hass variety, so the arithmetic is checked against
 # the same figures the demo shows.
 
 from upande_production.api.avocado_model import build_model

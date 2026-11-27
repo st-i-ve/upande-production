@@ -1,5 +1,5 @@
 /**
- * Settings, Crop model: a crop's model parameters. The server describes the editor from the Production Crop
+ * Settings, Crop model: a crop's model parameters. The server describes the editor from the Production Section
  * doctype (groups, fields, child tables) and holds the values; the UI keeps no parameter of its own.
  */
 

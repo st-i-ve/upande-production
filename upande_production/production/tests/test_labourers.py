@@ -30,7 +30,7 @@ class TestCasualLabourers(IntegrationTestCase):
 			_make("Farm Type", name="Has Blocks")
 		cls.farm = _make("Farm", farm_name="LB Farm", company=cls.company, abbreviation="LBF",
 			farm_type=[{"farm_type": "Has Blocks"}])
-		cls.crop = _make("Production Crop", crop_name="LB Crop", crop_key="lb-crop", unit_label="Block", yield_uom="Kg")
+		cls.crop = _make("Production Section", crop_name="LB Crop", crop_key="lb-crop", unit_label="Block", yield_uom="Kg")
 		cls.unit = _make("Production Unit", unit_name="LB B1", crop=cls.crop.name, farm=cls.farm.name,
 			unit_type="Orchard Block", company=cls.company, area_ha=1)
 		cls.op = _make("Field Operation", crop=cls.crop.name, operation_name="LB Prune", category="Pruning",

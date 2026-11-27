@@ -25,7 +25,7 @@ class TestCapitalOnBlock(IntegrationTestCase):
 			_make("Farm Type", name="Has Blocks")
 		cls.farm = _make("Farm", farm_name="COB Farm", company=cls.company, abbreviation="COB",
 			farm_type=[{"farm_type": "Has Blocks"}])
-		cls.crop = _make("Production Crop", crop_name="COB Crop", crop_key="cob-crop", unit_label="Block", yield_uom="Kg")
+		cls.crop = _make("Production Section", crop_name="COB Crop", crop_key="cob-crop", unit_label="Block", yield_uom="Kg")
 		mk = lambda n, t: _make("Field Operation", crop=cls.crop.name, operation_name=n, category="Other",
 			work_uom="Kg", default_rate=1, activity_type=t).name
 		cls.clear, cls.rip, cls.key = mk("COB Clear", "Capital"), mk("COB Rip", "Capital"), mk("COB Prune", "Key activity")
@@ -189,7 +189,7 @@ class TestCapitalOnBlock(IntegrationTestCase):
 		return email
 
 	def test_avocado_manager_saves_on_avocado_block_only(self):
-		avo = frappe.db.get_value("Production Crop", {"crop_key": "avocado"})
+		avo = frappe.db.get_value("Production Section", {"crop_key": "avocado"})
 		if not avo:
 			self.skipTest("no avocado crop on this site")
 		avo_op = _make("Field Operation", crop=avo, operation_name="COB Avo Cap", category="Other",

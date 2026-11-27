@@ -3,7 +3,7 @@
 bench --site marginpar.local execute upande_production.production.setup.marginpar.setup_marginpar
 
 Follows the model the F&V demo uses (see production/demo/varieties_seed.py: Potatoes -> Shangi):
-Production Crop -> Production Variety (the product is on its Field Crop / Sub Crop; the varieties themselves are real data, not
+Production Section -> Production Variety (the product is on its Field Crop / Sub Crop; the varieties themselves are real data, not
 created here). Flowers are sold by
 the stem, so the yield UOM is Nos, the units are Greenhouse -> Bed, and nothing is packed in crates.
 Their launcher tiles open the Crop Production desk pages (desk_launcher), not the Production app.
@@ -57,14 +57,14 @@ def _ensure_crop(c):
 		"yield_uom": UOM, "uses_crop_cycles": 1, "default_cycle_type": "Planting",
 		"enabled": 1, "sort_order": c["sort"], "harvests_in_crates": 0, "desk_launcher": DESK,
 	}
-	name = frappe.db.get_value("Production Crop", {"crop_key": c["key"]}) or frappe.db.get_value(
-		"Production Crop", {"crop_name": c["name"]})
+	name = frappe.db.get_value("Production Section", {"crop_key": c["key"]}) or frappe.db.get_value(
+		"Production Section", {"crop_name": c["name"]})
 	if name:
-		doc = frappe.get_doc("Production Crop", name)
+		doc = frappe.get_doc("Production Section", name)
 		doc.update(vals)
 		doc.save(ignore_permissions=True)
 		return doc.name
-	doc = frappe.get_doc({"doctype": "Production Crop", "crop_name": c["name"], **vals})
+	doc = frappe.get_doc({"doctype": "Production Section", "crop_name": c["name"], **vals})
 	doc.insert(ignore_permissions=True)
 	return doc.name
 

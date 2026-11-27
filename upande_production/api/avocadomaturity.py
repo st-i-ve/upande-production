@@ -24,7 +24,7 @@ from upande_production.production.logic import count_sizes
 DOCTYPE = "Avocado Maturity Test"
 
 # The export count sizes and the gram band each one covers are rows on the avocado
-# Production Crop (count_sizes); the window is its dry matter target and max.
+# Production Section (count_sizes); the window is its dry matter target and max.
 
 
 def _dry_matter(moisture):

@@ -136,7 +136,7 @@ def create_protocol(crop, protocol_name, variety=None, item=None, copy_from=None
 	name = " ".join((protocol_name or "").split())
 	if not name:
 		frappe.throw(_("Give the protocol a name."), frappe.ValidationError)
-	if not crop or not frappe.db.exists("Production Crop", crop):
+	if not crop or not frappe.db.exists("Production Section", crop):
 		frappe.throw(_("Choose a crop."), frappe.ValidationError)
 	if not crop_allowed(crop):
 		frappe.throw(_("You are not permitted to create protocols for this crop."), frappe.PermissionError)

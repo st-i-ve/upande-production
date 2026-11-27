@@ -109,7 +109,7 @@
    "color": "Grey",
    "doc_view": "List",
    "label": "Sections",
-   "link_to": "Production Crop",
+   "link_to": "Production Section",
    "type": "DocType"
   },
   {
@@ -122,5 +122,5 @@
  ],
  "title": "Production",
  "type": "Workspace",
- "modified": "2026-11-27 08:11:18.616709"
+ "modified": "2026-11-27 12:00:00.000000"
 }

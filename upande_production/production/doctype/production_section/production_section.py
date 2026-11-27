@@ -15,7 +15,7 @@ def slugify(text) -> str:
 	return re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
 
 
-class ProductionCrop(Document):
+class ProductionSection(Document):
 	def validate(self):
 		self.crop_key = slugify(self.crop_key or self.crop_name)
 		self.warn_count_size_bands()

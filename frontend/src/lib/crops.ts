@@ -32,7 +32,7 @@ export function cropIcon(iconKey: string | null | undefined): IconType {
 /** Crops that never have crop cycles, used only when the bootstrap lacks the flag. */
 const NO_CYCLE_KEYS = ["apiary", "aquaculture"];
 
-/** Does this crop run in crop cycles? Bees and fish do not. Reads the Production Crop
+/** Does this crop run in crop cycles? Bees and fish do not. Reads the Production Section
  *  flag `uses_crop_cycles`, falling back to the crop key. */
 export function cropUsesCycles(crop?: Pick<Crop, "crop_key" | "uses_crop_cycles"> | null): boolean {
   if (!crop) return true;
@@ -41,14 +41,14 @@ export function cropUsesCycles(crop?: Pick<Crop, "crop_key" | "uses_crop_cycles"
 }
 
 /** Flower crops (roses and summer flowers) run on the Crop Production screens: greenhouses and beds,
- *  stems. The Production Crop says so with `desk_launcher`; a server that does not send the field
+ *  stems. The Production Section says so with `desk_launcher`; a server that does not send the field
  *  yet is read by its units (Greenhouse -> Bed). */
 export function isFlowerCrop(
   crop?: (Pick<Crop, "unit_label"> & Partial<Pick<Crop, "desk_launcher" | "parent_unit_label" | "sub_unit_label">>) | null,
 ): boolean {
   if (!crop) return false;
   if (crop.desk_launcher) return crop.desk_launcher === "Crop Production desk";
-  // Farm -> Greenhouse|Block -> Bed (Production Crop units), as roses and summer flowers are set up
+  // Farm -> Greenhouse|Block -> Bed (Production Section units), as roses and summer flowers are set up
   return (
     (crop.unit_label === "Greenhouse" || crop.unit_label === "Block") &&
     crop.parent_unit_label === "Farm" &&

@@ -36,7 +36,7 @@ class TestLogicDomain(IntegrationTestCase):
 			farm_type=[{"farm_type": "Has Blocks"}],
 		)
 		cls.crop = _make(
-			"Production Crop", crop_name="Test Crop", crop_key="test-crop", unit_label="Block", yield_uom="Kg"
+			"Production Section", crop_name="Test Crop", crop_key="test-crop", unit_label="Block", yield_uom="Kg"
 		)
 		cls.op = _make(
 			"Field Operation", crop=cls.crop.name, operation_name="TC Weeding",

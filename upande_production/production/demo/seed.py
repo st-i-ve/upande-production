@@ -69,12 +69,12 @@ def seed_core():
 	if not frappe.db.get_single_value("Production Settings", "company"):
 		frappe.db.set_single_value("Production Settings", "company", company)
 	for crop in DEMO["crops"]:
-		_ensure("Production Crop", {"crop_name": crop["name"]}, {
+		_ensure("Production Section", {"crop_name": crop["name"]}, {
 			"crop_key": crop["key"], "accent_color": crop["accent"], "icon_key": crop["icon"],
 			"parent_unit_label": crop["parent"], "unit_label": crop["unit"], "sub_unit_label": crop["sub"],
 			"yield_uom": crop["uom"], "default_cycle_type": crop["cycle_type"], "enabled": 1, "sort_order": crop["sort"],
 			"uses_crop_cycles": crop.get("cycles", 1)})
-		frappe.db.set_value("Production Crop", {"crop_name": crop["name"]}, "uses_crop_cycles", crop.get("cycles", 1))
+		frappe.db.set_value("Production Section", {"crop_name": crop["name"]}, "uses_crop_cycles", crop.get("cycles", 1))
 
 
 def seed_masters():
@@ -116,7 +116,7 @@ def seed_activities():
 	wanted.update(DEMO["capital_other"])
 	palette = DEMO["activity_palette"]
 	for crop, acts in wanted.items():
-		if not frappe.db.exists("Production Crop", crop):
+		if not frappe.db.exists("Production Section", crop):
 			continue
 		used = {c for c in frappe.get_all("Field Operation", filters={"crop": crop}, pluck="color") if c}
 		free = [c for c in palette if c not in used]
@@ -738,8 +738,8 @@ def seed_protocol_versions():
 		elif doc.key_activities:
 			doc.key_activities[-1].description = "One pass fewer"
 
-	avo = frappe.db.get_value("Production Crop", {"crop_key": "avocado"}) or "Avocado"
-	fv = frappe.db.get_value("Production Crop", {"crop_key": "fruits-vegetables"}) or "Fruits & Vegetables"
+	avo = frappe.db.get_value("Production Section", {"crop_key": "avocado"}) or "Avocado"
+	fv = frappe.db.get_value("Production Section", {"crop_key": "fruits-vegetables"}) or "Fruits & Vegetables"
 	n = draft_of(avo, bump_rate)
 	if n:
 		P.submit_for_approval(n)

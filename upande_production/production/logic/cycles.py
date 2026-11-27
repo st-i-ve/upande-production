@@ -12,17 +12,17 @@ CYCLE_LINKS = [
 
 
 def crop_uses_cycles(crop) -> bool:
-	"""`crop` is a Production Crop name. Unknown crops default to using cycles."""
+	"""`crop` is a Production Section name. Unknown crops default to using cycles."""
 	if not crop:
 		return True
-	v = frappe.db.get_value("Production Crop", crop, "uses_crop_cycles")
+	v = frappe.db.get_value("Production Section", crop, "uses_crop_cycles")
 	return True if v is None else bool(v)
 
 
 def remove_cycles_for_cycleless_crops() -> int:
 	"""Idempotent: delete Production Crop Cycle rows of crops that do not use cycles,
 	clearing every link to them first so plans, work and harvests stay valid."""
-	crops = frappe.get_all("Production Crop", filters={"uses_crop_cycles": 0}, pluck="name")
+	crops = frappe.get_all("Production Section", filters={"uses_crop_cycles": 0}, pluck="name")
 	if not crops:
 		return 0
 	cycles = frappe.get_all("Production Crop Cycle", filters={"crop": ("in", crops)}, pluck="name")

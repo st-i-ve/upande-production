@@ -39,7 +39,7 @@ class TestSupervisorsPage(IntegrationTestCase):
 			_make("Farm Type", name="Has Blocks")
 		cls.farm = _make("Farm", farm_name="SPG Farm", company=cls.company, abbreviation="SPG",
 			farm_type=[{"farm_type": "Has Blocks"}])
-		cls.crop = _make("Production Crop", crop_name="SPG Crop", crop_key="spg-crop", unit_label="Block", yield_uom="Kg")
+		cls.crop = _make("Production Section", crop_name="SPG Crop", crop_key="spg-crop", unit_label="Block", yield_uom="Kg")
 		cls.op = _make("Field Operation", crop=cls.crop.name, operation_name="SPG Weeding", category="Other", work_uom="Kg", default_rate=40)
 		cls.spray = _make("Field Operation", crop=cls.crop.name, operation_name="SPG Spray", category="Spraying", work_uom="Kg", default_rate=40)
 		cls.u1 = _make("Production Unit", unit_name="SPG B1", crop=cls.crop.name, farm=cls.farm.name, unit_type="Orchard Block", company=cls.company)
@@ -121,7 +121,7 @@ class TestSupervisorsPage(IntegrationTestCase):
 		self.assertEqual(self._row(self.b)["kpis"]["pending"], 0)
 
 	def test_inactive_listed_with_flag_and_crop_scope(self):
-		other = _make("Production Crop", crop_name="SPG Other", crop_key="spg-other", unit_label="Block", yield_uom="Kg")
+		other = _make("Production Section", crop_name="SPG Other", crop_key="spg-other", unit_label="Block", yield_uom="Kg")
 		scoped = _employee("SPGS", self.company)
 		_make("Production Supervisor", employee=scoped.name, crops=[{"crop": other.name}])
 		self.assertIsNone(self._row(scoped))
@@ -278,8 +278,8 @@ class TestSupervisorsPage(IntegrationTestCase):
 		self.assertEqual(wk.tasks, [])
 
 	def test_avocado_only_manager_can_create_for_avocado_not_for_all_or_others(self):
-		avo = frappe.db.get_value("Production Crop", {"crop_key": "avocado"}) or _make(
-			"Production Crop", crop_name="SPG Avocado", crop_key="avocado", unit_label="Block", yield_uom="Kg").name
+		avo = frappe.db.get_value("Production Section", {"crop_key": "avocado"}) or _make(
+			"Production Section", crop_name="SPG Avocado", crop_key="avocado", unit_label="Block", yield_uom="Kg").name
 		e = _employee("SPGAv", self.company)
 		with patch.multiple(frappe, get_roles=lambda u=None: ["Avocado Production Manager"]), \
 				patch.dict(frappe.local.session, {"user": "spg.avo@x.test"}):

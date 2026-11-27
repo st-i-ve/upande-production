@@ -74,8 +74,8 @@ def silage_page(status=None):
 
 
 def _options() -> dict:
-	silage_crops = frappe.get_all("Production Crop", filters={"enabled": 1, "grown_for_silage": 1}, pluck="name",
-		order_by="sort_order asc, name asc") if frappe.get_meta("Production Crop").has_field("grown_for_silage") else []
+	silage_crops = frappe.get_all("Production Section", filters={"enabled": 1, "grown_for_silage": 1}, pluck="name",
+		order_by="sort_order asc, name asc") if frappe.get_meta("Production Section").has_field("grown_for_silage") else []
 	unit_filters = {"is_group": 0, "status": ("!=", "Retired")}
 	if silage_crops:
 		unit_filters["crop"] = ("in", silage_crops)

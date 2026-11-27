@@ -123,7 +123,7 @@
    "show_arrow": 0,
    "type": "Link",
    "link_type": "DocType",
-   "link_to": "Production Crop"
+   "link_to": "Production Section"
   },
   {
    "child": 1,
@@ -481,7 +481,7 @@
    "link_to": "Production Settings"
   }
  ],
- "modified": "2026-11-27 08:11:18.616709",
+ "modified": "2026-11-27 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production",

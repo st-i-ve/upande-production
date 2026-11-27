@@ -15,7 +15,7 @@ CROP_KEY = "aquaculture"
 CROP_NAME = "Aquaculture"
 
 # Safe water bands are Production Water Band rows on the pond's strain (Production Variety), else on the
-# Production Crop. `bands_from_rows` turns rows into the dict `reading_flags` takes:
+# Production Section. `bands_from_rows` turns rows into the dict `reading_flags` takes:
 # do_min, ph_min, ph_max, temp_min, temp_max, ammonia_max, nitrite_max (only those set).
 # Each is inclusive; ammonia and nitrite must stay BELOW their limit.
 _PARAM_KEYS = {
@@ -71,7 +71,7 @@ def _table_bands(doctype, name) -> dict:
 
 
 def crop_bands() -> dict:
-	return _table_bands("Production Crop", CROP_NAME)
+	return _table_bands("Production Section", CROP_NAME)
 
 
 def strain_bands(strain) -> dict:

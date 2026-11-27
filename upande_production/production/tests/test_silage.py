@@ -36,7 +36,7 @@ class TestSilage(IntegrationTestCase):
 			_make("Item Group", item_group_name="All Item Groups", is_group=1)
 		cls.farm = _make("Farm", farm_name="SL Farm", company=cls.company, abbreviation="SLF",
 			farm_type=[{"farm_type": "Has Blocks"}])
-		cls.crop = _make("Production Crop", crop_name="SL Maize", crop_key="sl-maize", unit_label="Field",
+		cls.crop = _make("Production Section", crop_name="SL Maize", crop_key="sl-maize", unit_label="Field",
 			yield_uom="Kg", enabled=1, uses_crop_cycles=1, grown_for_silage=1)
 		cls.unit = _make("Production Unit", unit_name="SL Field 1", crop=cls.crop.name, farm=cls.farm.name,
 			unit_type="Other", company=cls.company)

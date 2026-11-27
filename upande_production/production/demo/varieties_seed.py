@@ -336,8 +336,8 @@ def _expected_from_stages(doc, vname):
 
 def _set_crop_dry_matter():
 	for crop, (testing, on, target) in DEMO["crop_dry_matter"].items():
-		if frappe.db.exists("Production Crop", crop):
-			frappe.db.set_value("Production Crop", crop, {"dry_matter_testing": testing, "dry_matter_on": on or "",
+		if frappe.db.exists("Production Section", crop):
+			frappe.db.set_value("Production Section", crop, {"dry_matter_testing": testing, "dry_matter_on": on or "",
 				"dry_matter_target_pct": target}, update_modified=False)
 
 
@@ -345,7 +345,7 @@ def _seed_avocado_model():
 	"""Today's avocado model values onto the avocado crop and its varieties (only where empty)."""
 	from upande_production.production import avocado_defaults
 
-	crop = frappe.db.get_value("Production Crop", {"crop_key": "avocado"})
+	crop = frappe.db.get_value("Production Section", {"crop_key": "avocado"})
 	if not crop:
 		return 0
 	n = int(avocado_defaults.apply_to_crop(crop))

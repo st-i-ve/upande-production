@@ -50,7 +50,7 @@ class TestPeopleProfiles(IntegrationTestCase):
 			_make("Farm Type", name="Has Blocks")
 		cls.farm = _make("Farm", farm_name="PPL Farm", company=cls.company, abbreviation="PPL",
 			farm_type=[{"farm_type": "Has Blocks"}])
-		cls.crop = _make("Production Crop", crop_name="PPL Crop", crop_key="ppl-crop", unit_label="Block", yield_uom="Kg")
+		cls.crop = _make("Production Section", crop_name="PPL Crop", crop_key="ppl-crop", unit_label="Block", yield_uom="Kg")
 		cls.op = _make("Field Operation", crop=cls.crop.name, operation_name="PPL Weeding", category="Other", work_uom="Kg", default_rate=40)
 		cls.spray = _make("Field Operation", crop=cls.crop.name, operation_name="PPL Spray", category="Spraying", work_uom="Kg", default_rate=40)
 		cls.u1 = _make("Production Unit", unit_name="PPL B1", crop=cls.crop.name, farm=cls.farm.name, unit_type="Orchard Block", company=cls.company)
@@ -143,7 +143,7 @@ class TestPeopleProfiles(IntegrationTestCase):
 		self.assertEqual(a["metrics"]["assigned"], 3)
 
 	def test_inactive_and_crop_scope(self):
-		other = _make("Production Crop", crop_name="PPL Other", crop_key="ppl-other", unit_label="Block", yield_uom="Kg")
+		other = _make("Production Section", crop_name="PPL Other", crop_key="ppl-other", unit_label="Block", yield_uom="Kg")
 		scoped = _employee("PPLS", self.company)
 		_make("Production Supervisor", employee=scoped.name, crops=[{"crop": other.name}])
 		res = people.supervisor_people(self.crop.name)
